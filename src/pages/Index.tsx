@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Patient, SettingsType } from "@/types/patient";
 import { PatientCard } from "@/components/PatientCard";
+import { PrintExportModal } from "@/components/PrintExportModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -47,6 +48,7 @@ const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'filled' | 'empty'>('all');
   const [showSettings, setShowSettings] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const { toast } = useToast();
 
@@ -154,12 +156,8 @@ const Index = () => {
   }, []);
 
   const handlePrint = useCallback(() => {
-    window.print();
-    toast({
-      title: "Print",
-      description: "Opening print dialog...",
-    });
-  }, [toast]);
+    setShowPrintModal(true);
+  }, []);
 
   const handleExport = useCallback(() => {
     const dataStr = JSON.stringify({ patients, patientIdCounter }, null, 2);
@@ -385,6 +383,12 @@ const Index = () => {
           )}
         </div>
       </div>
+
+      <PrintExportModal
+        open={showPrintModal}
+        onOpenChange={setShowPrintModal}
+        patients={filteredPatients}
+      />
     </div>
   );
 };
