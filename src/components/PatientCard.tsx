@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { useState } from "react";
-
+import { RichTextEditor } from "./RichTextEditor";
 interface PatientCardProps {
   patient: Patient;
   onUpdate: (id: number, field: string, value: any) => void;
@@ -127,11 +127,11 @@ export const PatientCard = ({ patient, onUpdate, onRemove, onDuplicate, onToggle
                   </Button>
                 </div>
               </div>
-              <textarea
-                className="w-full min-h-[80px] p-3 border-2 border-border rounded-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none bg-card"
+              <RichTextEditor
                 value={patient.clinicalSummary}
-                onChange={(e) => onUpdate(patient.id, 'clinicalSummary', e.target.value)}
+                onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
                 placeholder="Enter clinical summary..."
+                minHeight="80px"
               />
             </div>
 
@@ -164,11 +164,11 @@ export const PatientCard = ({ patient, onUpdate, onRemove, onDuplicate, onToggle
                   </Button>
                 </div>
               </div>
-              <textarea
-                className="w-full min-h-[80px] p-3 border-2 border-border rounded-md focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none bg-card"
+              <RichTextEditor
                 value={patient.intervalEvents}
-                onChange={(e) => onUpdate(patient.id, 'intervalEvents', e.target.value)}
+                onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
                 placeholder="Enter interval events..."
+                minHeight="80px"
               />
             </div>
 
@@ -186,11 +186,11 @@ export const PatientCard = ({ patient, onUpdate, onRemove, onDuplicate, onToggle
                       </label>
                       <div className={`w-2 h-2 rounded-full ${patient.systems[key as keyof typeof patient.systems] ? 'bg-success' : 'bg-muted'}`} />
                     </div>
-                    <textarea
-                      className="w-full min-h-[60px] text-sm p-2 border border-border rounded focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all resize-none bg-card"
+                    <RichTextEditor
                       value={patient.systems[key as keyof typeof patient.systems]}
-                      onChange={(e) => onUpdate(patient.id, `systems.${key}`, e.target.value)}
+                      onChange={(value) => onUpdate(patient.id, `systems.${key}`, value)}
                       placeholder={`Enter ${label} notes...`}
+                      minHeight="60px"
                     />
                   </div>
                 ))}
