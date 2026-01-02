@@ -388,6 +388,7 @@ const Index = () => {
         open={showPrintModal}
         onOpenChange={setShowPrintModal}
         patients={filteredPatients}
+        onUpdatePatient={updatePatient}
       />
     </div>
   );
