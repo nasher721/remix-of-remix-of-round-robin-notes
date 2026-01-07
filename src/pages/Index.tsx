@@ -2,22 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 import { Patient, SettingsType } from "@/types/patient";
 import { PatientCard } from "@/components/PatientCard";
 import { PrintExportModal } from "@/components/PrintExportModal";
+import { AutotextManager } from "@/components/AutotextManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
-  Settings,
   Printer,
   Download,
   Upload,
   Trash2,
   Search,
-  FileText,
   Clock,
-  Users,
-  Save
+  Users
 } from "lucide-react";
 
 const defaultPatient: Omit<Patient, 'id'> = {
@@ -272,13 +270,14 @@ const Index = () => {
               <Plus className="h-4 w-4 mr-2" />
               Add Patient
             </Button>
+            <AutotextManager />
             <Button onClick={handlePrint} variant="secondary" className="bg-success text-success-foreground hover:bg-success/90">
               <Printer className="h-4 w-4 mr-2" />
-              Print
+              Print/Export
             </Button>
             <Button onClick={handleExport} variant="secondary" className="bg-white/10 hover:bg-white/20">
               <Download className="h-4 w-4 mr-2" />
-              Export
+              JSON
             </Button>
             <Button onClick={handleImport} variant="secondary" className="bg-white/10 hover:bg-white/20">
               <Upload className="h-4 w-4 mr-2" />
