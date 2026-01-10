@@ -86,7 +86,10 @@ CRITICAL INSTRUCTIONS:
 - Separate "What we did on rounds" into intervalEvents, not handoffSummary
 - If a field is missing, use an empty string
 - Look for bed numbers throughout the ENTIRE document to ensure no patients are missed
-- If text seems garbled or incomplete, extract what you can and continue to the next patient`;
+- If text seems garbled or incomplete, extract what you can and continue to the next patient
+- NEVER repeat the same text multiple times - if you see repeated/duplicated content in the source, include it only ONCE
+- Remove any stuttering, echoing, or repeated phrases that may be OCR artifacts
+- Each piece of clinical information should appear only once in the output`;
 
     // Build message content based on whether we have images or text
     let userContent: any;
