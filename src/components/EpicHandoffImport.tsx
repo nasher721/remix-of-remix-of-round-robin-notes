@@ -16,6 +16,7 @@ interface ParsedPatient {
   age: string;
   sex: string;
   handoffSummary: string;
+  intervalEvents: string;
   bedStatus: string;
 }
 
@@ -25,6 +26,7 @@ interface EpicHandoffImportProps {
     name: string;
     bed: string;
     clinicalSummary: string;
+    intervalEvents: string;
   }>) => Promise<void>;
 }
 
@@ -228,6 +230,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
         name: `${p.name}${p.mrn ? ` (${p.mrn})` : ''}${p.age ? ` ${p.age}` : ''}${p.sex ? p.sex : ''}`,
         bed: p.bed,
         clinicalSummary: p.handoffSummary,
+        intervalEvents: p.intervalEvents || '',
       }));
 
     if (patientsToImport.length === 0) {
@@ -378,6 +381,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
                           <p className="text-sm mt-1 line-clamp-2">
                             {patient.handoffSummary}
                           </p>
+                          {patient.intervalEvents && (
+                            <p className="text-xs mt-1 text-muted-foreground line-clamp-1">
+                              <span className="font-medium">Rounds:</span> {patient.intervalEvents}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </Card>

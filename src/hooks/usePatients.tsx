@@ -320,6 +320,7 @@ export const usePatients = () => {
     name: string;
     bed: string;
     clinicalSummary: string;
+    intervalEvents: string;
   }>) => {
     if (!user) return;
 
@@ -336,7 +337,7 @@ export const usePatients = () => {
             name: p.name,
             bed: p.bed,
             clinical_summary: p.clinicalSummary,
-            interval_events: "",
+            interval_events: p.intervalEvents || "",
             systems: defaultSystems as unknown as Json,
             collapsed: false,
           }])
