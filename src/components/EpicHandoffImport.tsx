@@ -8,6 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileUp, Loader2, FileText, Users, AlertCircle } from "lucide-react";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Set up the PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js`;
 
 interface ParsedPatient {
   bed: string;
@@ -30,6 +34,28 @@ interface EpicHandoffImportProps {
   }>) => Promise<void>;
 }
 
+// Extract text from PDF using PDF.js
+const extractPdfText = async (file: File): Promise<string> => {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  
+  let fullText = "";
+  
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    
+    // Extract text items and preserve some structure
+    const pageText = textContent.items
+      .map((item: any) => item.str)
+      .join(" ");
+    
+    fullText += pageText + "\n\n--- Page Break ---\n\n";
+  }
+  
+  return fullText;
+};
+
 export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandoffImportProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,20 +64,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
   const [step, setStep] = useState<"upload" | "select">("upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
-
-  const readFileAsText = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      // For PDF files, we'll use the file content as base64
-      // and let the AI parse it from the text representation
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Try to extract text from the file
-        resolve(reader.result as string);
-      };
-      reader.onerror = reject;
-      reader.readAsText(file);
-    });
-  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -75,28 +87,30 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       let content: string;
       
       if (file.name.endsWith('.pdf')) {
-        // For PDFs, we'll read as text (some PDFs have embedded text)
-        // The AI model can often extract structure even from partial text
-        const reader = new FileReader();
-        content = await new Promise((resolve, reject) => {
-          reader.onload = () => {
-            const text = reader.result as string;
-            // Try to extract readable portions
-            resolve(text);
-          };
+        // Use PDF.js to properly extract text from the PDF
+        toast({
+          title: "Extracting PDF text",
+          description: "Reading PDF content...",
+        });
+        content = await extractPdfText(file);
+        console.log("Extracted PDF text length:", content.length);
+      } else {
+        // For text files, read directly
+        content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
           reader.onerror = reject;
           reader.readAsText(file);
         });
-      } else {
-        content = await readFileAsText(file);
       }
 
-      // For demo/testing: if the PDF text is garbled, show a helpful message
-      if (content.includes('%PDF') && !content.includes('Bed')) {
+      if (content.length < 50) {
         toast({
-          title: "PDF Parsing",
-          description: "Processing PDF... If this doesn't work well, try copying and pasting the handoff text directly.",
+          title: "No content extracted",
+          description: "Could not extract text from the PDF. Try copying and pasting the handoff text directly.",
+          variant: "destructive",
         });
+        return;
       }
 
       const { data, error } = await supabase.functions.invoke('parse-handoff', {
