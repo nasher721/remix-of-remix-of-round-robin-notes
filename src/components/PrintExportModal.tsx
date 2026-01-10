@@ -16,7 +16,9 @@ import {
   Minimize2, 
   Edit3,
   FileSpreadsheet,
-  Download
+  Download,
+  Settings2,
+  ChevronDown
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,12 @@ import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface PrintExportModalProps {
   open: boolean;
@@ -47,6 +55,21 @@ const systemLabels: Record<string, string> = {
 
 const systemKeys = Object.keys(systemLabels);
 
+// All available columns for customization
+interface ColumnConfig {
+  key: string;
+  label: string;
+  enabled: boolean;
+}
+
+const defaultColumns: ColumnConfig[] = [
+  { key: "patient", label: "Patient/Bed", enabled: true },
+  { key: "clinicalSummary", label: "Clinical Summary", enabled: true },
+  { key: "intervalEvents", label: "Interval Events", enabled: true },
+  ...systemKeys.map(key => ({ key: `systems.${key}`, label: systemLabels[key], enabled: true })),
+  { key: "notes", label: "Notes (blank for rounding)", enabled: false },
+];
+
 interface ExpandedCell {
   patientId: number;
   field: string;
@@ -67,10 +90,32 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     patient: 100,
     summary: 150,
     events: 150,
-    systems: 80
+    systems: 80,
+    notes: 120
   });
   const [isEditMode, setIsEditMode] = useState(false);
+  const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
+  const [patientNotes, setPatientNotes] = useState<Record<number, string>>({});
+  const [columnsOpen, setColumnsOpen] = useState(false);
   const { toast } = useToast();
+
+  const showNotesColumn = columns.find(c => c.key === "notes")?.enabled ?? false;
+
+  const toggleColumn = (key: string) => {
+    setColumns(prev => prev.map(col => 
+      col.key === key ? { ...col, enabled: !col.enabled } : col
+    ));
+  };
+
+  const selectAllColumns = () => {
+    setColumns(prev => prev.map(col => ({ ...col, enabled: true })));
+  };
+
+  const deselectAllColumns = () => {
+    setColumns(prev => prev.map(col => 
+      col.key === "patient" ? col : { ...col, enabled: false }
+    ));
+  };
 
   const handleCellClick = (patientId: number, field: string) => {
     if (expandedCell?.patientId === patientId && expandedCell?.field === field) {
@@ -108,6 +153,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const getCellValue = (patient: Patient, field: string): string => {
     if (field === "clinicalSummary") return patient.clinicalSummary;
     if (field === "intervalEvents") return patient.intervalEvents;
+    if (field === "notes") return patientNotes[patient.id] || "";
     if (field.startsWith("systems.")) {
       const systemKey = field.replace("systems.", "") as keyof typeof patient.systems;
       return patient.systems[systemKey];
@@ -115,22 +161,43 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     return "";
   };
 
-  // Export to Excel
+  const isColumnEnabled = (key: string): boolean => {
+    return columns.find(c => c.key === key)?.enabled ?? false;
+  };
+
+  const getEnabledSystemKeys = () => systemKeys.filter(key => isColumnEnabled(`systems.${key}`));
+
+  // Export to Excel - respects column selection
   const handleExportExcel = () => {
-    const data = patients.map(patient => ({
-      "Patient Name": patient.name || "Unnamed",
-      "Bed/Room": patient.bed,
-      "Clinical Summary": stripHtml(patient.clinicalSummary),
-      "Interval Events": stripHtml(patient.intervalEvents),
-      ...Object.fromEntries(
-        systemKeys.map(key => [
-          systemLabels[key],
-          stripHtml(patient.systems[key as keyof typeof patient.systems])
-        ])
-      ),
-      "Created": new Date(patient.createdAt).toLocaleString(),
-      "Last Modified": new Date(patient.lastModified).toLocaleString()
-    }));
+    const data = patients.map(patient => {
+      const row: Record<string, string> = {};
+      
+      if (isColumnEnabled("patient")) {
+        row["Patient Name"] = patient.name || "Unnamed";
+        row["Bed/Room"] = patient.bed;
+      }
+      if (isColumnEnabled("clinicalSummary")) {
+        row["Clinical Summary"] = stripHtml(patient.clinicalSummary);
+      }
+      if (isColumnEnabled("intervalEvents")) {
+        row["Interval Events"] = stripHtml(patient.intervalEvents);
+      }
+      
+      systemKeys.forEach(key => {
+        if (isColumnEnabled(`systems.${key}`)) {
+          row[systemLabels[key]] = stripHtml(patient.systems[key as keyof typeof patient.systems]);
+        }
+      });
+      
+      if (isColumnEnabled("notes")) {
+        row["Notes"] = patientNotes[patient.id] || "";
+      }
+      
+      row["Created"] = new Date(patient.createdAt).toLocaleString();
+      row["Last Modified"] = new Date(patient.lastModified).toLocaleString();
+      
+      return row;
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     
@@ -152,7 +219,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     });
   };
 
-  // Export to PDF
+  // Export to PDF - respects column selection
   const handleExportPDF = () => {
     const doc = new jsPDF({
       orientation: 'landscape',
@@ -170,20 +237,48 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
     doc.text(`Total Patients: ${patients.length}`, 14, 27);
 
+    // Build headers based on enabled columns
+    const headers: string[] = [];
+    if (isColumnEnabled("patient")) headers.push("Patient", "Bed");
+    if (isColumnEnabled("clinicalSummary")) headers.push("Summary");
+    if (isColumnEnabled("intervalEvents")) headers.push("Events");
+    systemKeys.forEach(key => {
+      if (isColumnEnabled(`systems.${key}`)) headers.push(systemLabels[key]);
+    });
+    if (isColumnEnabled("notes")) headers.push("Notes");
+
     // Table data
-    const tableData = patients.map(patient => [
-      patient.name || "Unnamed",
-      patient.bed || "-",
-      stripHtml(patient.clinicalSummary).substring(0, 100) + (patient.clinicalSummary.length > 100 ? "..." : ""),
-      stripHtml(patient.intervalEvents).substring(0, 100) + (patient.intervalEvents.length > 100 ? "..." : ""),
-      ...systemKeys.map(key => {
-        const val = stripHtml(patient.systems[key as keyof typeof patient.systems]);
-        return val.substring(0, 40) + (val.length > 40 ? "..." : "");
-      })
-    ]);
+    const tableData = patients.map(patient => {
+      const row: string[] = [];
+      
+      if (isColumnEnabled("patient")) {
+        row.push(patient.name || "Unnamed");
+        row.push(patient.bed || "-");
+      }
+      if (isColumnEnabled("clinicalSummary")) {
+        const summary = stripHtml(patient.clinicalSummary);
+        row.push(summary.substring(0, 100) + (summary.length > 100 ? "..." : ""));
+      }
+      if (isColumnEnabled("intervalEvents")) {
+        const events = stripHtml(patient.intervalEvents);
+        row.push(events.substring(0, 100) + (events.length > 100 ? "..." : ""));
+      }
+      systemKeys.forEach(key => {
+        if (isColumnEnabled(`systems.${key}`)) {
+          const val = stripHtml(patient.systems[key as keyof typeof patient.systems]);
+          row.push(val.substring(0, 40) + (val.length > 40 ? "..." : ""));
+        }
+      });
+      if (isColumnEnabled("notes")) {
+        const notes = patientNotes[patient.id] || "";
+        row.push(notes.substring(0, 60) + (notes.length > 60 ? "..." : ""));
+      }
+      
+      return row;
+    });
 
     autoTable(doc, {
-      head: [["Patient", "Bed", "Summary", "Events", ...systemKeys.map(k => systemLabels[k])]],
+      head: [headers],
       body: tableData,
       startY: 32,
       styles: {
@@ -197,12 +292,6 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
         textColor: 255,
         fontStyle: 'bold',
         fontSize: 6
-      },
-      columnStyles: {
-        0: { cellWidth: 20 },
-        1: { cellWidth: 12 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 35 },
       },
       alternateRowStyles: {
         fillColor: [245, 247, 250]
@@ -225,7 +314,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
       let yPos = 32;
       
       // Clinical Summary
-      if (patient.clinicalSummary) {
+      if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
         doc.setFont("helvetica", "bold");
         doc.text("Clinical Summary:", 14, yPos);
         yPos += 5;
@@ -236,7 +325,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
       }
       
       // Interval Events
-      if (patient.intervalEvents) {
+      if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
         doc.setFont("helvetica", "bold");
         doc.text("Interval Events:", 14, yPos);
         yPos += 5;
@@ -247,26 +336,43 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
       }
       
       // Systems
-      doc.setFont("helvetica", "bold");
-      doc.text("Systems Review:", 14, yPos);
-      yPos += 5;
-      
-      systemKeys.forEach(key => {
-        const value = patient.systems[key as keyof typeof patient.systems];
-        if (value) {
-          doc.setFont("helvetica", "bold");
-          doc.text(`${systemLabels[key]}:`, 14, yPos);
-          doc.setFont("helvetica", "normal");
-          const sysLines = doc.splitTextToSize(stripHtml(value), 250);
-          doc.text(sysLines, 40, yPos);
-          yPos += Math.max(sysLines.length * 4, 5) + 2;
-          
-          if (yPos > 190) {
-            doc.addPage();
-            yPos = 15;
+      const enabledSystems = getEnabledSystemKeys();
+      if (enabledSystems.length > 0) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Systems Review:", 14, yPos);
+        yPos += 5;
+        
+        enabledSystems.forEach(key => {
+          const value = patient.systems[key as keyof typeof patient.systems];
+          if (value) {
+            doc.setFont("helvetica", "bold");
+            doc.text(`${systemLabels[key]}:`, 14, yPos);
+            doc.setFont("helvetica", "normal");
+            const sysLines = doc.splitTextToSize(stripHtml(value), 250);
+            doc.text(sysLines, 40, yPos);
+            yPos += Math.max(sysLines.length * 4, 5) + 2;
+            
+            if (yPos > 190) {
+              doc.addPage();
+              yPos = 15;
+            }
           }
+        });
+      }
+      
+      // Notes
+      if (isColumnEnabled("notes") && patientNotes[patient.id]) {
+        if (yPos > 170) {
+          doc.addPage();
+          yPos = 15;
         }
-      });
+        doc.setFont("helvetica", "bold");
+        doc.text("Notes:", 14, yPos);
+        yPos += 5;
+        doc.setFont("helvetica", "normal");
+        const notesLines = doc.splitTextToSize(patientNotes[patient.id], 270);
+        doc.text(notesLines, 14, yPos);
+      }
     });
 
     const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -349,12 +455,14 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             .content { white-space: pre-wrap; word-break: break-word; }
             .system-label { font-weight: 600; color: #374151; display: block; font-size: 7px; margin-bottom: 1px; }
             .no-break { page-break-inside: avoid; }
+            .notes-cell { background: #fffbeb !important; }
             @media print {
               @page { size: landscape; margin: 0.3in; }
               body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               .no-print { display: none !important; }
               th { background: #1e40af !important; color: #fff !important; }
               tr:nth-child(even) td { background: #f8fafc !important; }
+              .notes-cell { background: #fffbeb !important; }
             }
             .card-view { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
             .patient-card { 
@@ -512,6 +620,23 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     );
   };
 
+  const NotesCell = ({ patient }: { patient: Patient }) => {
+    const notes = patientNotes[patient.id] || "";
+    
+    return (
+      <td className="border border-border p-1 align-top bg-amber-50">
+        <textarea
+          value={notes}
+          onChange={(e) => setPatientNotes(prev => ({ ...prev, [patient.id]: e.target.value }))}
+          placeholder="Add rounding notes..."
+          className="w-full min-h-[40px] text-xs p-1 border-0 bg-transparent resize-y focus:outline-none focus:ring-1 focus:ring-primary rounded"
+        />
+      </td>
+    );
+  };
+
+  const enabledSystemKeys = getEnabledSystemKeys();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
@@ -549,6 +674,47 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             PDF
           </Button>
         </div>
+
+        {/* Column Selection */}
+        <Collapsible open={columnsOpen} onOpenChange={setColumnsOpen} className="border-b pb-2 mb-2">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 w-full justify-between">
+              <div className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4" />
+                <span className="font-medium">Customize Columns</span>
+                <span className="text-xs text-muted-foreground">
+                  ({columns.filter(c => c.enabled).length} of {columns.length} selected)
+                </span>
+              </div>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", columnsOpen && "rotate-180")} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="flex gap-2 mb-2">
+              <Button variant="outline" size="sm" onClick={selectAllColumns}>Select All</Button>
+              <Button variant="outline" size="sm" onClick={deselectAllColumns}>Deselect All</Button>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+              {columns.map(col => (
+                <label 
+                  key={col.key} 
+                  className={cn(
+                    "flex items-center gap-2 text-xs p-2 rounded border cursor-pointer hover:bg-muted/50 transition-colors",
+                    col.enabled ? "bg-primary/10 border-primary" : "bg-muted/20 border-muted",
+                    col.key === "notes" && "bg-amber-50 border-amber-300"
+                  )}
+                >
+                  <Checkbox 
+                    checked={col.enabled}
+                    onCheckedChange={() => toggleColumn(col.key)}
+                    disabled={col.key === "patient"}
+                  />
+                  <span className={cn(col.key === "patient" && "text-muted-foreground")}>{col.label}</span>
+                </label>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         {/* Column Width Controls */}
         <div className="flex gap-4 items-center text-xs border-b pb-2 mb-2 no-print flex-wrap">
@@ -597,6 +763,19 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               className="w-16"
             />
           </label>
+          {showNotesColumn && (
+            <label className="flex items-center gap-1">
+              Notes:
+              <input
+                type="range"
+                min="80"
+                max="200"
+                value={columnWidths.notes}
+                onChange={(e) => setColumnWidths(prev => ({ ...prev, notes: Number(e.target.value) }))}
+                className="w-16"
+              />
+            </label>
+          )}
         </div>
 
         <Tabs defaultValue="table" className="flex-1 overflow-hidden flex flex-col">
@@ -636,26 +815,41 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                 <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
                   <thead>
                     <tr className="bg-primary text-primary-foreground">
-                      <th className="border border-border p-2 text-left font-bold" style={{ width: columnWidths.patient }}>Patient</th>
-                      <th className="border border-border p-2 text-left font-bold" style={{ width: columnWidths.summary }}>Clinical Summary</th>
-                      <th className="border border-border p-2 text-left font-bold" style={{ width: columnWidths.events }}>Interval Events</th>
-                      {systemKeys.map(key => (
+                      {isColumnEnabled("patient") && (
+                        <th className="border border-border p-2 text-left font-bold" style={{ width: columnWidths.patient }}>Patient</th>
+                      )}
+                      {isColumnEnabled("clinicalSummary") && (
+                        <th className="border border-border p-2 text-left font-bold" style={{ width: columnWidths.summary }}>Clinical Summary</th>
+                      )}
+                      {isColumnEnabled("intervalEvents") && (
+                        <th className="border border-border p-2 text-left font-bold" style={{ width: columnWidths.events }}>Interval Events</th>
+                      )}
+                      {enabledSystemKeys.map(key => (
                         <th key={key} className="border border-border p-2 text-left font-bold text-[10px]" style={{ width: columnWidths.systems }}>
                           {systemLabels[key]}
                         </th>
                       ))}
+                      {showNotesColumn && (
+                        <th className="border border-border p-2 text-left font-bold bg-amber-500 text-white" style={{ width: columnWidths.notes }}>Notes</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {patients.map((patient, idx) => (
                       <tr key={patient.id} className={cn("border-b", idx % 2 === 0 ? "bg-white" : "bg-muted/20")}>
-                        <td className="border border-border p-2 align-top">
-                          <div className="font-bold text-sm text-primary">{patient.name || 'Unnamed'}</div>
-                          <div className="text-[10px] text-muted-foreground">Bed: {patient.bed || 'N/A'}</div>
-                        </td>
-                        <ExpandableCell patient={patient} field="clinicalSummary" className="border border-border" />
-                        <ExpandableCell patient={patient} field="intervalEvents" className="border border-border" />
-                        {systemKeys.map(key => (
+                        {isColumnEnabled("patient") && (
+                          <td className="border border-border p-2 align-top">
+                            <div className="font-bold text-sm text-primary">{patient.name || 'Unnamed'}</div>
+                            <div className="text-[10px] text-muted-foreground">Bed: {patient.bed || 'N/A'}</div>
+                          </td>
+                        )}
+                        {isColumnEnabled("clinicalSummary") && (
+                          <ExpandableCell patient={patient} field="clinicalSummary" className="border border-border" />
+                        )}
+                        {isColumnEnabled("intervalEvents") && (
+                          <ExpandableCell patient={patient} field="intervalEvents" className="border border-border" />
+                        )}
+                        {enabledSystemKeys.map(key => (
                           <ExpandableCell 
                             key={key} 
                             patient={patient} 
@@ -663,6 +857,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                             className="border border-border"
                           />
                         ))}
+                        {showNotesColumn && <NotesCell patient={patient} />}
                       </tr>
                     ))}
                   </tbody>
@@ -689,7 +884,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                       {patient.name || 'Unnamed'} {patient.bed && `• Bed ${patient.bed}`}
                     </h3>
                     
-                    {patient.clinicalSummary && (
+                    {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
                       <div className="mb-4">
                         <div className="text-xs font-bold text-primary uppercase mb-1">Clinical Summary</div>
                         <div 
@@ -699,7 +894,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                       </div>
                     )}
                     
-                    {patient.intervalEvents && (
+                    {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
                       <div className="mb-4">
                         <div className="text-xs font-bold text-primary uppercase mb-1">Interval Events</div>
                         <div 
@@ -710,7 +905,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     )}
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                      {systemKeys.map(key => {
+                      {enabledSystemKeys.map(key => {
                         const value = patient.systems[key as keyof typeof patient.systems];
                         if (!value) return null;
                         return (
@@ -721,6 +916,18 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                         );
                       })}
                     </div>
+                    
+                    {showNotesColumn && (
+                      <div className="mt-4 p-3 bg-amber-50 rounded border border-amber-200">
+                        <div className="text-xs font-bold text-amber-700 uppercase mb-1">Rounding Notes</div>
+                        <textarea
+                          value={patientNotes[patient.id] || ""}
+                          onChange={(e) => setPatientNotes(prev => ({ ...prev, [patient.id]: e.target.value }))}
+                          placeholder="Add notes for rounding..."
+                          className="w-full min-h-[60px] text-sm p-2 border-0 bg-transparent resize-y focus:outline-none"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -748,39 +955,57 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <span className="font-bold text-sm text-primary uppercase">Clinical Summary</span>
-                        <div 
-                          className="mt-1 bg-muted/30 p-3 rounded text-sm border-l-4 border-primary"
-                          dangerouslySetInnerHTML={{ __html: patient.clinicalSummary || '<span class="text-muted-foreground italic">None documented</span>' }}
-                        />
-                      </div>
-                      <div>
-                        <span className="font-bold text-sm text-primary uppercase">Interval Events</span>
-                        <div 
-                          className="mt-1 bg-muted/30 p-3 rounded text-sm border-l-4 border-primary"
-                          dangerouslySetInnerHTML={{ __html: patient.intervalEvents || '<span class="text-muted-foreground italic">None documented</span>' }}
-                        />
-                      </div>
+                      {isColumnEnabled("clinicalSummary") && (
+                        <div>
+                          <span className="font-bold text-sm text-primary uppercase">Clinical Summary</span>
+                          <div 
+                            className="mt-1 bg-muted/30 p-3 rounded text-sm border-l-4 border-primary"
+                            dangerouslySetInnerHTML={{ __html: patient.clinicalSummary || '<span class="text-muted-foreground italic">None documented</span>' }}
+                          />
+                        </div>
+                      )}
+                      {isColumnEnabled("intervalEvents") && (
+                        <div>
+                          <span className="font-bold text-sm text-primary uppercase">Interval Events</span>
+                          <div 
+                            className="mt-1 bg-muted/30 p-3 rounded text-sm border-l-4 border-primary"
+                            dangerouslySetInnerHTML={{ __html: patient.intervalEvents || '<span class="text-muted-foreground italic">None documented</span>' }}
+                          />
+                        </div>
+                      )}
                     </div>
                     
-                    <div>
-                      <span className="font-bold text-sm text-primary uppercase">Systems Review</span>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-2">
-                        {systemKeys.map(key => {
-                          const value = patient.systems[key as keyof typeof patient.systems];
-                          return (
-                            <div key={key} className="bg-muted/20 p-2 rounded border">
-                              <span className="font-bold text-xs text-primary uppercase">{systemLabels[key]}</span>
-                              <div 
-                                className="text-sm mt-1"
-                                dangerouslySetInnerHTML={{ __html: value || '<span class="text-muted-foreground">-</span>' }}
-                              />
-                            </div>
-                          );
-                        })}
+                    {enabledSystemKeys.length > 0 && (
+                      <div>
+                        <span className="font-bold text-sm text-primary uppercase">Systems Review</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-2">
+                          {enabledSystemKeys.map(key => {
+                            const value = patient.systems[key as keyof typeof patient.systems];
+                            return (
+                              <div key={key} className="bg-muted/20 p-2 rounded border">
+                                <span className="font-bold text-xs text-primary uppercase">{systemLabels[key]}</span>
+                                <div 
+                                  className="text-sm mt-1"
+                                  dangerouslySetInnerHTML={{ __html: value || '<span class="text-muted-foreground">-</span>' }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    {showNotesColumn && (
+                      <div className="mt-4">
+                        <span className="font-bold text-sm text-amber-700 uppercase">Rounding Notes</span>
+                        <textarea
+                          value={patientNotes[patient.id] || ""}
+                          onChange={(e) => setPatientNotes(prev => ({ ...prev, [patient.id]: e.target.value }))}
+                          placeholder="Add notes for rounding..."
+                          className="mt-1 w-full min-h-[60px] text-sm p-3 bg-amber-50 border border-amber-200 rounded resize-y focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
