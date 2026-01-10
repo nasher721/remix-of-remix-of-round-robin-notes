@@ -31,8 +31,7 @@ interface EpicHandoffImportProps {
 }
 
 // Load PDF.js from CDN and extract text
-const extractPdfText = async (file: File): Promise<string> => {
-  // Dynamically load PDF.js from CDN if not already loaded
+const loadPdfJs = async () => {
   if (!(window as any).pdfjsLib) {
     await new Promise<void>((resolve, reject) => {
       const script = document.createElement('script');
@@ -44,8 +43,11 @@ const extractPdfText = async (file: File): Promise<string> => {
     (window as any).pdfjsLib.GlobalWorkerOptions.workerSrc = 
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   }
+  return (window as any).pdfjsLib;
+};
 
-  const pdfjsLib = (window as any).pdfjsLib;
+const extractPdfText = async (file: File): Promise<string> => {
+  const pdfjsLib = await loadPdfJs();
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   
@@ -55,7 +57,6 @@ const extractPdfText = async (file: File): Promise<string> => {
     const page = await pdf.getPage(pageNum);
     const textContent = await page.getTextContent();
     
-    // Extract text items and preserve some structure
     const pageText = textContent.items
       .map((item: any) => item.str)
       .join(" ");
@@ -64,6 +65,37 @@ const extractPdfText = async (file: File): Promise<string> => {
   }
   
   return fullText;
+};
+
+// Convert PDF pages to base64 images for OCR
+const extractPdfAsImages = async (file: File): Promise<string[]> => {
+  const pdfjsLib = await loadPdfJs();
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  
+  const images: string[] = [];
+  const scale = 2.0; // Higher resolution for better OCR
+  
+  for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 10); pageNum++) { // Limit to 10 pages
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+    
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport
+    }).promise;
+    
+    // Convert to base64 JPEG (smaller than PNG)
+    const imageData = canvas.toDataURL('image/jpeg', 0.85);
+    images.push(imageData);
+  }
+  
+  return images;
 };
 
 export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandoffImportProps) => {
@@ -108,10 +140,48 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
         // Check if meaningful content was extracted (not just page breaks)
         const meaningfulContent = content.replace(/--- Page Break ---/g, '').trim();
         if (meaningfulContent.length < 50) {
+          // Fall back to OCR - convert pages to images
           toast({
-            title: "PDF appears to be scanned/image-based",
-            description: "Could not extract text from this PDF. Please copy and paste the handoff text from Epic instead.",
-            variant: "destructive",
+            title: "Using OCR",
+            description: "PDF appears scanned. Converting to images for AI vision processing...",
+          });
+          
+          const images = await extractPdfAsImages(file);
+          if (images.length === 0) {
+            toast({
+              title: "Failed to process PDF",
+              description: "Could not extract content from this PDF.",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+          
+          // Send images for OCR processing
+          const { data, error } = await supabase.functions.invoke('parse-handoff', {
+            body: { images },
+          });
+
+          if (error) throw new Error(error.message);
+          if (!data.success) throw new Error(data.error || "Failed to parse handoff");
+
+          const patients = data.data?.patients || [];
+          if (patients.length === 0) {
+            toast({
+              title: "No patients found",
+              description: "The AI couldn't extract any patients from this document.",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          setParsedPatients(patients);
+          setSelectedPatients(new Set(patients.map((_: ParsedPatient, i: number) => i)));
+          setStep("select");
+          toast({
+            title: "Handoff parsed (OCR)",
+            description: `Found ${patients.length} patient(s). Select which to import.`,
           });
           setIsLoading(false);
           return;

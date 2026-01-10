@@ -22,11 +22,11 @@ serve(async (req) => {
   }
 
   try {
-    const { pdfContent } = await req.json();
+    const { pdfContent, images } = await req.json();
 
-    if (!pdfContent) {
+    if (!pdfContent && (!images || images.length === 0)) {
       return new Response(
-        JSON.stringify({ success: false, error: "PDF content is required" }),
+        JSON.stringify({ success: false, error: "PDF content or images are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -40,18 +40,18 @@ serve(async (req) => {
       );
     }
 
-    console.log("Parsing Epic handoff content...");
+    console.log("Parsing Epic handoff content...", images ? `(${images.length} images)` : "(text)");
 
     const systemPrompt = `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data.
 
-Given the raw text content from an Epic Handoff PDF, extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient in the document.
+Given the content from an Epic Handoff (either as text or scanned page images), extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient in the document.
 
 PATIENT IDENTIFICATION:
 - Look for bed/room numbers like "15-ED", "G054-02", "H022-01", or similar patterns
 - Each patient section typically starts with a bed number followed by patient name
 - Names are often followed by MRN in parentheses and age/sex
 - Look for repeating patterns that indicate separate patient entries
-- Page breaks (--- Page Break ---) may separate patients but one patient may span multiple pages
+- Page breaks may separate patients but one patient may span multiple pages
 
 For each patient, extract:
 - bed: The bed/room number (e.g., "15-ED", "G054-02", "H022-01")
@@ -88,6 +88,21 @@ CRITICAL INSTRUCTIONS:
 - Look for bed numbers throughout the ENTIRE document to ensure no patients are missed
 - If text seems garbled or incomplete, extract what you can and continue to the next patient`;
 
+    // Build message content based on whether we have images or text
+    let userContent: any;
+    if (images && images.length > 0) {
+      // Vision-based OCR: send images to the model
+      userContent = [
+        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data. Read the text in the images carefully:" },
+        ...images.map((img: string) => ({
+          type: "image_url",
+          image_url: { url: img }
+        }))
+      ];
+    } else {
+      userContent = `Parse the following Epic Handoff document and extract all patient data:\n\n${pdfContent}`;
+    }
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -95,10 +110,10 @@ CRITICAL INSTRUCTIONS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Parse the following Epic Handoff document and extract all patient data:\n\n${pdfContent}` },
+          { role: "user", content: userContent },
         ],
       }),
     });
