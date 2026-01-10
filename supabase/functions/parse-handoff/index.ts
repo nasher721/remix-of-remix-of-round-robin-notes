@@ -16,6 +16,169 @@ interface ParsedPatient {
   bedStatus: string;
 }
 
+/**
+ * Remove duplicate sentences/phrases within a text field
+ * Detects repeated phrases (>15 chars) and keeps only first occurrence
+ */
+function deduplicateText(text: string): string {
+  if (!text || text.length < 30) return text;
+
+  // Split into sentences (by period, newline, or semicolon)
+  const sentences = text.split(/(?<=[.!?\n;])\s*/).filter(s => s.trim().length > 0);
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const sentence of sentences) {
+    const normalized = sentence.trim().toLowerCase().replace(/\s+/g, ' ');
+    
+    // Skip if we've seen this exact sentence
+    if (normalized.length > 15 && seen.has(normalized)) {
+      console.log("Removed duplicate sentence:", sentence.substring(0, 50) + "...");
+      continue;
+    }
+    
+    // Check for substantial substring matches (80%+ overlap)
+    let isDuplicate = false;
+    for (const existing of seen) {
+      if (normalized.length > 20 && existing.length > 20) {
+        // Check if one contains the other
+        if (normalized.includes(existing) || existing.includes(normalized)) {
+          isDuplicate = true;
+          console.log("Removed overlapping content:", sentence.substring(0, 50) + "...");
+          break;
+        }
+      }
+    }
+    
+    if (!isDuplicate) {
+      seen.add(normalized);
+      result.push(sentence);
+    }
+  }
+
+  return result.join(' ').trim();
+}
+
+/**
+ * Remove repeated phrases within text (stuttering/echoing artifacts)
+ * Detects when the same phrase appears multiple times in sequence
+ */
+function removeRepeatedPhrases(text: string): string {
+  if (!text || text.length < 20) return text;
+
+  // Remove consecutive duplicate words/phrases
+  let cleaned = text;
+  
+  // Pattern: detect repeated consecutive phrases of 3+ words
+  const words = text.split(/\s+/);
+  const result: string[] = [];
+  let i = 0;
+  
+  while (i < words.length) {
+    // Try to find repeating patterns of various lengths
+    let foundRepeat = false;
+    
+    for (let patternLen = 3; patternLen <= Math.min(10, Math.floor((words.length - i) / 2)); patternLen++) {
+      const pattern = words.slice(i, i + patternLen).join(' ');
+      const nextPattern = words.slice(i + patternLen, i + patternLen * 2).join(' ');
+      
+      if (pattern.length > 10 && pattern === nextPattern) {
+        // Found a repeat - add pattern once and skip the duplicate
+        result.push(...words.slice(i, i + patternLen));
+        i += patternLen * 2;
+        foundRepeat = true;
+        console.log("Removed repeated phrase:", pattern.substring(0, 50));
+        
+        // Continue checking for more repeats of the same pattern
+        while (i + patternLen <= words.length) {
+          const checkPattern = words.slice(i, i + patternLen).join(' ');
+          if (checkPattern === pattern) {
+            i += patternLen;
+            console.log("Removed additional repeat of:", pattern.substring(0, 50));
+          } else {
+            break;
+          }
+        }
+        break;
+      }
+    }
+    
+    if (!foundRepeat) {
+      result.push(words[i]);
+      i++;
+    }
+  }
+  
+  return result.join(' ');
+}
+
+/**
+ * Main text cleaning function - applies all deduplication strategies
+ */
+function cleanPatientText(text: string): string {
+  if (!text) return '';
+  
+  let cleaned = text;
+  
+  // Step 1: Remove repeated phrases (OCR stuttering)
+  cleaned = removeRepeatedPhrases(cleaned);
+  
+  // Step 2: Remove duplicate sentences
+  cleaned = deduplicateText(cleaned);
+  
+  // Step 3: Clean up whitespace
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  
+  return cleaned;
+}
+
+/**
+ * Deduplicate patients by bed number - keeps the most complete record
+ */
+function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
+  const bedMap = new Map<string, ParsedPatient>();
+  
+  for (const patient of patients) {
+    const normalizedBed = patient.bed.trim().toLowerCase();
+    
+    if (!normalizedBed) {
+      console.log("Skipping patient with empty bed:", patient.name);
+      continue;
+    }
+    
+    const existing = bedMap.get(normalizedBed);
+    
+    if (!existing) {
+      bedMap.set(normalizedBed, patient);
+    } else {
+      // Merge: keep the version with more content, combine if needed
+      console.log(`Merging duplicate bed ${patient.bed}: existing vs new`);
+      
+      const merged: ParsedPatient = {
+        bed: patient.bed || existing.bed,
+        name: patient.name || existing.name,
+        mrn: patient.mrn || existing.mrn,
+        age: patient.age || existing.age,
+        sex: patient.sex || existing.sex,
+        handoffSummary: (patient.handoffSummary?.length || 0) > (existing.handoffSummary?.length || 0) 
+          ? patient.handoffSummary 
+          : existing.handoffSummary,
+        intervalEvents: (patient.intervalEvents?.length || 0) > (existing.intervalEvents?.length || 0)
+          ? patient.intervalEvents
+          : existing.intervalEvents,
+        bedStatus: patient.bedStatus || existing.bedStatus,
+      };
+      
+      bedMap.set(normalizedBed, merged);
+    }
+  }
+  
+  const result = Array.from(bedMap.values());
+  console.log(`Deduplication: ${patients.length} patients -> ${result.length} unique beds`);
+  
+  return result;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -79,31 +242,29 @@ Return ONLY valid JSON in this exact format:
   ]
 }
 
-CRITICAL INSTRUCTIONS:
-- Parse ALL patients from the document - do not stop early
+CRITICAL DEDUPLICATION RULES:
+- If the same patient/bed appears on multiple pages, MERGE them into ONE entry
+- NEVER output the same bed number twice
+- NEVER repeat text within a field - each sentence should appear only ONCE
+- If you see repeated/duplicated content in the source (OCR artifacts), include it only ONCE
+- Remove any stuttering, echoing, or repeated phrases
+- Do NOT repeat sentences or paragraphs - each piece of clinical information should appear exactly once
 - Clean up any OCR artifacts or formatting issues
-- Preserve the complete text for each section
-- Separate "What we did on rounds" into intervalEvents, not handoffSummary
-- If a field is missing, use an empty string
-- Look for bed numbers throughout the ENTIRE document to ensure no patients are missed
-- If text seems garbled or incomplete, extract what you can and continue to the next patient
-- NEVER repeat the same text multiple times - if you see repeated/duplicated content in the source, include it only ONCE
-- Remove any stuttering, echoing, or repeated phrases that may be OCR artifacts
-- Each piece of clinical information should appear only once in the output`;
+- If a field is missing, use an empty string`;
 
     // Build message content based on whether we have images or text
     let userContent: any;
     if (images && images.length > 0) {
       // Vision-based OCR: send images to the model
       userContent = [
-        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data. Read the text in the images carefully:" },
-        ...images.map((img: string) => ({
+        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Remove any repeated text. Read the text in the images carefully:" },
+        ...images.map((img: string, idx: number) => ({
           type: "image_url",
           image_url: { url: img }
         }))
       ];
     } else {
-      userContent = `Parse the following Epic Handoff document and extract all patient data:\n\n${pdfContent}`;
+      userContent = `Parse the following Epic Handoff document and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content:\n\n${pdfContent}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -145,12 +306,17 @@ CRITICAL INSTRUCTIONS:
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || "";
 
-    console.log("AI response received, parsing JSON...");
+    // LOG RAW RESPONSE for debugging
+    console.log("=== RAW AI RESPONSE START ===");
+    console.log(content.substring(0, 2000));
+    if (content.length > 2000) {
+      console.log("... (truncated, total length:", content.length, ")");
+    }
+    console.log("=== RAW AI RESPONSE END ===");
 
     // Extract JSON from the response
     let parsedData: { patients: ParsedPatient[] };
     try {
-      // Try to find JSON in the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         parsedData = JSON.parse(jsonMatch[0]);
@@ -166,7 +332,23 @@ CRITICAL INSTRUCTIONS:
       );
     }
 
-    console.log(`Successfully parsed ${parsedData.patients?.length || 0} patients`);
+    console.log(`Initial parse: ${parsedData.patients?.length || 0} patients`);
+
+    // POST-PROCESSING: Apply deduplication at multiple levels
+    if (parsedData.patients && parsedData.patients.length > 0) {
+      // Step 1: Clean text within each patient's fields
+      parsedData.patients = parsedData.patients.map(patient => ({
+        ...patient,
+        handoffSummary: cleanPatientText(patient.handoffSummary),
+        intervalEvents: cleanPatientText(patient.intervalEvents),
+        bedStatus: cleanPatientText(patient.bedStatus),
+      }));
+
+      // Step 2: Deduplicate patients by bed number
+      parsedData.patients = deduplicatePatientsByBed(parsedData.patients);
+    }
+
+    console.log(`After deduplication: ${parsedData.patients?.length || 0} patients`);
 
     return new Response(
       JSON.stringify({ success: true, data: parsedData }),
