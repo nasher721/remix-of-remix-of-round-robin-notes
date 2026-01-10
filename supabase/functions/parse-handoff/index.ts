@@ -250,21 +250,27 @@ CRITICAL DEDUPLICATION RULES:
 - Remove any stuttering, echoing, or repeated phrases
 - Do NOT repeat sentences or paragraphs - each piece of clinical information should appear exactly once
 - Clean up any OCR artifacts or formatting issues
-- If a field is missing, use an empty string`;
+- If a field is missing, use an empty string
+
+IMPORTANT OUTPUT CONSTRAINTS:
+- Keep handoffSummary BRIEF (max 3-4 sentences with key clinical points)
+- Keep intervalEvents BRIEF (only most recent and relevant updates)
+- Avoid verbose repetition - be concise
+- Total output must fit within token limits`;
 
     // Build message content based on whether we have images or text
     let userContent: any;
     if (images && images.length > 0) {
       // Vision-based OCR: send images to the model
       userContent = [
-        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Remove any repeated text. Read the text in the images carefully:" },
+        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Remove any repeated text. BE CONCISE - summarize key points only:" },
         ...images.map((img: string, idx: number) => ({
           type: "image_url",
           image_url: { url: img }
         }))
       ];
     } else {
-      userContent = `Parse the following Epic Handoff document and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content:\n\n${pdfContent}`;
+      userContent = `Parse the following Epic Handoff document and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. BE CONCISE:\n\n${pdfContent}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -279,6 +285,7 @@ CRITICAL DEDUPLICATION RULES:
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
+        max_tokens: 16000, // Limit response to prevent truncation
       }),
     });
 
@@ -314,18 +321,78 @@ CRITICAL DEDUPLICATION RULES:
     }
     console.log("=== RAW AI RESPONSE END ===");
 
-    // Extract JSON from the response
+    // Extract and repair JSON from the response
     let parsedData: { patients: ParsedPatient[] };
     try {
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsedData = JSON.parse(jsonMatch[0]);
-      } else {
+      let jsonStr = content;
+      
+      // Remove markdown code blocks if present
+      jsonStr = jsonStr.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      
+      // Find the JSON object
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
         throw new Error("No JSON found in response");
+      }
+      
+      jsonStr = jsonMatch[0];
+      
+      // Try to parse as-is first
+      try {
+        parsedData = JSON.parse(jsonStr);
+      } catch (initialError) {
+        console.log("Initial parse failed, attempting repair...");
+        
+        // Attempt to repair truncated JSON
+        // Count opening and closing braces/brackets
+        const openBraces = (jsonStr.match(/\{/g) || []).length;
+        const closeBraces = (jsonStr.match(/\}/g) || []).length;
+        const openBrackets = (jsonStr.match(/\[/g) || []).length;
+        const closeBrackets = (jsonStr.match(/\]/g) || []).length;
+        
+        console.log(`Braces: ${openBraces} open, ${closeBraces} close. Brackets: ${openBrackets} open, ${closeBrackets} close`);
+        
+        // Find the last complete patient object
+        // Look for the last complete "}" followed by either "," or end of array
+        const patientPattern = /\{\s*"bed"\s*:\s*"[^"]*"\s*,\s*"name"\s*:\s*"[^"]*"\s*,\s*"mrn"\s*:\s*"[^"]*"\s*,\s*"age"\s*:\s*"[^"]*"\s*,\s*"sex"\s*:\s*"[^"]*"\s*,\s*"handoffSummary"\s*:\s*"[^"]*"\s*,\s*"intervalEvents"\s*:\s*"[^"]*"\s*,\s*"bedStatus"\s*:\s*"[^"]*"\s*\}/g;
+        
+        const matches = [...jsonStr.matchAll(patientPattern)];
+        
+        if (matches.length > 0) {
+          console.log(`Found ${matches.length} complete patient objects`);
+          
+          // Reconstruct valid JSON with complete patients only
+          const patients = matches.map(m => m[0]);
+          const repairedJson = `{"patients": [${patients.join(',')}]}`;
+          
+          try {
+            parsedData = JSON.parse(repairedJson);
+            console.log(`Repaired JSON with ${parsedData.patients.length} patients`);
+          } catch (repairError) {
+            throw new Error(`JSON repair failed: ${repairError}`);
+          }
+        } else {
+          // Try a simpler fix: just close the truncated JSON
+          let repaired = jsonStr;
+          
+          // Add missing brackets and braces
+          const missingBrackets = openBrackets - closeBrackets;
+          const missingBraces = openBraces - closeBraces;
+          
+          // Remove any trailing incomplete property
+          repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, '');
+          repaired = repaired.replace(/,\s*\{[^}]*$/, '');
+          
+          repaired += ']'.repeat(Math.max(0, missingBrackets));
+          repaired += '}'.repeat(Math.max(0, missingBraces));
+          
+          console.log("Attempting simple bracket repair...");
+          parsedData = JSON.parse(repaired);
+        }
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      console.log("Raw content:", content);
+      console.log("Raw content:", content.substring(0, 500));
       return new Response(
         JSON.stringify({ success: false, error: "Failed to parse AI response" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
