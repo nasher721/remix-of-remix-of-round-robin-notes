@@ -44,16 +44,23 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data.
 
-Given the raw text content from an Epic Handoff PDF, extract all patients into a structured JSON format.
+Given the raw text content from an Epic Handoff PDF, extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient in the document.
+
+PATIENT IDENTIFICATION:
+- Look for bed/room numbers like "15-ED", "G054-02", "H022-01", or similar patterns
+- Each patient section typically starts with a bed number followed by patient name
+- Names are often followed by MRN in parentheses and age/sex
+- Look for repeating patterns that indicate separate patient entries
+- Page breaks (--- Page Break ---) may separate patients but one patient may span multiple pages
 
 For each patient, extract:
 - bed: The bed/room number (e.g., "15-ED", "G054-02", "H022-01")
 - name: Patient's full name
-- mrn: Medical Record Number (the number in parentheses after the name)
-- age: Patient's age
+- mrn: Medical Record Number (usually a number in parentheses after the name)
+- age: Patient's age (e.g., "65 yo", "72y")
 - sex: Patient's sex (M or F)
 - handoffSummary: The main handoff summary text (clinical overview, history, plan - but NOT the "What we did on rounds" section)
-- intervalEvents: The "What we did on rounds" section content specifically (this section documents what happened during rounds, updates, progress notes). Look for sections titled "What we did on rounds", "Rounds update", "Events", or similar daily update sections. IMPORTANT: Do NOT include the section header itself (e.g., "What we did on rounds:") in the extracted text - only include the actual content that follows the header.
+- intervalEvents: The content from the "What we did on rounds" section (or similar like "Rounds update", "Events", "Daily update"). IMPORTANT: Do NOT include the section header (e.g., "What we did on rounds:") - only include the actual content.
 - bedStatus: Any bed status information (if present)
 
 Return ONLY valid JSON in this exact format:
@@ -72,12 +79,14 @@ Return ONLY valid JSON in this exact format:
   ]
 }
 
-Important:
+CRITICAL INSTRUCTIONS:
+- Parse ALL patients from the document - do not stop early
 - Clean up any OCR artifacts or formatting issues
 - Preserve the complete text for each section
 - Separate "What we did on rounds" into intervalEvents, not handoffSummary
 - If a field is missing, use an empty string
-- Parse all patients from the document`;
+- Look for bed numbers throughout the ENTIRE document to ensure no patients are missed
+- If text seems garbled or incomplete, extract what you can and continue to the next patient`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
