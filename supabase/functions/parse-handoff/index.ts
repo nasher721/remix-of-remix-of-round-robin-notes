@@ -12,6 +12,7 @@ interface ParsedPatient {
   age: string;
   sex: string;
   handoffSummary: string;
+  intervalEvents: string;
   bedStatus: string;
 }
 
@@ -51,7 +52,8 @@ For each patient, extract:
 - mrn: Medical Record Number (the number in parentheses after the name)
 - age: Patient's age
 - sex: Patient's sex (M or F)
-- handoffSummary: The complete handoff summary text
+- handoffSummary: The main handoff summary text (clinical overview, history, plan - but NOT the "What we did on rounds" section)
+- intervalEvents: The "What we did on rounds" section content specifically (this section documents what happened during rounds, updates, progress notes). Look for sections titled "What we did on rounds", "Rounds update", "Events", or similar daily update sections.
 - bedStatus: Any bed status information (if present)
 
 Return ONLY valid JSON in this exact format:
@@ -64,6 +66,7 @@ Return ONLY valid JSON in this exact format:
       "age": "string",
       "sex": "string",
       "handoffSummary": "string",
+      "intervalEvents": "string",
       "bedStatus": "string"
     }
   ]
@@ -71,7 +74,8 @@ Return ONLY valid JSON in this exact format:
 
 Important:
 - Clean up any OCR artifacts or formatting issues
-- Preserve the complete handoff summary text
+- Preserve the complete text for each section
+- Separate "What we did on rounds" into intervalEvents, not handoffSummary
 - If a field is missing, use an empty string
 - Parse all patients from the document`;
 
