@@ -6,6 +6,7 @@ import { useCloudAutotexts } from "@/hooks/useAutotexts";
 import { PatientCard } from "@/components/PatientCard";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
+import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -49,7 +50,8 @@ const Index = () => {
     removePatient, 
     duplicatePatient,
     toggleCollapse,
-    clearAll 
+    clearAll,
+    importPatients
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
   
@@ -228,6 +230,10 @@ const Index = () => {
               <Plus className="h-4 w-4 mr-2" />
               Add Patient
             </Button>
+            <EpicHandoffImport 
+              existingBeds={patients.map(p => p.bed)}
+              onImportPatients={importPatients}
+            />
             <AutotextManager 
               autotexts={autotexts}
               templates={templates}

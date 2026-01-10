@@ -316,6 +316,69 @@ export const usePatients = () => {
     await updatePatient(id, "collapsed", !patient.collapsed);
   }, [patients, updatePatient]);
 
+  const importPatients = useCallback(async (patientsToImport: Array<{
+    name: string;
+    bed: string;
+    clinicalSummary: string;
+  }>) => {
+    if (!user) return;
+
+    try {
+      let currentCounter = patientCounter;
+      const newPatients: Patient[] = [];
+
+      for (const p of patientsToImport) {
+        const { data, error } = await supabase
+          .from("patients")
+          .insert([{
+            user_id: user.id,
+            patient_number: currentCounter,
+            name: p.name,
+            bed: p.bed,
+            clinical_summary: p.clinicalSummary,
+            interval_events: "",
+            systems: defaultSystems as unknown as Json,
+            collapsed: false,
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        newPatients.push({
+          id: data.id,
+          patient_number: data.patient_number,
+          name: data.name,
+          bed: data.bed,
+          clinical_summary: data.clinical_summary,
+          interval_events: data.interval_events,
+          systems: parseSystemsJson(data.systems),
+          collapsed: data.collapsed,
+          created_at: data.created_at,
+          last_modified: data.last_modified,
+        });
+
+        currentCounter++;
+      }
+
+      setPatients((prev) => [...prev, ...newPatients]);
+      setPatientCounter(currentCounter);
+
+      toast({
+        title: "Import Complete",
+        description: `${newPatients.length} patient(s) imported from Epic handoff.`,
+      });
+    } catch (error) {
+      console.error("Error importing patients:", error);
+      toast({
+        title: "Import Error",
+        description: "Failed to import some patients.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [user, patientCounter, toast]);
+
   const clearAll = useCallback(async () => {
     if (!user) return;
 
@@ -354,6 +417,7 @@ export const usePatients = () => {
     duplicatePatient,
     toggleCollapse,
     clearAll,
+    importPatients,
     refetch: fetchPatients,
   };
 };
