@@ -104,6 +104,18 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
         });
         content = await extractPdfText(file);
         console.log("Extracted PDF text length:", content.length);
+        
+        // Check if meaningful content was extracted (not just page breaks)
+        const meaningfulContent = content.replace(/--- Page Break ---/g, '').trim();
+        if (meaningfulContent.length < 50) {
+          toast({
+            title: "PDF appears to be scanned/image-based",
+            description: "Could not extract text from this PDF. Please copy and paste the handoff text from Epic instead.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
       } else {
         // For text files, read directly
         content = await new Promise<string>((resolve, reject) => {
@@ -117,9 +129,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       if (content.length < 50) {
         toast({
           title: "No content extracted",
-          description: "Could not extract text from the PDF. Try copying and pasting the handoff text directly.",
+          description: "Could not extract text from the file. Try copying and pasting the handoff text directly.",
           variant: "destructive",
         });
+        setIsLoading(false);
         return;
       }
 
