@@ -7,6 +7,8 @@ import { PatientCard } from "@/components/PatientCard";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
+import { IBCCPanel } from "@/components/ibcc";
+import { useIBCC } from "@/hooks/useIBCC";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -23,6 +25,7 @@ import {
   Loader2,
   Cloud,
   Type,
+  BookOpen,
 } from "lucide-react";
 
 const Index = () => {
@@ -39,6 +42,10 @@ const Index = () => {
     importPatients
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
+  
+  // IBCC Clinical Reference
+  const currentPatient = filteredPatients.length > 0 ? filteredPatients[0] : undefined;
+  const { isOpen: ibccOpen, togglePanel: toggleIBCC, contextSuggestions } = useIBCC(currentPatient);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'filled' | 'empty'>('all');
