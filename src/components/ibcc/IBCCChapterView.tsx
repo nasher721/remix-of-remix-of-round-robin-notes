@@ -1,10 +1,10 @@
 /**
  * IBCC Chapter View
- * Full chapter display with calculators and checklists
+ * Full chapter display with embedded clinical content, calculators, and checklists
  */
 
 import { useState } from 'react';
-import { ArrowLeft, Star, ExternalLink, Calculator, ClipboardList, CheckCircle2, Circle } from 'lucide-react';
+import { ArrowLeft, Star, ExternalLink, Calculator, ClipboardList, CheckCircle2, Circle, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import type { IBCCChapter, ClinicalCalculator, ProtocolChecklist, CalculatorResult } from '@/types/ibcc';
+import { getChapterContent, hasChapterContent } from '@/data/ibccChapterContent';
+import { ClinicalPearls, TreatmentAlgorithm, MedicationCards, DiagnosticCriteria, PitfallsAlert } from './content';
 import { cn } from '@/lib/utils';
 
 interface IBCCChapterViewProps {
@@ -32,6 +34,9 @@ export function IBCCChapterView({
   calculators,
   checklists,
 }: IBCCChapterViewProps) {
+  const content = getChapterContent(chapter.id);
+  const hasContent = hasChapterContent(chapter.id);
+
   return (
     <>
       {/* Header */}
@@ -57,44 +62,49 @@ export function IBCCChapterView({
 
       <ScrollArea className="flex-1">
         <div className="p-4">
-          {/* Quick Actions */}
-          <div className="flex gap-2 mb-4">
-            <a
-              href={chapter.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1"
-            >
-              <Button variant="default" className="w-full gap-2">
-                <ExternalLink className="h-4 w-4" />
-                Open Full Chapter
-              </Button>
-            </a>
-          </div>
+          {/* Content Status Badge */}
+          {hasContent && (
+            <Badge variant="default" className="mb-4 gap-1">
+              <BookOpen className="h-3 w-3" />
+              Full Content Available
+            </Badge>
+          )}
 
           {/* Summary */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Summary</h3>
+          <div className="mb-4">
             <p className="text-sm text-muted-foreground leading-relaxed">
               {chapter.summary}
             </p>
           </div>
 
-          {/* Keywords */}
-          <div className="mb-6">
-            <h3 className="text-sm font-medium mb-2">Related Terms</h3>
-            <div className="flex flex-wrap gap-1.5">
-              {chapter.keywords.map(keyword => (
-                <Badge key={keyword} variant="secondary" className="text-xs">
-                  {keyword}
-                </Badge>
-              ))}
+          {/* Embedded Clinical Content */}
+          {content && (
+            <div className="space-y-2">
+              {content.keyPearls && <ClinicalPearls pearls={content.keyPearls} />}
+              {content.diagnosticCriteria && <DiagnosticCriteria sections={content.diagnosticCriteria} />}
+              {content.treatmentAlgorithm && <TreatmentAlgorithm steps={content.treatmentAlgorithm} />}
+              {content.medications && <MedicationCards medications={content.medications} />}
+              {content.pitfalls && <PitfallsAlert pitfalls={content.pitfalls} />}
+              
+              {/* Differential Diagnosis */}
+              {content.differentialDiagnosis && content.differentialDiagnosis.length > 0 && (
+                <div className="p-3 bg-secondary/50 rounded-lg">
+                  <h4 className="text-sm font-medium mb-2">Differential Diagnosis</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {content.differentialDiagnosis.map((dx, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {dx}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
           {/* Calculators & Checklists */}
           {(calculators.length > 0 || checklists.length > 0) && (
-            <Tabs defaultValue={calculators.length > 0 ? 'calculators' : 'checklists'}>
+            <Tabs defaultValue={calculators.length > 0 ? 'calculators' : 'checklists'} className="mt-4">
               <TabsList className="w-full mb-4">
                 {calculators.length > 0 && (
                   <TabsTrigger value="calculators" className="flex-1 gap-1">
@@ -128,13 +138,32 @@ export function IBCCChapterView({
             </Tabs>
           )}
 
-          {/* Quick Reference */}
-          <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
-            <h3 className="text-sm font-medium text-primary mb-2">💡 Quick Reference</h3>
-            <p className="text-xs text-muted-foreground">
-              This chapter covers essential critical care concepts. Click "Open Full Chapter" to access 
-              the complete IBCC content with detailed protocols, evidence summaries, and clinical pearls.
-            </p>
+          {/* External Link - only show if no embedded content */}
+          {!hasContent && (
+            <div className="mt-6">
+              <a
+                href={chapter.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button variant="default" className="w-full gap-2">
+                  <ExternalLink className="h-4 w-4" />
+                  Open Full Chapter on IBCC
+                </Button>
+              </a>
+            </div>
+          )}
+
+          {/* Keywords */}
+          <div className="mt-6">
+            <h3 className="text-sm font-medium mb-2">Related Terms</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {chapter.keywords.map(keyword => (
+                <Badge key={keyword} variant="secondary" className="text-xs">
+                  {keyword}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
       </ScrollArea>
