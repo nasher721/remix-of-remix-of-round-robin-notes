@@ -8,7 +8,7 @@ import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { IBCCPanel } from "@/components/ibcc";
-import { useIBCC } from "@/hooks/useIBCC";
+import { IBCCProvider } from "@/contexts/IBCCContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -25,7 +25,6 @@ import {
   Loader2,
   Cloud,
   Type,
-  BookOpen,
 } from "lucide-react";
 
 const Index = () => {
@@ -151,9 +150,8 @@ const Index = () => {
     return matchesSearch;
   });
 
-  // IBCC Clinical Reference - must be after filteredPatients is defined
+  // Get current patient for IBCC context
   const currentPatient = filteredPatients.length > 0 ? filteredPatients[0] : undefined;
-  const ibcc = useIBCC(currentPatient);
 
   if (authLoading || patientsLoading) {
     return (
@@ -388,8 +386,10 @@ const Index = () => {
         onUpdatePatient={handleUpdatePatient}
       />
 
-      {/* IBCC Clinical Reference Panel */}
-      <IBCCPanel currentPatient={currentPatient} />
+      {/* IBCC Clinical Reference Panel - wrapped in provider for context */}
+      <IBCCProvider currentPatient={currentPatient}>
+        <IBCCPanel />
+      </IBCCProvider>
     </div>
   );
 };
