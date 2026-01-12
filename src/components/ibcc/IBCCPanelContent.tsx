@@ -1,41 +1,82 @@
 /**
- * IBCC Panel
- * Main clinical reference panel with search, categories, and chapter navigation
+ * IBCC Panel Content
+ * The actual panel UI - lazy loaded for performance
  */
 
-import { useState } from 'react';
-import { Search, BookOpen, Star, Clock, X, ChevronRight, ExternalLink, Keyboard } from 'lucide-react';
+import React, { useState, memo } from 'react';
+import { Search, BookOpen, Star, Clock, X, ChevronRight, ExternalLink, Keyboard, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useIBCC } from '@/hooks/useIBCC';
+import { useIBCCState } from '@/contexts/IBCCContext';
 import { IBCC_CATEGORIES, MEDICAL_SYSTEM_MAP } from '@/data/ibccContent';
 import type { IBCCChapter, MedicalSystem } from '@/types/ibcc';
-import type { Patient } from '@/types/patient';
 import { IBCCChapterView } from './IBCCChapterView';
 import { cn } from '@/lib/utils';
 
-interface IBCCPanelProps {
-  currentPatient?: Patient;
-}
+// Memoized Chapter Card for better list performance
+const ChapterCard = memo(function ChapterCard({ 
+  chapter, 
+  onClick, 
+  isBookmarked,
+  matchedKeywords 
+}: { 
+  chapter: IBCCChapter; 
+  onClick: () => void;
+  isBookmarked: boolean;
+  matchedKeywords?: string[];
+}) {
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        "group p-3 rounded-lg border cursor-pointer transition-all",
+        "bg-card hover:bg-secondary/50 border-border hover:border-primary/30",
+        "hover:shadow-sm"
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm">{chapter.category.icon}</span>
+            <h3 className="font-medium text-sm truncate">{chapter.title}</h3>
+            {isBookmarked && (
+              <Star className="h-3 w-3 text-warning fill-warning flex-shrink-0" />
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground line-clamp-2">{chapter.summary}</p>
+          {matchedKeywords && matchedKeywords.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {matchedKeywords.slice(0, 3).map(kw => (
+                <Badge key={kw} variant="secondary" className="text-[10px] px-1.5 py-0">
+                  {kw}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary flex-shrink-0 mt-1" />
+      </div>
+    </div>
+  );
+});
 
-export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
+function IBCCPanelContent() {
   const {
-    isOpen,
     activeChapter,
     searchQuery,
+    setSearchQuery,
     searchResults,
+    isSearching,
     filteredChapters,
     contextSuggestions,
     bookmarkedChapters,
     recentChapters,
     activeCategory,
     activeSystem,
-    togglePanel,
     closePanel,
-    setSearchQuery,
     viewChapter,
     closeChapter,
     toggleBookmark,
@@ -44,21 +85,9 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
     isBookmarked,
     getCalculatorsForChapter,
     getChecklistsForChapter,
-  } = useIBCC(currentPatient);
+  } = useIBCCState();
 
   const [activeTab, setActiveTab] = useState<'browse' | 'bookmarks' | 'recent'>('browse');
-
-  if (!isOpen) {
-    return (
-      <Button
-        onClick={togglePanel}
-        className="fixed right-4 bottom-4 z-50 h-12 w-12 rounded-full shadow-lg bg-primary hover:bg-primary-dark"
-        title="Open IBCC Reference (Ctrl+I)"
-      >
-        <BookOpen className="h-5 w-5" />
-      </Button>
-    );
-  }
 
   // Show chapter view if a chapter is selected
   if (activeChapter) {
@@ -102,9 +131,12 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
             placeholder="Search IBCC chapters..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-secondary/50 border-0"
+            className="pl-10 pr-10 bg-secondary/50 border-0"
             autoFocus
           />
+          {isSearching && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
         </div>
       </div>
 
@@ -119,7 +151,7 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
               <Badge
                 key={chapter.id}
                 variant="outline"
-                className="cursor-pointer hover:bg-primary/10 border-primary/30 text-primary"
+                className="cursor-pointer hover:bg-primary/10 border-primary/30 text-primary transition-colors"
                 onClick={() => viewChapter(chapter)}
               >
                 {chapter.category.icon} {chapter.title}
@@ -148,12 +180,12 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
               ))}
             </div>
           </div>
-        ) : searchQuery ? (
+        ) : searchQuery && !isSearching ? (
           <div className="p-8 text-center text-muted-foreground">
             <p>No chapters found for "{searchQuery}"</p>
             <p className="text-xs mt-1">Try different keywords</p>
           </div>
-        ) : (
+        ) : !searchQuery ? (
           /* Tabs: Browse / Bookmarks / Recent */
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1">
             <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
@@ -188,7 +220,7 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
                     <Badge
                       key={cat.id}
                       variant={activeCategory === cat.id ? 'default' : 'outline'}
-                      className="cursor-pointer text-xs"
+                      className="cursor-pointer text-xs transition-colors"
                       onClick={() => setActiveCategory(activeCategory === cat.id ? null : cat.id)}
                     >
                       {cat.icon} {cat.name}
@@ -207,7 +239,7 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
                       <Badge
                         key={system}
                         variant={activeSystem === system ? 'default' : 'outline'}
-                        className="cursor-pointer text-xs"
+                        className="cursor-pointer text-xs transition-colors"
                         onClick={() => setActiveSystem(activeSystem === system ? null : system)}
                       >
                         {icon} {label}
@@ -272,7 +304,7 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
               )}
             </TabsContent>
           </Tabs>
-        )}
+        ) : null}
       </ScrollArea>
 
       {/* Footer */}
@@ -281,7 +313,7 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
           href="https://emcrit.org/ibcc/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1"
+          className="text-xs text-muted-foreground hover:text-primary inline-flex items-center gap-1 transition-colors"
         >
           Powered by EMCrit IBCC
           <ExternalLink className="h-3 w-3" />
@@ -291,49 +323,4 @@ export function IBCCPanel({ currentPatient }: IBCCPanelProps) {
   );
 }
 
-// Chapter Card Component
-function ChapterCard({ 
-  chapter, 
-  onClick, 
-  isBookmarked,
-  matchedKeywords 
-}: { 
-  chapter: IBCCChapter; 
-  onClick: () => void;
-  isBookmarked: boolean;
-  matchedKeywords?: string[];
-}) {
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "group p-3 rounded-lg border cursor-pointer transition-all",
-        "bg-card hover:bg-secondary/50 border-border hover:border-primary/30",
-        "hover:shadow-sm"
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm">{chapter.category.icon}</span>
-            <h3 className="font-medium text-sm truncate">{chapter.title}</h3>
-            {isBookmarked && (
-              <Star className="h-3 w-3 text-warning fill-warning flex-shrink-0" />
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground line-clamp-2">{chapter.summary}</p>
-          {matchedKeywords && matchedKeywords.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {matchedKeywords.slice(0, 3).map(kw => (
-                <Badge key={kw} variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {kw}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary flex-shrink-0 mt-1" />
-      </div>
-    </div>
-  );
-}
+export default memo(IBCCPanelContent);
