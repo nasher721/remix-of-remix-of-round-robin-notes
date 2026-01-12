@@ -19,7 +19,9 @@ import {
   FileSpreadsheet,
   Download,
   Settings2,
-  ChevronDown
+  ChevronDown,
+  Columns,
+  RotateCcw
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,8 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 
 interface PrintExportModalProps {
   open: boolean;
@@ -75,13 +79,15 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const [expandedCell, setExpandedCell] = useState<ExpandedCell | null>(null);
   const [editingCell, setEditingCell] = useState<ExpandedCell | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [columnWidths, setColumnWidths] = useState({
+  const defaultColumnWidths = {
     patient: 100,
-    summary: 150,
-    events: 150,
-    systems: 80,
-    notes: 120
-  });
+    summary: 180,
+    events: 180,
+    systems: 90,
+    notes: 140
+  };
+  const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
+  const [columnWidthsOpen, setColumnWidthsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
   const [patientNotes, setPatientNotes] = useState<Record<string, string>>({});
@@ -731,66 +737,118 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
         </Collapsible>
 
         {/* Column Width Controls */}
-        <div className="flex gap-4 items-center text-xs border-b pb-2 mb-2 no-print flex-wrap">
-          <span className="font-medium">Column Widths:</span>
-          <label className="flex items-center gap-1">
-            Patient:
-            <input
-              type="range"
-              min="60"
-              max="150"
-              value={columnWidths.patient}
-              onChange={(e) => setColumnWidths(prev => ({ ...prev, patient: Number(e.target.value) }))}
-              className="w-16"
-            />
-          </label>
-          <label className="flex items-center gap-1">
-            Summary:
-            <input
-              type="range"
-              min="80"
-              max="300"
-              value={columnWidths.summary}
-              onChange={(e) => setColumnWidths(prev => ({ ...prev, summary: Number(e.target.value) }))}
-              className="w-16"
-            />
-          </label>
-          <label className="flex items-center gap-1">
-            Events:
-            <input
-              type="range"
-              min="80"
-              max="300"
-              value={columnWidths.events}
-              onChange={(e) => setColumnWidths(prev => ({ ...prev, events: Number(e.target.value) }))}
-              className="w-16"
-            />
-          </label>
-          <label className="flex items-center gap-1">
-            Systems:
-            <input
-              type="range"
-              min="50"
-              max="150"
-              value={columnWidths.systems}
-              onChange={(e) => setColumnWidths(prev => ({ ...prev, systems: Number(e.target.value) }))}
-              className="w-16"
-            />
-          </label>
-          {showNotesColumn && (
-            <label className="flex items-center gap-1">
-              Notes:
-              <input
-                type="range"
-                min="80"
-                max="200"
-                value={columnWidths.notes}
-                onChange={(e) => setColumnWidths(prev => ({ ...prev, notes: Number(e.target.value) }))}
-                className="w-16"
-              />
-            </label>
-          )}
-        </div>
+        <Collapsible open={columnWidthsOpen} onOpenChange={setColumnWidthsOpen} className="border-b pb-2 mb-2">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 w-full justify-between">
+              <div className="flex items-center gap-2">
+                <Columns className="h-4 w-4" />
+                <span className="font-medium">Adjust Column Widths</span>
+              </div>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", columnWidthsOpen && "rotate-180")} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3 space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Drag sliders to adjust column widths for print preview</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setColumnWidths(defaultColumnWidths)}
+                className="h-7 text-xs gap-1"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset
+              </Button>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {isColumnEnabled("patient") && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Patient</Label>
+                    <span className="text-xs text-muted-foreground">{columnWidths.patient}px</span>
+                  </div>
+                  <Slider
+                    value={[columnWidths.patient]}
+                    onValueChange={([value]) => setColumnWidths(prev => ({ ...prev, patient: value }))}
+                    min={60}
+                    max={180}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              {isColumnEnabled("clinicalSummary") && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Summary</Label>
+                    <span className="text-xs text-muted-foreground">{columnWidths.summary}px</span>
+                  </div>
+                  <Slider
+                    value={[columnWidths.summary]}
+                    onValueChange={([value]) => setColumnWidths(prev => ({ ...prev, summary: value }))}
+                    min={100}
+                    max={400}
+                    step={10}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              {isColumnEnabled("intervalEvents") && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Events</Label>
+                    <span className="text-xs text-muted-foreground">{columnWidths.events}px</span>
+                  </div>
+                  <Slider
+                    value={[columnWidths.events]}
+                    onValueChange={([value]) => setColumnWidths(prev => ({ ...prev, events: value }))}
+                    min={100}
+                    max={400}
+                    step={10}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              {enabledSystemKeys.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Systems (each)</Label>
+                    <span className="text-xs text-muted-foreground">{columnWidths.systems}px</span>
+                  </div>
+                  <Slider
+                    value={[columnWidths.systems]}
+                    onValueChange={([value]) => setColumnWidths(prev => ({ ...prev, systems: value }))}
+                    min={50}
+                    max={180}
+                    step={5}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              {showNotesColumn && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-amber-700">Notes</Label>
+                    <span className="text-xs text-muted-foreground">{columnWidths.notes}px</span>
+                  </div>
+                  <Slider
+                    value={[columnWidths.notes]}
+                    onValueChange={([value]) => setColumnWidths(prev => ({ ...prev, notes: value }))}
+                    min={80}
+                    max={300}
+                    step={10}
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
         <Tabs defaultValue="table" className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-3">
