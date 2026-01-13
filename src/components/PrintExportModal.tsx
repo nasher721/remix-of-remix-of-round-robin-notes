@@ -116,6 +116,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [resizing, setResizing] = useState<{ column: string; startX: number; startWidth: number } | null>(null);
   const [isFullPreview, setIsFullPreview] = useState(false);
+  const [activeTab, setActiveTab] = useState("table");
   const { toast } = useToast();
 
   // Drag-to-resize handlers
@@ -1206,7 +1207,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           </CollapsibleContent>
         </Collapsible>
 
-        <Tabs defaultValue="table" className="flex-1 overflow-hidden flex flex-col">
+        <Tabs defaultValue="table" value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="table" className="flex items-center gap-2">
               <Grid3X3 className="h-4 w-4" />
@@ -1222,9 +1223,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-auto mt-4 border rounded-lg p-4 bg-white text-foreground" ref={printRef}>
-            <TabsContent value="table" className="m-0">
-              <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
+          <div className="flex-1 overflow-auto mt-4 border rounded-lg p-4 bg-white text-foreground">
+            <TabsContent value="table" className="m-0" forceMount style={{ display: activeTab === 'table' ? 'block' : 'none' }}>
+              <div ref={activeTab === 'table' ? printRef : undefined}>
+                <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
                 <div>
                   <h1 className="text-xl font-bold text-primary">🏥 Patient Rounding Report</h1>
                   <div className="text-xs text-muted-foreground mt-1">Comprehensive patient overview</div>
@@ -1320,10 +1322,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                   </tbody>
                 </table>
               </div>
+              </div>
             </TabsContent>
 
-            <TabsContent value="cards" className="m-0">
-              <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
+            <TabsContent value="cards" className="m-0" forceMount style={{ display: activeTab === 'cards' ? 'block' : 'none' }}>
+              <div ref={activeTab === 'cards' ? printRef : undefined}>
+                <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
                 <div>
                   <h1 className="text-xl font-bold text-primary">🏥 Patient Rounding Report</h1>
                   <div className="text-xs text-muted-foreground mt-1">Card-based patient summary</div>
@@ -1412,10 +1416,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                   </div>
                 ))}
               </div>
+              </div>
             </TabsContent>
 
-            <TabsContent value="list" className="m-0">
-              <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
+            <TabsContent value="list" className="m-0" forceMount style={{ display: activeTab === 'list' ? 'block' : 'none' }}>
+              <div ref={activeTab === 'list' ? printRef : undefined}>
+                <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
                 <div>
                   <h1 className="text-xl font-bold text-primary">🏥 Patient Rounding Report</h1>
                   <div className="text-xs text-muted-foreground mt-1">Detailed patient documentation</div>
@@ -1513,6 +1519,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     )}
                   </div>
                 ))}
+              </div>
               </div>
             </TabsContent>
           </div>
