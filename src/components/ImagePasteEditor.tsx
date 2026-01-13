@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import { ImageLightbox } from "./ImageLightbox";
+import { DictationButton } from "./DictationButton";
 
 interface ImagePasteEditorProps {
   value: string;
@@ -61,6 +62,43 @@ export const ImagePasteEditor = ({
 
   // Extract images from current value
   const imageUrls = useMemo(() => extractImageUrls(value), [value]);
+
+  // Handle dictation transcript insertion
+  const handleDictationTranscript = useCallback((text: string) => {
+    if (!editorRef.current) return;
+    
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 
+      ? selection.getRangeAt(0) 
+      : null;
+    
+    // Create content with optional change tracking
+    let contentHtml = text;
+    if (changeTracking?.enabled) {
+      contentHtml = changeTracking.wrapWithMarkup(text);
+    }
+    
+    if (range && editorRef.current.contains(range.startContainer)) {
+      range.deleteContents();
+      const temp = document.createElement('div');
+      temp.innerHTML = contentHtml + ' ';
+      const fragment = document.createDocumentFragment();
+      while (temp.firstChild) {
+        fragment.appendChild(temp.firstChild);
+      }
+      range.insertNode(fragment);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } else {
+      // Insert at end if no selection
+      editorRef.current.innerHTML += ' ' + contentHtml + ' ';
+    }
+    
+    isInternalUpdate.current = true;
+    onChange(editorRef.current.innerHTML);
+    editorRef.current.focus();
+  }, [changeTracking, onChange]);
 
   const execCommand = useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
@@ -451,18 +489,31 @@ export const ImagePasteEditor = ({
           <ImageIcon className="h-3 w-3" />
           <span>Paste or drop images</span>
         </div>
-        {isUploading && (
-          <div className="flex items-center gap-1 ml-auto text-[10px] text-muted-foreground">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            <span>Uploading...</span>
-          </div>
-        )}
-        {changeTracking?.enabled && !isUploading && (
-          <div className="flex items-center gap-1 ml-auto text-[10px] text-orange-600">
-            <Highlighter className="h-3 w-3" />
-            <span>Marking</span>
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-1">
+          <DictationButton 
+            onTranscript={handleDictationTranscript}
+            size="sm"
+            className="h-6 w-6"
+          />
+          {isUploading && (
+            <>
+              <div className="w-px h-4 bg-border mx-1" />
+              <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Uploading...</span>
+              </div>
+            </>
+          )}
+          {changeTracking?.enabled && !isUploading && (
+            <>
+              <div className="w-px h-4 bg-border mx-1" />
+              <div className="flex items-center gap-1 text-[10px] text-orange-600">
+                <Highlighter className="h-3 w-3" />
+                <span>Marking</span>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Thumbnail Gallery */}

@@ -5,6 +5,7 @@ import { Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter
 import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
+import { DictationButton } from "./DictationButton";
 // Rich text editor with formatting, autotexts, and optional change tracking
 
 interface RichTextEditorProps {
@@ -39,6 +40,43 @@ export const RichTextEditor = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const lastWordRef = useRef("");
   const isInternalUpdate = useRef(false);
+
+  // Handle dictation transcript insertion
+  const handleDictationTranscript = useCallback((text: string) => {
+    if (!editorRef.current) return;
+    
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 
+      ? selection.getRangeAt(0) 
+      : null;
+    
+    // Create content with optional change tracking
+    let contentHtml = text;
+    if (changeTracking?.enabled) {
+      contentHtml = changeTracking.wrapWithMarkup(text);
+    }
+    
+    if (range && editorRef.current.contains(range.startContainer)) {
+      range.deleteContents();
+      const temp = document.createElement('div');
+      temp.innerHTML = contentHtml + ' ';
+      const fragment = document.createDocumentFragment();
+      while (temp.firstChild) {
+        fragment.appendChild(temp.firstChild);
+      }
+      range.insertNode(fragment);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } else {
+      // Insert at end if no selection
+      editorRef.current.innerHTML += ' ' + contentHtml + ' ';
+    }
+    
+    isInternalUpdate.current = true;
+    onChange(editorRef.current.innerHTML);
+    editorRef.current.focus();
+  }, [changeTracking, onChange]);
 
   const execCommand = useCallback((command: string, cmdValue?: string) => {
     document.execCommand(command, false, cmdValue);
@@ -422,6 +460,11 @@ export const RichTextEditor = ({
           </Button>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <DictationButton 
+            onTranscript={handleDictationTranscript}
+            size="sm"
+          />
+          <div className="w-px h-5 bg-border" />
           {changeTracking?.enabled && (
             <div className="flex items-center gap-1 text-xs text-orange-600">
               <Highlighter className="h-3 w-3" />
