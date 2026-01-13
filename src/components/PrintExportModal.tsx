@@ -1035,11 +1035,15 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               grid-template-columns: repeat(4, 1fr);
               gap: 8px;
               margin-top: 12px;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
             .system-item {
               border: 2px solid #1e40af;
               border-radius: 6px;
               overflow: hidden;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
             .system-header {
               background: #1e40af;
@@ -1128,6 +1132,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             }
             .list-view .systems-section {
               margin-bottom: 16px;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
             .list-view .systems-header {
               background: #1e40af;
@@ -1146,12 +1152,16 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               margin-top: 0;
               grid-template-columns: repeat(5, 1fr);
               gap: 0;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
             .list-view .systems-section .system-item {
               border: none;
               border-right: 1px solid #d1d5db;
               border-bottom: 1px solid #d1d5db;
               border-radius: 0;
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
             
             .empty {
@@ -1182,7 +1192,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               .imaging-header { background: #3b82f6 !important; }
               .labs-header { background: #22c55e !important; }
               .notes-header { background: #f59e0b !important; }
-              tr, .patient-card, .patient-item { page-break-inside: avoid !important; }
+              tr, .patient-card, .patient-item { page-break-inside: avoid !important; break-inside: avoid !important; }
+              .systems-grid, .systems-section, .system-item { page-break-inside: avoid !important; break-inside: avoid !important; }
+              .section, .two-col-row, .imaging-labs-row { page-break-inside: avoid !important; break-inside: avoid !important; }
             }
           </style>
         </head>
