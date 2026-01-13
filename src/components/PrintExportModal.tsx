@@ -96,7 +96,22 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const [columnWidths, setColumnWidths] = useState(defaultColumnWidths);
   const [columnWidthsOpen, setColumnWidthsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [columns, setColumns] = useState<ColumnConfig[]>(defaultColumns);
+  const [columns, setColumns] = useState<ColumnConfig[]>(() => {
+    const saved = localStorage.getItem('printColumnPrefs');
+    if (saved) {
+      try {
+        const savedCols = JSON.parse(saved) as ColumnConfig[];
+        // Merge saved preferences with defaults (in case new columns were added)
+        return defaultColumns.map(col => {
+          const savedCol = savedCols.find(s => s.key === col.key);
+          return savedCol ? { ...col, enabled: savedCol.enabled } : col;
+        });
+      } catch {
+        return defaultColumns;
+      }
+    }
+    return defaultColumns;
+  });
   const [patientNotes, setPatientNotes] = useState<Record<string, string>>({});
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [resizing, setResizing] = useState<{ column: string; startX: number; startWidth: number } | null>(null);
@@ -170,19 +185,31 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const showNotesColumn = columns.find(c => c.key === "notes")?.enabled ?? false;
 
   const toggleColumn = (key: string) => {
-    setColumns(prev => prev.map(col => 
-      col.key === key ? { ...col, enabled: !col.enabled } : col
-    ));
+    setColumns(prev => {
+      const updated = prev.map(col => 
+        col.key === key ? { ...col, enabled: !col.enabled } : col
+      );
+      localStorage.setItem('printColumnPrefs', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const selectAllColumns = () => {
-    setColumns(prev => prev.map(col => ({ ...col, enabled: true })));
+    setColumns(prev => {
+      const updated = prev.map(col => ({ ...col, enabled: true }));
+      localStorage.setItem('printColumnPrefs', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const deselectAllColumns = () => {
-    setColumns(prev => prev.map(col => 
-      col.key === "patient" ? col : { ...col, enabled: false }
-    ));
+    setColumns(prev => {
+      const updated = prev.map(col => 
+        col.key === "patient" ? col : { ...col, enabled: false }
+      );
+      localStorage.setItem('printColumnPrefs', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleCellClick = (patientId: string, field: string) => {
