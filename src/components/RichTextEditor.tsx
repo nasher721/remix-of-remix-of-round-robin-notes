@@ -5,6 +5,7 @@ import { Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter
 import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
+// Rich text editor with formatting, autotexts, and optional change tracking
 
 interface RichTextEditorProps {
   value: string;
