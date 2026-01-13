@@ -62,6 +62,8 @@ const defaultColumns: ColumnConfig[] = [
   { key: "patient", label: "Patient/Bed", enabled: true },
   { key: "clinicalSummary", label: "Clinical Summary", enabled: true },
   { key: "intervalEvents", label: "Interval Events", enabled: true },
+  { key: "imaging", label: "Imaging", enabled: true },
+  { key: "labs", label: "Labs", enabled: true },
   ...systemKeys.map(key => ({ key: `systems.${key}`, label: systemLabels[key], enabled: true })),
   { key: "notes", label: "Notes (blank for rounding)", enabled: false },
 ];
@@ -84,8 +86,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const [editValue, setEditValue] = useState("");
   const defaultColumnWidths = {
     patient: 100,
-    summary: 180,
-    events: 180,
+    summary: 150,
+    events: 150,
+    imaging: 120,
+    labs: 120,
     systems: 90,
     notes: 140
   };
@@ -217,6 +221,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const getCellValue = (patient: Patient, field: string): string => {
     if (field === "clinicalSummary") return patient.clinicalSummary;
     if (field === "intervalEvents") return patient.intervalEvents;
+    if (field === "imaging") return patient.imaging;
+    if (field === "labs") return patient.labs;
     if (field === "notes") return patientNotes[patient.id] || "";
     if (field.startsWith("systems.")) {
       const systemKey = field.replace("systems.", "") as keyof typeof patient.systems;
@@ -245,6 +251,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
       }
       if (isColumnEnabled("intervalEvents")) {
         row["Interval Events"] = stripHtml(patient.intervalEvents);
+      }
+      if (isColumnEnabled("imaging")) {
+        row["Imaging"] = stripHtml(patient.imaging);
+      }
+      if (isColumnEnabled("labs")) {
+        row["Labs"] = stripHtml(patient.labs);
       }
       
       systemKeys.forEach(key => {
@@ -306,6 +318,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     if (isColumnEnabled("patient")) headers.push("Patient", "Bed");
     if (isColumnEnabled("clinicalSummary")) headers.push("Summary");
     if (isColumnEnabled("intervalEvents")) headers.push("Events");
+    if (isColumnEnabled("imaging")) headers.push("Imaging");
+    if (isColumnEnabled("labs")) headers.push("Labs");
     systemKeys.forEach(key => {
       if (isColumnEnabled(`systems.${key}`)) headers.push(systemLabels[key]);
     });
@@ -324,6 +338,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
       }
       if (isColumnEnabled("intervalEvents")) {
         row.push(stripHtml(patient.intervalEvents));
+      }
+      if (isColumnEnabled("imaging")) {
+        row.push(stripHtml(patient.imaging));
+      }
+      if (isColumnEnabled("labs")) {
+        row.push(stripHtml(patient.labs));
       }
       systemKeys.forEach(key => {
         if (isColumnEnabled(`systems.${key}`)) {
@@ -404,6 +424,28 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
         const eventsLines = doc.splitTextToSize(stripHtml(patient.intervalEvents), 270);
         doc.text(eventsLines, 14, yPos);
         yPos += eventsLines.length * 4 + 5;
+      }
+      
+      // Imaging
+      if (isColumnEnabled("imaging") && patient.imaging) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Imaging:", 14, yPos);
+        yPos += 5;
+        doc.setFont("helvetica", "normal");
+        const imagingLines = doc.splitTextToSize(stripHtml(patient.imaging), 270);
+        doc.text(imagingLines, 14, yPos);
+        yPos += imagingLines.length * 4 + 5;
+      }
+      
+      // Labs
+      if (isColumnEnabled("labs") && patient.labs) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Labs:", 14, yPos);
+        yPos += 5;
+        doc.setFont("helvetica", "normal");
+        const labsLines = doc.splitTextToSize(stripHtml(patient.labs), 270);
+        doc.text(labsLines, 14, yPos);
+        yPos += labsLines.length * 4 + 5;
       }
       
       // Systems
@@ -789,6 +831,16 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                       Interval Events
                     </th>
                   )}
+                  {isColumnEnabled("imaging") && (
+                    <th className="border border-border p-3 text-left font-bold" style={{ width: columnWidths.imaging }}>
+                      Imaging
+                    </th>
+                  )}
+                  {isColumnEnabled("labs") && (
+                    <th className="border border-border p-3 text-left font-bold" style={{ width: columnWidths.labs }}>
+                      Labs
+                    </th>
+                  )}
                   {enabledSystemKeys.map(key => (
                     <th 
                       key={key} 
@@ -830,6 +882,22 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                         <div 
                           className="text-sm whitespace-pre-wrap break-words"
                           dangerouslySetInnerHTML={{ __html: patient.intervalEvents }}
+                        />
+                      </td>
+                    )}
+                    {isColumnEnabled("imaging") && (
+                      <td className="border border-border p-3 align-top">
+                        <div 
+                          className="text-sm whitespace-pre-wrap break-words"
+                          dangerouslySetInnerHTML={{ __html: patient.imaging }}
+                        />
+                      </td>
+                    )}
+                    {isColumnEnabled("labs") && (
+                      <td className="border border-border p-3 align-top">
+                        <div 
+                          className="text-sm whitespace-pre-wrap break-words"
+                          dangerouslySetInnerHTML={{ __html: patient.labs }}
                         />
                       </td>
                     )}
@@ -1025,6 +1093,40 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                 </div>
               )}
               
+              {isColumnEnabled("imaging") && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-blue-600">Imaging</Label>
+                    <span className="text-xs text-muted-foreground">{columnWidths.imaging}px</span>
+                  </div>
+                  <Slider
+                    value={[columnWidths.imaging]}
+                    onValueChange={([value]) => setColumnWidths(prev => ({ ...prev, imaging: value }))}
+                    min={80}
+                    max={300}
+                    step={10}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
+              {isColumnEnabled("labs") && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium text-green-600">Labs</Label>
+                    <span className="text-xs text-muted-foreground">{columnWidths.labs}px</span>
+                  </div>
+                  <Slider
+                    value={[columnWidths.labs]}
+                    onValueChange={([value]) => setColumnWidths(prev => ({ ...prev, labs: value }))}
+                    min={80}
+                    max={300}
+                    step={10}
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
               {enabledSystemKeys.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -1114,6 +1216,16 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                           Interval Events
                         </ResizableHeader>
                       )}
+                      {isColumnEnabled("imaging") && (
+                        <ResizableHeader column="imaging" width={columnWidths.imaging}>
+                          Imaging
+                        </ResizableHeader>
+                      )}
+                      {isColumnEnabled("labs") && (
+                        <ResizableHeader column="labs" width={columnWidths.labs}>
+                          Labs
+                        </ResizableHeader>
+                      )}
                       {enabledSystemKeys.map((key, idx) => (
                         <ResizableHeader 
                           key={key} 
@@ -1145,6 +1257,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                         )}
                         {isColumnEnabled("intervalEvents") && (
                           <ExpandableCell patient={patient} field="intervalEvents" className="border border-border" />
+                        )}
+                        {isColumnEnabled("imaging") && (
+                          <ExpandableCell patient={patient} field="imaging" className="border border-border" />
+                        )}
+                        {isColumnEnabled("labs") && (
+                          <ExpandableCell patient={patient} field="labs" className="border border-border" />
                         )}
                         {enabledSystemKeys.map(key => (
                           <ExpandableCell 
@@ -1200,6 +1318,28 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                         />
                       </div>
                     )}
+                    
+                    {/* Imaging & Labs row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                      {isColumnEnabled("imaging") && patient.imaging && (
+                        <div>
+                          <div className="text-xs font-bold text-primary uppercase mb-1">Imaging</div>
+                          <div 
+                            className="text-sm bg-blue-50/50 p-3 rounded border-l-4 border-blue-400"
+                            dangerouslySetInnerHTML={{ __html: patient.imaging }}
+                          />
+                        </div>
+                      )}
+                      {isColumnEnabled("labs") && patient.labs && (
+                        <div>
+                          <div className="text-xs font-bold text-primary uppercase mb-1">Labs</div>
+                          <div 
+                            className="text-sm bg-green-50/50 p-3 rounded border-l-4 border-green-400"
+                            dangerouslySetInnerHTML={{ __html: patient.labs }}
+                          />
+                        </div>
+                      )}
+                    </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                       {enabledSystemKeys.map(key => {
@@ -1269,6 +1409,28 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                           <div 
                             className="mt-1 bg-muted/30 p-3 rounded text-sm border-l-4 border-primary"
                             dangerouslySetInnerHTML={{ __html: patient.intervalEvents || '<span class="text-muted-foreground italic">None documented</span>' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Imaging & Labs row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      {isColumnEnabled("imaging") && (
+                        <div>
+                          <span className="font-bold text-sm text-blue-600 uppercase">Imaging</span>
+                          <div 
+                            className="mt-1 bg-blue-50/50 p-3 rounded text-sm border-l-4 border-blue-400"
+                            dangerouslySetInnerHTML={{ __html: patient.imaging || '<span class="text-muted-foreground italic">None documented</span>' }}
+                          />
+                        </div>
+                      )}
+                      {isColumnEnabled("labs") && (
+                        <div>
+                          <span className="font-bold text-sm text-green-600 uppercase">Labs</span>
+                          <div 
+                            className="mt-1 bg-green-50/50 p-3 rounded text-sm border-l-4 border-green-400"
+                            dangerouslySetInnerHTML={{ __html: patient.labs || '<span class="text-muted-foreground italic">None documented</span>' }}
                           />
                         </div>
                       )}
