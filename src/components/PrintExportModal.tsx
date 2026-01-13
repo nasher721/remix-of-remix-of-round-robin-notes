@@ -581,14 +581,21 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { 
-              font-family: ${fontCSS}; 
-              font-size: ${baseFontSize}px; 
-              line-height: 1.4; 
-              color: #1a1a1a; 
+              font-family: ${fontCSS} !important; 
+              font-size: ${baseFontSize}px !important; 
+              line-height: 1.4 !important; 
+              color: #1a1a1a !important; 
               padding: 12px;
               background: #fff;
             }
-            h1 { font-size: ${headerFontSize}px; margin-bottom: 6px; color: #1e40af; font-weight: 600; }
+            /* CRITICAL: Override ALL inherited inline styles from rich text editor */
+            body * {
+              font-family: inherit !important;
+              font-size: inherit !important;
+              line-height: inherit !important;
+            }
+            /* Reset specific element sizes */
+            h1 { font-size: ${headerFontSize}px !important; margin-bottom: 6px; color: #1e40af; font-weight: 600; }
             .header { 
               display: flex; 
               justify-content: space-between; 
@@ -597,7 +604,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               border-bottom: 2px solid #1e40af; 
               padding-bottom: 8px; 
             }
-            .header-info { font-size: ${smallerFontSize}px; color: #4b5563; }
+            .header-info { font-size: ${smallerFontSize}px !important; color: #4b5563; }
             .report-meta { 
               background: #f1f5f9; 
               padding: 8px 12px; 
@@ -605,7 +612,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               margin-bottom: 12px;
               display: flex;
               gap: 24px;
-              font-size: ${smallerFontSize}px;
+              font-size: ${smallerFontSize}px !important;
             }
             table { 
               width: 100%; 
@@ -626,21 +633,25 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             }
             th { 
               background: #1e40af; 
-              color: #fff;
+              color: #fff !important;
               font-weight: 600; 
-              font-size: ${smallerFontSize}px; 
+              font-size: ${smallerFontSize}px !important; 
               text-transform: uppercase;
               letter-spacing: 0.3px;
               white-space: nowrap;
             }
-            td { font-size: ${baseFontSize}px; background: #fff; line-height: 1.4; }
+            td { font-size: ${baseFontSize}px !important; background: #fff; line-height: 1.4; }
+            /* Override inline styles on all content inside cells */
+            td *, th * { font-size: inherit !important; font-family: inherit !important; }
             tr:nth-child(even) td { background: #f8fafc; }
-            .patient-name { font-weight: 700; color: #1e40af; font-size: ${patientNameSize}px; }
-            .bed { color: #6b7280; font-size: ${smallerFontSize}px; display: block; margin-top: 2px; }
-            .content { 
+            .patient-name { font-weight: 700; color: #1e40af; font-size: ${patientNameSize}px !important; }
+            .bed { color: #6b7280; font-size: ${smallerFontSize}px !important; display: block; margin-top: 2px; }
+            .content, .content * { 
               white-space: pre-wrap !important;
               word-break: break-word;
               overflow-wrap: anywhere;
+              font-size: inherit !important;
+              font-family: inherit !important;
             }
             .line-clamp-3 { 
               -webkit-line-clamp: unset !important; 
@@ -648,14 +659,85 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               overflow: visible !important;
               max-height: none !important;
             }
-            .system-label { font-weight: 600; color: #374151; display: block; font-size: ${smallerFontSize}px; margin-bottom: 2px; }
+            .system-label { font-weight: 600; color: #374151; display: block; font-size: ${smallerFontSize}px !important; margin-bottom: 2px; }
             .no-break { page-break-inside: avoid; }
             .notes-cell { background: #fffbeb !important; }
             /* Prevent row breaks */
             tr { page-break-inside: avoid; break-inside: avoid; }
+            /* Override all span, div, p elements inside content areas */
+            [dangerouslySetInnerHTML] *, div[class*="bg-"] *, .section-content * {
+              font-size: inherit !important;
+              font-family: inherit !important;
+              line-height: inherit !important;
+            }
+            /* Card view styling */
+            .card-view { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .patient-card { 
+              border: 2px solid #1e40af; 
+              border-radius: 6px;
+              padding: 8px; 
+              page-break-inside: avoid; 
+              background: #fff;
+            }
+            .patient-card h3 { 
+              font-size: ${patientNameSize + 2}px !important; 
+              border-bottom: 2px solid #1e40af; 
+              padding-bottom: 4px; 
+              margin-bottom: 6px; 
+              color: #1e40af;
+            }
+            .section { margin-bottom: 6px; }
+            .section-title { 
+              font-weight: 700; 
+              font-size: ${smallerFontSize}px !important; 
+              color: #1e40af; 
+              margin-bottom: 2px;
+              text-transform: uppercase;
+            }
+            .section-content { 
+              font-size: ${baseFontSize}px !important; 
+              background: #f8fafc; 
+              padding: 4px 6px; 
+              border-radius: 3px;
+              border-left: 3px solid #1e40af;
+            }
+            .systems-grid { 
+              display: grid; 
+              grid-template-columns: repeat(5, 1fr); 
+              gap: 4px; 
+              font-size: ${Math.max(baseFontSize - 2, 7)}px !important; 
+            }
+            .system-item { 
+              border: 1px solid #e5e7eb; 
+              padding: 4px; 
+              background: #f8fafc; 
+              border-radius: 3px;
+            }
+            .system-item .label { 
+              font-weight: 700; 
+              font-size: ${Math.max(baseFontSize - 3, 6)}px !important; 
+              color: #1e40af; 
+              text-transform: uppercase;
+              margin-bottom: 2px;
+            }
+            .list-view .patient-item { 
+              border-bottom: 2px solid #e5e7eb; 
+              padding: 8px 0; 
+              page-break-inside: avoid; 
+            }
+            .empty { color: #9ca3af; font-style: italic; }
+            .footer {
+              margin-top: 10px;
+              padding-top: 6px;
+              border-top: 1px solid #d1d5db;
+              font-size: ${Math.max(baseFontSize - 2, 7)}px !important;
+              color: #6b7280;
+              text-align: center;
+            }
             @media print {
               @page { size: landscape; margin: 0.4in; }
               body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              body, body * { font-family: ${fontCSS} !important; }
               .no-print { display: none !important; }
               th { background: #1e40af !important; color: #fff !important; -webkit-print-color-adjust: exact; }
               tr:nth-child(even) td { background: #f8fafc !important; }
@@ -678,69 +760,6 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
-            }
-            .card-view { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-            .patient-card { 
-              border: 2px solid #1e40af; 
-              border-radius: 6px;
-              padding: 8px; 
-              page-break-inside: avoid; 
-              background: #fff;
-            }
-            .patient-card h3 { 
-              font-size: ${patientNameSize + 2}px; 
-              border-bottom: 2px solid #1e40af; 
-              padding-bottom: 4px; 
-              margin-bottom: 6px; 
-              color: #1e40af;
-            }
-            .section { margin-bottom: 6px; }
-            .section-title { 
-              font-weight: 700; 
-              font-size: ${smallerFontSize}px; 
-              color: #1e40af; 
-              margin-bottom: 2px;
-              text-transform: uppercase;
-            }
-            .section-content { 
-              font-size: ${baseFontSize}px; 
-              background: #f8fafc; 
-              padding: 4px 6px; 
-              border-radius: 3px;
-              border-left: 3px solid #1e40af;
-            }
-            .systems-grid { 
-              display: grid; 
-              grid-template-columns: repeat(5, 1fr); 
-              gap: 4px; 
-              font-size: ${Math.max(baseFontSize - 2, 7)}px; 
-            }
-            .system-item { 
-              border: 1px solid #e5e7eb; 
-              padding: 4px; 
-              background: #f8fafc; 
-              border-radius: 3px;
-            }
-            .system-item .label { 
-              font-weight: 700; 
-              font-size: ${Math.max(baseFontSize - 3, 6)}px; 
-              color: #1e40af; 
-              text-transform: uppercase;
-              margin-bottom: 2px;
-            }
-            .list-view .patient-item { 
-              border-bottom: 2px solid #e5e7eb; 
-              padding: 8px 0; 
-              page-break-inside: avoid; 
-            }
-            .empty { color: #9ca3af; font-style: italic; }
-            .footer {
-              margin-top: 10px;
-              padding-top: 6px;
-              border-top: 1px solid #d1d5db;
-              font-size: ${Math.max(baseFontSize - 2, 7)}px;
-              color: #6b7280;
-              text-align: center;
             }
           </style>
         </head>
@@ -1329,9 +1348,28 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           </TabsList>
 
           <div 
-            className="flex-1 overflow-auto mt-4 border rounded-lg p-4 bg-white text-foreground"
+            className="flex-1 overflow-auto mt-4 border rounded-lg p-4 bg-white text-foreground print-content-wrapper"
             style={{ fontFamily: getFontFamilyCSS(), fontSize: `${printFontSize}px` }}
           >
+            {/* CSS to force override all inline styles from rich text content */}
+            <style>{`
+              .print-content-wrapper * {
+                font-family: inherit !important;
+                font-size: inherit !important;
+              }
+              .print-content-wrapper [style*="font-size"] {
+                font-size: inherit !important;
+              }
+              .print-content-wrapper [style*="font-family"] {
+                font-family: inherit !important;
+              }
+              .print-content-wrapper span, 
+              .print-content-wrapper p, 
+              .print-content-wrapper div:not(.font-bold):not([class*="text-"]) {
+                font-size: inherit !important;
+                font-family: inherit !important;
+              }
+            `}</style>
             <TabsContent value="table" className="m-0" forceMount style={{ display: activeTab === 'table' ? 'block' : 'none' }}>
               <div ref={activeTab === 'table' ? printRef : undefined}>
                 <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
