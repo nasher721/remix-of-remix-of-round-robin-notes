@@ -817,9 +817,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
       >
         <div 
           className={cn(
-            "text-xs whitespace-pre-wrap break-words",
+            "whitespace-pre-wrap break-words",
             !expanded && "line-clamp-3"
           )}
+          style={{ fontSize: 'inherit' }}
           dangerouslySetInnerHTML={{ __html: expanded ? value : plainText }}
         />
         {plainText && plainText.length > 50 && (
@@ -1335,21 +1336,21 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               <div ref={activeTab === 'table' ? printRef : undefined}>
                 <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
                 <div>
-                  <h1 className="text-xl font-bold text-primary">🏥 Patient Rounding Report</h1>
-                  <div className="text-xs text-muted-foreground mt-1">Comprehensive patient overview</div>
+                  <h1 className="font-bold text-primary" style={{ fontSize: `${printFontSize + 6}px` }}>🏥 Patient Rounding Report</h1>
+                  <div className="text-muted-foreground mt-1" style={{ fontSize: `${printFontSize - 1}px` }}>Comprehensive patient overview</div>
                 </div>
                 <div className="text-right">
                   <div className="font-medium">{dateStr}</div>
-                  <div className="text-xs text-muted-foreground">{timeStr} • {patients.length} patients</div>
+                  <div className="text-muted-foreground" style={{ fontSize: `${printFontSize - 1}px` }}>{timeStr} • {patients.length} patients</div>
                 </div>
               </div>
               
-              <div className="text-xs text-muted-foreground mb-3 no-print bg-muted/30 p-2 rounded">
+              <div className="text-muted-foreground mb-3 no-print bg-muted/30 p-2 rounded" style={{ fontSize: `${printFontSize - 1}px` }}>
                 💡 Click any cell to expand/collapse • {isEditMode && "Double-click to edit •"} Drag column edges to resize
               </div>
               
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-xs" style={{ tableLayout: 'fixed' }}>
+                <table className="w-full border-collapse" style={{ tableLayout: 'fixed', fontSize: 'inherit' }}>
                   <thead>
                     <tr className="bg-primary text-primary-foreground">
                       {isColumnEnabled("patient") && (
@@ -1382,7 +1383,6 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                           key={key} 
                           column="systems" 
                           width={columnWidths.systems}
-                          className="text-[10px]"
                         >
                           {systemLabels[key]}
                         </ResizableHeader>
@@ -1399,8 +1399,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                       <tr key={patient.id} className={cn("border-b", idx % 2 === 0 ? "bg-white" : "bg-muted/20")}>
                         {isColumnEnabled("patient") && (
                           <td className="border border-border p-2 align-top">
-                            <div className="font-bold text-sm text-primary">{patient.name || 'Unnamed'}</div>
-                            <div className="text-[10px] text-muted-foreground">Bed: {patient.bed || 'N/A'}</div>
+                            <div className="font-bold text-primary" style={{ fontSize: `${printFontSize + 1}px` }}>{patient.name || 'Unnamed'}</div>
+                            <div className="text-muted-foreground" style={{ fontSize: `${printFontSize - 1}px` }}>Bed: {patient.bed || 'N/A'}</div>
                           </td>
                         )}
                         {isColumnEnabled("clinicalSummary") && (
@@ -1436,27 +1436,27 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               <div ref={activeTab === 'cards' ? printRef : undefined}>
                 <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
                 <div>
-                  <h1 className="text-xl font-bold text-primary">🏥 Patient Rounding Report</h1>
-                  <div className="text-xs text-muted-foreground mt-1">Card-based patient summary</div>
+                  <h1 className="font-bold text-primary" style={{ fontSize: `${printFontSize + 6}px` }}>🏥 Patient Rounding Report</h1>
+                  <div className="text-muted-foreground mt-1" style={{ fontSize: `${printFontSize - 1}px` }}>Card-based patient summary</div>
                 </div>
                 <div className="text-right">
                   <div className="font-medium">{dateStr}</div>
-                  <div className="text-xs text-muted-foreground">{timeStr} • {patients.length} patients</div>
+                  <div className="text-muted-foreground" style={{ fontSize: `${printFontSize - 1}px` }}>{timeStr} • {patients.length} patients</div>
                 </div>
               </div>
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {patients.map((patient) => (
                   <div key={patient.id} className="border-2 border-primary rounded-lg p-4 bg-card shadow-sm break-inside-avoid">
-                    <h3 className="font-bold text-base border-b-2 border-primary pb-2 mb-4 text-primary">
+                    <h3 className="font-bold border-b-2 border-primary pb-2 mb-4 text-primary" style={{ fontSize: `${printFontSize + 2}px` }}>
                       {patient.name || 'Unnamed'} {patient.bed && `• Bed ${patient.bed}`}
                     </h3>
                     
                     {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
                       <div className="mb-4">
-                        <div className="text-xs font-bold text-primary uppercase mb-1">Clinical Summary</div>
+                        <div className="font-bold text-primary uppercase mb-1" style={{ fontSize: `${printFontSize - 1}px` }}>Clinical Summary</div>
                         <div 
-                          className="text-sm bg-muted/30 p-3 rounded border-l-4 border-primary"
+                          className="bg-muted/30 p-3 rounded border-l-4 border-primary"
                           dangerouslySetInnerHTML={{ __html: patient.clinicalSummary }}
                         />
                       </div>
@@ -1464,9 +1464,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     
                     {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
                       <div className="mb-4">
-                        <div className="text-xs font-bold text-primary uppercase mb-1">Interval Events</div>
+                        <div className="font-bold text-primary uppercase mb-1" style={{ fontSize: `${printFontSize - 1}px` }}>Interval Events</div>
                         <div 
-                          className="text-sm bg-muted/30 p-3 rounded border-l-4 border-primary"
+                          className="bg-muted/30 p-3 rounded border-l-4 border-primary"
                           dangerouslySetInnerHTML={{ __html: patient.intervalEvents }}
                         />
                       </div>
@@ -1476,18 +1476,18 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                       {isColumnEnabled("imaging") && patient.imaging && (
                         <div>
-                          <div className="text-xs font-bold text-primary uppercase mb-1">Imaging</div>
+                          <div className="font-bold text-primary uppercase mb-1" style={{ fontSize: `${printFontSize - 1}px` }}>Imaging</div>
                           <div 
-                            className="text-sm bg-blue-50/50 p-3 rounded border-l-4 border-blue-400"
+                            className="bg-blue-50/50 p-3 rounded border-l-4 border-blue-400"
                             dangerouslySetInnerHTML={{ __html: patient.imaging }}
                           />
                         </div>
                       )}
                       {isColumnEnabled("labs") && patient.labs && (
                         <div>
-                          <div className="text-xs font-bold text-primary uppercase mb-1">Labs</div>
+                          <div className="font-bold text-primary uppercase mb-1" style={{ fontSize: `${printFontSize - 1}px` }}>Labs</div>
                           <div 
-                            className="text-sm bg-green-50/50 p-3 rounded border-l-4 border-green-400"
+                            className="bg-green-50/50 p-3 rounded border-l-4 border-green-400"
                             dangerouslySetInnerHTML={{ __html: patient.labs }}
                           />
                         </div>
@@ -1499,8 +1499,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                         const value = patient.systems[key as keyof typeof patient.systems];
                         if (!value) return null;
                         return (
-                          <div key={key} className="text-xs border rounded p-2 bg-muted/20">
-                            <div className="font-bold text-[10px] text-primary uppercase mb-1">{systemLabels[key]}</div>
+                          <div key={key} className="border rounded p-2 bg-muted/20">
+                            <div className="font-bold text-primary uppercase mb-1" style={{ fontSize: `${printFontSize - 2}px` }}>{systemLabels[key]}</div>
                             <div dangerouslySetInnerHTML={{ __html: value }} />
                           </div>
                         );
@@ -1509,7 +1509,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     
                     {showNotesColumn && (
                       <div className="mt-4 p-3 bg-amber-50/50 rounded border border-amber-200">
-                        <div className="text-xs font-bold text-amber-700 uppercase mb-1">Rounding Notes</div>
+                        <div className="font-bold text-amber-700 uppercase mb-1" style={{ fontSize: `${printFontSize - 1}px` }}>Rounding Notes</div>
                         <div className="min-h-[60px] w-full relative">
                           {[...Array(4)].map((_, i) => (
                             <div 
@@ -1530,12 +1530,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               <div ref={activeTab === 'list' ? printRef : undefined}>
                 <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
                 <div>
-                  <h1 className="text-xl font-bold text-primary">🏥 Patient Rounding Report</h1>
-                  <div className="text-xs text-muted-foreground mt-1">Detailed patient documentation</div>
+                  <h1 className="font-bold text-primary" style={{ fontSize: `${printFontSize + 6}px` }}>🏥 Patient Rounding Report</h1>
+                  <div className="text-muted-foreground mt-1" style={{ fontSize: `${printFontSize - 1}px` }}>Detailed patient documentation</div>
                 </div>
                 <div className="text-right">
                   <div className="font-medium">{dateStr}</div>
-                  <div className="text-xs text-muted-foreground">{timeStr} • {patients.length} patients</div>
+                  <div className="text-muted-foreground" style={{ fontSize: `${printFontSize - 1}px` }}>{timeStr} • {patients.length} patients</div>
                 </div>
               </div>
               
@@ -1543,26 +1543,26 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                 {patients.map((patient, index) => (
                   <div key={patient.id} className="border-b-2 border-muted pb-4 break-inside-avoid">
                     <div className="flex items-baseline gap-3 mb-3 bg-primary/10 p-2 rounded">
-                      <span className="font-bold text-lg text-primary">{index + 1}.</span>
-                      <span className="font-bold text-lg">{patient.name || 'Unnamed'}</span>
-                      {patient.bed && <span className="text-sm text-muted-foreground">Bed: {patient.bed}</span>}
+                      <span className="font-bold text-primary" style={{ fontSize: `${printFontSize + 4}px` }}>{index + 1}.</span>
+                      <span className="font-bold" style={{ fontSize: `${printFontSize + 4}px` }}>{patient.name || 'Unnamed'}</span>
+                      {patient.bed && <span className="text-muted-foreground" style={{ fontSize: `${printFontSize}px` }}>Bed: {patient.bed}</span>}
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       {isColumnEnabled("clinicalSummary") && (
                         <div>
-                          <span className="font-bold text-sm text-primary uppercase">Clinical Summary</span>
+                          <span className="font-bold text-primary uppercase" style={{ fontSize: `${printFontSize}px` }}>Clinical Summary</span>
                           <div 
-                            className="mt-1 bg-muted/30 p-3 rounded text-sm border-l-4 border-primary"
+                            className="mt-1 bg-muted/30 p-3 rounded border-l-4 border-primary"
                             dangerouslySetInnerHTML={{ __html: patient.clinicalSummary || '<span class="text-muted-foreground italic">None documented</span>' }}
                           />
                         </div>
                       )}
                       {isColumnEnabled("intervalEvents") && (
                         <div>
-                          <span className="font-bold text-sm text-primary uppercase">Interval Events</span>
+                          <span className="font-bold text-primary uppercase" style={{ fontSize: `${printFontSize}px` }}>Interval Events</span>
                           <div 
-                            className="mt-1 bg-muted/30 p-3 rounded text-sm border-l-4 border-primary"
+                            className="mt-1 bg-muted/30 p-3 rounded border-l-4 border-primary"
                             dangerouslySetInnerHTML={{ __html: patient.intervalEvents || '<span class="text-muted-foreground italic">None documented</span>' }}
                           />
                         </div>
@@ -1573,18 +1573,18 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       {isColumnEnabled("imaging") && (
                         <div>
-                          <span className="font-bold text-sm text-blue-600 uppercase">Imaging</span>
+                          <span className="font-bold text-blue-600 uppercase" style={{ fontSize: `${printFontSize}px` }}>Imaging</span>
                           <div 
-                            className="mt-1 bg-blue-50/50 p-3 rounded text-sm border-l-4 border-blue-400"
+                            className="mt-1 bg-blue-50/50 p-3 rounded border-l-4 border-blue-400"
                             dangerouslySetInnerHTML={{ __html: patient.imaging || '<span class="text-muted-foreground italic">None documented</span>' }}
                           />
                         </div>
                       )}
                       {isColumnEnabled("labs") && (
                         <div>
-                          <span className="font-bold text-sm text-green-600 uppercase">Labs</span>
+                          <span className="font-bold text-green-600 uppercase" style={{ fontSize: `${printFontSize}px` }}>Labs</span>
                           <div 
-                            className="mt-1 bg-green-50/50 p-3 rounded text-sm border-l-4 border-green-400"
+                            className="mt-1 bg-green-50/50 p-3 rounded border-l-4 border-green-400"
                             dangerouslySetInnerHTML={{ __html: patient.labs || '<span class="text-muted-foreground italic">None documented</span>' }}
                           />
                         </div>
@@ -1593,15 +1593,15 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     
                     {enabledSystemKeys.length > 0 && (
                       <div>
-                        <span className="font-bold text-sm text-primary uppercase">Systems Review</span>
+                        <span className="font-bold text-primary uppercase" style={{ fontSize: `${printFontSize}px` }}>Systems Review</span>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mt-2">
                           {enabledSystemKeys.map(key => {
                             const value = patient.systems[key as keyof typeof patient.systems];
                             return (
                               <div key={key} className="bg-muted/20 p-2 rounded border">
-                                <span className="font-bold text-xs text-primary uppercase">{systemLabels[key]}</span>
+                                <span className="font-bold text-primary uppercase" style={{ fontSize: `${printFontSize - 1}px` }}>{systemLabels[key]}</span>
                                 <div 
-                                  className="text-sm mt-1"
+                                  className="mt-1"
                                   dangerouslySetInnerHTML={{ __html: value || '<span class="text-muted-foreground">-</span>' }}
                                 />
                               </div>
@@ -1613,7 +1613,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                     
                     {showNotesColumn && (
                       <div className="mt-4">
-                        <span className="font-bold text-sm text-amber-700 uppercase">Rounding Notes</span>
+                        <span className="font-bold text-amber-700 uppercase" style={{ fontSize: `${printFontSize}px` }}>Rounding Notes</span>
                         <div className="mt-1 w-full min-h-[60px] p-3 bg-amber-50/50 border border-amber-200 rounded relative">
                           {[...Array(4)].map((_, i) => (
                             <div 
