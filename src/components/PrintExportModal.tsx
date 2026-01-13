@@ -24,7 +24,8 @@ import {
   RotateCcw,
   GripVertical,
   Fullscreen,
-  X
+  X,
+  Type
 } from "lucide-react";
 import { useRef, useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,13 @@ import {
 } from "@/components/ui/collapsible";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface PrintExportModalProps {
   open: boolean;
@@ -117,7 +125,34 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
   const [resizing, setResizing] = useState<{ column: string; startX: number; startWidth: number } | null>(null);
   const [isFullPreview, setIsFullPreview] = useState(false);
   const [activeTab, setActiveTab] = useState("table");
+  const [printFontSize, setPrintFontSize] = useState(() => {
+    const saved = localStorage.getItem('printFontSize');
+    return saved ? parseInt(saved, 10) : 9;
+  });
+  const [printFontFamily, setPrintFontFamily] = useState(() => {
+    return localStorage.getItem('printFontFamily') || 'system';
+  });
+  const [typographyOpen, setTypographyOpen] = useState(false);
   const { toast } = useToast();
+
+  // Font family options
+  const fontFamilies = [
+    { value: 'system', label: 'System Default', css: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+    { value: 'arial', label: 'Arial', css: "Arial, Helvetica, sans-serif" },
+    { value: 'times', label: 'Times New Roman', css: "'Times New Roman', Times, serif" },
+    { value: 'georgia', label: 'Georgia', css: "Georgia, 'Times New Roman', serif" },
+    { value: 'courier', label: 'Courier New', css: "'Courier New', Courier, monospace" },
+    { value: 'verdana', label: 'Verdana', css: "Verdana, Geneva, sans-serif" },
+    { value: 'trebuchet', label: 'Trebuchet MS', css: "'Trebuchet MS', Helvetica, sans-serif" },
+  ];
+
+  const getFontFamilyCSS = () => fontFamilies.find(f => f.value === printFontFamily)?.css || fontFamilies[0].css;
+
+  // Save typography preferences
+  useEffect(() => {
+    localStorage.setItem('printFontSize', printFontSize.toString());
+    localStorage.setItem('printFontFamily', printFontFamily);
+  }, [printFontSize, printFontFamily]);
 
   // Drag-to-resize handlers
   const handleResizeStart = useCallback((column: string, startWidth: number, e: React.MouseEvent) => {
@@ -532,6 +567,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
+    const fontCSS = getFontFamilyCSS();
+    const baseFontSize = printFontSize;
+    const headerFontSize = Math.max(baseFontSize + 6, 14);
+    const smallerFontSize = Math.max(baseFontSize - 1, 7);
+    const patientNameSize = Math.max(baseFontSize + 1, 9);
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -540,14 +581,14 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { 
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-              font-size: 10px; 
+              font-family: ${fontCSS}; 
+              font-size: ${baseFontSize}px; 
               line-height: 1.4; 
               color: #1a1a1a; 
               padding: 12px;
               background: #fff;
             }
-            h1 { font-size: 16px; margin-bottom: 6px; color: #1e40af; font-weight: 600; }
+            h1 { font-size: ${headerFontSize}px; margin-bottom: 6px; color: #1e40af; font-weight: 600; }
             .header { 
               display: flex; 
               justify-content: space-between; 
@@ -556,7 +597,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               border-bottom: 2px solid #1e40af; 
               padding-bottom: 8px; 
             }
-            .header-info { font-size: 9px; color: #4b5563; }
+            .header-info { font-size: ${smallerFontSize}px; color: #4b5563; }
             .report-meta { 
               background: #f1f5f9; 
               padding: 8px 12px; 
@@ -564,7 +605,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               margin-bottom: 12px;
               display: flex;
               gap: 24px;
-              font-size: 9px;
+              font-size: ${smallerFontSize}px;
             }
             table { 
               width: 100%; 
@@ -574,7 +615,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             }
             th, td { 
               border: 1px solid #d1d5db; 
-              padding: 6px 8px; 
+              padding: 4px 6px; 
               text-align: left; 
               vertical-align: top; 
               word-wrap: break-word; 
@@ -587,17 +628,17 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               background: #1e40af; 
               color: #fff;
               font-weight: 600; 
-              font-size: 9px; 
+              font-size: ${smallerFontSize}px; 
               text-transform: uppercase;
               letter-spacing: 0.3px;
               white-space: nowrap;
             }
-            td { font-size: 9px; background: #fff; line-height: 1.5; }
+            td { font-size: ${baseFontSize}px; background: #fff; line-height: 1.4; }
             tr:nth-child(even) td { background: #f8fafc; }
-            .patient-name { font-weight: 700; color: #1e40af; font-size: 10px; }
-            .bed { color: #6b7280; font-size: 8px; display: block; margin-top: 3px; }
+            .patient-name { font-weight: 700; color: #1e40af; font-size: ${patientNameSize}px; }
+            .bed { color: #6b7280; font-size: ${smallerFontSize}px; display: block; margin-top: 2px; }
             .content { 
-              white-space: pre-wrap !important; 
+              white-space: pre-wrap !important;
               word-break: break-word;
               overflow-wrap: anywhere;
             }
@@ -607,7 +648,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               overflow: visible !important;
               max-height: none !important;
             }
-            .system-label { font-weight: 600; color: #374151; display: block; font-size: 8px; margin-bottom: 2px; }
+            .system-label { font-weight: 600; color: #374151; display: block; font-size: ${smallerFontSize}px; margin-bottom: 2px; }
             .no-break { page-break-inside: avoid; }
             .notes-cell { background: #fffbeb !important; }
             /* Prevent row breaks */
@@ -647,7 +688,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               background: #fff;
             }
             .patient-card h3 { 
-              font-size: 11px; 
+              font-size: ${patientNameSize + 2}px; 
               border-bottom: 2px solid #1e40af; 
               padding-bottom: 4px; 
               margin-bottom: 6px; 
@@ -656,13 +697,13 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             .section { margin-bottom: 6px; }
             .section-title { 
               font-weight: 700; 
-              font-size: 8px; 
+              font-size: ${smallerFontSize}px; 
               color: #1e40af; 
               margin-bottom: 2px;
               text-transform: uppercase;
             }
             .section-content { 
-              font-size: 8px; 
+              font-size: ${baseFontSize}px; 
               background: #f8fafc; 
               padding: 4px 6px; 
               border-radius: 3px;
@@ -672,7 +713,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               display: grid; 
               grid-template-columns: repeat(5, 1fr); 
               gap: 4px; 
-              font-size: 7px; 
+              font-size: ${Math.max(baseFontSize - 2, 7)}px; 
             }
             .system-item { 
               border: 1px solid #e5e7eb; 
@@ -682,7 +723,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             }
             .system-item .label { 
               font-weight: 700; 
-              font-size: 6px; 
+              font-size: ${Math.max(baseFontSize - 3, 6)}px; 
               color: #1e40af; 
               text-transform: uppercase;
               margin-bottom: 2px;
@@ -697,7 +738,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               margin-top: 10px;
               padding-top: 6px;
               border-top: 1px solid #d1d5db;
-              font-size: 7px;
+              font-size: ${Math.max(baseFontSize - 2, 7)}px;
               color: #6b7280;
               text-align: center;
             }
@@ -1207,6 +1248,69 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           </CollapsibleContent>
         </Collapsible>
 
+        {/* Typography Controls */}
+        <Collapsible open={typographyOpen} onOpenChange={setTypographyOpen} className="border-b pb-2 mb-2">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2 w-full justify-between">
+              <div className="flex items-center gap-2">
+                <Type className="h-4 w-4" />
+                <span className="font-medium">Typography Settings</span>
+                <span className="text-xs text-muted-foreground">
+                  ({printFontSize}px • {fontFamilies.find(f => f.value === printFontFamily)?.label})
+                </span>
+              </div>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", typographyOpen && "rotate-180")} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Font Size Control */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Print Font Size</Label>
+                  <span className="text-sm font-mono bg-muted px-2 py-0.5 rounded">{printFontSize}px</span>
+                </div>
+                <Slider
+                  value={[printFontSize]}
+                  onValueChange={([value]) => setPrintFontSize(value)}
+                  min={7}
+                  max={14}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>7px (compact)</span>
+                  <span>14px (large)</span>
+                </div>
+              </div>
+
+              {/* Font Family Control */}
+              <div className="space-y-3">
+                <Label className="text-sm font-medium">Font Family</Label>
+                <Select value={printFontFamily} onValueChange={setPrintFontFamily}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select font" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fontFamilies.map(font => (
+                      <SelectItem 
+                        key={font.value} 
+                        value={font.value}
+                        style={{ fontFamily: font.css }}
+                      >
+                        {font.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Preview: <span style={{ fontFamily: getFontFamilyCSS() }}>The quick brown fox jumps</span>
+                </p>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
         <Tabs defaultValue="table" value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="table" className="flex items-center gap-2">
@@ -1223,7 +1327,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             </TabsTrigger>
           </TabsList>
 
-          <div className="flex-1 overflow-auto mt-4 border rounded-lg p-4 bg-white text-foreground">
+          <div 
+            className="flex-1 overflow-auto mt-4 border rounded-lg p-4 bg-white text-foreground"
+            style={{ fontFamily: getFontFamilyCSS(), fontSize: `${printFontSize}px` }}
+          >
             <TabsContent value="table" className="m-0" forceMount style={{ display: activeTab === 'table' ? 'block' : 'none' }}>
               <div ref={activeTab === 'table' ? printRef : undefined}>
                 <div className="header flex justify-between items-center mb-4 border-b-2 border-primary pb-3">
