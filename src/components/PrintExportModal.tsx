@@ -563,36 +563,291 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
     });
   };
 
-  const handlePrint = () => {
-    // Get the correct ref based on active tab or full preview mode
-    const getActiveRef = () => {
-      if (isFullPreview) return fullPreviewRef.current;
-      switch (activeTab) {
-        case 'table': return tableRef.current;
-        case 'cards': return cardsRef.current;
-        case 'list': return listRef.current;
-        default: return tableRef.current;
-      }
-    };
+  // Generate print-ready HTML for each view type
+  const generatePrintHTML = () => {
+    const fontCSS = getFontFamilyCSS();
+    const baseFontSize = printFontSize;
+    const headerFontSize = Math.max(baseFontSize + 6, 14);
+    const patientNameSize = Math.max(baseFontSize + 1, 9);
     
-    const printContent = getActiveRef();
-    if (!printContent) {
+    let contentHTML = '';
+    
+    if (activeTab === 'table') {
+      // Table view HTML
+      let tableHeaders = '';
+      if (isColumnEnabled("patient")) {
+        tableHeaders += `<th style="width: ${columnWidths.patient}px;">Patient</th>`;
+      }
+      if (isColumnEnabled("clinicalSummary")) {
+        tableHeaders += `<th style="width: ${columnWidths.summary}px;">Clinical Summary</th>`;
+      }
+      if (isColumnEnabled("intervalEvents")) {
+        tableHeaders += `<th style="width: ${columnWidths.events}px;">Interval Events</th>`;
+      }
+      if (isColumnEnabled("imaging")) {
+        tableHeaders += `<th style="width: ${columnWidths.imaging}px;">Imaging</th>`;
+      }
+      if (isColumnEnabled("labs")) {
+        tableHeaders += `<th style="width: ${columnWidths.labs}px;">Labs</th>`;
+      }
+      enabledSystemKeys.forEach(key => {
+        tableHeaders += `<th style="width: ${columnWidths.systems}px;">${systemLabels[key]}</th>`;
+      });
+      if (showNotesColumn) {
+        tableHeaders += `<th class="notes-header" style="width: ${columnWidths.notes}px;">Notes</th>`;
+      }
+      
+      let tableRows = '';
+      patients.forEach((patient, idx) => {
+        let row = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">`;
+        
+        if (isColumnEnabled("patient")) {
+          row += `<td class="patient-cell">
+            <div class="patient-name">${patient.name || 'Unnamed'}</div>
+            <div class="bed">Bed: ${patient.bed || 'N/A'}</div>
+          </td>`;
+        }
+        if (isColumnEnabled("clinicalSummary")) {
+          row += `<td class="content-cell">${patient.clinicalSummary || ''}</td>`;
+        }
+        if (isColumnEnabled("intervalEvents")) {
+          row += `<td class="content-cell">${patient.intervalEvents || ''}</td>`;
+        }
+        if (isColumnEnabled("imaging")) {
+          row += `<td class="content-cell">${patient.imaging || ''}</td>`;
+        }
+        if (isColumnEnabled("labs")) {
+          row += `<td class="content-cell">${patient.labs || ''}</td>`;
+        }
+        enabledSystemKeys.forEach(key => {
+          row += `<td class="content-cell system-cell">${patient.systems[key as keyof typeof patient.systems] || ''}</td>`;
+        });
+        if (showNotesColumn) {
+          row += `<td class="notes-cell">
+            <div class="notes-lines">
+              <div class="note-line"></div>
+              <div class="note-line"></div>
+              <div class="note-line"></div>
+              <div class="note-line"></div>
+              <div class="note-line"></div>
+            </div>
+          </td>`;
+        }
+        
+        row += '</tr>';
+        tableRows += row;
+      });
+      
+      contentHTML = `
+        <table class="data-table">
+          <thead><tr>${tableHeaders}</tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      `;
+    } else if (activeTab === 'cards') {
+      // Card view HTML
+      let cardsHTML = '<div class="cards-grid">';
+      patients.forEach((patient, idx) => {
+        let cardContent = '';
+        
+        if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
+          cardContent += `
+            <div class="section section-summary">
+              <div class="section-header">Clinical Summary</div>
+              <div class="section-body">${patient.clinicalSummary}</div>
+            </div>
+          `;
+        }
+        
+        if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
+          cardContent += `
+            <div class="section section-events">
+              <div class="section-header">Interval Events</div>
+              <div class="section-body">${patient.intervalEvents}</div>
+            </div>
+          `;
+        }
+        
+        let imagingLabsRow = '';
+        if (isColumnEnabled("imaging") && patient.imaging) {
+          imagingLabsRow += `
+            <div class="section section-imaging">
+              <div class="section-header imaging-header">Imaging</div>
+              <div class="section-body imaging-body">${patient.imaging}</div>
+            </div>
+          `;
+        }
+        if (isColumnEnabled("labs") && patient.labs) {
+          imagingLabsRow += `
+            <div class="section section-labs">
+              <div class="section-header labs-header">Labs</div>
+              <div class="section-body labs-body">${patient.labs}</div>
+            </div>
+          `;
+        }
+        if (imagingLabsRow) {
+          cardContent += `<div class="imaging-labs-row">${imagingLabsRow}</div>`;
+        }
+        
+        if (enabledSystemKeys.length > 0) {
+          let systemsGrid = '<div class="systems-grid">';
+          enabledSystemKeys.forEach(key => {
+            const value = patient.systems[key as keyof typeof patient.systems];
+            if (value) {
+              systemsGrid += `
+                <div class="system-item">
+                  <div class="system-header">${systemLabels[key]}</div>
+                  <div class="system-body">${value}</div>
+                </div>
+              `;
+            }
+          });
+          systemsGrid += '</div>';
+          cardContent += systemsGrid;
+        }
+        
+        if (showNotesColumn) {
+          cardContent += `
+            <div class="section section-notes">
+              <div class="section-header notes-header">Rounding Notes</div>
+              <div class="section-body notes-body">
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+              </div>
+            </div>
+          `;
+        }
+        
+        cardsHTML += `
+          <div class="patient-card">
+            <div class="card-header">
+              <span class="patient-number">${idx + 1}</span>
+              <span class="patient-name">${patient.name || 'Unnamed'}</span>
+              ${patient.bed ? `<span class="patient-bed">Bed: ${patient.bed}</span>` : ''}
+            </div>
+            <div class="card-body">${cardContent}</div>
+          </div>
+        `;
+      });
+      cardsHTML += '</div>';
+      contentHTML = cardsHTML;
+    } else {
+      // List view HTML
+      let listHTML = '<div class="list-view">';
+      patients.forEach((patient, index) => {
+        let sections = '';
+        
+        let summaryEventsRow = '';
+        if (isColumnEnabled("clinicalSummary")) {
+          summaryEventsRow += `
+            <div class="section section-summary">
+              <div class="section-header">Clinical Summary</div>
+              <div class="section-body">${patient.clinicalSummary || '<span class="empty">None documented</span>'}</div>
+            </div>
+          `;
+        }
+        if (isColumnEnabled("intervalEvents")) {
+          summaryEventsRow += `
+            <div class="section section-events">
+              <div class="section-header">Interval Events</div>
+              <div class="section-body">${patient.intervalEvents || '<span class="empty">None documented</span>'}</div>
+            </div>
+          `;
+        }
+        if (summaryEventsRow) {
+          sections += `<div class="two-col-row">${summaryEventsRow}</div>`;
+        }
+        
+        let imagingLabsRow = '';
+        if (isColumnEnabled("imaging")) {
+          imagingLabsRow += `
+            <div class="section section-imaging">
+              <div class="section-header imaging-header">Imaging</div>
+              <div class="section-body imaging-body">${patient.imaging || '<span class="empty">None documented</span>'}</div>
+            </div>
+          `;
+        }
+        if (isColumnEnabled("labs")) {
+          imagingLabsRow += `
+            <div class="section section-labs">
+              <div class="section-header labs-header">Labs</div>
+              <div class="section-body labs-body">${patient.labs || '<span class="empty">None documented</span>'}</div>
+            </div>
+          `;
+        }
+        if (imagingLabsRow) {
+          sections += `<div class="two-col-row">${imagingLabsRow}</div>`;
+        }
+        
+        if (enabledSystemKeys.length > 0) {
+          let systemsHTML = '<div class="systems-section">';
+          systemsHTML += '<div class="systems-header">Systems Review</div>';
+          systemsHTML += '<div class="systems-grid">';
+          enabledSystemKeys.forEach(key => {
+            const value = patient.systems[key as keyof typeof patient.systems];
+            systemsHTML += `
+              <div class="system-item">
+                <div class="system-header">${systemLabels[key]}</div>
+                <div class="system-body">${value || '<span class="empty">-</span>'}</div>
+              </div>
+            `;
+          });
+          systemsHTML += '</div></div>';
+          sections += systemsHTML;
+        }
+        
+        if (showNotesColumn) {
+          sections += `
+            <div class="section section-notes">
+              <div class="section-header notes-header">Rounding Notes</div>
+              <div class="section-body notes-body">
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+              </div>
+            </div>
+          `;
+        }
+        
+        listHTML += `
+          <div class="patient-item">
+            <div class="item-header">
+              <span class="patient-number">${index + 1}</span>
+              <span class="patient-name">${patient.name || 'Unnamed'}</span>
+              ${patient.bed ? `<span class="patient-bed">Bed: ${patient.bed}</span>` : ''}
+            </div>
+            <div class="item-body">${sections}</div>
+          </div>
+        `;
+      });
+      listHTML += '</div>';
+      contentHTML = listHTML;
+    }
+    
+    return contentHTML;
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
       toast({
         title: "Print Error",
-        description: "Could not find content to print. Please try again.",
+        description: "Could not open print window. Please check your popup blocker.",
         variant: "destructive"
       });
       return;
     }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
 
     const fontCSS = getFontFamilyCSS();
     const baseFontSize = printFontSize;
     const headerFontSize = Math.max(baseFontSize + 6, 14);
     const smallerFontSize = Math.max(baseFontSize - 1, 7);
     const patientNameSize = Math.max(baseFontSize + 1, 9);
+    
+    const viewLabel = activeTab === 'table' ? 'Dense Table View' : activeTab === 'cards' ? 'Card View' : 'Detailed List View';
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -602,307 +857,351 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { 
-              font-family: ${fontCSS} !important; 
-              font-size: ${baseFontSize}px !important; 
-              line-height: 1.4 !important; 
-              color: #1a1a1a !important; 
+              font-family: ${fontCSS}; 
+              font-size: ${baseFontSize}px; 
+              line-height: 1.4; 
+              color: #1a1a1a; 
               padding: 12px;
               background: #fff;
             }
-            /* CRITICAL: Override ALL inherited inline styles from rich text editor */
-            body * {
-              font-family: inherit !important;
-              font-size: inherit !important;
-              line-height: inherit !important;
-            }
-            /* Reset specific element sizes */
-            h1 { font-size: ${headerFontSize}px !important; margin-bottom: 6px; color: #1e40af; font-weight: 600; }
-            .header { 
-              display: flex; 
-              justify-content: space-between; 
-              align-items: center; 
-              margin-bottom: 12px; 
-              border-bottom: 2px solid #1e40af; 
-              padding-bottom: 8px; 
-            }
-            .header-info { font-size: ${smallerFontSize}px !important; color: #4b5563; }
-            .report-meta { 
-              background: #f1f5f9; 
-              padding: 8px 12px; 
-              border-radius: 6px; 
-              margin-bottom: 12px;
+            
+            /* Header */
+            .report-header {
               display: flex;
-              gap: 24px;
-              font-size: ${smallerFontSize}px !important;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 16px;
+              border-bottom: 3px solid #1e40af;
+              padding-bottom: 12px;
             }
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin-bottom: 10px; 
-              table-layout: auto; 
+            .report-title {
+              font-size: ${headerFontSize}px;
+              font-weight: 700;
+              color: #1e40af;
             }
-            th, td { 
-              border: 2px solid #1e40af; 
-              padding: 6px 8px; 
-              text-align: left; 
-              vertical-align: top; 
-              word-wrap: break-word; 
-              overflow-wrap: break-word;
-              white-space: pre-wrap !important;
-              max-width: none !important;
-              hyphens: auto;
+            .report-subtitle {
+              font-size: ${smallerFontSize}px;
+              color: #6b7280;
+              margin-top: 4px;
             }
-            th { 
-              background: #1e40af; 
-              color: #fff !important;
-              font-weight: 700; 
-              font-size: ${baseFontSize + 1}px !important; 
+            .report-meta {
+              text-align: right;
+              font-size: ${smallerFontSize}px;
+            }
+            .report-date {
+              font-weight: 600;
+              font-size: ${baseFontSize}px;
+            }
+            
+            /* TABLE VIEW STYLES */
+            .data-table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+            }
+            .data-table th {
+              background: #1e40af;
+              color: #fff;
+              font-weight: 700;
               text-transform: uppercase;
               letter-spacing: 0.5px;
-              white-space: nowrap;
+              padding: 10px 8px;
+              text-align: left;
               border: 2px solid #1e3a8a;
+              font-size: ${baseFontSize}px;
             }
-            td { 
-              font-size: ${baseFontSize}px !important; 
-              background: #fff; 
-              line-height: 1.5;
+            .data-table td {
+              padding: 8px;
+              border: 1px solid #d1d5db;
+              vertical-align: top;
+              font-size: ${baseFontSize}px;
+              word-wrap: break-word;
+              overflow-wrap: anywhere;
             }
-            /* Override inline styles on all content inside cells */
-            td *, th * { font-size: inherit !important; font-family: inherit !important; }
-            tr:nth-child(even) td { background: #f1f5f9; }
-            /* Patient row separators - thick colored line */
-            tr { border-bottom: 4px solid #1e40af !important; }
-            tr:last-child { border-bottom: 2px solid #1e40af !important; }
-            
-            /* Patient name styling */
-            .patient-name { 
-              font-weight: 800; 
-              color: #1e40af; 
-              font-size: ${patientNameSize + 2}px !important;
-              border-bottom: 2px solid #3b82f6;
-              padding-bottom: 4px;
+            .data-table .even-row td { background: #fff; }
+            .data-table .odd-row td { background: #f8fafc; }
+            .data-table tr { 
+              border-bottom: 3px solid #1e40af; 
+              page-break-inside: avoid;
+            }
+            .data-table .patient-cell .patient-name {
+              font-weight: 700;
+              color: #1e40af;
+              font-size: ${patientNameSize + 1}px;
               margin-bottom: 4px;
-              display: block;
             }
-            .bed { 
-              color: #374151; 
-              font-size: ${baseFontSize}px !important; 
-              display: block; 
-              margin-top: 4px;
-              font-weight: 600;
+            .data-table .patient-cell .bed {
+              font-size: ${smallerFontSize}px;
+              color: #374151;
               background: #e0e7ff;
               padding: 2px 6px;
               border-radius: 3px;
               display: inline-block;
             }
-            
-            /* Section boxes with clear borders */
-            .section-box { 
-              background: #f8fafc; 
-              padding: 8px 10px; 
-              border-radius: 4px; 
-              border: 2px solid #3b82f6;
-              border-left: 5px solid #1e40af; 
-              margin: 6px 0;
+            .data-table .notes-header {
+              background: #f59e0b !important;
             }
-            .section-label { 
-              font-weight: 800; 
-              color: #fff; 
+            .data-table .notes-cell {
+              background: #fffbeb !important;
+            }
+            .notes-lines { padding: 4px; }
+            .note-line {
+              border-bottom: 1px solid #fcd34d;
+              height: 16px;
+              width: 100%;
+            }
+            
+            /* CARD VIEW STYLES */
+            .cards-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 16px;
+            }
+            .patient-card {
+              border: 3px solid #1e40af;
+              border-radius: 8px;
+              overflow: hidden;
+              page-break-inside: avoid;
+              background: #fff;
+            }
+            .card-header {
               background: #1e40af;
-              text-transform: uppercase; 
-              font-size: ${baseFontSize + 2}px !important; 
-              margin: -8px -10px 8px -10px;
-              padding: 6px 10px;
+              color: #fff;
+              padding: 12px 16px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .card-header .patient-number {
+              background: #fff;
+              color: #1e40af;
+              width: 28px;
+              height: 28px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: ${baseFontSize}px;
+            }
+            .card-header .patient-name {
+              font-weight: 700;
+              font-size: ${patientNameSize + 2}px;
+              flex: 1;
+            }
+            .card-header .patient-bed {
+              background: rgba(255,255,255,0.2);
+              padding: 4px 12px;
+              border-radius: 4px;
+              font-size: ${smallerFontSize}px;
+            }
+            .card-body {
+              padding: 12px;
+            }
+            .card-body .section {
+              margin-bottom: 12px;
+              border: 2px solid #d1d5db;
+              border-radius: 6px;
+              overflow: hidden;
+            }
+            .card-body .section-header {
+              background: #1e40af;
+              color: #fff;
+              font-weight: 700;
+              text-transform: uppercase;
+              padding: 8px 12px;
+              font-size: ${baseFontSize}px;
               letter-spacing: 0.5px;
-              border-radius: 2px 2px 0 0;
             }
+            .card-body .section-body {
+              padding: 10px 12px;
+              background: #f8fafc;
+              font-size: ${baseFontSize}px;
+            }
+            .imaging-labs-row {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+            }
+            .imaging-header { background: #3b82f6 !important; }
+            .imaging-body { background: #eff6ff !important; }
+            .labs-header { background: #22c55e !important; }
+            .labs-body { background: #f0fdf4 !important; }
+            .notes-header { background: #f59e0b !important; }
+            .notes-body { background: #fffbeb !important; padding: 8px !important; }
             
-            .content, .content * { 
-              white-space: pre-wrap !important;
-              word-break: break-word;
-              overflow-wrap: anywhere;
-              font-size: inherit !important;
-              font-family: inherit !important;
+            .systems-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 8px;
+              margin-top: 12px;
             }
-            .line-clamp-3 { 
-              -webkit-line-clamp: unset !important; 
-              display: block !important; 
-              overflow: visible !important;
-              max-height: none !important;
-            }
-            
-            /* System cards - very clear boxes */
-            .system-card {
+            .system-item {
               border: 2px solid #1e40af;
               border-radius: 6px;
               overflow: hidden;
-              background: #fff;
-              margin: 4px;
             }
-            .system-label { 
-              font-weight: 800; 
-              color: #fff !important; 
+            .system-header {
               background: #1e40af;
-              display: block; 
-              font-size: ${baseFontSize + 1}px !important; 
+              color: #fff;
+              font-weight: 700;
+              text-transform: uppercase;
               padding: 6px 8px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              border-bottom: none;
+              font-size: ${Math.max(baseFontSize - 1, 7)}px;
+              text-align: center;
+              letter-spacing: 0.3px;
             }
-            .system-content {
-              padding: 8px;
+            .system-body {
+              padding: 6px 8px;
               background: #f8fafc;
+              font-size: ${Math.max(baseFontSize - 1, 7)}px;
+              min-height: 30px;
             }
             
-            .no-break { page-break-inside: avoid; }
-            .notes-cell { background: #fffbeb !important; border: 2px solid #f59e0b !important; }
-            
-            /* Prevent row breaks */
-            tr { page-break-inside: avoid; break-inside: avoid; }
-            
-            /* Override all span, div, p elements inside content areas */
-            [dangerouslySetInnerHTML] *, div[class*="bg-"] *, .section-content * {
-              font-size: inherit !important;
-              font-family: inherit !important;
-              line-height: inherit !important;
-            }
-            
-            /* Card view styling */
-            .card-view { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-            .patient-card { 
-              border: 3px solid #1e40af; 
+            /* LIST VIEW STYLES */
+            .list-view .patient-item {
+              border: 4px solid #1e40af;
               border-radius: 8px;
-              padding: 0; 
-              page-break-inside: avoid; 
-              background: #fff;
               overflow: hidden;
+              margin-bottom: 16px;
+              page-break-inside: avoid;
             }
-            .patient-card-header {
+            .list-view .item-header {
               background: #1e40af;
               color: #fff;
-              padding: 10px 12px;
-              font-size: ${patientNameSize + 3}px !important;
-              font-weight: 700;
+              padding: 12px 16px;
+              display: flex;
+              align-items: center;
+              gap: 12px;
             }
-            .patient-card-body {
-              padding: 12px;
-            }
-            .patient-card h3 { 
-              font-size: ${patientNameSize + 2}px !important; 
-              border-bottom: 2px solid #1e40af; 
-              padding-bottom: 4px; 
-              margin-bottom: 6px; 
+            .list-view .item-header .patient-number {
+              background: #fff;
               color: #1e40af;
+              width: 36px;
+              height: 36px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 700;
+              font-size: ${patientNameSize}px;
             }
-            
-            /* Section styling for cards/list */
-            .section { 
-              margin-bottom: 10px; 
-              border: 2px solid #e5e7eb;
+            .list-view .item-header .patient-name {
+              font-weight: 700;
+              font-size: ${patientNameSize + 3}px;
+              flex: 1;
+            }
+            .list-view .item-header .patient-bed {
+              background: rgba(255,255,255,0.2);
+              padding: 6px 16px;
+              border-radius: 4px;
+              font-size: ${baseFontSize}px;
+            }
+            .list-view .item-body {
+              padding: 16px;
+              background: #fff;
+            }
+            .list-view .two-col-row {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
+              margin-bottom: 16px;
+            }
+            .list-view .section {
+              border: 2px solid #d1d5db;
               border-radius: 6px;
               overflow: hidden;
             }
-            .section-title { 
-              font-weight: 700; 
-              font-size: ${baseFontSize + 1}px !important; 
-              color: #fff; 
-              background: #3b82f6;
-              padding: 6px 10px;
+            .list-view .section-header {
+              background: #1e40af;
+              color: #fff;
+              font-weight: 700;
               text-transform: uppercase;
+              padding: 8px 12px;
+              font-size: ${baseFontSize}px;
               letter-spacing: 0.5px;
             }
-            .section-content { 
-              font-size: ${baseFontSize}px !important; 
-              background: #f8fafc; 
-              padding: 8px 10px; 
+            .list-view .section-body {
+              padding: 12px;
+              background: #f8fafc;
+              font-size: ${baseFontSize}px;
             }
-            
-            .systems-grid { 
-              display: grid; 
-              grid-template-columns: repeat(5, 1fr); 
-              gap: 6px; 
-              font-size: ${baseFontSize}px !important; 
+            .list-view .systems-section {
+              margin-bottom: 16px;
             }
-            .system-item { 
-              border: 2px solid #1e40af; 
-              padding: 0; 
-              background: #fff; 
-              border-radius: 6px;
-              overflow: hidden;
-            }
-            .system-item-header {
+            .list-view .systems-header {
               background: #1e40af;
               color: #fff;
-              padding: 4px 6px;
               font-weight: 700;
-              font-size: ${baseFontSize}px !important;
               text-transform: uppercase;
+              padding: 8px 12px;
+              font-size: ${baseFontSize}px;
+              letter-spacing: 0.5px;
+              border-radius: 6px 6px 0 0;
             }
-            .system-item-content {
-              padding: 6px;
-              background: #f8fafc;
+            .list-view .systems-section .systems-grid {
+              border: 2px solid #1e40af;
+              border-top: none;
+              border-radius: 0 0 6px 6px;
+              margin-top: 0;
+              grid-template-columns: repeat(5, 1fr);
+              gap: 0;
             }
-            .system-item .label { 
-              font-weight: 700; 
-              font-size: ${Math.max(baseFontSize - 3, 6)}px !important; 
-              color: #1e40af; 
-              text-transform: uppercase;
-              margin-bottom: 2px;
+            .list-view .systems-section .system-item {
+              border: none;
+              border-right: 1px solid #d1d5db;
+              border-bottom: 1px solid #d1d5db;
+              border-radius: 0;
             }
-            .list-view .patient-item { 
-              border-bottom: 3px solid #1e40af; 
-              padding: 12px 0; 
-              margin-bottom: 8px;
-              page-break-inside: avoid; 
+            
+            .empty {
+              color: #9ca3af;
+              font-style: italic;
             }
-            /* Patient divider for card/list views */
-            .patient-divider {
-              border-top: 2px solid #3b82f6;
-              margin: 12px 0;
-            }
-            .empty { color: #9ca3af; font-style: italic; }
+            
             .footer {
-              margin-top: 10px;
-              padding-top: 6px;
+              margin-top: 16px;
+              padding-top: 8px;
               border-top: 1px solid #d1d5db;
-              font-size: ${Math.max(baseFontSize - 2, 7)}px !important;
+              font-size: ${Math.max(baseFontSize - 2, 7)}px;
               color: #6b7280;
               text-align: center;
             }
+            
             @media print {
               @page { size: landscape; margin: 0.4in; }
               body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-              body, body * { font-family: ${fontCSS} !important; }
               .no-print { display: none !important; }
-              th { background: #1e40af !important; color: #fff !important; -webkit-print-color-adjust: exact; }
-              tr:nth-child(even) td { background: #f8fafc !important; }
-              .notes-cell { background: #fffbeb !important; }
-              table { table-layout: auto !important; }
-              td, th { 
-                white-space: pre-wrap !important; 
-                overflow: visible !important;
-                max-height: none !important;
-                page-break-inside: avoid;
+              .data-table th { background: #1e40af !important; color: #fff !important; }
+              .card-header, .item-header, .section-header, .system-header, .systems-header { 
+                background: #1e40af !important; 
+                color: #fff !important; 
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
               }
-              .line-clamp-3 { 
-                -webkit-line-clamp: unset !important; 
-                display: block !important; 
-                overflow: visible !important;
-              }
-              tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-              /* Preserve change tracking markup colors */
-              [data-marked="true"] {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
+              .imaging-header { background: #3b82f6 !important; }
+              .labs-header { background: #22c55e !important; }
+              .notes-header { background: #f59e0b !important; }
+              tr, .patient-card, .patient-item { page-break-inside: avoid !important; }
             }
           </style>
         </head>
         <body>
-          ${printContent.innerHTML}
+          <div class="report-header">
+            <div>
+              <div class="report-title">🏥 Patient Rounding Report</div>
+              <div class="report-subtitle">${viewLabel}</div>
+            </div>
+            <div class="report-meta">
+              <div class="report-date">${dateStr}</div>
+              <div>${timeStr} • ${patients.length} patients</div>
+            </div>
+          </div>
+          
+          ${generatePrintHTML()}
+          
           <div class="footer">
-            Generated by Patient Rounding Assistant • ${new Date().toLocaleString()} • Page 1
+            Generated by Patient Rounding Assistant • ${new Date().toLocaleString()}
           </div>
         </body>
       </html>
