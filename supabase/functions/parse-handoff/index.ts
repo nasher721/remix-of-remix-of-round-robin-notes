@@ -33,118 +33,145 @@ interface ParsedPatient {
 /**
  * Remove duplicate sentences/phrases within a text field
  * Detects repeated phrases (>15 chars) and keeps only first occurrence
+ * PRESERVES original line breaks and paragraph structure
  */
 function deduplicateText(text: string): string {
   if (!text || text.length < 30) return text;
 
-  // Split into sentences (by period, newline, or semicolon)
-  const sentences = text.split(/(?<=[.!?\n;])\s*/).filter(s => s.trim().length > 0);
-  const seen = new Set<string>();
-  const result: string[] = [];
+  // Split by line breaks first to preserve paragraph structure
+  const lines = text.split(/\n/);
+  const processedLines: string[] = [];
+  const seenLines = new Set<string>();
 
-  for (const sentence of sentences) {
-    const normalized = sentence.trim().toLowerCase().replace(/\s+/g, ' ');
+  for (const line of lines) {
+    const trimmedLine = line.trim();
     
-    // Skip if we've seen this exact sentence
-    if (normalized.length > 15 && seen.has(normalized)) {
-      console.log("Removed duplicate sentence:", sentence.substring(0, 50) + "...");
+    // Preserve empty lines for paragraph spacing
+    if (trimmedLine === '') {
+      processedLines.push('');
+      continue;
+    }
+    
+    const normalizedLine = trimmedLine.toLowerCase().replace(/\s+/g, ' ');
+    
+    // Skip if we've seen this exact line
+    if (normalizedLine.length > 15 && seenLines.has(normalizedLine)) {
+      console.log("Removed duplicate line:", trimmedLine.substring(0, 50) + "...");
       continue;
     }
     
     // Check for substantial substring matches (80%+ overlap)
     let isDuplicate = false;
-    for (const existing of seen) {
-      if (normalized.length > 20 && existing.length > 20) {
+    for (const existing of seenLines) {
+      if (normalizedLine.length > 20 && existing.length > 20) {
         // Check if one contains the other
-        if (normalized.includes(existing) || existing.includes(normalized)) {
+        if (normalizedLine.includes(existing) || existing.includes(normalizedLine)) {
           isDuplicate = true;
-          console.log("Removed overlapping content:", sentence.substring(0, 50) + "...");
+          console.log("Removed overlapping content:", trimmedLine.substring(0, 50) + "...");
           break;
         }
       }
     }
     
     if (!isDuplicate) {
-      seen.add(normalized);
-      result.push(sentence);
+      seenLines.add(normalizedLine);
+      processedLines.push(line); // Keep original line with its formatting
     }
   }
 
-  return result.join(' ').trim();
+  // Rejoin with newlines to preserve original structure
+  return processedLines.join('\n').trim();
 }
 
 /**
  * Remove repeated phrases within text (stuttering/echoing artifacts)
  * Detects when the same phrase appears multiple times in sequence
+ * PRESERVES original line breaks
  */
 function removeRepeatedPhrases(text: string): string {
   if (!text || text.length < 20) return text;
 
-  // Remove consecutive duplicate words/phrases
-  let cleaned = text;
+  // Process line by line to preserve structure
+  const lines = text.split(/\n/);
+  const processedLines: string[] = [];
   
-  // Pattern: detect repeated consecutive phrases of 3+ words
-  const words = text.split(/\s+/);
-  const result: string[] = [];
-  let i = 0;
-  
-  while (i < words.length) {
-    // Try to find repeating patterns of various lengths
-    let foundRepeat = false;
+  for (const line of lines) {
+    if (line.trim() === '') {
+      processedLines.push('');
+      continue;
+    }
     
-    for (let patternLen = 3; patternLen <= Math.min(10, Math.floor((words.length - i) / 2)); patternLen++) {
-      const pattern = words.slice(i, i + patternLen).join(' ');
-      const nextPattern = words.slice(i + patternLen, i + patternLen * 2).join(' ');
+    // Pattern: detect repeated consecutive phrases of 3+ words within this line
+    const words = line.split(/\s+/);
+    const result: string[] = [];
+    let i = 0;
+    
+    while (i < words.length) {
+      // Try to find repeating patterns of various lengths
+      let foundRepeat = false;
       
-      if (pattern.length > 10 && pattern === nextPattern) {
-        // Found a repeat - add pattern once and skip the duplicate
-        result.push(...words.slice(i, i + patternLen));
-        i += patternLen * 2;
-        foundRepeat = true;
-        console.log("Removed repeated phrase:", pattern.substring(0, 50));
+      for (let patternLen = 3; patternLen <= Math.min(10, Math.floor((words.length - i) / 2)); patternLen++) {
+        const pattern = words.slice(i, i + patternLen).join(' ');
+        const nextPattern = words.slice(i + patternLen, i + patternLen * 2).join(' ');
         
-        // Continue checking for more repeats of the same pattern
-        while (i + patternLen <= words.length) {
-          const checkPattern = words.slice(i, i + patternLen).join(' ');
-          if (checkPattern === pattern) {
-            i += patternLen;
-            console.log("Removed additional repeat of:", pattern.substring(0, 50));
-          } else {
-            break;
+        if (pattern.length > 10 && pattern === nextPattern) {
+          // Found a repeat - add pattern once and skip the duplicate
+          result.push(...words.slice(i, i + patternLen));
+          i += patternLen * 2;
+          foundRepeat = true;
+          console.log("Removed repeated phrase:", pattern.substring(0, 50));
+          
+          // Continue checking for more repeats of the same pattern
+          while (i + patternLen <= words.length) {
+            const checkPattern = words.slice(i, i + patternLen).join(' ');
+            if (checkPattern === pattern) {
+              i += patternLen;
+              console.log("Removed additional repeat of:", pattern.substring(0, 50));
+            } else {
+              break;
+            }
           }
+          break;
         }
-        break;
+      }
+      
+      if (!foundRepeat) {
+        result.push(words[i]);
+        i++;
       }
     }
     
-    if (!foundRepeat) {
-      result.push(words[i]);
-      i++;
-    }
+    processedLines.push(result.join(' '));
   }
   
-  return result.join(' ');
+  return processedLines.join('\n');
 }
 
 /**
  * Main text cleaning function - applies all deduplication strategies
- * Preserves HTML formatting tags
+ * Preserves HTML formatting tags and original line breaks
  */
 function cleanPatientText(text: string): string {
   if (!text) return '';
   
   let cleaned = text;
   
-  // Step 1: Remove repeated phrases (OCR stuttering)
+  // Step 1: Normalize escaped newlines to actual newlines
+  cleaned = cleaned.replace(/\\n/g, '\n');
+  
+  // Step 2: Remove repeated phrases (OCR stuttering)
   cleaned = removeRepeatedPhrases(cleaned);
   
-  // Step 2: Remove duplicate sentences
+  // Step 3: Remove duplicate lines
   cleaned = deduplicateText(cleaned);
   
-  // Step 3: Clean up whitespace but preserve newlines for formatting
-  cleaned = cleaned.replace(/[ \t]+/g, ' ').trim();
+  // Step 4: Clean up horizontal whitespace but PRESERVE newlines
+  cleaned = cleaned.replace(/[ \t]+/g, ' ');
   
-  return cleaned;
+  // Step 5: Normalize multiple consecutive blank lines to max 2
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  
+  return cleaned.trim();
 }
 
 /**
@@ -271,11 +298,15 @@ IMPORTANT: Do NOT create separate imaging or labs fields. Instead, include all i
 - BMP and creatinine go in "renalGU"
 - Troponin and echo go in "cv"
 
-FORMATTING PRESERVATION:
-- Preserve line breaks within each field using \\n
-- Preserve bullet points and lists
+FORMATTING PRESERVATION (CRITICAL):
+- Preserve ALL original line breaks exactly as they appear in the source document using \\n
+- Preserve paragraph structure - if there are blank lines between sections, keep them as \\n\\n
+- Do NOT collapse multiple lines into a single sentence or paragraph
+- Do NOT rewrite or rephrase content - copy it exactly as written
+- Preserve bullet points and lists with their original line breaks
 - Use <b>text</b> for bold/emphasized text (section headers, important findings)
 - Use <u>text</u> for underlined text (diagnoses, key terms)
+- Preserve numbered lists (1. 2. 3.) and bullet points (- or •) on their own lines
 - Preserve numbered lists (1. 2. 3.) and bullet points (- or •)
 
 Return ONLY valid JSON in this exact format:
