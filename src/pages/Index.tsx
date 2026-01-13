@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePatients } from "@/hooks/usePatients";
 import { useCloudAutotexts } from "@/hooks/useAutotexts";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { PatientCard } from "@/components/PatientCard";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
@@ -36,9 +37,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog";
+
+// Mobile components
+import { MobileNavBar, MobileHeader, type MobileTab } from "@/components/layout";
+import {
+  MobilePatientList,
+  MobilePatientDetail,
+  MobileAddPanel,
+  MobileSettingsPanel,
+  MobileReferencePanel,
+} from "@/components/mobile";
+import type { Patient } from "@/types/patient";
 
 // Inner component that uses change tracking
 const IndexContent = () => {
+  const isMobile = useIsMobile();
   const changeTracking = useChangeTracking();
   const { user, loading: authLoading, signOut } = useAuth();
   const { 
@@ -61,11 +78,18 @@ const IndexContent = () => {
     return (saved as 'number' | 'room' | 'name') || 'number';
   });
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showAutotextModal, setShowAutotextModal] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [globalFontSize, setGlobalFontSize] = useState(() => {
     const saved = localStorage.getItem('globalFontSize');
     return saved ? parseInt(saved, 10) : 14;
   });
+  
+  // Mobile-specific state
+  const [mobileTab, setMobileTab] = useState<MobileTab>("patients");
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -150,6 +174,13 @@ const IndexContent = () => {
     navigate("/auth");
   };
 
+  const handleAddPatient = useCallback(() => {
+    addPatient();
+    if (isMobile) {
+      setMobileTab("patients");
+    }
+  }, [addPatient, isMobile]);
+
   const filteredPatients = patients
     .filter(patient => {
       const searchLower = searchQuery.toLowerCase();
@@ -201,6 +232,139 @@ const IndexContent = () => {
     return null;
   }
 
+  // Mobile Layout
+  if (isMobile) {
+    return (
+      <IBCCProvider currentPatient={currentPatient}>
+        <div className="min-h-screen bg-background">
+          {/* Patient Detail View */}
+          {selectedPatient ? (
+            <MobilePatientDetail
+              patient={selectedPatient}
+              onBack={() => setSelectedPatient(null)}
+              onUpdate={handleUpdatePatient}
+              onRemove={(id) => {
+                handleRemovePatient(id);
+                setSelectedPatient(null);
+              }}
+              onDuplicate={handleDuplicatePatient}
+              onPrint={handlePrint}
+              autotexts={autotexts}
+              globalFontSize={globalFontSize}
+              changeTracking={changeTracking}
+            />
+          ) : (
+            <>
+              {/* Tab Content */}
+              {mobileTab === "patients" && (
+                <>
+                  <MobileHeader
+                    title="Patient Rounding"
+                    subtitle="Synced"
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                  />
+                  <div className="pb-mobile-nav">
+                    <MobilePatientList
+                      patients={filteredPatients}
+                      onPatientSelect={setSelectedPatient}
+                      searchQuery={searchQuery}
+                    />
+                  </div>
+                </>
+              )}
+
+              {mobileTab === "add" && (
+                <>
+                  <MobileHeader title="Add Patients" showSearch={false} />
+                  <div className="pb-mobile-nav">
+                    <MobileAddPanel
+                      onAddPatient={handleAddPatient}
+                      onOpenImport={() => setShowImportModal(true)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {mobileTab === "reference" && (
+                <>
+                  <MobileHeader title="Reference" showSearch={false} />
+                  <div className="pb-mobile-nav">
+                    <MobileReferencePanel />
+                  </div>
+                </>
+              )}
+
+              {mobileTab === "settings" && (
+                <>
+                  <MobileHeader title="Settings" showSearch={false} />
+                  <div className="pb-mobile-nav">
+                    <MobileSettingsPanel
+                      globalFontSize={globalFontSize}
+                      onFontSizeChange={setGlobalFontSize}
+                      sortBy={sortBy}
+                      onSortChange={setSortBy}
+                      changeTracking={changeTracking}
+                      onSignOut={handleSignOut}
+                      onOpenPrint={handlePrint}
+                      onClearAll={handleClearAll}
+                      onOpenAutotexts={() => setShowAutotextModal(true)}
+                      userEmail={user.email}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Bottom Navigation */}
+              <MobileNavBar
+                activeTab={mobileTab}
+                onTabChange={setMobileTab}
+                patientCount={patients.length}
+              />
+            </>
+          )}
+
+          {/* Modals */}
+          <PrintExportModal
+            open={showPrintModal}
+            onOpenChange={setShowPrintModal}
+            patients={filteredPatients}
+            onUpdatePatient={handleUpdatePatient}
+          />
+
+          <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+            <DialogContent className="max-w-2xl max-h-[80vh]">
+              <EpicHandoffImport
+                existingBeds={patients.map(p => p.bed)}
+                onImportPatients={async (importedPatients) => {
+                  await importPatients(importedPatients);
+                  setShowImportModal(false);
+                  setMobileTab("patients");
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={showAutotextModal} onOpenChange={setShowAutotextModal}>
+            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+              <AutotextManager
+                autotexts={autotexts}
+                templates={templates}
+                onAddAutotext={addAutotext}
+                onRemoveAutotext={removeAutotext}
+                onAddTemplate={addTemplate}
+                onRemoveTemplate={removeTemplate}
+              />
+            </DialogContent>
+          </Dialog>
+
+          <IBCCPanel />
+        </div>
+      </IBCCProvider>
+    );
+  }
+
+  // Desktop Layout
   return (
     <div className="min-h-screen bg-background">
       {/* Apple-style Header */}
@@ -256,7 +420,7 @@ const IndexContent = () => {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             {/* Primary Actions */}
             <div className="flex items-center gap-2">
-              <Button onClick={addPatient} size="sm" className="gap-2">
+              <Button onClick={handleAddPatient} size="sm" className="gap-2">
                 <Plus className="h-4 w-4" />
                 Add Patient
               </Button>
@@ -407,7 +571,7 @@ const IndexContent = () => {
                   : 'Try adjusting your search or filter criteria.'}
               </p>
               {patients.length === 0 && (
-                <Button onClick={addPatient} size="lg" className="gap-2">
+                <Button onClick={handleAddPatient} size="lg" className="gap-2">
                   <Plus className="h-5 w-5" />
                   Add First Patient
                 </Button>
