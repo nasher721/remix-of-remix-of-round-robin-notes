@@ -71,36 +71,45 @@ export const ImagePasteEditor = ({
     }
   }, [onChange]);
 
-  const handleBeforeInput = useCallback((e: InputEvent) => {
-    // Only intercept text insertions when change tracking is enabled
-    if (!changeTracking?.enabled || !e.data || e.inputType !== 'insertText') return;
-    
-    e.preventDefault();
-    
-    const markedHtml = changeTracking.wrapWithMarkup(e.data);
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
-    
-    const range = selection.getRangeAt(0);
-    range.deleteContents();
-    
-    const temp = document.createElement('div');
-    temp.innerHTML = markedHtml;
-    const fragment = document.createDocumentFragment();
-    while (temp.firstChild) {
-      fragment.appendChild(temp.firstChild);
-    }
-    range.insertNode(fragment);
-    
-    // Move cursor after inserted content
-    range.collapse(false);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    
-    if (editorRef.current) {
-      isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
-    }
+  // Use native event listener for beforeinput (more reliable than React's onBeforeInput)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const handleBeforeInput = (e: InputEvent) => {
+      if (!changeTracking?.enabled || !e.data) return;
+      
+      // Handle insertText only - paste is handled separately
+      if (e.inputType === 'insertText') {
+        e.preventDefault();
+        
+        const markedHtml = changeTracking.wrapWithMarkup(e.data);
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        
+        const temp = document.createElement('div');
+        temp.innerHTML = markedHtml;
+        const fragment = document.createDocumentFragment();
+        while (temp.firstChild) {
+          fragment.appendChild(temp.firstChild);
+        }
+        range.insertNode(fragment);
+        
+        // Move cursor after inserted content
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        isInternalUpdate.current = true;
+        onChange(editor.innerHTML);
+      }
+    };
+
+    editor.addEventListener('beforeinput', handleBeforeInput);
+    return () => editor.removeEventListener('beforeinput', handleBeforeInput);
   }, [changeTracking, onChange]);
 
   const handleInput = useCallback(() => {
@@ -111,13 +120,11 @@ export const ImagePasteEditor = ({
       // Apply underline formatting for #text: pattern
       const formattedHtml = applyUnderlineFormatting(html);
       if (formattedHtml !== html) {
-        // Save cursor position
         const selection = window.getSelection();
         
         editorRef.current.innerHTML = formattedHtml;
         html = formattedHtml;
         
-        // Restore cursor to end
         if (selection && editorRef.current.childNodes.length > 0) {
           const newRange = document.createRange();
           newRange.selectNodeContents(editorRef.current);
@@ -217,6 +224,7 @@ export const ImagePasteEditor = ({
     const items = e.clipboardData?.items;
     if (!items) return;
 
+    // Check for images first
     for (const item of Array.from(items)) {
       if (item.type.startsWith('image/')) {
         e.preventDefault();
@@ -232,6 +240,38 @@ export const ImagePasteEditor = ({
           }
         }
         return;
+      }
+    }
+
+    // Handle text paste with change tracking
+    if (changeTracking?.enabled) {
+      const text = e.clipboardData?.getData('text/plain');
+      if (text) {
+        e.preventDefault();
+        
+        const markedHtml = changeTracking.wrapWithMarkup(text);
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        
+        const temp = document.createElement('div');
+        temp.innerHTML = markedHtml;
+        const fragment = document.createDocumentFragment();
+        while (temp.firstChild) {
+          fragment.appendChild(temp.firstChild);
+        }
+        range.insertNode(fragment);
+        
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        if (editorRef.current) {
+          isInternalUpdate.current = true;
+          onChange(editorRef.current.innerHTML);
+        }
       }
     }
   };
@@ -465,7 +505,6 @@ export const ImagePasteEditor = ({
         contentEditable
         className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none"
         style={{ minHeight, fontSize: `${fontSize}px` }}
-        onBeforeInput={handleBeforeInput as unknown as React.FormEventHandler}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}

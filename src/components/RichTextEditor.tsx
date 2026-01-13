@@ -49,13 +49,57 @@ export const RichTextEditor = ({
     }
   }, [onChange]);
 
-  const handleBeforeInput = useCallback((e: InputEvent) => {
-    // Only intercept text insertions when change tracking is enabled
-    if (!changeTracking?.enabled || !e.data || e.inputType !== 'insertText') return;
+  // Use native event listener for beforeinput (more reliable than React's onBeforeInput)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const handleBeforeInput = (e: InputEvent) => {
+      if (!changeTracking?.enabled || !e.data) return;
+      
+      // Handle both insertText and insertFromPaste
+      if (e.inputType === 'insertText' || e.inputType === 'insertFromPaste') {
+        e.preventDefault();
+        
+        const markedHtml = changeTracking.wrapWithMarkup(e.data);
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        
+        const temp = document.createElement('div');
+        temp.innerHTML = markedHtml;
+        const fragment = document.createDocumentFragment();
+        while (temp.firstChild) {
+          fragment.appendChild(temp.firstChild);
+        }
+        range.insertNode(fragment);
+        
+        // Move cursor after inserted content
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        isInternalUpdate.current = true;
+        onChange(editor.innerHTML);
+      }
+    };
+
+    editor.addEventListener('beforeinput', handleBeforeInput);
+    return () => editor.removeEventListener('beforeinput', handleBeforeInput);
+  }, [changeTracking, onChange]);
+
+  // Handle paste separately for text content
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    if (!changeTracking?.enabled) return;
+    
+    const text = e.clipboardData?.getData('text/plain');
+    if (!text) return;
     
     e.preventDefault();
     
-    const markedHtml = changeTracking.wrapWithMarkup(e.data);
+    const markedHtml = changeTracking.wrapWithMarkup(text);
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     
@@ -70,7 +114,6 @@ export const RichTextEditor = ({
     }
     range.insertNode(fragment);
     
-    // Move cursor after inserted content
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
@@ -398,8 +441,8 @@ export const RichTextEditor = ({
         contentEditable
         className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none"
         style={{ minHeight, fontSize: `${fontSizeRef.current}px` }}
-        onBeforeInput={handleBeforeInput as unknown as React.FormEventHandler}
         onInput={handleInput}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         data-placeholder={placeholder}
