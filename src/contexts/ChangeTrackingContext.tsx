@@ -1,11 +1,23 @@
 /**
- * useChangeTracking Hook
- * Manages per-day change tracking settings with localStorage persistence
+ * ChangeTrackingContext
+ * Global context for change tracking settings
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import type { ChangeTrackingState, ChangeTrackingStyles, DaySettings } from "@/types/changeTracking";
 import { DEFAULT_TRACKING_COLOR, DEFAULT_STYLES } from "@/types/changeTracking";
+
+interface ChangeTrackingContextValue {
+  enabled: boolean;
+  color: string;
+  styles: ChangeTrackingStyles;
+  toggleEnabled: () => void;
+  setColor: (color: string) => void;
+  toggleStyle: (style: keyof ChangeTrackingStyles) => void;
+  wrapWithMarkup: (text: string) => string;
+}
+
+const ChangeTrackingContext = createContext<ChangeTrackingContextValue | null>(null);
 
 const STORAGE_KEY = "changeTrackingSettings";
 
@@ -27,7 +39,7 @@ const saveDaySettings = (settings: DaySettings) => {
     const stored = localStorage.getItem(STORAGE_KEY);
     const allSettings: Record<string, DaySettings> = stored ? JSON.parse(stored) : {};
     allSettings[settings.date] = settings;
-    // Keep only last 30 days to prevent storage bloat
+    // Keep only last 30 days
     const dates = Object.keys(allSettings).sort().reverse();
     const trimmed: Record<string, DaySettings> = {};
     dates.slice(0, 30).forEach(d => { trimmed[d] = allSettings[d]; });
@@ -37,7 +49,7 @@ const saveDaySettings = (settings: DaySettings) => {
   }
 };
 
-export const useChangeTracking = () => {
+export const ChangeTrackingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const today = getTodayDate();
   
   const [state, setState] = useState<ChangeTrackingState>(() => {
@@ -81,46 +93,6 @@ export const useChangeTracking = () => {
     }));
   }, []);
 
-  const setStyles = useCallback((styles: Partial<ChangeTrackingStyles>) => {
-    setState(prev => ({
-      ...prev,
-      styles: { ...prev.styles, ...styles },
-    }));
-  }, []);
-
-  // Generate inline style for marked text
-  const getMarkupStyle = useMemo(() => {
-    if (!state.enabled) return null;
-    
-    const style: React.CSSProperties = {};
-    if (state.styles.textColor) {
-      style.color = state.color;
-    }
-    if (state.styles.backgroundColor) {
-      style.backgroundColor = state.color + "33"; // 20% opacity
-    }
-    if (state.styles.italic) {
-      style.fontStyle = "italic";
-    }
-    return style;
-  }, [state]);
-
-  // Generate data attributes for marked text
-  const getMarkupAttributes = useCallback(() => {
-    if (!state.enabled) return null;
-    
-    const activeStyles: string[] = [];
-    if (state.styles.textColor) activeStyles.push("color");
-    if (state.styles.backgroundColor) activeStyles.push("background");
-    if (state.styles.italic) activeStyles.push("italic");
-    
-    return {
-      "data-marked": "true",
-      "data-date": today,
-      "data-styles": activeStyles.join(","),
-    };
-  }, [state, today]);
-
   // Create marked span HTML
   const wrapWithMarkup = useCallback((text: string): string => {
     if (!state.enabled || !text) return text;
@@ -146,16 +118,27 @@ export const useChangeTracking = () => {
     return `<span data-marked="true" data-date="${today}" data-styles="${activeStyles.join(",")}" style="${styleStr.join("; ")}">${text}</span>`;
   }, [state, today]);
 
-  return {
+  const value = useMemo(() => ({
     enabled: state.enabled,
     color: state.color,
     styles: state.styles,
     toggleEnabled,
     setColor,
     toggleStyle,
-    setStyles,
-    getMarkupStyle,
-    getMarkupAttributes,
     wrapWithMarkup,
-  };
+  }), [state, toggleEnabled, setColor, toggleStyle, wrapWithMarkup]);
+
+  return (
+    <ChangeTrackingContext.Provider value={value}>
+      {children}
+    </ChangeTrackingContext.Provider>
+  );
+};
+
+export const useChangeTracking = () => {
+  const context = useContext(ChangeTrackingContext);
+  if (!context) {
+    throw new Error("useChangeTracking must be used within ChangeTrackingProvider");
+  }
+  return context;
 };

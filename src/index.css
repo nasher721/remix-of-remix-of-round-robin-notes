@@ -225,10 +225,39 @@
       page-break-inside: avoid;
     }
 
+    /* Preserve change tracking markup colors in print */
+    [data-marked="true"] {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
     @page {
       size: landscape;
       margin: 0.5in;
     }
+  }
+
+  /* Change tracking tooltip on hover */
+  [data-marked="true"] {
+    position: relative;
+    cursor: help;
+  }
+
+  [data-marked="true"]:hover::after {
+    content: "Edited: " attr(data-date);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: hsl(var(--popover));
+    color: hsl(var(--popover-foreground));
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.625rem;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    pointer-events: none;
   }
 
   /* Rich text editor placeholder */

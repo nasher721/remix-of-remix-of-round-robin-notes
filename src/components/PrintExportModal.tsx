@@ -631,6 +631,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                 overflow: visible !important;
               }
               tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+              /* Preserve change tracking markup colors */
+              [data-marked="true"] {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
             }
             .card-view { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
             .patient-card { 

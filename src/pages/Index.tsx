@@ -7,8 +7,10 @@ import { PatientCard } from "@/components/PatientCard";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
+import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
 import { IBCCProvider } from "@/contexts/IBCCContext";
+import { ChangeTrackingProvider, useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -35,7 +37,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const Index = () => {
+// Inner component that uses change tracking
+const IndexContent = () => {
+  const changeTracking = useChangeTracking();
   const { user, loading: authLoading, signOut } = useAuth();
   const { 
     patients, 
@@ -260,8 +264,16 @@ const Index = () => {
                 existingBeds={patients.map(p => p.bed)}
                 onImportPatients={importPatients}
               />
+              <ChangeTrackingControls
+                enabled={changeTracking.enabled}
+                color={changeTracking.color}
+                styles={changeTracking.styles}
+                onToggleEnabled={changeTracking.toggleEnabled}
+                onColorChange={changeTracking.setColor}
+                onToggleStyle={changeTracking.toggleStyle}
+              />
               <div className="h-6 w-px bg-border mx-1" />
-              <AutotextManager 
+              <AutotextManager
                 autotexts={autotexts}
                 templates={templates}
                 onAddAutotext={addAutotext}
@@ -416,6 +428,7 @@ const Index = () => {
                   onToggleCollapse={handleToggleCollapse}
                   autotexts={autotexts}
                   globalFontSize={globalFontSize}
+                  changeTracking={changeTracking}
                 />
               </div>
             ))
@@ -437,5 +450,12 @@ const Index = () => {
     </div>
   );
 };
+
+// Wrap with ChangeTrackingProvider
+const Index = () => (
+  <ChangeTrackingProvider>
+    <IndexContent />
+  </ChangeTrackingProvider>
+);
 
 export default Index;

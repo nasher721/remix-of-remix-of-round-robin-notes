@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Bold, Italic, List, ImageIcon, Loader2, Maximize2 } from "lucide-react";
+import { Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,6 +17,10 @@ interface ImagePasteEditorProps {
   minHeight?: string;
   autotexts?: AutoText[];
   fontSize?: number;
+  changeTracking?: {
+    enabled: boolean;
+    wrapWithMarkup: (text: string) => string;
+  } | null;
 }
 
 // Extract image URLs from HTML content
@@ -44,7 +48,8 @@ export const ImagePasteEditor = ({
   className,
   minHeight = "60px",
   autotexts = defaultAutotexts,
-  fontSize = 14
+  fontSize = 14,
+  changeTracking = null
 }: ImagePasteEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalUpdate = useRef(false);
@@ -254,14 +259,28 @@ export const ImagePasteEditor = ({
     if (!range) return;
     
     range.deleteContents();
-    const textNode = document.createTextNode(replacement + " ");
-    range.insertNode(textNode);
+    
+    // Apply change tracking markup if enabled
+    let content: Node;
+    if (changeTracking?.enabled) {
+      const markedHtml = changeTracking.wrapWithMarkup(replacement);
+      const temp = document.createElement('div');
+      temp.innerHTML = markedHtml + " ";
+      content = document.createDocumentFragment();
+      while (temp.firstChild) {
+        content.appendChild(temp.firstChild);
+      }
+    } else {
+      content = document.createTextNode(replacement + " ");
+    }
+    
+    range.insertNode(content);
     
     const selection = window.getSelection();
     if (selection) {
       const newRange = document.createRange();
-      newRange.setStartAfter(textNode);
-      newRange.collapse(true);
+      newRange.selectNodeContents(editorRef.current!);
+      newRange.collapse(false);
       selection.removeAllRanges();
       selection.addRange(newRange);
     }
@@ -366,6 +385,12 @@ export const ImagePasteEditor = ({
           <div className="flex items-center gap-1 ml-auto text-[10px] text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             <span>Uploading...</span>
+          </div>
+        )}
+        {changeTracking?.enabled && !isUploading && (
+          <div className="flex items-center gap-1 ml-auto text-[10px] text-orange-600">
+            <Highlighter className="h-3 w-3" />
+            <span>Marking</span>
           </div>
         )}
       </div>

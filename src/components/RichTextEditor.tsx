@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Bold, Italic, Underline, List, ListOrdered, Type, Sparkles } from "lucide-react";
+import { Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
@@ -14,6 +14,10 @@ interface RichTextEditorProps {
   minHeight?: string;
   autotexts?: AutoText[];
   fontSize?: number;
+  changeTracking?: {
+    enabled: boolean;
+    wrapWithMarkup: (text: string) => string;
+  } | null;
 }
 
 export const RichTextEditor = ({ 
@@ -23,7 +27,8 @@ export const RichTextEditor = ({
   className,
   minHeight = "80px",
   autotexts = defaultAutotexts,
-  fontSize = 14
+  fontSize = 14,
+  changeTracking = null
 }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const fontSizeRef = useRef(fontSize);
@@ -34,8 +39,8 @@ export const RichTextEditor = ({
   const lastWordRef = useRef("");
   const isInternalUpdate = useRef(false);
 
-  const execCommand = useCallback((command: string, value?: string) => {
-    document.execCommand(command, false, value);
+  const execCommand = useCallback((command: string, cmdValue?: string) => {
+    document.execCommand(command, false, cmdValue);
     editorRef.current?.focus();
     if (editorRef.current) {
       isInternalUpdate.current = true;
@@ -105,15 +110,29 @@ export const RichTextEditor = ({
     if (!range) return;
     
     range.deleteContents();
-    const textNode = document.createTextNode(replacement + " ");
-    range.insertNode(textNode);
+    
+    // Apply change tracking markup if enabled
+    let content: Node;
+    if (changeTracking?.enabled) {
+      const markedHtml = changeTracking.wrapWithMarkup(replacement);
+      const temp = document.createElement('div');
+      temp.innerHTML = markedHtml + " ";
+      content = document.createDocumentFragment();
+      while (temp.firstChild) {
+        content.appendChild(temp.firstChild);
+      }
+    } else {
+      content = document.createTextNode(replacement + " ");
+    }
+    
+    range.insertNode(content);
     
     // Move cursor after inserted text
     const selection = window.getSelection();
     if (selection) {
       const newRange = document.createRange();
-      newRange.setStartAfter(textNode);
-      newRange.collapse(true);
+      newRange.selectNodeContents(editorRef.current!);
+      newRange.collapse(false);
       selection.removeAllRanges();
       selection.addRange(newRange);
     }
@@ -326,9 +345,17 @@ export const RichTextEditor = ({
             Apply
           </Button>
         </div>
-        <div className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
-          <Sparkles className="h-3 w-3" />
-          <span className="hidden sm:inline">Autotexts enabled</span>
+        <div className="ml-auto flex items-center gap-2">
+          {changeTracking?.enabled && (
+            <div className="flex items-center gap-1 text-xs text-orange-600">
+              <Highlighter className="h-3 w-3" />
+              <span className="hidden sm:inline">Marking</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Sparkles className="h-3 w-3" />
+            <span className="hidden sm:inline">Autotexts</span>
+          </div>
         </div>
       </div>
       

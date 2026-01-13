@@ -17,6 +17,10 @@ interface PatientCardProps {
   onToggleCollapse: (id: string) => void;
   autotexts?: AutoText[];
   globalFontSize?: number;
+  changeTracking?: {
+    enabled: boolean;
+    wrapWithMarkup: (text: string) => string;
+  } | null;
 }
 
 export const PatientCard = ({ 
@@ -26,7 +30,8 @@ export const PatientCard = ({
   onDuplicate, 
   onToggleCollapse,
   autotexts = defaultAutotexts,
-  globalFontSize = 14
+  globalFontSize = 14,
+  changeTracking = null
 }: PatientCardProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
@@ -152,6 +157,7 @@ export const PatientCard = ({
                 minHeight="80px"
                 autotexts={autotexts}
                 fontSize={globalFontSize}
+                changeTracking={changeTracking}
               />
             </div>
           </div>
@@ -196,6 +202,7 @@ export const PatientCard = ({
                 minHeight="80px"
                 autotexts={autotexts}
                 fontSize={globalFontSize}
+                changeTracking={changeTracking}
               />
             </div>
           </div>
@@ -233,6 +240,7 @@ export const PatientCard = ({
                   minHeight="60px"
                   autotexts={autotexts}
                   fontSize={globalFontSize}
+                  changeTracking={changeTracking}
                 />
               </div>
             </div>
@@ -261,13 +269,14 @@ export const PatientCard = ({
                 </div>
               </div>
               <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
-                <RichTextEditor
+              <RichTextEditor
                   value={patient.labs}
                   onChange={(value) => onUpdate(patient.id, 'labs', value)}
                   placeholder="CBC, BMP, LFTs, coags..."
                   minHeight="60px"
                   autotexts={autotexts}
                   fontSize={globalFontSize}
+                  changeTracking={changeTracking}
                 />
               </div>
             </div>
@@ -305,6 +314,7 @@ export const PatientCard = ({
                     minHeight="50px"
                     autotexts={autotexts}
                     fontSize={globalFontSize}
+                    changeTracking={changeTracking}
                   />
                 </div>
               ))}
