@@ -25,7 +25,15 @@ import {
   Loader2,
   Cloud,
   Type,
+  ArrowUpDown,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -44,6 +52,7 @@ const Index = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'filled' | 'empty'>('all');
+  const [sortBy, setSortBy] = useState<'number' | 'room' | 'name'>('number');
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [globalFontSize, setGlobalFontSize] = useState(() => {
@@ -129,26 +138,38 @@ const Index = () => {
     navigate("/auth");
   };
 
-  const filteredPatients = patients.filter(patient => {
-    const searchLower = searchQuery.toLowerCase();
-    const matchesSearch = !searchQuery || 
-      patient.name.toLowerCase().includes(searchLower) ||
-      patient.bed.toLowerCase().includes(searchLower) ||
-      patient.clinicalSummary.toLowerCase().includes(searchLower) ||
-      patient.intervalEvents.toLowerCase().includes(searchLower);
+  const filteredPatients = patients
+    .filter(patient => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = !searchQuery || 
+        patient.name.toLowerCase().includes(searchLower) ||
+        patient.bed.toLowerCase().includes(searchLower) ||
+        patient.clinicalSummary.toLowerCase().includes(searchLower) ||
+        patient.intervalEvents.toLowerCase().includes(searchLower);
 
-    if (filter === 'filled') {
-      const hasSomeContent = patient.clinicalSummary || patient.intervalEvents ||
-        Object.values(patient.systems).some(v => v);
-      return matchesSearch && hasSomeContent;
-    } else if (filter === 'empty') {
-      const isEmpty = !patient.clinicalSummary && !patient.intervalEvents &&
-        !Object.values(patient.systems).some(v => v);
-      return matchesSearch && isEmpty;
-    }
-    
-    return matchesSearch;
-  });
+      if (filter === 'filled') {
+        const hasSomeContent = patient.clinicalSummary || patient.intervalEvents ||
+          Object.values(patient.systems).some(v => v);
+        return matchesSearch && hasSomeContent;
+      } else if (filter === 'empty') {
+        const isEmpty = !patient.clinicalSummary && !patient.intervalEvents &&
+          !Object.values(patient.systems).some(v => v);
+        return matchesSearch && isEmpty;
+      }
+      
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'room':
+          return a.bed.localeCompare(b.bed, undefined, { numeric: true, sensitivity: 'base' });
+        case 'name':
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        case 'number':
+        default:
+          return a.patientNumber - b.patientNumber;
+      }
+    });
 
   // Get current patient for IBCC context
   const currentPatient = filteredPatients.length > 0 ? filteredPatients[0] : undefined;
@@ -287,6 +308,21 @@ const Index = () => {
                   {f === 'all' ? 'All' : f === 'filled' ? 'With Notes' : 'Empty'}
                 </Button>
               ))}
+            </div>
+            
+            {/* Sort Control */}
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'number' | 'room' | 'name')}>
+                <SelectTrigger className="w-32 h-9 bg-secondary/50 border-0">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="number">Order Added</SelectItem>
+                  <SelectItem value="room">Room</SelectItem>
+                  <SelectItem value="name">Name</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
