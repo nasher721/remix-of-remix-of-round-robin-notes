@@ -87,6 +87,37 @@ const stripHtml = (html: string): string => {
   return doc.body.textContent || "";
 };
 
+// Clean inline font styles from HTML while preserving structure (bold, italic, lists, etc.)
+const cleanInlineStyles = (html: string): string => {
+  if (!html) return '';
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  
+  // Remove font-size and font-family from all elements
+  const allElements = doc.body.querySelectorAll('*');
+  allElements.forEach(el => {
+    const element = el as HTMLElement;
+    if (element.style) {
+      element.style.fontSize = '';
+      element.style.fontFamily = '';
+      element.style.lineHeight = '';
+      // Remove the style attribute if it's now empty
+      if (element.getAttribute('style')?.trim() === '') {
+        element.removeAttribute('style');
+      }
+    }
+    // Remove font tags completely, keep content
+    if (element.tagName === 'FONT') {
+      const parent = element.parentNode;
+      while (element.firstChild) {
+        parent?.insertBefore(element.firstChild, element);
+      }
+      parent?.removeChild(element);
+    }
+  });
+  
+  return doc.body.innerHTML;
+};
+
 export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient }: PrintExportModalProps) => {
   const tableRef = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
@@ -608,19 +639,19 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           </td>`;
         }
         if (isColumnEnabled("clinicalSummary")) {
-          row += `<td class="content-cell">${patient.clinicalSummary || ''}</td>`;
+          row += `<td class="content-cell">${cleanInlineStyles(patient.clinicalSummary) || ''}</td>`;
         }
         if (isColumnEnabled("intervalEvents")) {
-          row += `<td class="content-cell">${patient.intervalEvents || ''}</td>`;
+          row += `<td class="content-cell">${cleanInlineStyles(patient.intervalEvents) || ''}</td>`;
         }
         if (isColumnEnabled("imaging")) {
-          row += `<td class="content-cell">${patient.imaging || ''}</td>`;
+          row += `<td class="content-cell">${cleanInlineStyles(patient.imaging) || ''}</td>`;
         }
         if (isColumnEnabled("labs")) {
-          row += `<td class="content-cell">${patient.labs || ''}</td>`;
+          row += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
         }
         enabledSystemKeys.forEach(key => {
-          row += `<td class="content-cell system-cell">${patient.systems[key as keyof typeof patient.systems] || ''}</td>`;
+          row += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
         });
         if (showNotesColumn) {
           row += `<td class="notes-cell">
@@ -654,7 +685,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           cardContent += `
             <div class="section section-summary">
               <div class="section-header">Clinical Summary</div>
-              <div class="section-body">${patient.clinicalSummary}</div>
+              <div class="section-body">${cleanInlineStyles(patient.clinicalSummary)}</div>
             </div>
           `;
         }
@@ -663,7 +694,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           cardContent += `
             <div class="section section-events">
               <div class="section-header">Interval Events</div>
-              <div class="section-body">${patient.intervalEvents}</div>
+              <div class="section-body">${cleanInlineStyles(patient.intervalEvents)}</div>
             </div>
           `;
         }
@@ -673,7 +704,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           imagingLabsRow += `
             <div class="section section-imaging">
               <div class="section-header imaging-header">Imaging</div>
-              <div class="section-body imaging-body">${patient.imaging}</div>
+              <div class="section-body imaging-body">${cleanInlineStyles(patient.imaging)}</div>
             </div>
           `;
         }
@@ -681,7 +712,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           imagingLabsRow += `
             <div class="section section-labs">
               <div class="section-header labs-header">Labs</div>
-              <div class="section-body labs-body">${patient.labs}</div>
+              <div class="section-body labs-body">${cleanInlineStyles(patient.labs)}</div>
             </div>
           `;
         }
@@ -697,7 +728,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               systemsGrid += `
                 <div class="system-item">
                   <div class="system-header">${systemLabels[key]}</div>
-                  <div class="system-body">${value}</div>
+                  <div class="system-body">${cleanInlineStyles(value)}</div>
                 </div>
               `;
             }
@@ -744,7 +775,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           summaryEventsRow += `
             <div class="section section-summary">
               <div class="section-header">Clinical Summary</div>
-              <div class="section-body">${patient.clinicalSummary || '<span class="empty">None documented</span>'}</div>
+              <div class="section-body">${cleanInlineStyles(patient.clinicalSummary) || '<span class="empty">None documented</span>'}</div>
             </div>
           `;
         }
@@ -752,7 +783,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           summaryEventsRow += `
             <div class="section section-events">
               <div class="section-header">Interval Events</div>
-              <div class="section-body">${patient.intervalEvents || '<span class="empty">None documented</span>'}</div>
+              <div class="section-body">${cleanInlineStyles(patient.intervalEvents) || '<span class="empty">None documented</span>'}</div>
             </div>
           `;
         }
@@ -765,7 +796,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           imagingLabsRow += `
             <div class="section section-imaging">
               <div class="section-header imaging-header">Imaging</div>
-              <div class="section-body imaging-body">${patient.imaging || '<span class="empty">None documented</span>'}</div>
+              <div class="section-body imaging-body">${cleanInlineStyles(patient.imaging) || '<span class="empty">None documented</span>'}</div>
             </div>
           `;
         }
@@ -773,7 +804,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           imagingLabsRow += `
             <div class="section section-labs">
               <div class="section-header labs-header">Labs</div>
-              <div class="section-body labs-body">${patient.labs || '<span class="empty">None documented</span>'}</div>
+              <div class="section-body labs-body">${cleanInlineStyles(patient.labs) || '<span class="empty">None documented</span>'}</div>
             </div>
           `;
         }
@@ -790,7 +821,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             systemsHTML += `
               <div class="system-item">
                 <div class="system-header">${systemLabels[key]}</div>
-                <div class="system-body">${value || '<span class="empty">-</span>'}</div>
+                <div class="system-body">${cleanInlineStyles(value) || '<span class="empty">-</span>'}</div>
               </div>
             `;
           });
@@ -863,6 +894,17 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               color: #1a1a1a; 
               padding: 12px;
               background: #fff;
+            }
+            /* CRITICAL: Force consistent font on ALL elements including those with inline styles */
+            body *, body *[style], body span, body div, body p, body td, body li, body ul, body ol {
+              font-family: ${fontCSS} !important;
+              font-size: inherit !important;
+              line-height: inherit !important;
+            }
+            /* Override any remaining inline font-size styles */
+            [style*="font-size"], [style*="font-family"] {
+              font-family: ${fontCSS} !important;
+              font-size: inherit !important;
             }
             
             /* Header */
