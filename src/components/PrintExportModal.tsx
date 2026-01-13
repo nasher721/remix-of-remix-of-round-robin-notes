@@ -1012,6 +1012,379 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
 
   const enabledSystemKeys = getEnabledSystemKeys();
 
+  // Render the appropriate content based on active tab for full preview
+  const renderFullPreviewContent = () => {
+    const fontCSS = getFontFamilyCSS();
+    
+    if (activeTab === 'table') {
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed', fontFamily: fontCSS }}>
+            <thead>
+              <tr className="bg-primary text-primary-foreground">
+                {isColumnEnabled("patient") && (
+                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.patient, fontSize: `${printFontSize + 1}px` }}>
+                    Patient
+                  </th>
+                )}
+                {isColumnEnabled("clinicalSummary") && (
+                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.summary, fontSize: `${printFontSize + 1}px` }}>
+                    Clinical Summary
+                  </th>
+                )}
+                {isColumnEnabled("intervalEvents") && (
+                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.events, fontSize: `${printFontSize + 1}px` }}>
+                    Interval Events
+                  </th>
+                )}
+                {isColumnEnabled("imaging") && (
+                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.imaging, fontSize: `${printFontSize + 1}px` }}>
+                    Imaging
+                  </th>
+                )}
+                {isColumnEnabled("labs") && (
+                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.labs, fontSize: `${printFontSize + 1}px` }}>
+                    Labs
+                  </th>
+                )}
+                {enabledSystemKeys.map(key => (
+                  <th 
+                    key={key} 
+                    className="border border-border p-3 text-left font-bold uppercase"
+                    style={{ width: columnWidths.systems, fontSize: `${printFontSize}px` }}
+                  >
+                    {systemLabels[key]}
+                  </th>
+                ))}
+                {showNotesColumn && (
+                  <th 
+                    className="border border-border p-3 text-left font-bold bg-amber-500 text-white uppercase"
+                    style={{ width: columnWidths.notes, fontSize: `${printFontSize + 1}px` }}
+                  >
+                    Notes
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {patients.map((patient, idx) => (
+                <tr key={patient.id} className={cn("border-b-2 border-primary/40", idx % 2 === 0 ? "bg-white" : "bg-muted/20")}>
+                  {isColumnEnabled("patient") && (
+                    <td className="border border-border p-3 align-top">
+                      <div className="font-bold text-primary" style={{ fontSize: `${printFontSize + 1}px` }}>{patient.name || 'Unnamed'}</div>
+                      <div className="text-muted-foreground" style={{ fontSize: `${printFontSize - 1}px` }}>Bed: {patient.bed || 'N/A'}</div>
+                    </td>
+                  )}
+                  {isColumnEnabled("clinicalSummary") && (
+                    <td className="border border-border p-3 align-top">
+                      <div 
+                        className="whitespace-pre-wrap break-words"
+                        style={{ fontSize: `${printFontSize}px` }}
+                        dangerouslySetInnerHTML={{ __html: patient.clinicalSummary }}
+                      />
+                    </td>
+                  )}
+                  {isColumnEnabled("intervalEvents") && (
+                    <td className="border border-border p-3 align-top">
+                      <div 
+                        className="whitespace-pre-wrap break-words"
+                        style={{ fontSize: `${printFontSize}px` }}
+                        dangerouslySetInnerHTML={{ __html: patient.intervalEvents }}
+                      />
+                    </td>
+                  )}
+                  {isColumnEnabled("imaging") && (
+                    <td className="border border-border p-3 align-top">
+                      <div 
+                        className="whitespace-pre-wrap break-words"
+                        style={{ fontSize: `${printFontSize}px` }}
+                        dangerouslySetInnerHTML={{ __html: patient.imaging }}
+                      />
+                    </td>
+                  )}
+                  {isColumnEnabled("labs") && (
+                    <td className="border border-border p-3 align-top">
+                      <div 
+                        className="whitespace-pre-wrap break-words"
+                        style={{ fontSize: `${printFontSize}px` }}
+                        dangerouslySetInnerHTML={{ __html: patient.labs }}
+                      />
+                    </td>
+                  )}
+                  {enabledSystemKeys.map(key => (
+                    <td key={key} className="border border-border p-2 align-top">
+                      <div 
+                        className="whitespace-pre-wrap break-words"
+                        style={{ fontSize: `${printFontSize - 1}px` }}
+                        dangerouslySetInnerHTML={{ __html: patient.systems[key as keyof typeof patient.systems] }}
+                      />
+                    </td>
+                  ))}
+                  {showNotesColumn && (
+                    <td className="border border-border p-2 align-top bg-amber-50/50">
+                      <div className="min-h-[80px] w-full relative">
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="border-b border-amber-200/60 h-[16px] w-full" />
+                        ))}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    
+    if (activeTab === 'cards') {
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" style={{ fontFamily: fontCSS }}>
+          {patients.map((patient, idx) => (
+            <div key={patient.id} className="border-3 border-primary rounded-lg overflow-hidden bg-card shadow-lg break-inside-avoid">
+              <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="bg-white text-primary rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                    {idx + 1}
+                  </span>
+                  <span className="font-bold" style={{ fontSize: `${printFontSize + 3}px` }}>
+                    {patient.name || 'Unnamed'}
+                  </span>
+                </div>
+                {patient.bed && (
+                  <span className="bg-white/20 px-3 py-1 rounded text-sm font-medium">
+                    Bed: {patient.bed}
+                  </span>
+                )}
+              </div>
+              
+              <div className="p-4 space-y-4">
+                {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
+                  <div className="border-2 border-primary/30 rounded-lg overflow-hidden">
+                    <div className="bg-primary text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                      Clinical Summary
+                    </div>
+                    <div 
+                      className="bg-muted/30 p-3"
+                      style={{ fontSize: `${printFontSize}px` }}
+                      dangerouslySetInnerHTML={{ __html: patient.clinicalSummary }}
+                    />
+                  </div>
+                )}
+                
+                {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
+                  <div className="border-2 border-primary/30 rounded-lg overflow-hidden">
+                    <div className="bg-primary text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                      Interval Events
+                    </div>
+                    <div 
+                      className="bg-muted/30 p-3"
+                      style={{ fontSize: `${printFontSize}px` }}
+                      dangerouslySetInnerHTML={{ __html: patient.intervalEvents }}
+                    />
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {isColumnEnabled("imaging") && patient.imaging && (
+                    <div className="border-2 border-blue-400 rounded-lg overflow-hidden">
+                      <div className="bg-blue-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                        Imaging
+                      </div>
+                      <div 
+                        className="bg-blue-50 p-3"
+                        style={{ fontSize: `${printFontSize}px` }}
+                        dangerouslySetInnerHTML={{ __html: patient.imaging }}
+                      />
+                    </div>
+                  )}
+                  {isColumnEnabled("labs") && patient.labs && (
+                    <div className="border-2 border-green-400 rounded-lg overflow-hidden">
+                      <div className="bg-green-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                        Labs
+                      </div>
+                      <div 
+                        className="bg-green-50 p-3"
+                        style={{ fontSize: `${printFontSize}px` }}
+                        dangerouslySetInnerHTML={{ __html: patient.labs }}
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                {enabledSystemKeys.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {enabledSystemKeys.map(key => {
+                      const value = patient.systems[key as keyof typeof patient.systems];
+                      if (!value) return null;
+                      return (
+                        <div key={key} className="border-2 border-primary rounded-lg overflow-hidden">
+                          <div 
+                            className="bg-primary text-white font-bold uppercase px-2 py-1.5 text-center" 
+                            style={{ fontSize: `${printFontSize}px`, letterSpacing: '0.5px' }}
+                          >
+                            {systemLabels[key]}
+                          </div>
+                          <div className="p-2 bg-muted/20" style={{ fontSize: `${printFontSize - 1}px` }} dangerouslySetInnerHTML={{ __html: value }} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {showNotesColumn && (
+                  <div className="border-2 border-amber-400 rounded-lg overflow-hidden">
+                    <div className="bg-amber-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                      Rounding Notes
+                    </div>
+                    <div className="min-h-[60px] w-full relative p-3 bg-amber-50">
+                      {[...Array(4)].map((_, i) => (
+                        <div key={i} className="border-b border-amber-300 h-[14px] w-full" />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    
+    // List view
+    return (
+      <div className="space-y-6" style={{ fontFamily: fontCSS }}>
+        {patients.map((patient, index) => (
+          <div key={patient.id} className="border-4 border-primary rounded-lg overflow-hidden mb-4 break-inside-avoid shadow-md">
+            <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="bg-white text-primary rounded-full w-10 h-10 flex items-center justify-center font-bold" style={{ fontSize: `${printFontSize + 2}px` }}>
+                  {index + 1}
+                </span>
+                <span className="font-bold" style={{ fontSize: `${printFontSize + 4}px` }}>{patient.name || 'Unnamed'}</span>
+              </div>
+              {patient.bed && (
+                <span className="bg-white/20 px-4 py-1.5 rounded font-medium" style={{ fontSize: `${printFontSize}px` }}>
+                  Bed: {patient.bed}
+                </span>
+              )}
+            </div>
+            
+            <div className="p-4 space-y-4 bg-white">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {isColumnEnabled("clinicalSummary") && (
+                  <div className="border-2 border-primary/40 rounded-lg overflow-hidden">
+                    <div className="bg-primary text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                      Clinical Summary
+                    </div>
+                    <div 
+                      className="p-3 bg-muted/20"
+                      style={{ fontSize: `${printFontSize}px` }}
+                      dangerouslySetInnerHTML={{ __html: patient.clinicalSummary || '<span class="text-muted-foreground italic">None documented</span>' }}
+                    />
+                  </div>
+                )}
+                {isColumnEnabled("intervalEvents") && (
+                  <div className="border-2 border-primary/40 rounded-lg overflow-hidden">
+                    <div className="bg-primary text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                      Interval Events
+                    </div>
+                    <div 
+                      className="p-3 bg-muted/20"
+                      style={{ fontSize: `${printFontSize}px` }}
+                      dangerouslySetInnerHTML={{ __html: patient.intervalEvents || '<span class="text-muted-foreground italic">None documented</span>' }}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {isColumnEnabled("imaging") && (
+                  <div className="border-2 border-blue-400 rounded-lg overflow-hidden">
+                    <div className="bg-blue-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                      Imaging
+                    </div>
+                    <div 
+                      className="p-3 bg-blue-50"
+                      style={{ fontSize: `${printFontSize}px` }}
+                      dangerouslySetInnerHTML={{ __html: patient.imaging || '<span class="text-muted-foreground italic">None documented</span>' }}
+                    />
+                  </div>
+                )}
+                {isColumnEnabled("labs") && (
+                  <div className="border-2 border-green-400 rounded-lg overflow-hidden">
+                    <div className="bg-green-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                      Labs
+                    </div>
+                    <div 
+                      className="p-3 bg-green-50"
+                      style={{ fontSize: `${printFontSize}px` }}
+                      dangerouslySetInnerHTML={{ __html: patient.labs || '<span class="text-muted-foreground italic">None documented</span>' }}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {enabledSystemKeys.length > 0 && (
+                <div>
+                  <div className="bg-primary text-white font-bold uppercase px-3 py-2 rounded-t-lg" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                    Systems Review
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0 border-2 border-t-0 border-primary rounded-b-lg overflow-hidden">
+                    {enabledSystemKeys.map((key, sysIdx) => {
+                      const value = patient.systems[key as keyof typeof patient.systems];
+                      return (
+                        <div key={key} className={cn(
+                          "border-r border-b border-primary/30",
+                          sysIdx % 5 === 4 && "border-r-0"
+                        )}>
+                          <div 
+                            className="bg-primary/90 text-white font-bold uppercase px-2 py-1.5 text-center" 
+                            style={{ fontSize: `${printFontSize}px`, letterSpacing: '0.3px' }}
+                          >
+                            {systemLabels[key]}
+                          </div>
+                          <div 
+                            className="p-2 bg-muted/10 min-h-[40px]"
+                            style={{ fontSize: `${printFontSize - 1}px` }}
+                            dangerouslySetInnerHTML={{ __html: value || '<span class="text-muted-foreground">-</span>' }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              {showNotesColumn && (
+                <div className="border-2 border-amber-400 rounded-lg overflow-hidden">
+                  <div className="bg-amber-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                    Rounding Notes
+                  </div>
+                  <div className="min-h-[60px] w-full relative p-3 bg-amber-50">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="border-b border-amber-300 h-[14px] w-full" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Get the view type label for the full preview header
+  const getViewTypeLabel = () => {
+    switch (activeTab) {
+      case 'table': return 'Dense Table View';
+      case 'cards': return 'Card View';
+      case 'list': return 'Detailed List View';
+      default: return 'Table View';
+    }
+  };
+
   // Full-page preview modal
   if (isFullPreview) {
     return (
@@ -1021,7 +1394,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           <div className="flex items-center gap-3">
             <h2 className="font-bold text-lg flex items-center gap-2">
               <Fullscreen className="h-5 w-5 text-primary" />
-              Full Page Preview
+              Full Page Preview - {getViewTypeLabel()}
             </h2>
             <span className="text-sm text-muted-foreground">
               This is exactly how your document will look when printed
@@ -1044,7 +1417,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           <div className="header flex justify-between items-center mb-6 border-b-2 border-primary pb-4">
             <div>
               <h1 className="text-2xl font-bold text-primary">🏥 Patient Rounding Report</h1>
-              <div className="text-sm text-muted-foreground mt-1">Full page print preview</div>
+              <div className="text-sm text-muted-foreground mt-1">{getViewTypeLabel()}</div>
             </div>
             <div className="text-right">
               <div className="font-medium text-lg">{dateStr}</div>
@@ -1052,117 +1425,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
             </div>
           </div>
           
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm" style={{ tableLayout: 'fixed' }}>
-              <thead>
-                <tr className="bg-primary text-primary-foreground">
-                  {isColumnEnabled("patient") && (
-                    <th className="border border-border p-3 text-left font-bold" style={{ width: columnWidths.patient }}>
-                      Patient
-                    </th>
-                  )}
-                  {isColumnEnabled("clinicalSummary") && (
-                    <th className="border border-border p-3 text-left font-bold" style={{ width: columnWidths.summary }}>
-                      Clinical Summary
-                    </th>
-                  )}
-                  {isColumnEnabled("intervalEvents") && (
-                    <th className="border border-border p-3 text-left font-bold" style={{ width: columnWidths.events }}>
-                      Interval Events
-                    </th>
-                  )}
-                  {isColumnEnabled("imaging") && (
-                    <th className="border border-border p-3 text-left font-bold" style={{ width: columnWidths.imaging }}>
-                      Imaging
-                    </th>
-                  )}
-                  {isColumnEnabled("labs") && (
-                    <th className="border border-border p-3 text-left font-bold" style={{ width: columnWidths.labs }}>
-                      Labs
-                    </th>
-                  )}
-                  {enabledSystemKeys.map(key => (
-                    <th 
-                      key={key} 
-                      className="border border-border p-3 text-left font-bold text-xs"
-                      style={{ width: columnWidths.systems }}
-                    >
-                      {systemLabels[key]}
-                    </th>
-                  ))}
-                  {showNotesColumn && (
-                    <th 
-                      className="border border-border p-3 text-left font-bold bg-amber-500 text-white"
-                      style={{ width: columnWidths.notes }}
-                    >
-                      Notes
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {patients.map((patient, idx) => (
-                  <tr key={patient.id} className={cn("border-b", idx % 2 === 0 ? "bg-white" : "bg-muted/20")}>
-                    {isColumnEnabled("patient") && (
-                      <td className="border border-border p-3 align-top">
-                        <div className="font-bold text-primary">{patient.name || 'Unnamed'}</div>
-                        <div className="text-xs text-muted-foreground">Bed: {patient.bed || 'N/A'}</div>
-                      </td>
-                    )}
-                    {isColumnEnabled("clinicalSummary") && (
-                      <td className="border border-border p-3 align-top">
-                        <div 
-                          className="text-sm whitespace-pre-wrap break-words"
-                          dangerouslySetInnerHTML={{ __html: patient.clinicalSummary }}
-                        />
-                      </td>
-                    )}
-                    {isColumnEnabled("intervalEvents") && (
-                      <td className="border border-border p-3 align-top">
-                        <div 
-                          className="text-sm whitespace-pre-wrap break-words"
-                          dangerouslySetInnerHTML={{ __html: patient.intervalEvents }}
-                        />
-                      </td>
-                    )}
-                    {isColumnEnabled("imaging") && (
-                      <td className="border border-border p-3 align-top">
-                        <div 
-                          className="text-sm whitespace-pre-wrap break-words"
-                          dangerouslySetInnerHTML={{ __html: patient.imaging }}
-                        />
-                      </td>
-                    )}
-                    {isColumnEnabled("labs") && (
-                      <td className="border border-border p-3 align-top">
-                        <div 
-                          className="text-sm whitespace-pre-wrap break-words"
-                          dangerouslySetInnerHTML={{ __html: patient.labs }}
-                        />
-                      </td>
-                    )}
-                    {enabledSystemKeys.map(key => (
-                      <td key={key} className="border border-border p-2 align-top">
-                        <div 
-                          className="text-xs whitespace-pre-wrap break-words"
-                          dangerouslySetInnerHTML={{ __html: patient.systems[key as keyof typeof patient.systems] }}
-                        />
-                      </td>
-                    ))}
-                    {showNotesColumn && (
-                      <td className="border border-border p-2 align-top bg-amber-50/50">
-                        <div className="min-h-[80px] w-full relative">
-                          {[...Array(5)].map((_, i) => (
-                            <div key={i} className="border-b border-amber-200/60 h-[16px] w-full" />
-                          ))}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {renderFullPreviewContent()}
         </div>
       </div>
     );
