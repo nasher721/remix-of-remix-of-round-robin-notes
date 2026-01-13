@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube } from "lucide-react";
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
+import { ImagePasteEditor } from "./ImagePasteEditor";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems } from "@/types/patient";
@@ -205,11 +206,11 @@ export const PatientCard = ({
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4 text-primary" />
+                  <ImageIcon className="h-4 w-4 text-blue-500" />
                   <h3 className="text-sm font-medium">Imaging</h3>
                   {patient.imaging && (
-                    <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                      {patient.imaging.length} chars
+                    <span className="text-xs text-muted-foreground bg-blue-100 px-2 py-0.5 rounded-full">
+                      {patient.imaging.includes('<img') ? '📷' : ''} {patient.imaging.replace(/<[^>]*>/g, '').length} chars
                     </span>
                   )}
                 </div>
@@ -224,11 +225,11 @@ export const PatientCard = ({
                   </Button>
                 </div>
               </div>
-              <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
-                <RichTextEditor
+              <div className="bg-blue-50/30 rounded-lg border border-blue-200/50">
+                <ImagePasteEditor
                   value={patient.imaging}
                   onChange={(value) => onUpdate(patient.id, 'imaging', value)}
-                  placeholder="X-rays, CT, MRI, Echo..."
+                  placeholder="X-rays, CT, MRI, Echo... (paste images here)"
                   minHeight="60px"
                   autotexts={autotexts}
                   fontSize={globalFontSize}
