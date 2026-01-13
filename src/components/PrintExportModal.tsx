@@ -661,9 +661,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               font-weight: 700; 
               color: #1e40af; 
               text-transform: uppercase; 
-              font-size: ${Math.max(baseFontSize - 2, 7)}px !important; 
+              font-size: ${baseFontSize + 1}px !important; 
               margin-bottom: 4px;
               letter-spacing: 0.5px;
+              border-bottom: 1px solid #3b82f6;
+              padding-bottom: 2px;
             }
             .content, .content * { 
               white-space: pre-wrap !important;
@@ -678,7 +680,21 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
               overflow: visible !important;
               max-height: none !important;
             }
-            .system-label { font-weight: 600; color: #374151; display: block; font-size: ${smallerFontSize}px !important; margin-bottom: 2px; }
+            /* System labels - bigger and bolder */
+            .system-label { 
+              font-weight: 700; 
+              color: #1e40af; 
+              display: block; 
+              font-size: ${baseFontSize + 2}px !important; 
+              margin-bottom: 4px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #3b82f6;
+              padding-bottom: 2px;
+            }
+            .system-content {
+              padding-top: 4px;
+            }
             .no-break { page-break-inside: avoid; }
             .notes-cell { background: #fffbeb !important; }
             /* Prevent row breaks */
@@ -1564,14 +1580,19 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                       )}
                     </div>
                     
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-2">
                       {enabledSystemKeys.map(key => {
                         const value = patient.systems[key as keyof typeof patient.systems];
                         if (!value) return null;
                         return (
-                          <div key={key} className="border rounded p-2 bg-muted/20">
-                            <div className="font-bold text-primary uppercase mb-1" style={{ fontSize: `${printFontSize - 2}px` }}>{systemLabels[key]}</div>
-                            <div dangerouslySetInnerHTML={{ __html: value }} />
+                          <div key={key} className="border-2 border-primary/30 rounded p-2 bg-muted/20">
+                            <div 
+                              className="font-bold text-primary uppercase border-b-2 border-primary/40 pb-1 mb-2" 
+                              style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}
+                            >
+                              {systemLabels[key]}
+                            </div>
+                            <div className="pt-1" dangerouslySetInnerHTML={{ __html: value }} />
                           </div>
                         );
                       })}
@@ -1668,10 +1689,15 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
                           {enabledSystemKeys.map(key => {
                             const value = patient.systems[key as keyof typeof patient.systems];
                             return (
-                              <div key={key} className="bg-muted/20 p-2 rounded border">
-                                <span className="font-bold text-primary uppercase" style={{ fontSize: `${printFontSize - 1}px` }}>{systemLabels[key]}</span>
+                              <div key={key} className="bg-muted/20 p-3 rounded border-2 border-primary/30">
                                 <div 
-                                  className="mt-1"
+                                  className="font-bold text-primary uppercase border-b-2 border-primary/40 pb-1 mb-2" 
+                                  style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}
+                                >
+                                  {systemLabels[key]}
+                                </div>
+                                <div 
+                                  className="pt-1"
                                   dangerouslySetInnerHTML={{ __html: value || '<span class="text-muted-foreground">-</span>' }}
                                 />
                               </div>
