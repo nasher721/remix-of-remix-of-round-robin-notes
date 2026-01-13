@@ -512,88 +512,98 @@ export const PrintExportModal = ({ open, onOpenChange, patients, onUpdatePatient
           <style>
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { 
-              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-              font-size: 9px; 
-              line-height: 1.3; 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+              font-size: 10px; 
+              line-height: 1.4; 
               color: #1a1a1a; 
-              padding: 8px;
+              padding: 12px;
               background: #fff;
             }
-            h1 { font-size: 14px; margin-bottom: 4px; color: #1e40af; }
+            h1 { font-size: 16px; margin-bottom: 6px; color: #1e40af; font-weight: 600; }
             .header { 
               display: flex; 
               justify-content: space-between; 
               align-items: center; 
-              margin-bottom: 8px; 
-              border-bottom: 3px solid #1e40af; 
-              padding-bottom: 6px; 
+              margin-bottom: 12px; 
+              border-bottom: 2px solid #1e40af; 
+              padding-bottom: 8px; 
             }
-            .header-info { font-size: 8px; color: #4b5563; }
+            .header-info { font-size: 9px; color: #4b5563; }
             .report-meta { 
               background: #f1f5f9; 
-              padding: 6px 10px; 
-              border-radius: 4px; 
-              margin-bottom: 10px;
+              padding: 8px 12px; 
+              border-radius: 6px; 
+              margin-bottom: 12px;
               display: flex;
-              gap: 20px;
-              font-size: 8px;
+              gap: 24px;
+              font-size: 9px;
             }
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin-bottom: 8px; 
-              table-layout: fixed; 
+              margin-bottom: 10px; 
+              table-layout: auto; 
             }
             th, td { 
               border: 1px solid #d1d5db; 
-              padding: 4px 5px; 
+              padding: 6px 8px; 
               text-align: left; 
               vertical-align: top; 
               word-wrap: break-word; 
               overflow-wrap: break-word;
               white-space: pre-wrap !important;
               max-width: none !important;
+              hyphens: auto;
             }
             th { 
-              background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%); 
+              background: #1e40af; 
               color: #fff;
               font-weight: 600; 
-              font-size: 8px; 
+              font-size: 9px; 
               text-transform: uppercase;
-              letter-spacing: 0.5px;
+              letter-spacing: 0.3px;
+              white-space: nowrap;
             }
-            td { font-size: 8px; background: #fff; }
+            td { font-size: 9px; background: #fff; line-height: 1.5; }
             tr:nth-child(even) td { background: #f8fafc; }
-            tr:hover td { background: #e0f2fe; }
-            .patient-name { font-weight: 700; color: #1e40af; font-size: 9px; }
-            .bed { color: #6b7280; font-size: 7px; display: block; margin-top: 2px; }
-            .content { white-space: pre-wrap !important; word-break: break-word; }
+            .patient-name { font-weight: 700; color: #1e40af; font-size: 10px; }
+            .bed { color: #6b7280; font-size: 8px; display: block; margin-top: 3px; }
+            .content { 
+              white-space: pre-wrap !important; 
+              word-break: break-word;
+              overflow-wrap: anywhere;
+            }
             .line-clamp-3 { 
               -webkit-line-clamp: unset !important; 
               display: block !important; 
               overflow: visible !important;
               max-height: none !important;
             }
-            .system-label { font-weight: 600; color: #374151; display: block; font-size: 7px; margin-bottom: 1px; }
+            .system-label { font-weight: 600; color: #374151; display: block; font-size: 8px; margin-bottom: 2px; }
             .no-break { page-break-inside: avoid; }
             .notes-cell { background: #fffbeb !important; }
+            /* Prevent row breaks */
+            tr { page-break-inside: avoid; break-inside: avoid; }
             @media print {
-              @page { size: landscape; margin: 0.3in; }
+              @page { size: landscape; margin: 0.4in; }
               body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
               .no-print { display: none !important; }
-              th { background: #1e40af !important; color: #fff !important; }
+              th { background: #1e40af !important; color: #fff !important; -webkit-print-color-adjust: exact; }
               tr:nth-child(even) td { background: #f8fafc !important; }
               .notes-cell { background: #fffbeb !important; }
+              table { table-layout: auto !important; }
               td, th { 
                 white-space: pre-wrap !important; 
                 overflow: visible !important;
                 max-height: none !important;
+                page-break-inside: avoid;
               }
               .line-clamp-3 { 
                 -webkit-line-clamp: unset !important; 
                 display: block !important; 
                 overflow: visible !important;
               }
+              tr { page-break-inside: avoid !important; break-inside: avoid !important; }
             }
             .card-view { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
             .patient-card { 

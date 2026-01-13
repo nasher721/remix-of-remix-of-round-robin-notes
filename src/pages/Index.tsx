@@ -52,7 +52,10 @@ const Index = () => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'filled' | 'empty'>('all');
-  const [sortBy, setSortBy] = useState<'number' | 'room' | 'name'>('number');
+  const [sortBy, setSortBy] = useState<'number' | 'room' | 'name'>(() => {
+    const saved = localStorage.getItem('patientSortBy');
+    return (saved as 'number' | 'room' | 'name') || 'number';
+  });
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [globalFontSize, setGlobalFontSize] = useState(() => {
@@ -66,6 +69,11 @@ const Index = () => {
   useEffect(() => {
     localStorage.setItem('globalFontSize', String(globalFontSize));
   }, [globalFontSize]);
+
+  // Save sort preference
+  useEffect(() => {
+    localStorage.setItem('patientSortBy', sortBy);
+  }, [sortBy]);
 
   // Redirect to auth if not logged in
   useEffect(() => {
