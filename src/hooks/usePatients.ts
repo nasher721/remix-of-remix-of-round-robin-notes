@@ -51,6 +51,8 @@ export const usePatients = () => {
         bed: p.bed,
         clinicalSummary: p.clinical_summary,
         intervalEvents: p.interval_events,
+        imaging: p.imaging || '',
+        labs: p.labs || '',
         systems: parseSystemsJson(p.systems),
         collapsed: p.collapsed,
         createdAt: p.created_at,
@@ -91,6 +93,8 @@ export const usePatients = () => {
           bed: "",
           clinical_summary: "",
           interval_events: "",
+          imaging: "",
+          labs: "",
           systems: defaultSystemsValue as unknown as Json,
           collapsed: false,
         }])
@@ -106,6 +110,8 @@ export const usePatients = () => {
         bed: data.bed,
         clinicalSummary: data.clinical_summary,
         intervalEvents: data.interval_events,
+        imaging: data.imaging || '',
+        labs: data.labs || '',
         systems: parseSystemsJson(data.systems),
         collapsed: data.collapsed,
         createdAt: data.created_at,
@@ -213,6 +219,8 @@ export const usePatients = () => {
           bed: patient.bed,
           clinical_summary: patient.clinicalSummary,
           interval_events: patient.intervalEvents,
+          imaging: patient.imaging,
+          labs: patient.labs,
           systems: patient.systems as unknown as Json,
           collapsed: false,
         }])
@@ -228,6 +236,8 @@ export const usePatients = () => {
         bed: data.bed,
         clinicalSummary: data.clinical_summary,
         intervalEvents: data.interval_events,
+        imaging: data.imaging || '',
+        labs: data.labs || '',
         systems: parseSystemsJson(data.systems),
         collapsed: data.collapsed,
         createdAt: data.created_at,
@@ -273,13 +283,15 @@ export const usePatients = () => {
       for (const p of patientsToImport) {
         const { data, error } = await supabase
           .from("patients")
-          .insert([{
+        .insert([{
             user_id: user.id,
             patient_number: currentCounter,
             name: p.name,
             bed: p.bed,
             clinical_summary: p.clinicalSummary,
             interval_events: p.intervalEvents || "",
+            imaging: "",
+            labs: "",
             systems: defaultSystemsValue as unknown as Json,
             collapsed: false,
           }])
@@ -295,6 +307,8 @@ export const usePatients = () => {
           bed: data.bed,
           clinicalSummary: data.clinical_summary,
           intervalEvents: data.interval_events,
+          imaging: data.imaging || '',
+          labs: data.labs || '',
           systems: parseSystemsJson(data.systems),
           collapsed: data.collapsed,
           createdAt: data.created_at,

@@ -43,6 +43,8 @@ export interface DbPatient {
   bed: string;
   clinical_summary: string;
   interval_events: string;
+  imaging: string;
+  labs: string;
   systems: PatientSystems;
   collapsed: boolean;
   created_at: string;
@@ -60,6 +62,8 @@ export interface Patient {
   bed: string;
   clinicalSummary: string;
   intervalEvents: string;
+  imaging: string;
+  labs: string;
   systems: PatientSystems;
   collapsed: boolean;
   createdAt: string;

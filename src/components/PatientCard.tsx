@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock } from "lucide-react";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube } from "lucide-react";
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { AutoText } from "@/types/autotext";
@@ -196,6 +196,79 @@ export const PatientCard = ({
                 autotexts={autotexts}
                 fontSize={globalFontSize}
               />
+            </div>
+          </div>
+
+          {/* Imaging & Labs Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Imaging */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-medium">Imaging</h3>
+                  {patient.imaging && (
+                    <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                      {patient.imaging.length} chars
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1 no-print">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => clearSection('imaging')}
+                    className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
+                <RichTextEditor
+                  value={patient.imaging}
+                  onChange={(value) => onUpdate(patient.id, 'imaging', value)}
+                  placeholder="X-rays, CT, MRI, Echo..."
+                  minHeight="60px"
+                  autotexts={autotexts}
+                  fontSize={globalFontSize}
+                />
+              </div>
+            </div>
+
+            {/* Labs */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <TestTube className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-medium">Labs</h3>
+                  {patient.labs && (
+                    <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                      {patient.labs.length} chars
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1 no-print">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => clearSection('labs')}
+                    className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+              <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
+                <RichTextEditor
+                  value={patient.labs}
+                  onChange={(value) => onUpdate(patient.id, 'labs', value)}
+                  placeholder="CBC, BMP, LFTs, coags..."
+                  minHeight="60px"
+                  autotexts={autotexts}
+                  fontSize={globalFontSize}
+                />
+              </div>
             </div>
           </div>
 

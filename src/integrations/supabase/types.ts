@@ -48,7 +48,9 @@ export type Database = {
           collapsed: boolean
           created_at: string
           id: string
+          imaging: string
           interval_events: string
+          labs: string
           last_modified: string
           name: string
           patient_number: number
@@ -61,7 +63,9 @@ export type Database = {
           collapsed?: boolean
           created_at?: string
           id?: string
+          imaging?: string
           interval_events?: string
+          labs?: string
           last_modified?: string
           name?: string
           patient_number: number
@@ -74,7 +78,9 @@ export type Database = {
           collapsed?: boolean
           created_at?: string
           id?: string
+          imaging?: string
           interval_events?: string
+          labs?: string
           last_modified?: string
           name?: string
           patient_number?: number

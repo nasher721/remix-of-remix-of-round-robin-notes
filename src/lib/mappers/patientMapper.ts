@@ -52,6 +52,8 @@ export const dbToUiPatient = (dbPatient: DbPatient): Patient => ({
   bed: dbPatient.bed,
   clinicalSummary: dbPatient.clinical_summary,
   intervalEvents: dbPatient.interval_events,
+  imaging: dbPatient.imaging,
+  labs: dbPatient.labs,
   systems: dbPatient.systems,
   collapsed: dbPatient.collapsed,
   createdAt: dbPatient.created_at,
