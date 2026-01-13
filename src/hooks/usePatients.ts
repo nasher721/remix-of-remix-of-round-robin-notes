@@ -273,6 +273,9 @@ export const usePatients = () => {
     bed: string;
     clinicalSummary: string;
     intervalEvents: string;
+    imaging?: string;
+    labs?: string;
+    systems?: PatientSystems;
   }>) => {
     if (!user) return;
 
@@ -281,6 +284,8 @@ export const usePatients = () => {
       const newPatients: Patient[] = [];
 
       for (const p of patientsToImport) {
+        const systemsToInsert = p.systems || defaultSystemsValue;
+        
         const { data, error } = await supabase
           .from("patients")
         .insert([{
@@ -290,9 +295,9 @@ export const usePatients = () => {
             bed: p.bed,
             clinical_summary: p.clinicalSummary,
             interval_events: p.intervalEvents || "",
-            imaging: "",
-            labs: "",
-            systems: defaultSystemsValue as unknown as Json,
+            imaging: p.imaging || "",
+            labs: p.labs || "",
+            systems: systemsToInsert as unknown as Json,
             collapsed: false,
           }])
           .select()

@@ -9,6 +9,19 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileUp, Loader2, FileText, Users, AlertCircle } from "lucide-react";
 
+interface PatientSystems {
+  neuro: string;
+  cv: string;
+  resp: string;
+  renalGU: string;
+  gi: string;
+  endo: string;
+  heme: string;
+  infectious: string;
+  skinLines: string;
+  dispo: string;
+}
+
 interface ParsedPatient {
   bed: string;
   name: string;
@@ -18,6 +31,9 @@ interface ParsedPatient {
   handoffSummary: string;
   intervalEvents: string;
   bedStatus: string;
+  imaging: string;
+  labs: string;
+  systems: PatientSystems;
 }
 
 interface EpicHandoffImportProps {
@@ -27,6 +43,9 @@ interface EpicHandoffImportProps {
     bed: string;
     clinicalSummary: string;
     intervalEvents: string;
+    imaging: string;
+    labs: string;
+    systems: PatientSystems;
   }>) => Promise<void>;
 }
 
@@ -331,6 +350,19 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
   };
 
   const handleImport = async () => {
+    const defaultSystems: PatientSystems = {
+      neuro: '',
+      cv: '',
+      resp: '',
+      renalGU: '',
+      gi: '',
+      endo: '',
+      heme: '',
+      infectious: '',
+      skinLines: '',
+      dispo: '',
+    };
+
     const patientsToImport = parsedPatients
       .filter((_, i) => selectedPatients.has(i))
       .map(p => ({
@@ -338,6 +370,9 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
         bed: p.bed,
         clinicalSummary: p.handoffSummary,
         intervalEvents: p.intervalEvents || '',
+        imaging: p.imaging || '',
+        labs: p.labs || '',
+        systems: p.systems || defaultSystems,
       }));
 
     if (patientsToImport.length === 0) {

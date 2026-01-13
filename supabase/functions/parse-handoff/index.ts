@@ -5,6 +5,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface PatientSystems {
+  neuro: string;
+  cv: string;
+  resp: string;
+  renalGU: string;
+  gi: string;
+  endo: string;
+  heme: string;
+  infectious: string;
+  skinLines: string;
+  dispo: string;
+}
+
 interface ParsedPatient {
   bed: string;
   name: string;
@@ -14,6 +27,9 @@ interface ParsedPatient {
   handoffSummary: string;
   intervalEvents: string;
   bedStatus: string;
+  imaging: string;
+  labs: string;
+  systems: PatientSystems;
 }
 
 /**
@@ -114,6 +130,7 @@ function removeRepeatedPhrases(text: string): string {
 
 /**
  * Main text cleaning function - applies all deduplication strategies
+ * Preserves HTML formatting tags
  */
 function cleanPatientText(text: string): string {
   if (!text) return '';
@@ -126,8 +143,8 @@ function cleanPatientText(text: string): string {
   // Step 2: Remove duplicate sentences
   cleaned = deduplicateText(cleaned);
   
-  // Step 3: Clean up whitespace
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  // Step 3: Clean up whitespace but preserve newlines for formatting
+  cleaned = cleaned.replace(/[ \t]+/g, ' ').trim();
   
   return cleaned;
 }
@@ -167,6 +184,24 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
           ? patient.intervalEvents
           : existing.intervalEvents,
         bedStatus: patient.bedStatus || existing.bedStatus,
+        imaging: (patient.imaging?.length || 0) > (existing.imaging?.length || 0)
+          ? patient.imaging
+          : existing.imaging,
+        labs: (patient.labs?.length || 0) > (existing.labs?.length || 0)
+          ? patient.labs
+          : existing.labs,
+        systems: {
+          neuro: patient.systems?.neuro || existing.systems?.neuro || '',
+          cv: patient.systems?.cv || existing.systems?.cv || '',
+          resp: patient.systems?.resp || existing.systems?.resp || '',
+          renalGU: patient.systems?.renalGU || existing.systems?.renalGU || '',
+          gi: patient.systems?.gi || existing.systems?.gi || '',
+          endo: patient.systems?.endo || existing.systems?.endo || '',
+          heme: patient.systems?.heme || existing.systems?.heme || '',
+          infectious: patient.systems?.infectious || existing.systems?.infectious || '',
+          skinLines: patient.systems?.skinLines || existing.systems?.skinLines || '',
+          dispo: patient.systems?.dispo || existing.systems?.dispo || '',
+        },
       };
       
       bedMap.set(normalizedBed, merged);
@@ -205,7 +240,7 @@ serve(async (req) => {
 
     console.log("Parsing Epic handoff content...", images ? `(${images.length} images)` : "(text)");
 
-    const systemPrompt = `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data.
+    const systemPrompt = `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data with system-based organization.
 
 Given the content from an Epic Handoff (either as text or scanned page images), extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient in the document.
 
@@ -222,9 +257,29 @@ For each patient, extract:
 - mrn: Medical Record Number (usually a number in parentheses after the name)
 - age: Patient's age (e.g., "65 yo", "72y")
 - sex: Patient's sex (M or F)
-- handoffSummary: The main handoff summary text (clinical overview, history, plan - but NOT the "What we did on rounds" section)
-- intervalEvents: The content from the "What we did on rounds" section (or similar like "Rounds update", "Events", "Daily update"). IMPORTANT: Do NOT include the section header (e.g., "What we did on rounds:") - only include the actual content.
-- bedStatus: Any bed status information (if present)
+- handoffSummary: The main handoff summary text (clinical overview, history, plan - but NOT system-specific content or "What we did on rounds")
+- intervalEvents: Content from "What we did on rounds" section (or "Rounds update", "Events", "Daily update"). Do NOT include the section header.
+- bedStatus: Any bed status information
+- imaging: Any imaging/radiology information (CT, MRI, X-ray, ultrasound results or pending studies)
+- labs: Any laboratory results or pending labs
+- systems: Object containing system-based review content. Parse content into appropriate systems:
+  - neuro: Neurological (mental status, neuro exams, seizures, sedation, pain)
+  - cv: Cardiovascular (heart, BP, rhythms, pressors, fluids, cardiac)
+  - resp: Respiratory (lungs, ventilator, O2, breathing, pulmonary)
+  - renalGU: Renal/GU (kidneys, creatinine, urine, dialysis, Foley, electrolytes)
+  - gi: GI/Nutrition (abdomen, bowels, diet, TPN, liver, GI bleed)
+  - endo: Endocrine (glucose, insulin, thyroid, steroids)
+  - heme: Hematology (blood counts, anticoagulation, transfusions, bleeding)
+  - infectious: Infectious Disease (cultures, antibiotics, fever, infection)
+  - skinLines: Skin/Lines (IV access, wounds, pressure ulcers, drains)
+  - dispo: Disposition (discharge planning, goals of care, family)
+
+FORMATTING PRESERVATION:
+- Preserve line breaks within each field using \\n
+- Preserve bullet points and lists
+- Use <b>text</b> for bold/emphasized text (section headers, important findings)
+- Use <u>text</u> for underlined text (diagnoses, key terms)
+- Preserve numbered lists (1. 2. 3.) and bullet points (- or •)
 
 Return ONLY valid JSON in this exact format:
 {
@@ -237,7 +292,21 @@ Return ONLY valid JSON in this exact format:
       "sex": "string",
       "handoffSummary": "string",
       "intervalEvents": "string",
-      "bedStatus": "string"
+      "bedStatus": "string",
+      "imaging": "string",
+      "labs": "string",
+      "systems": {
+        "neuro": "string",
+        "cv": "string",
+        "resp": "string",
+        "renalGU": "string",
+        "gi": "string",
+        "endo": "string",
+        "heme": "string",
+        "infectious": "string",
+        "skinLines": "string",
+        "dispo": "string"
+      }
     }
   ]
 }
@@ -248,29 +317,30 @@ CRITICAL DEDUPLICATION RULES:
 - NEVER repeat text within a field - each sentence should appear only ONCE
 - If you see repeated/duplicated content in the source (OCR artifacts), include it only ONCE
 - Remove any stuttering, echoing, or repeated phrases
-- Do NOT repeat sentences or paragraphs - each piece of clinical information should appear exactly once
 - Clean up any OCR artifacts or formatting issues
 - If a field is missing, use an empty string
 
-IMPORTANT OUTPUT CONSTRAINTS:
-- Keep handoffSummary BRIEF (max 3-4 sentences with key clinical points)
-- Keep intervalEvents BRIEF (only most recent and relevant updates)
-- Avoid verbose repetition - be concise
-- Total output must fit within token limits`;
+SYSTEM MAPPING GUIDANCE:
+- Look for section headers like "Neuro:", "CV:", "Pulm:", "Renal:", "GI:", "ID:", "Heme:", "Endo:", "Access:", "Dispo:"
+- Also map content based on clinical context even without explicit headers
+- "Pulm" or "Pulmonary" maps to "resp"
+- "ID" or "Infectious Disease" maps to "infectious"
+- "Access" or "Lines" maps to "skinLines"
+- If no system-specific content found, leave systems fields empty`;
 
     // Build message content based on whether we have images or text
     let userContent: any;
     if (images && images.length > 0) {
       // Vision-based OCR: send images to the model
       userContent = [
-        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Remove any repeated text. BE CONCISE - summarize key points only:" },
+        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Preserve formatting with HTML tags. Parse content into the appropriate system categories (neuro, cv, resp, renalGU, gi, endo, heme, infectious, skinLines, dispo):" },
         ...images.map((img: string, idx: number) => ({
           type: "image_url",
           image_url: { url: img }
         }))
       ];
     } else {
-      userContent = `Parse the following Epic Handoff document and extract all patient data. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. BE CONCISE:\n\n${pdfContent}`;
+      userContent = `Parse the following Epic Handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Parse content into the appropriate system categories:\n\n${pdfContent}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -285,7 +355,7 @@ IMPORTANT OUTPUT CONSTRAINTS:
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        max_tokens: 16000, // Limit response to prevent truncation
+        max_tokens: 16000,
       }),
     });
 
@@ -344,7 +414,6 @@ IMPORTANT OUTPUT CONSTRAINTS:
         console.log("Initial parse failed, attempting repair...");
         
         // Attempt to repair truncated JSON
-        // Count opening and closing braces/brackets
         const openBraces = (jsonStr.match(/\{/g) || []).length;
         const closeBraces = (jsonStr.match(/\}/g) || []).length;
         const openBrackets = (jsonStr.match(/\[/g) || []).length;
@@ -352,43 +421,21 @@ IMPORTANT OUTPUT CONSTRAINTS:
         
         console.log(`Braces: ${openBraces} open, ${closeBraces} close. Brackets: ${openBrackets} open, ${closeBrackets} close`);
         
-        // Find the last complete patient object
-        // Look for the last complete "}" followed by either "," or end of array
-        const patientPattern = /\{\s*"bed"\s*:\s*"[^"]*"\s*,\s*"name"\s*:\s*"[^"]*"\s*,\s*"mrn"\s*:\s*"[^"]*"\s*,\s*"age"\s*:\s*"[^"]*"\s*,\s*"sex"\s*:\s*"[^"]*"\s*,\s*"handoffSummary"\s*:\s*"[^"]*"\s*,\s*"intervalEvents"\s*:\s*"[^"]*"\s*,\s*"bedStatus"\s*:\s*"[^"]*"\s*\}/g;
+        // Try a simpler fix: just close the truncated JSON
+        let repaired = jsonStr;
         
-        const matches = [...jsonStr.matchAll(patientPattern)];
+        // Remove any trailing incomplete property
+        repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, '');
+        repaired = repaired.replace(/,\s*\{[^}]*$/, '');
         
-        if (matches.length > 0) {
-          console.log(`Found ${matches.length} complete patient objects`);
-          
-          // Reconstruct valid JSON with complete patients only
-          const patients = matches.map(m => m[0]);
-          const repairedJson = `{"patients": [${patients.join(',')}]}`;
-          
-          try {
-            parsedData = JSON.parse(repairedJson);
-            console.log(`Repaired JSON with ${parsedData.patients.length} patients`);
-          } catch (repairError) {
-            throw new Error(`JSON repair failed: ${repairError}`);
-          }
-        } else {
-          // Try a simpler fix: just close the truncated JSON
-          let repaired = jsonStr;
-          
-          // Add missing brackets and braces
-          const missingBrackets = openBrackets - closeBrackets;
-          const missingBraces = openBraces - closeBraces;
-          
-          // Remove any trailing incomplete property
-          repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, '');
-          repaired = repaired.replace(/,\s*\{[^}]*$/, '');
-          
-          repaired += ']'.repeat(Math.max(0, missingBrackets));
-          repaired += '}'.repeat(Math.max(0, missingBraces));
-          
-          console.log("Attempting simple bracket repair...");
-          parsedData = JSON.parse(repaired);
-        }
+        const missingBrackets = openBrackets - closeBrackets;
+        const missingBraces = openBraces - closeBraces;
+        
+        repaired += ']'.repeat(Math.max(0, missingBrackets));
+        repaired += '}'.repeat(Math.max(0, missingBraces));
+        
+        console.log("Attempting simple bracket repair...");
+        parsedData = JSON.parse(repaired);
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
@@ -401,15 +448,32 @@ IMPORTANT OUTPUT CONSTRAINTS:
 
     console.log(`Initial parse: ${parsedData.patients?.length || 0} patients`);
 
-    // POST-PROCESSING: Apply deduplication at multiple levels
+    // POST-PROCESSING: Apply deduplication and ensure systems structure
     if (parsedData.patients && parsedData.patients.length > 0) {
-      // Step 1: Clean text within each patient's fields
-      parsedData.patients = parsedData.patients.map(patient => ({
-        ...patient,
-        handoffSummary: cleanPatientText(patient.handoffSummary),
-        intervalEvents: cleanPatientText(patient.intervalEvents),
-        bedStatus: cleanPatientText(patient.bedStatus),
-      }));
+      // Step 1: Clean text within each patient's fields and ensure systems structure
+      parsedData.patients = parsedData.patients.map(patient => {
+        const systems = patient.systems || {};
+        return {
+          ...patient,
+          handoffSummary: cleanPatientText(patient.handoffSummary),
+          intervalEvents: cleanPatientText(patient.intervalEvents),
+          bedStatus: cleanPatientText(patient.bedStatus),
+          imaging: cleanPatientText(patient.imaging || ''),
+          labs: cleanPatientText(patient.labs || ''),
+          systems: {
+            neuro: cleanPatientText(systems.neuro || ''),
+            cv: cleanPatientText(systems.cv || ''),
+            resp: cleanPatientText(systems.resp || ''),
+            renalGU: cleanPatientText(systems.renalGU || ''),
+            gi: cleanPatientText(systems.gi || ''),
+            endo: cleanPatientText(systems.endo || ''),
+            heme: cleanPatientText(systems.heme || ''),
+            infectious: cleanPatientText(systems.infectious || ''),
+            skinLines: cleanPatientText(systems.skinLines || ''),
+            dispo: cleanPatientText(systems.dispo || ''),
+          },
+        };
+      });
 
       // Step 2: Deduplicate patients by bed number
       parsedData.patients = deduplicatePatientsByBed(parsedData.patients);
