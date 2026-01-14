@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -21,7 +21,9 @@ import {
   Trash2, 
   Search,
   Copy,
-  Sparkles
+  Sparkles,
+  Download,
+  Upload
 } from "lucide-react";
 import { medicalDictionary } from "@/data/autotexts";
 import type { AutoText, Template } from "@/types/autotext";
@@ -31,20 +33,24 @@ interface AutotextManagerProps {
   onInsertText?: (text: string) => void;
   autotexts?: AutoText[];
   templates?: Template[];
+  customDictionary?: Record<string, string>;
   onAddAutotext?: (shortcut: string, expansion: string, category: string) => Promise<boolean>;
   onRemoveAutotext?: (shortcut: string) => Promise<void>;
   onAddTemplate?: (name: string, content: string, category: string) => Promise<boolean>;
   onRemoveTemplate?: (id: string) => Promise<void>;
+  onImportDictionary?: (entries: Record<string, string>) => Promise<void>;
 }
 
 export const AutotextManager = ({ 
   onInsertText,
   autotexts = [],
   templates = [],
+  customDictionary = {},
   onAddAutotext,
   onRemoveAutotext,
   onAddTemplate,
   onRemoveTemplate,
+  onImportDictionary,
 }: AutotextManagerProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [newShortcut, setNewShortcut] = useState("");
@@ -55,6 +61,78 @@ export const AutotextManager = ({
   const [newTemplateCategory, setNewTemplateCategory] = useState("Custom");
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Merge default dictionary with custom entries
+  const fullDictionary = { ...medicalDictionary, ...customDictionary };
+
+  // Export dictionary to JSON file
+  const handleExportDictionary = () => {
+    const data = JSON.stringify(fullDictionary, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "medical-dictionary.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "Dictionary exported", description: `${Object.keys(fullDictionary).length} entries exported` });
+  };
+
+  // Import dictionary from JSON file
+  const handleImportDictionary = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      
+      // Validate the data structure
+      if (typeof data !== "object" || data === null) {
+        throw new Error("Invalid dictionary format");
+      }
+
+      // Validate all entries are string -> string
+      const validEntries: Record<string, string> = {};
+      let invalidCount = 0;
+      
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof key === "string" && typeof value === "string") {
+          validEntries[key.toLowerCase()] = value;
+        } else {
+          invalidCount++;
+        }
+      }
+
+      if (Object.keys(validEntries).length === 0) {
+        throw new Error("No valid dictionary entries found");
+      }
+
+      if (onImportDictionary) {
+        await onImportDictionary(validEntries);
+      }
+
+      toast({ 
+        title: "Dictionary imported", 
+        description: `${Object.keys(validEntries).length} entries imported${invalidCount > 0 ? `, ${invalidCount} invalid entries skipped` : ""}` 
+      });
+    } catch (error) {
+      console.error("Error importing dictionary:", error);
+      toast({ 
+        title: "Import failed", 
+        description: error instanceof Error ? error.message : "Failed to parse dictionary file",
+        variant: "destructive" 
+      });
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleAddAutotext = async () => {
     if (!newShortcut || !newExpansion) return;
@@ -330,13 +408,42 @@ export const AutotextManager = ({
           </TabsContent>
 
           <TabsContent value="dictionary" className="flex-1 overflow-hidden flex flex-col m-0 pt-4">
-            <div className="text-sm mb-3">
-              Medical spelling dictionary with <strong>{Object.keys(medicalDictionary).length}</strong> autocorrect entries. 
-              Common misspellings are automatically corrected as you type.
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-sm">
+                Medical spelling dictionary with <strong>{Object.keys(fullDictionary).length}</strong> autocorrect entries. 
+                Common misspellings are automatically corrected as you type.
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".json"
+                  onChange={handleImportDictionary}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3 w-3" />
+                  Import
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={handleExportDictionary}
+                >
+                  <Download className="h-3 w-3" />
+                  Export
+                </Button>
+              </div>
             </div>
             <ScrollArea className="flex-1">
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1">
-                {Object.entries(medicalDictionary)
+                {Object.entries(fullDictionary)
                   .filter(([wrong, correct]) => 
                     wrong.includes(searchQuery.toLowerCase()) || 
                     correct.includes(searchQuery.toLowerCase())
@@ -351,6 +458,9 @@ export const AutotextManager = ({
                 }
               </div>
             </ScrollArea>
+            <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+              💡 Export to backup your dictionary or import a JSON file with {"{"}"misspelling": "correction"{"}"}
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
