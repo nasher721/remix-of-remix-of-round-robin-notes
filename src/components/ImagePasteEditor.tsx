@@ -9,6 +9,7 @@ import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import { ImageLightbox } from "./ImageLightbox";
 import { DictationButton } from "./DictationButton";
+import { AITextTools } from "./AITextTools";
 
 interface ImagePasteEditorProps {
   value: string;
@@ -490,6 +491,44 @@ export const ImagePasteEditor = ({
           <span>Paste or drop images</span>
         </div>
         <div className="ml-auto flex items-center gap-1">
+          <AITextTools
+            getSelectedText={() => {
+              const selection = window.getSelection();
+              if (!selection || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
+                return null;
+              }
+              return selection.toString();
+            }}
+            replaceSelectedText={(newText) => {
+              const selection = window.getSelection();
+              if (!selection || selection.rangeCount === 0 || !editorRef.current?.contains(selection.anchorNode)) {
+                return;
+              }
+              const range = selection.getRangeAt(0);
+              range.deleteContents();
+              
+              let content: Node;
+              if (changeTracking?.enabled) {
+                const markedHtml = changeTracking.wrapWithMarkup(newText);
+                const temp = document.createElement('div');
+                temp.innerHTML = markedHtml;
+                content = document.createDocumentFragment();
+                while (temp.firstChild) {
+                  content.appendChild(temp.firstChild);
+                }
+              } else {
+                content = document.createTextNode(newText);
+              }
+              
+              range.insertNode(content);
+              range.collapse(false);
+              selection.removeAllRanges();
+              selection.addRange(range);
+              
+              isInternalUpdate.current = true;
+              onChange(editorRef.current!.innerHTML);
+            }}
+          />
           <DictationButton 
             onTranscript={handleDictationTranscript}
             size="sm"
