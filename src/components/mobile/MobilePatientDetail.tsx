@@ -18,8 +18,11 @@ import {
   Clock,
   Copy,
   Trash2,
-  Printer
+  Printer,
+  Sparkles,
+  Loader2
 } from "lucide-react";
+import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +65,21 @@ export const MobilePatientDetail = ({
 }: MobilePatientDetailProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
+  const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
+
+  const handleGenerateIntervalEvents = async () => {
+    const result = await generateIntervalEvents(
+      patient.systems,
+      patient.intervalEvents,
+      patient.name
+    );
+    if (result) {
+      const newValue = patient.intervalEvents
+        ? `${patient.intervalEvents}<br/><br/>${result}`
+        : result;
+      onUpdate(patient.id, "intervalEvents", newValue);
+    }
+  };
 
   const addTimestamp = (field: string) => {
     const timestamp = new Date().toLocaleString("en-US", {
@@ -250,6 +268,21 @@ export const MobilePatientDetail = ({
                 onDeleteTodo={deleteTodo}
                 onGenerateTodos={generateTodos}
               />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleGenerateIntervalEvents}
+                disabled={isGeneratingEvents}
+                className="h-7 text-xs gap-1"
+                title="Generate interval events from systems data"
+              >
+                {isGeneratingEvents ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                Generate
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"
