@@ -82,7 +82,7 @@ const IndexContent = () => {
   const [filter, setFilter] = useState<'all' | 'filled' | 'empty'>('all');
   const [sortBy, setSortBy] = useState<'number' | 'room' | 'name'>(() => {
     const saved = localStorage.getItem('patientSortBy');
-    return (saved as 'number' | 'room' | 'name') || 'number';
+    return (saved as 'number' | 'room' | 'name') || 'room';
   });
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
