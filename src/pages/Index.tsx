@@ -11,7 +11,7 @@ import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
-import { IBCCProvider } from "@/contexts/IBCCContext";
+
 import { ChangeTrackingProvider, useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -249,10 +249,9 @@ const IndexContent = () => {
   // Mobile Layout
   if (isMobile) {
     return (
-      <IBCCProvider currentPatient={currentPatient}>
-        <div className="min-h-screen bg-background">
-          {/* Patient Detail View */}
-          {selectedPatient ? (
+      <div className="min-h-screen bg-background">
+        {/* Patient Detail View */}
+        {selectedPatient ? (
             <MobilePatientDetail
               patient={selectedPatient}
               onBack={() => setSelectedPatient(null)}
@@ -377,9 +376,8 @@ const IndexContent = () => {
             </DialogContent>
           </Dialog>
 
-          <IBCCPanel />
-        </div>
-      </IBCCProvider>
+        <IBCCPanel />
+      </div>
     );
   }
 
@@ -640,10 +638,8 @@ const IndexContent = () => {
         onUpdatePatient={handleUpdatePatient}
       />
 
-      {/* IBCC Clinical Reference Panel - wrapped in provider for context */}
-      <IBCCProvider currentPatient={currentPatient}>
-        <IBCCPanel />
-      </IBCCProvider>
+      {/* IBCC Clinical Reference Panel */}
+      <IBCCPanel />
     </div>
   );
 };
