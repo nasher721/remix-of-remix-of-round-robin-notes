@@ -157,6 +157,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_dictionary: {
+        Row: {
+          correction: string
+          created_at: string
+          id: string
+          misspelling: string
+          user_id: string
+        }
+        Insert: {
+          correction: string
+          created_at?: string
+          id?: string
+          misspelling: string
+          user_id: string
+        }
+        Update: {
+          correction?: string
+          created_at?: string
+          id?: string
+          misspelling?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

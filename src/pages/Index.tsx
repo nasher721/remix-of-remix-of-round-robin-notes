@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePatients } from "@/hooks/usePatients";
 import { useCloudAutotexts } from "@/hooks/useAutotexts";
+import { useCloudDictionary } from "@/hooks/useCloudDictionary";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAllPatientTodos } from "@/hooks/useAllPatientTodos";
 import { PatientCard } from "@/components/PatientCard";
@@ -73,6 +74,7 @@ const IndexContent = () => {
     importPatients
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
+  const { customDictionary, importDictionary } = useCloudDictionary();
   
   // Fetch todos for all patients for print/export
   const patientIds = useMemo(() => patients.map(p => p.id), [patients]);
@@ -374,10 +376,12 @@ const IndexContent = () => {
               <AutotextManager
                 autotexts={autotexts}
                 templates={templates}
+                customDictionary={customDictionary}
                 onAddAutotext={addAutotext}
                 onRemoveAutotext={removeAutotext}
                 onAddTemplate={addTemplate}
                 onRemoveTemplate={removeTemplate}
+                onImportDictionary={importDictionary}
               />
             </DialogContent>
           </Dialog>
@@ -463,10 +467,12 @@ const IndexContent = () => {
               <AutotextManager
                 autotexts={autotexts}
                 templates={templates}
+                customDictionary={customDictionary}
                 onAddAutotext={addAutotext}
                 onRemoveAutotext={removeAutotext}
                 onAddTemplate={addTemplate}
                 onRemoveTemplate={removeTemplate}
+                onImportDictionary={importDictionary}
               />
             </div>
 
