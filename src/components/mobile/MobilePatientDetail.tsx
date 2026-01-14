@@ -29,8 +29,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ImagePasteEditor } from "@/components/ImagePasteEditor";
+import { PatientTodos } from "@/components/PatientTodos";
 import { SYSTEM_LABELS, SYSTEM_ICONS } from "@/constants/systems";
 import { AutoText } from "@/types/autotext";
+import { usePatientTodos } from "@/hooks/usePatientTodos";
 
 interface MobilePatientDetailProps {
   patient: Patient;
@@ -59,6 +61,7 @@ export const MobilePatientDetail = ({
   changeTracking = null,
 }: MobilePatientDetailProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
+  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
 
   const addTimestamp = (field: string) => {
     const timestamp = new Date().toLocaleString("en-US", {
@@ -152,6 +155,21 @@ export const MobilePatientDetail = ({
         </div>
       </div>
 
+      {/* Patient-Wide Todos */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <span className="text-sm font-medium text-muted-foreground">Patient Tasks:</span>
+        <PatientTodos
+          todos={todos}
+          section={null}
+          patient={patient}
+          generating={generating}
+          onAddTodo={addTodo}
+          onToggleTodo={toggleTodo}
+          onDeleteTodo={deleteTodo}
+          onGenerateTodos={generateTodos}
+        />
+      </div>
+
       {/* Content Sections */}
       <Accordion
         type="multiple"
@@ -168,7 +186,17 @@ export const MobilePatientDetail = ({
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-end gap-1 mb-2">
+              <PatientTodos
+                todos={todos}
+                section="clinical_summary"
+                patient={patient}
+                generating={generating}
+                onAddTodo={addTodo}
+                onToggleTodo={toggleTodo}
+                onDeleteTodo={deleteTodo}
+                onGenerateTodos={generateTodos}
+              />
               <Button
                 variant="ghost"
                 size="sm"
@@ -202,7 +230,17 @@ export const MobilePatientDetail = ({
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-end gap-1 mb-2">
+              <PatientTodos
+                todos={todos}
+                section="interval_events"
+                patient={patient}
+                generating={generating}
+                onAddTodo={addTodo}
+                onToggleTodo={toggleTodo}
+                onDeleteTodo={deleteTodo}
+                onGenerateTodos={generateTodos}
+              />
               <Button
                 variant="ghost"
                 size="sm"
@@ -236,6 +274,18 @@ export const MobilePatientDetail = ({
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
+            <div className="flex justify-end mb-2">
+              <PatientTodos
+                todos={todos}
+                section="imaging"
+                patient={patient}
+                generating={generating}
+                onAddTodo={addTodo}
+                onToggleTodo={toggleTodo}
+                onDeleteTodo={deleteTodo}
+                onGenerateTodos={generateTodos}
+              />
+            </div>
             <div className="bg-blue-50/30 rounded-lg border border-blue-200/50">
               <ImagePasteEditor
                 value={patient.imaging}
@@ -259,6 +309,18 @@ export const MobilePatientDetail = ({
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
+            <div className="flex justify-end mb-2">
+              <PatientTodos
+                todos={todos}
+                section="labs"
+                patient={patient}
+                generating={generating}
+                onAddTodo={addTodo}
+                onToggleTodo={toggleTodo}
+                onDeleteTodo={deleteTodo}
+                onGenerateTodos={generateTodos}
+              />
+            </div>
             <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
               <RichTextEditor
                 value={patient.labs}
@@ -285,10 +347,22 @@ export const MobilePatientDetail = ({
             <div className="space-y-3">
               {Object.entries(SYSTEM_LABELS).map(([key, label]) => (
                 <div key={key} className="rounded-lg p-3 border border-border/50 bg-secondary/30">
-                  <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground mb-2">
-                    <span>{SYSTEM_ICONS[key]}</span>
-                    {label}
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
+                      <span>{SYSTEM_ICONS[key]}</span>
+                      {label}
+                    </label>
+                    <PatientTodos
+                      todos={todos}
+                      section={key}
+                      patient={patient}
+                      generating={generating}
+                      onAddTodo={addTodo}
+                      onToggleTodo={toggleTodo}
+                      onDeleteTodo={deleteTodo}
+                      onGenerateTodos={generateTodos}
+                    />
+                  </div>
                   <RichTextEditor
                     value={patient.systems[key as keyof PatientSystems]}
                     onChange={(value) => onUpdate(patient.id, `systems.${key}`, value)}

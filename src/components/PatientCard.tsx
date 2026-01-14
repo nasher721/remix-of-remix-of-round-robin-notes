@@ -4,10 +4,12 @@ import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageI
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
+import { PatientTodos } from "./PatientTodos";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems } from "@/types/patient";
 import { SYSTEM_LABELS, SYSTEM_ICONS } from "@/constants/systems";
+import { usePatientTodos } from "@/hooks/usePatientTodos";
 
 interface PatientCardProps {
   patient: Patient;
@@ -34,6 +36,7 @@ export const PatientCard = ({
   changeTracking = null
 }: PatientCardProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
 
   const addTimestamp = (field: string) => {
     const timestamp = new Date().toLocaleString('en-US', { 
@@ -117,6 +120,21 @@ export const PatientCard = ({
 
       {!patient.collapsed && (
         <div className="p-5 space-y-5">
+          {/* Patient-Wide Todos */}
+          <div className="flex items-center gap-2 pb-2 border-b border-border">
+            <span className="text-sm font-medium text-muted-foreground">Patient Tasks:</span>
+            <PatientTodos
+              todos={todos}
+              section={null}
+              patient={patient}
+              generating={generating}
+              onAddTodo={addTodo}
+              onToggleTodo={toggleTodo}
+              onDeleteTodo={deleteTodo}
+              onGenerateTodos={generateTodos}
+            />
+          </div>
+
           {/* Clinical Summary */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
@@ -130,6 +148,16 @@ export const PatientCard = ({
                 )}
               </div>
               <div className="flex gap-1 no-print">
+                <PatientTodos
+                  todos={todos}
+                  section="clinical_summary"
+                  patient={patient}
+                  generating={generating}
+                  onAddTodo={addTodo}
+                  onToggleTodo={toggleTodo}
+                  onDeleteTodo={deleteTodo}
+                  onGenerateTodos={generateTodos}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -175,6 +203,16 @@ export const PatientCard = ({
                 )}
               </div>
               <div className="flex gap-1 no-print">
+                <PatientTodos
+                  todos={todos}
+                  section="interval_events"
+                  patient={patient}
+                  generating={generating}
+                  onAddTodo={addTodo}
+                  onToggleTodo={toggleTodo}
+                  onDeleteTodo={deleteTodo}
+                  onGenerateTodos={generateTodos}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -222,6 +260,16 @@ export const PatientCard = ({
                   )}
                 </div>
                 <div className="flex gap-1 no-print">
+                  <PatientTodos
+                    todos={todos}
+                    section="imaging"
+                    patient={patient}
+                    generating={generating}
+                    onAddTodo={addTodo}
+                    onToggleTodo={toggleTodo}
+                    onDeleteTodo={deleteTodo}
+                    onGenerateTodos={generateTodos}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -258,6 +306,16 @@ export const PatientCard = ({
                   )}
                 </div>
                 <div className="flex gap-1 no-print">
+                  <PatientTodos
+                    todos={todos}
+                    section="labs"
+                    patient={patient}
+                    generating={generating}
+                    onAddTodo={addTodo}
+                    onToggleTodo={toggleTodo}
+                    onDeleteTodo={deleteTodo}
+                    onGenerateTodos={generateTodos}
+                  />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -303,9 +361,21 @@ export const PatientCard = ({
                       <span>{SYSTEM_ICONS[key]}</span>
                       {label}
                     </label>
-                    {hasSystemContent(key) && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                    )}
+                    <div className="flex items-center gap-1">
+                      <PatientTodos
+                        todos={todos}
+                        section={key}
+                        patient={patient}
+                        generating={generating}
+                        onAddTodo={addTodo}
+                        onToggleTodo={toggleTodo}
+                        onDeleteTodo={deleteTodo}
+                        onGenerateTodos={generateTodos}
+                      />
+                      {hasSystemContent(key) && (
+                        <div className="w-1.5 h-1.5 rounded-full bg-success" />
+                      )}
+                    </div>
                   </div>
                   <RichTextEditor
                     value={patient.systems[key as keyof PatientSystems]}

@@ -41,6 +41,47 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_todos: {
+        Row: {
+          completed: boolean
+          content: string
+          created_at: string
+          id: string
+          patient_id: string
+          section: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          content: string
+          created_at?: string
+          id?: string
+          patient_id: string
+          section?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          content?: string
+          created_at?: string
+          id?: string
+          patient_id?: string
+          section?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_todos_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           bed: string
