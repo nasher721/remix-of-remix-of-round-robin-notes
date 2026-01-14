@@ -11,7 +11,7 @@ import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
-
+import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider, useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +59,7 @@ import type { Patient } from "@/types/patient";
 const IndexContent = () => {
   const isMobile = useIsMobile();
   const changeTracking = useChangeTracking();
+  const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
   const { 
     patients, 
@@ -228,8 +229,13 @@ const IndexContent = () => {
       }
     });
 
-  // Get current patient for IBCC context
-  const currentPatient = filteredPatients.length > 0 ? filteredPatients[0] : undefined;
+  // Get current patient for IBCC context - use selected patient on mobile or first filtered patient
+  const currentPatient = isMobile && selectedPatient ? selectedPatient : (filteredPatients.length > 0 ? filteredPatients[0] : undefined);
+  
+  // Update IBCC context with current patient for context-aware suggestions
+  useEffect(() => {
+    setCurrentPatient(currentPatient);
+  }, [currentPatient, setCurrentPatient]);
 
   if (authLoading || patientsLoading) {
     return (
