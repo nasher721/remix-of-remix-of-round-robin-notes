@@ -134,11 +134,14 @@ export const MobilePatientDetail = ({
               placeholder="Patient Name"
               value={patient.name}
               onChange={(e) => onUpdate(patient.id, "name", e.target.value)}
-              className="text-lg font-semibold bg-card border border-border focus:border-primary rounded-lg px-3 h-10"
+              className="text-lg font-semibold bg-card border border-border focus:border-primary rounded-lg px-3 h-10 touch-manipulation"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="words"
               spellCheck={false}
+              inputMode="text"
+              enterKeyHint="done"
+              onTouchStart={(e) => e.stopPropagation()}
             />
           </div>
         </div>
