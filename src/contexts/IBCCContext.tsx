@@ -45,6 +45,7 @@ interface IBCCContextValue {
   // Context suggestions
   contextSuggestions: IBCCChapter[];
   hasContextSuggestions: boolean;
+  setCurrentPatient: (patient: Patient | undefined) => void;
   
   // Data accessors
   getCalculatorsForChapter: (chapterId: string) => typeof CLINICAL_CALCULATORS;
@@ -58,13 +59,15 @@ const IBCCContext = createContext<IBCCContextValue | null>(null);
 
 interface IBCCProviderProps {
   children: ReactNode;
-  currentPatient?: Patient;
 }
 
-export function IBCCProvider({ children, currentPatient }: IBCCProviderProps) {
+export function IBCCProvider({ children }: IBCCProviderProps) {
   // Panel visibility
   const [isOpen, setIsOpen] = useState(false);
   const [activeChapter, setActiveChapter] = useState<IBCCChapter | null>(null);
+  
+  // Current patient for context-aware suggestions
+  const [currentPatient, setCurrentPatient] = useState<Patient | undefined>(undefined);
   
   // Filters
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -169,6 +172,7 @@ export function IBCCProvider({ children, currentPatient }: IBCCProviderProps) {
     // Context suggestions (from hook)
     contextSuggestions: context.contextSuggestions,
     hasContextSuggestions: context.hasContextSuggestions,
+    setCurrentPatient,
     
     // Data accessors
     getCalculatorsForChapter,
