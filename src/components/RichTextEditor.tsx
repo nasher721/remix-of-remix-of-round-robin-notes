@@ -2,8 +2,8 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { 
-  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
-  Indent, Outdent, Palette
+  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter, HighlighterIcon,
+  Indent, Outdent, Palette, Undo2, Redo2
 } from "lucide-react";
 import {
   Popover,
@@ -62,6 +62,11 @@ export const RichTextEditor = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const lastWordRef = useRef("");
   const isInternalUpdate = useRef(false);
+  // Per-editor toggle: null means follow global setting, false means disabled for this editor
+  const [localMarkingDisabled, setLocalMarkingDisabled] = useState(false);
+  
+  // Effective change tracking state
+  const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
 
   // Handle dictation transcript insertion
   const handleDictationTranscript = useCallback((text: string) => {
@@ -74,8 +79,8 @@ export const RichTextEditor = ({
     
     // Create content with optional change tracking
     let contentHtml = text;
-    if (changeTracking?.enabled) {
-      contentHtml = changeTracking.wrapWithMarkup(text);
+    if (effectiveChangeTracking?.enabled) {
+      contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
     }
     
     if (range && editorRef.current.contains(range.startContainer)) {
@@ -98,7 +103,7 @@ export const RichTextEditor = ({
     isInternalUpdate.current = true;
     onChange(editorRef.current.innerHTML);
     editorRef.current.focus();
-  }, [changeTracking, onChange]);
+  }, [effectiveChangeTracking, onChange]);
 
   const execCommand = useCallback((command: string, cmdValue?: string) => {
     document.execCommand(command, false, cmdValue);
@@ -115,13 +120,13 @@ export const RichTextEditor = ({
     if (!editor) return;
 
     const handleBeforeInput = (e: InputEvent) => {
-      if (!changeTracking?.enabled || !e.data) return;
+      if (!effectiveChangeTracking?.enabled || !e.data) return;
       
       // Handle both insertText and insertFromPaste
       if (e.inputType === 'insertText' || e.inputType === 'insertFromPaste') {
         e.preventDefault();
         
-        const markedHtml = changeTracking.wrapWithMarkup(e.data);
+        const markedHtml = effectiveChangeTracking.wrapWithMarkup(e.data);
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
         
@@ -148,18 +153,18 @@ export const RichTextEditor = ({
 
     editor.addEventListener('beforeinput', handleBeforeInput);
     return () => editor.removeEventListener('beforeinput', handleBeforeInput);
-  }, [changeTracking, onChange]);
+  }, [effectiveChangeTracking, onChange]);
 
   // Handle paste separately for text content
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
-    if (!changeTracking?.enabled) return;
+    if (!effectiveChangeTracking?.enabled) return;
     
     const text = e.clipboardData?.getData('text/plain');
     if (!text) return;
     
     e.preventDefault();
     
-    const markedHtml = changeTracking.wrapWithMarkup(text);
+    const markedHtml = effectiveChangeTracking.wrapWithMarkup(text);
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     
@@ -182,7 +187,7 @@ export const RichTextEditor = ({
       isInternalUpdate.current = true;
       onChange(editorRef.current.innerHTML);
     }
-  }, [changeTracking, onChange]);
+  }, [effectiveChangeTracking, onChange]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current) {
@@ -249,8 +254,8 @@ export const RichTextEditor = ({
     
     // Apply change tracking markup if enabled
     let content: Node;
-    if (changeTracking?.enabled) {
-      const markedHtml = changeTracking.wrapWithMarkup(replacement);
+    if (effectiveChangeTracking?.enabled) {
+      const markedHtml = effectiveChangeTracking.wrapWithMarkup(replacement);
       const temp = document.createElement('div');
       temp.innerHTML = markedHtml + " ";
       content = document.createDocumentFragment();
@@ -411,6 +416,27 @@ export const RichTextEditor = ({
           type="button"
           variant="ghost"
           size="sm"
+          onClick={() => execCommand('undo')}
+          title="Undo (Ctrl+Z)"
+          className="h-7 w-7 p-0"
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('redo')}
+          title="Redo (Ctrl+Y)"
+          className="h-7 w-7 p-0"
+        >
+          <Redo2 className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border mx-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => execCommand('bold')}
           title="Bold (Ctrl+B)"
           className="h-7 w-7 p-0"
@@ -561,8 +587,8 @@ export const RichTextEditor = ({
               range.deleteContents();
               
               let content: Node;
-              if (changeTracking?.enabled) {
-                const markedHtml = changeTracking.wrapWithMarkup(newText);
+              if (effectiveChangeTracking?.enabled) {
+                const markedHtml = effectiveChangeTracking.wrapWithMarkup(newText);
                 const temp = document.createElement('div');
                 temp.innerHTML = markedHtml;
                 content = document.createDocumentFragment();
@@ -588,10 +614,23 @@ export const RichTextEditor = ({
           />
           <div className="w-px h-5 bg-border" />
           {changeTracking?.enabled && (
-            <div className="flex items-center gap-1 text-xs text-orange-600">
+            <Button
+              type="button"
+              variant={localMarkingDisabled ? "outline" : "ghost"}
+              size="sm"
+              onClick={() => setLocalMarkingDisabled(!localMarkingDisabled)}
+              title={localMarkingDisabled ? "Enable marking for this field" : "Disable marking for this field"}
+              className={cn(
+                "h-7 px-2 gap-1",
+                !localMarkingDisabled && "text-orange-600 hover:text-orange-700",
+                localMarkingDisabled && "text-muted-foreground"
+              )}
+            >
               <Highlighter className="h-3 w-3" />
-              <span className="hidden sm:inline">Marking</span>
-            </div>
+              <span className="hidden sm:inline text-xs">
+                {localMarkingDisabled ? "Off" : "On"}
+              </span>
+            </Button>
           )}
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Sparkles className="h-3 w-3" />
