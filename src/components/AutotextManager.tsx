@@ -38,7 +38,7 @@ interface AutotextManagerProps {
   onRemoveAutotext?: (shortcut: string) => Promise<void>;
   onAddTemplate?: (name: string, content: string, category: string) => Promise<boolean>;
   onRemoveTemplate?: (id: string) => Promise<void>;
-  onImportDictionary?: (entries: Record<string, string>) => Promise<void>;
+  onImportDictionary?: (entries: Record<string, string>) => Promise<boolean | void>;
 }
 
 export const AutotextManager = ({ 
