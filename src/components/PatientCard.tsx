@@ -23,6 +23,7 @@ interface PatientCardProps {
     enabled: boolean;
     wrapWithMarkup: (text: string) => string;
   } | null;
+  todosAlwaysVisible?: boolean;
 }
 
 export const PatientCard = ({ 
@@ -33,7 +34,8 @@ export const PatientCard = ({
   onToggleCollapse,
   autotexts = defaultAutotexts,
   globalFontSize = 14,
-  changeTracking = null
+  changeTracking = null,
+  todosAlwaysVisible = false
 }: PatientCardProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
@@ -121,8 +123,10 @@ export const PatientCard = ({
       {!patient.collapsed && (
         <div className="p-5 space-y-5">
           {/* Patient-Wide Todos */}
-          <div className="flex items-center gap-2 pb-2 border-b border-border">
-            <span className="text-sm font-medium text-muted-foreground">Patient Tasks:</span>
+          <div className={todosAlwaysVisible ? "" : "flex items-center gap-2 pb-2 border-b border-border"}>
+            {!todosAlwaysVisible && (
+              <span className="text-sm font-medium text-muted-foreground">Patient Tasks:</span>
+            )}
             <PatientTodos
               todos={todos}
               section={null}
@@ -132,6 +136,7 @@ export const PatientCard = ({
               onToggleTodo={toggleTodo}
               onDeleteTodo={deleteTodo}
               onGenerateTodos={generateTodos}
+              alwaysVisible={todosAlwaysVisible}
             />
           </div>
 

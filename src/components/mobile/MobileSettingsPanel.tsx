@@ -19,6 +19,7 @@ import {
   Trash2,
   Sparkles,
   PenLine,
+  ListTodo,
 } from "lucide-react";
 
 interface MobileSettingsPanelProps {
@@ -39,6 +40,8 @@ interface MobileSettingsPanelProps {
   onClearAll: () => void;
   onOpenAutotexts: () => void;
   userEmail?: string;
+  todosAlwaysVisible?: boolean;
+  onTodosAlwaysVisibleChange?: (visible: boolean) => void;
 }
 
 const colorPresets = [
@@ -61,6 +64,8 @@ export const MobileSettingsPanel = ({
   onClearAll,
   onOpenAutotexts,
   userEmail,
+  todosAlwaysVisible = false,
+  onTodosAlwaysVisibleChange,
 }: MobileSettingsPanelProps) => {
   return (
     <div className="p-4 space-y-4 pb-24">
@@ -109,6 +114,23 @@ export const MobileSettingsPanel = ({
             </SelectContent>
           </Select>
         </div>
+      </Card>
+
+      {/* Todos Visibility */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ListTodo className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Todos Always Visible</span>
+          </div>
+          <Switch
+            checked={todosAlwaysVisible}
+            onCheckedChange={onTodosAlwaysVisibleChange}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Show todos inline instead of in a popup
+        </p>
       </Card>
 
       {/* Change Tracking */}

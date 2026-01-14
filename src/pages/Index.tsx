@@ -29,6 +29,7 @@ import {
   Cloud,
   Type,
   ArrowUpDown,
+  ListTodo,
 } from "lucide-react";
 import {
   Select,
@@ -85,6 +86,9 @@ const IndexContent = () => {
     const saved = localStorage.getItem('globalFontSize');
     return saved ? parseInt(saved, 10) : 14;
   });
+  const [todosAlwaysVisible, setTodosAlwaysVisible] = useState(() => {
+    return localStorage.getItem('todosAlwaysVisible') === 'true';
+  });
   
   // Mobile-specific state
   const [mobileTab, setMobileTab] = useState<MobileTab>("patients");
@@ -97,6 +101,11 @@ const IndexContent = () => {
   useEffect(() => {
     localStorage.setItem('globalFontSize', String(globalFontSize));
   }, [globalFontSize]);
+
+  // Save todos visibility preference
+  useEffect(() => {
+    localStorage.setItem('todosAlwaysVisible', String(todosAlwaysVisible));
+  }, [todosAlwaysVisible]);
 
   // Save sort preference
   useEffect(() => {
@@ -312,6 +321,8 @@ const IndexContent = () => {
                       onClearAll={handleClearAll}
                       onOpenAutotexts={() => setShowAutotextModal(true)}
                       userEmail={user.email}
+                      todosAlwaysVisible={todosAlwaysVisible}
+                      onTodosAlwaysVisibleChange={setTodosAlwaysVisible}
                     />
                   </div>
                 </>
@@ -546,6 +557,18 @@ const IndexContent = () => {
             </div>
             <span className="text-xs font-mono text-muted-foreground w-8">{globalFontSize}px</span>
           </div>
+
+          {/* Todos Always Visible Toggle */}
+          <Button
+            variant={todosAlwaysVisible ? "default" : "outline"}
+            size="sm"
+            onClick={() => setTodosAlwaysVisible(prev => !prev)}
+            className="gap-2"
+          >
+            <ListTodo className="h-4 w-4" />
+            <span className="hidden sm:inline">Todos</span>
+            <span className="text-xs">{todosAlwaysVisible ? "Visible" : "Hidden"}</span>
+          </Button>
         </div>
 
         {/* Sync Status */}
@@ -595,6 +618,7 @@ const IndexContent = () => {
                   autotexts={autotexts}
                   globalFontSize={globalFontSize}
                   changeTracking={changeTracking}
+                  todosAlwaysVisible={todosAlwaysVisible}
                 />
               </div>
             ))
