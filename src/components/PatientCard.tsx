@@ -77,13 +77,13 @@ export const PatientCard = ({
                 placeholder="Patient Name"
                 value={patient.name}
                 onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
-                className="max-w-[220px] font-medium bg-transparent border-0 border-b-2 border-transparent hover:border-border focus:border-primary rounded-none px-0 h-auto py-1 text-base"
+                className="max-w-[220px] font-medium bg-card border border-border hover:border-primary/50 focus:border-primary rounded-lg px-3 h-9 text-base"
               />
               <Input
                 placeholder="Bed/Room"
                 value={patient.bed}
                 onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
-                className="max-w-[120px] bg-transparent border-0 border-b-2 border-transparent hover:border-border focus:border-primary rounded-none px-0 h-auto py-1 text-muted-foreground"
+                className="max-w-[120px] bg-card border border-border hover:border-primary/50 focus:border-primary rounded-lg px-3 h-9 text-muted-foreground"
               />
             </div>
           </div>
