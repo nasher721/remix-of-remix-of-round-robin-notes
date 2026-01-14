@@ -1,12 +1,33 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter } from "lucide-react";
+import { 
+  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
+  Indent, Outdent, Palette
+} from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
 import { DictationButton } from "./DictationButton";
 import { AITextTools } from "./AITextTools";
+
+const textColors = [
+  { name: "Default", value: "" },
+  { name: "Red", value: "#ef4444" },
+  { name: "Orange", value: "#f97316" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Green", value: "#22c55e" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Purple", value: "#8b5cf6" },
+  { name: "Pink", value: "#ec4899" },
+  { name: "Gray", value: "#6b7280" },
+];
+
 // Rich text editor with formatting, autotexts, and optional change tracking
 
 interface RichTextEditorProps {
@@ -437,6 +458,68 @@ export const RichTextEditor = ({
         >
           <ListOrdered className="h-3.5 w-3.5" />
         </Button>
+        <div className="w-px h-5 bg-border mx-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('outdent')}
+          title="Decrease Indent"
+          className="h-7 w-7 p-0"
+        >
+          <Outdent className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('indent')}
+          title="Increase Indent"
+          className="h-7 w-7 p-0"
+        >
+          <Indent className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border mx-1" />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Text Color"
+              className="h-7 w-7 p-0"
+            >
+              <Palette className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="grid grid-cols-3 gap-1">
+              {textColors.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => {
+                    if (color.value) {
+                      execCommand('foreColor', color.value);
+                    } else {
+                      execCommand('removeFormat');
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                    !color.value && "border border-dashed border-muted-foreground/30"
+                  )}
+                  title={color.name}
+                >
+                  <span
+                    className="w-4 h-4 rounded-full border border-border"
+                    style={{ backgroundColor: color.value || 'transparent' }}
+                  />
+                  <span className="text-foreground">{color.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
         <div className="w-px h-5 bg-border mx-1" />
         <div className="flex items-center gap-2 ml-2">
           <Type className="h-3.5 w-3.5 text-muted-foreground" />

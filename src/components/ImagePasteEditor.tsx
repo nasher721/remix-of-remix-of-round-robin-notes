@@ -1,6 +1,14 @@
 import { useRef, useCallback, useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter } from "lucide-react";
+import { 
+  Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter,
+  Indent, Outdent, Palette
+} from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +18,18 @@ import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import { ImageLightbox } from "./ImageLightbox";
 import { DictationButton } from "./DictationButton";
 import { AITextTools } from "./AITextTools";
+
+const textColors = [
+  { name: "Default", value: "" },
+  { name: "Red", value: "#ef4444" },
+  { name: "Orange", value: "#f97316" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Green", value: "#22c55e" },
+  { name: "Blue", value: "#3b82f6" },
+  { name: "Purple", value: "#8b5cf6" },
+  { name: "Pink", value: "#ec4899" },
+  { name: "Gray", value: "#6b7280" },
+];
 
 interface ImagePasteEditorProps {
   value: string;
@@ -485,6 +505,67 @@ export const ImagePasteEditor = ({
         >
           <List className="h-3 w-3" />
         </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('outdent')}
+          title="Decrease Indent"
+          className="h-6 w-6 p-0"
+        >
+          <Outdent className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('indent')}
+          title="Increase Indent"
+          className="h-6 w-6 p-0"
+        >
+          <Indent className="h-3 w-3" />
+        </Button>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Text Color"
+              className="h-6 w-6 p-0"
+            >
+              <Palette className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="grid grid-cols-3 gap-1">
+              {textColors.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => {
+                    if (color.value) {
+                      execCommand('foreColor', color.value);
+                    } else {
+                      execCommand('removeFormat');
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                    !color.value && "border border-dashed border-muted-foreground/30"
+                  )}
+                  title={color.name}
+                >
+                  <span
+                    className="w-4 h-4 rounded-full border border-border"
+                    style={{ backgroundColor: color.value || 'transparent' }}
+                  />
+                  <span className="text-foreground">{color.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
         <div className="w-px h-4 bg-border mx-1" />
         <div className="flex items-center gap-1 text-[10px] text-blue-600">
           <ImageIcon className="h-3 w-3" />
