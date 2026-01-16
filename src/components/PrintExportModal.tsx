@@ -299,6 +299,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     ).join('')}</ul>`;
   };
 
+  const isColumnEnabled = (key: string): boolean => {
+    return columns.find(c => c.key === key)?.enabled ?? false;
+  };
+
   // Calculate optimal font size for a patient based on content length
   const calculateOptimalFontSize = useCallback((patient: Patient): number => {
     // Estimate content length (characters)
@@ -353,6 +357,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }
     return printFontSize;
   }, [autoFitFontSize, onePatientPerPage, getAutoFitGlobalFontSize, printFontSize]);
+
+  const toggleColumn = (key: string) => {
     setColumns(prev => {
       const updated = prev.map(col => 
         col.key === key ? { ...col, enabled: !col.enabled } : col
@@ -426,9 +432,6 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     return "";
   };
 
-  const isColumnEnabled = (key: string): boolean => {
-    return columns.find(c => c.key === key)?.enabled ?? false;
-  };
 
   const getEnabledSystemKeys = () => systemKeys.filter(key => isColumnEnabled(`systems.${key}`));
 
