@@ -29,63 +29,16 @@ interface ParsedPatient {
 }
 
 /**
- * Remove duplicate lines while preserving structure
+ * Normalize text formatting without removing any content
  */
-function deduplicateText(text: string): string {
-  if (!text || text.length < 30) return text;
-
-  const lines = text.split(/\n/);
-  const processedLines: string[] = [];
-  const seenLines = new Set<string>();
-
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    
-    if (trimmedLine === '') {
-      processedLines.push('');
-      continue;
-    }
-    
-    const normalizedLine = trimmedLine.toLowerCase().replace(/\s+/g, ' ');
-    
-    if (normalizedLine.length > 15 && seenLines.has(normalizedLine)) {
-      continue;
-    }
-    
-    let isDuplicate = false;
-    for (const existing of seenLines) {
-      if (normalizedLine.length > 20 && existing.length > 20) {
-        if (normalizedLine.includes(existing) || existing.includes(normalizedLine)) {
-          isDuplicate = true;
-          break;
-        }
-      }
-    }
-    
-    if (!isDuplicate) {
-      seenLines.add(normalizedLine);
-      processedLines.push(line);
-    }
-  }
-
-  return processedLines.join('\n').trim();
-}
-
-/**
- * Clean patient text fields
- */
-function cleanPatientText(text: string): string {
+function normalizeText(text: string): string {
   if (!text) return '';
   
-  let cleaned = text
+  return text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/\n{4,}/g, '\n\n\n')
-    .replace(/[ \t]+/g, ' ');
-  
-  cleaned = deduplicateText(cleaned);
-  
-  return cleaned.trim();
+    .trim();
 }
 
 serve(async (req) => {
@@ -115,20 +68,23 @@ serve(async (req) => {
 
     const systemPrompt = `You are a clinical data extraction assistant. Your task is to parse unstructured clinical notes and organize them into a structured format for a single patient.
 
-CRITICAL FORMATTING RULES:
-1. PRESERVE all original line breaks, paragraph structure, and whitespace patterns
-2. Use \\n for line breaks and \\n\\n for paragraph breaks in JSON strings
-3. Do NOT merge separate lines or paragraphs into continuous text
-4. Keep bullet points, numbered lists, and indentation patterns
+CRITICAL RULES - INCLUDE ALL TEXT:
+1. YOU MUST INCLUDE ALL TEXT from the input - do NOT summarize, shorten, or omit any information
+2. PRESERVE all original line breaks, paragraph structure, and whitespace patterns
+3. Use \\n for line breaks and \\n\\n for paragraph breaks in JSON strings
+4. Do NOT merge separate lines or paragraphs into continuous text
+5. Keep bullet points, numbered lists, and indentation patterns
+6. If text doesn't clearly fit a category, include it in clinicalSummary
+7. Text can appear in MULTIPLE sections if it's relevant to multiple systems
 
 EXTRACTION RULES:
 1. Extract patient name if present (or leave empty if not found)
 2. Extract bed/room number if present (or leave empty if not found)
-3. Clinical Summary: Overall patient history, diagnoses, admission reason
+3. Clinical Summary: Overall patient history, diagnoses, admission reason, and ANY text that doesn't fit other categories
 4. Interval Events: Recent developments, overnight events, "what happened on rounds"
-5. Imaging: Any imaging studies mentioned (CT, MRI, X-ray, Echo, etc.)
-6. Labs: Any laboratory values or trends mentioned
-7. Systems: Organize organ-system specific information:
+5. Imaging: Any imaging studies mentioned (CT, MRI, X-ray, Echo, etc.) - include full descriptions
+6. Labs: Any laboratory values or trends mentioned - include ALL lab values
+7. Systems: Organize organ-system specific information (include ALL relevant details):
    - neuro: Neurological findings, mental status, sedation
    - cv: Cardiovascular - vitals, pressors, cardiac issues
    - resp: Respiratory - ventilator settings, oxygen, lung findings
@@ -144,24 +100,23 @@ Return a JSON object with this exact structure:
 {
   "name": "Patient Name or empty string",
   "bed": "Bed/Room number or empty string",
-  "clinicalSummary": "Overall summary preserving formatting",
-  "intervalEvents": "Recent events preserving formatting",
-  "imaging": "Imaging findings or empty string",
-  "labs": "Lab values or empty string",
+  "clinicalSummary": "Overall summary preserving ALL formatting and content",
+  "intervalEvents": "Recent events preserving ALL formatting",
+  "imaging": "ALL imaging findings or empty string",
+  "labs": "ALL lab values or empty string",
   "systems": {
-    "neuro": "content or empty string",
-    "cv": "content or empty string",
-    "resp": "content or empty string",
-    "renalGU": "content or empty string",
-    "gi": "content or empty string",
-    "endo": "content or empty string",
-    "heme": "content or empty string",
-    "infectious": "content or empty string",
-    "skinLines": "content or empty string",
-    "dispo": "content or empty string"
+    "neuro": "ALL neuro content or empty string",
+    "cv": "ALL cv content or empty string",
+    "resp": "ALL resp content or empty string",
+    "renalGU": "ALL renal content or empty string",
+    "gi": "ALL gi content or empty string",
+    "endo": "ALL endo content or empty string",
+    "heme": "ALL heme content or empty string",
+    "infectious": "ALL ID content or empty string",
+    "skinLines": "ALL skin/lines content or empty string",
+    "dispo": "ALL dispo content or empty string"
   }
 }`;
-
     const userPrompt = `Parse the following clinical notes for a single patient and organize into the structured format. Preserve all original formatting and line breaks.
 
 CLINICAL NOTES:
@@ -261,25 +216,25 @@ ${content}`;
       }
     }
 
-    // Clean and validate the parsed data
+    // Normalize text formatting without removing any content
     const cleanedPatient: ParsedPatient = {
-      name: cleanPatientText(parsedPatient.name || ''),
-      bed: cleanPatientText(parsedPatient.bed || ''),
-      clinicalSummary: cleanPatientText(parsedPatient.clinicalSummary || ''),
-      intervalEvents: cleanPatientText(parsedPatient.intervalEvents || ''),
-      imaging: cleanPatientText(parsedPatient.imaging || ''),
-      labs: cleanPatientText(parsedPatient.labs || ''),
+      name: normalizeText(parsedPatient.name || ''),
+      bed: normalizeText(parsedPatient.bed || ''),
+      clinicalSummary: normalizeText(parsedPatient.clinicalSummary || ''),
+      intervalEvents: normalizeText(parsedPatient.intervalEvents || ''),
+      imaging: normalizeText(parsedPatient.imaging || ''),
+      labs: normalizeText(parsedPatient.labs || ''),
       systems: {
-        neuro: cleanPatientText(parsedPatient.systems?.neuro || ''),
-        cv: cleanPatientText(parsedPatient.systems?.cv || ''),
-        resp: cleanPatientText(parsedPatient.systems?.resp || ''),
-        renalGU: cleanPatientText(parsedPatient.systems?.renalGU || ''),
-        gi: cleanPatientText(parsedPatient.systems?.gi || ''),
-        endo: cleanPatientText(parsedPatient.systems?.endo || ''),
-        heme: cleanPatientText(parsedPatient.systems?.heme || ''),
-        infectious: cleanPatientText(parsedPatient.systems?.infectious || ''),
-        skinLines: cleanPatientText(parsedPatient.systems?.skinLines || ''),
-        dispo: cleanPatientText(parsedPatient.systems?.dispo || ''),
+        neuro: normalizeText(parsedPatient.systems?.neuro || ''),
+        cv: normalizeText(parsedPatient.systems?.cv || ''),
+        resp: normalizeText(parsedPatient.systems?.resp || ''),
+        renalGU: normalizeText(parsedPatient.systems?.renalGU || ''),
+        gi: normalizeText(parsedPatient.systems?.gi || ''),
+        endo: normalizeText(parsedPatient.systems?.endo || ''),
+        heme: normalizeText(parsedPatient.systems?.heme || ''),
+        infectious: normalizeText(parsedPatient.systems?.infectious || ''),
+        skinLines: normalizeText(parsedPatient.systems?.skinLines || ''),
+        dispo: normalizeText(parsedPatient.systems?.dispo || ''),
       },
     };
 
