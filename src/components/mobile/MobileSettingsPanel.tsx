@@ -20,6 +20,7 @@ import {
   Sparkles,
   PenLine,
   ListTodo,
+  FileText,
 } from "lucide-react";
 
 interface MobileSettingsPanelProps {
@@ -39,6 +40,7 @@ interface MobileSettingsPanelProps {
   onOpenPrint: () => void;
   onClearAll: () => void;
   onOpenAutotexts: () => void;
+  onOpenPhrases: () => void;
   userEmail?: string;
   todosAlwaysVisible?: boolean;
   onTodosAlwaysVisibleChange?: (visible: boolean) => void;
@@ -63,6 +65,7 @@ export const MobileSettingsPanel = ({
   onOpenPrint,
   onClearAll,
   onOpenAutotexts,
+  onOpenPhrases,
   userEmail,
   todosAlwaysVisible = false,
   onTodosAlwaysVisibleChange,
@@ -219,6 +222,15 @@ export const MobileSettingsPanel = ({
       {/* Quick Actions */}
       <Card className="p-4 space-y-1">
         <h3 className="text-sm font-semibold mb-3">Quick Actions</h3>
+
+        <Button
+          variant="ghost"
+          className="w-full justify-start h-12"
+          onClick={onOpenPhrases}
+        >
+          <FileText className="h-4 w-4 mr-3" />
+          Clinical Phrases
+        </Button>
 
         <Button
           variant="ghost"

@@ -13,6 +13,7 @@ import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
+import { PhraseManager } from "@/components/phrases";
 import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider, useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import {
   Type,
   ArrowUpDown,
   ListTodo,
+  FileText,
 } from "lucide-react";
 import {
   Select,
@@ -91,6 +93,7 @@ const IndexContent = () => {
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAutotextModal, setShowAutotextModal] = useState(false);
+  const [showPhraseManager, setShowPhraseManager] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date>(new Date());
   const [globalFontSize, setGlobalFontSize] = useState(() => {
     const saved = localStorage.getItem('globalFontSize');
@@ -335,6 +338,7 @@ const IndexContent = () => {
                       onOpenPrint={handlePrint}
                       onClearAll={handleClearAll}
                       onOpenAutotexts={() => setShowAutotextModal(true)}
+                      onOpenPhrases={() => setShowPhraseManager(true)}
                       userEmail={user.email}
                       todosAlwaysVisible={todosAlwaysVisible}
                       onTodosAlwaysVisibleChange={setTodosAlwaysVisible}
@@ -388,6 +392,11 @@ const IndexContent = () => {
               />
             </DialogContent>
           </Dialog>
+
+          <PhraseManager
+            open={showPhraseManager}
+            onOpenChange={setShowPhraseManager}
+          />
 
         <IBCCPanel />
       </div>
@@ -478,6 +487,15 @@ const IndexContent = () => {
                 onRemoveTemplate={removeTemplate}
                 onImportDictionary={importDictionary}
               />
+              <Button
+                onClick={() => setShowPhraseManager(true)}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                <span className="hidden sm:inline">Phrases</span>
+              </Button>
             </div>
 
             {/* Secondary Actions */}
@@ -652,6 +670,11 @@ const IndexContent = () => {
         patients={filteredPatients}
         patientTodos={todosMap}
         onUpdatePatient={handleUpdatePatient}
+      />
+
+      <PhraseManager
+        open={showPhraseManager}
+        onOpenChange={setShowPhraseManager}
       />
 
       {/* IBCC Clinical Reference Panel */}
