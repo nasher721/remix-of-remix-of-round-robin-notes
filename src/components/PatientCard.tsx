@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2 } from "lucide-react";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History } from "lucide-react";
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
 import { FieldTimestamp } from "./FieldTimestamp";
+import { FieldHistoryViewer } from "./FieldHistoryViewer";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems } from "@/types/patient";
@@ -107,6 +108,20 @@ export const PatientCard = ({
         </div>
         
         <div className="flex items-center gap-1 no-print">
+          <FieldHistoryViewer
+            patientId={patient.id}
+            patientName={patient.name}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                title="View change history"
+              >
+                <History className="h-4 w-4" />
+              </Button>
+            }
+          />
           <Button
             variant="ghost"
             size="icon"

@@ -147,6 +147,19 @@ export const usePatients = () => {
     const isSystemField = field.startsWith('systems.');
     const shouldTrackTimestamp = trackableFields.includes(field) || isSystemField;
 
+    // Get old value for history tracking
+    const patient = patients.find((p) => p.id === id);
+    let oldValue: string | null = null;
+    
+    if (shouldTrackTimestamp && patient) {
+      if (isSystemField) {
+        const systemKey = field.split('.')[1] as keyof PatientSystems;
+        oldValue = patient.systems[systemKey] || null;
+      } else {
+        oldValue = (patient[field as keyof typeof patient] as string) || null;
+      }
+    }
+
     // Optimistic update
     setPatients((prev) =>
       prev.map((p) => {
@@ -176,7 +189,6 @@ export const usePatients = () => {
     );
 
     // Prepare update object
-    const patient = patients.find((p) => p.id === id);
     const updateData = prepareUpdateData(field, value, patient?.systems);
     
     // Add field timestamp update if trackable
@@ -194,6 +206,21 @@ export const usePatients = () => {
         .eq("id", id);
 
       if (error) throw error;
+
+      // Record history entry for trackable fields (non-blocking)
+      if (shouldTrackTimestamp && oldValue !== (value as string)) {
+        supabase.from("patient_field_history").insert({
+          patient_id: id,
+          user_id: user.id,
+          field_name: field,
+          old_value: oldValue,
+          new_value: value as string,
+        }).then(({ error: historyError }) => {
+          if (historyError) {
+            console.error("Error recording field history:", historyError);
+          }
+        });
+      }
     } catch (error) {
       console.error("Error updating patient:", error);
       // Revert on error

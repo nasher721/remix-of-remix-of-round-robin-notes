@@ -41,6 +41,44 @@ export type Database = {
         }
         Relationships: []
       }
+      patient_field_history: {
+        Row: {
+          changed_at: string
+          field_name: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          patient_id: string
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          field_name: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          patient_id: string
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          field_name?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          patient_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_field_history_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_todos: {
         Row: {
           completed: boolean

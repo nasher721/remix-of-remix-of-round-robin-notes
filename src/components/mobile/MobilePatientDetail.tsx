@@ -20,7 +20,8 @@ import {
   Trash2,
   Printer,
   Sparkles,
-  Loader2
+  Loader2,
+  History
 } from "lucide-react";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import {
@@ -34,6 +35,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { ImagePasteEditor } from "@/components/ImagePasteEditor";
 import { PatientTodos } from "@/components/PatientTodos";
 import { FieldTimestamp } from "@/components/FieldTimestamp";
+import { FieldHistoryViewer } from "@/components/FieldHistoryViewer";
 import { SYSTEM_LABELS, SYSTEM_ICONS } from "@/constants/systems";
 import { AutoText } from "@/types/autotext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
@@ -124,6 +126,16 @@ export const MobilePatientDetail = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
+              <FieldHistoryViewer
+                patientId={patient.id}
+                patientName={patient.name}
+                trigger={
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <History className="h-4 w-4 mr-2" />
+                    View History
+                  </DropdownMenuItem>
+                }
+              />
               <DropdownMenuItem onClick={onPrint}>
                 <Printer className="h-4 w-4 mr-2" />
                 Print / Export
