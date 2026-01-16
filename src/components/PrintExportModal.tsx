@@ -179,12 +179,20 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const [onePatientPerPage, setOnePatientPerPage] = useState(() => {
     return localStorage.getItem('printOnePatientPerPage') === 'true';
   });
+  const [autoFitFontSize, setAutoFitFontSize] = useState(() => {
+    return localStorage.getItem('printAutoFitFontSize') === 'true';
+  });
   const { toast } = useToast();
 
   // Save one patient per page preference
   useEffect(() => {
     localStorage.setItem('printOnePatientPerPage', onePatientPerPage.toString());
   }, [onePatientPerPage]);
+
+  // Save auto-fit preference
+  useEffect(() => {
+    localStorage.setItem('printAutoFitFontSize', autoFitFontSize.toString());
+  }, [autoFitFontSize]);
 
   // Font family options
   const fontFamilies = [
@@ -291,7 +299,60 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     ).join('')}</ul>`;
   };
 
-  const toggleColumn = (key: string) => {
+  // Calculate optimal font size for a patient based on content length
+  const calculateOptimalFontSize = useCallback((patient: Patient): number => {
+    // Estimate content length (characters)
+    let totalContent = '';
+    if (isColumnEnabled("clinicalSummary")) totalContent += stripHtml(patient.clinicalSummary);
+    if (isColumnEnabled("intervalEvents")) totalContent += stripHtml(patient.intervalEvents);
+    if (isColumnEnabled("imaging")) totalContent += stripHtml(patient.imaging);
+    if (isColumnEnabled("labs")) totalContent += stripHtml(patient.labs);
+    
+    const enabledSystems = systemKeys.filter(key => isColumnEnabled(`systems.${key}`));
+    enabledSystems.forEach(key => {
+      totalContent += stripHtml(patient.systems[key as keyof typeof patient.systems]);
+    });
+    
+    if (showTodosColumn) {
+      const todos = getPatientTodos(patient.id);
+      todos.forEach(t => totalContent += t.content);
+    }
+    
+    const charCount = totalContent.length;
+    
+    // Landscape A4: ~900x600 usable pixels at 96dpi
+    // Estimate: at 9px font, ~100 chars per line, ~50 lines per page = 5000 chars
+    // Scale font based on content density
+    const baseCapacity = activeTab === 'table' ? 2000 : 4000; // Table is denser
+    const density = charCount / baseCapacity;
+    
+    // Map density to font size: more content = smaller font
+    if (density <= 0.3) return 12;
+    if (density <= 0.5) return 11;
+    if (density <= 0.7) return 10;
+    if (density <= 1.0) return 9;
+    if (density <= 1.5) return 8;
+    return 7; // Minimum font size
+  }, [activeTab, showTodosColumn, isColumnEnabled]);
+
+  // Get the global minimum font size across all patients (for consistent sizing)
+  const getAutoFitGlobalFontSize = useCallback((): number => {
+    if (!autoFitFontSize || !onePatientPerPage || patients.length === 0) {
+      return printFontSize;
+    }
+    
+    // Find the patient with most content and use that font size for all
+    const fontSizes = patients.map(p => calculateOptimalFontSize(p));
+    return Math.min(...fontSizes);
+  }, [autoFitFontSize, onePatientPerPage, patients, printFontSize, calculateOptimalFontSize]);
+
+  // Get effective font size (auto-calculated or manual)
+  const getEffectiveFontSize = useCallback((): number => {
+    if (autoFitFontSize && onePatientPerPage) {
+      return getAutoFitGlobalFontSize();
+    }
+    return printFontSize;
+  }, [autoFitFontSize, onePatientPerPage, getAutoFitGlobalFontSize, printFontSize]);
     setColumns(prev => {
       const updated = prev.map(col => 
         col.key === key ? { ...col, enabled: !col.enabled } : col
@@ -1344,13 +1405,14 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }
 
     const fontCSS = getFontFamilyCSS();
-    const baseFontSize = printFontSize;
+    const baseFontSize = autoFitFontSize && onePatientPerPage ? getEffectiveFontSize() : printFontSize;
     const headerFontSize = Math.max(baseFontSize + 6, 14);
     const smallerFontSize = Math.max(baseFontSize - 1, 7);
     const patientNameSize = Math.max(baseFontSize + 1, 9);
     
     const baseViewLabel = activeTab === 'table' ? 'Dense Table View' : activeTab === 'cards' ? 'Card View' : 'Detailed List View';
-    const viewLabel = onePatientPerPage ? `${baseViewLabel} (One Per Page)` : baseViewLabel;
+    const autoFitLabel = autoFitFontSize && onePatientPerPage ? ` (Auto-fit: ${baseFontSize}px)` : '';
+    const viewLabel = onePatientPerPage ? `${baseViewLabel} (One Per Page)${autoFitLabel}` : baseViewLabel;
     const dateStr = new Date().toLocaleDateString('en-US', { 
       weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
     });
@@ -2681,7 +2743,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             </div>
             
             {/* Page Layout Control */}
-            <div className="pt-3 border-t">
+            <div className="pt-3 border-t space-y-3">
               <div className="flex items-center gap-3">
                 <Checkbox 
                   id="onePatientPerPage" 
@@ -2693,10 +2755,33 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                     One patient per page
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Each patient starts on a new page. Content auto-sizes to fit without breaking across pages.
+                    Each patient starts on a new page without content breaking across pages.
                   </p>
                 </div>
               </div>
+              
+              {onePatientPerPage && (
+                <div className="flex items-center gap-3 ml-6 pl-3 border-l-2 border-primary/20">
+                  <Checkbox 
+                    id="autoFitFontSize" 
+                    checked={autoFitFontSize}
+                    onCheckedChange={(checked) => setAutoFitFontSize(checked === true)}
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="autoFitFontSize" className="text-sm font-medium cursor-pointer">
+                      Auto-fit font size
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Automatically calculate optimal font size based on content density.
+                      {autoFitFontSize && (
+                        <span className="ml-1 font-medium text-primary">
+                          Calculated: {getEffectiveFontSize()}px
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>
