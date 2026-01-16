@@ -65,62 +65,63 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a clinical data extraction assistant. Your task is to parse unstructured clinical notes and organize them into a structured format for a single patient.
+    const systemPrompt = `You are a clinical data organization assistant. Your ONLY job is to take clinical notes and place them into the correct organ-system sections WITHOUT modifying the text.
 
-CRITICAL FORMATTING RULES - PRESERVE EXACTLY:
-1. COPY TEXT VERBATIM - do NOT rephrase, summarize, shorten, or modify ANY wording
-2. PRESERVE EXACT FORMATTING:
-   - Keep ALL original line breaks exactly as they appear (use \\n in JSON)
-   - Keep ALL original spacing and indentation
-   - Keep ALL bullet points, dashes, asterisks, and numbered lists exactly as written
-   - Keep ALL blank lines between sections (use \\n\\n in JSON)
-   - Keep ALL original punctuation and capitalization
-3. Do NOT merge lines together - if the original has separate lines, keep them separate
-4. Do NOT add any new formatting, headers, or structure that wasn't in the original
-5. If text doesn't clearly fit a category, include it in clinicalSummary
-6. Text can appear in MULTIPLE sections if it's relevant to multiple systems
+ABSOLUTE RULES - NO EXCEPTIONS:
+1. COPY TEXT EXACTLY AS WRITTEN - character for character, word for word
+2. DO NOT rephrase, summarize, reword, or modify ANY text
+3. DO NOT extract or move content between sections:
+   - If imaging is mentioned within neuro notes, keep it in neuro - do NOT move to imaging field
+   - If labs are mentioned within cv notes, keep it in cv - do NOT move to labs field
+   - Each piece of text stays in ONE section only - where it originally appeared contextually
+4. PRESERVE ALL FORMATTING EXACTLY:
+   - Keep every line break (use \\n)
+   - Keep every space and indentation
+   - Keep every bullet point, dash, number exactly as written
+   - Keep blank lines (use \\n\\n)
+5. The "imaging" and "labs" fields should ONLY contain text that was written as standalone imaging or labs sections, NOT extracted from system notes
+6. If you cannot determine which section text belongs to, put it in clinicalSummary
 
-EXTRACTION RULES:
-1. Extract patient name if present (or leave empty if not found)
-2. Extract bed/room number if present (or leave empty if not found)
-3. Clinical Summary: Overall patient history, diagnoses, admission reason, and ANY text that doesn't fit other categories
-4. Interval Events: Recent developments, overnight events, "what happened on rounds"
-5. Imaging: Any imaging studies mentioned (CT, MRI, X-ray, Echo, etc.) - copy EXACTLY as written
-6. Labs: Any laboratory values or trends mentioned - copy EXACTLY as written
-7. Systems: Organize organ-system specific information - copy EXACTLY as written:
-   - neuro: Neurological findings, mental status, sedation
-   - cv: Cardiovascular - vitals, pressors, cardiac issues
-   - resp: Respiratory - ventilator settings, oxygen, lung findings
-   - renalGU: Renal/GU - creatinine, urine output, dialysis
-   - gi: GI - diet, bowel function, liver, nutrition
-   - endo: Endocrine - glucose, insulin, thyroid
-   - heme: Hematology - blood counts, anticoagulation, transfusions
-   - infectious: Infectious disease - antibiotics, cultures, fever
-   - skinLines: Skin/Lines - wounds, IV access, drains
-   - dispo: Disposition - discharge planning, goals of care
+SECTION DEFINITIONS:
+- name: Patient name only
+- bed: Room/bed number only
+- clinicalSummary: General history, diagnoses, admission reason, text that doesn't fit elsewhere
+- intervalEvents: Recent events, overnight updates, what happened recently
+- imaging: ONLY standalone imaging sections/paragraphs (not imaging mentioned within system notes)
+- labs: ONLY standalone lab sections/paragraphs (not labs mentioned within system notes)
+- systems.neuro: ALL neuro content including any imaging/labs mentioned within it
+- systems.cv: ALL cv content including any imaging/labs mentioned within it
+- systems.resp: ALL resp content including any imaging/labs mentioned within it
+- systems.renalGU: ALL renal/GU content including any imaging/labs mentioned within it
+- systems.gi: ALL GI content including any imaging/labs mentioned within it
+- systems.endo: ALL endo content including any imaging/labs mentioned within it
+- systems.heme: ALL heme content including any imaging/labs mentioned within it
+- systems.infectious: ALL ID content including any imaging/labs mentioned within it
+- systems.skinLines: ALL skin/lines content
+- systems.dispo: ALL disposition content
 
-Return a JSON object with this exact structure:
+Return JSON:
 {
-  "name": "Patient Name or empty string",
-  "bed": "Bed/Room number or empty string",
-  "clinicalSummary": "EXACT text with original formatting preserved",
-  "intervalEvents": "EXACT text with original formatting preserved",
-  "imaging": "EXACT text or empty string",
-  "labs": "EXACT text or empty string",
+  "name": "",
+  "bed": "",
+  "clinicalSummary": "",
+  "intervalEvents": "",
+  "imaging": "",
+  "labs": "",
   "systems": {
-    "neuro": "EXACT text or empty string",
-    "cv": "EXACT text or empty string",
-    "resp": "EXACT text or empty string",
-    "renalGU": "EXACT text or empty string",
-    "gi": "EXACT text or empty string",
-    "endo": "EXACT text or empty string",
-    "heme": "EXACT text or empty string",
-    "infectious": "EXACT text or empty string",
-    "skinLines": "EXACT text or empty string",
-    "dispo": "EXACT text or empty string"
+    "neuro": "",
+    "cv": "",
+    "resp": "",
+    "renalGU": "",
+    "gi": "",
+    "endo": "",
+    "heme": "",
+    "infectious": "",
+    "skinLines": "",
+    "dispo": ""
   }
 }`;
-    const userPrompt = `Parse the following clinical notes for a single patient. COPY THE TEXT EXACTLY - preserve all original formatting, line breaks, spacing, bullet points, and wording verbatim.
+    const userPrompt = `Organize these clinical notes into sections. COPY TEXT EXACTLY - do not modify, rephrase, or move content between sections. Keep imaging/labs within their original system context.
 
 CLINICAL NOTES:
 ${content}`;
