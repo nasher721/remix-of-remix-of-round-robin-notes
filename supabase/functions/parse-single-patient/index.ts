@@ -65,69 +65,32 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a clinical data organization assistant. Your ONLY job is to take clinical notes and place them into the correct organ-system sections WITHOUT modifying the text.
+    const systemPrompt = `You organize clinical notes into sections. 
 
-ABSOLUTE RULES - NO EXCEPTIONS:
-1. COPY TEXT EXACTLY AS WRITTEN - character for character, word for word
-2. DO NOT rephrase, summarize, reword, or modify ANY text
-3. DO NOT extract or move content between sections:
-   - If imaging is mentioned within neuro notes, keep it in neuro - do NOT move to imaging field
-   - If labs are mentioned within cv notes, keep it in cv - do NOT move to labs field
-   - Each piece of text stays in ONE section only - where it originally appeared contextually
-4. PRESERVE ALL FORMATTING EXACTLY:
-   - Keep every line break (use \\n)
-   - Keep every space and indentation
-   - Keep every bullet point, dash, number exactly as written
-   - Keep blank lines (use \\n\\n)
-5. The "imaging" and "labs" fields should ONLY contain text that was written as standalone imaging or labs sections, NOT extracted from system notes
-6. If you cannot determine which section text belongs to, put it in clinicalSummary
+CRITICAL - LINE BREAK RULES:
+- Every line in the input that ends with a newline MUST have \\n in the output
+- If the input has:
+  Line 1
+  Line 2
+  Line 3
+- The output MUST be: "Line 1\\nLine 2\\nLine 3"
+- NEVER join lines into a single paragraph
+- NEVER remove line breaks
 
-SECTION DEFINITIONS:
-- name: Patient name only
-- bed: Room/bed number only
-- clinicalSummary: General history, diagnoses, admission reason, text that doesn't fit elsewhere
-- intervalEvents: Recent events, overnight updates, what happened recently
-- imaging: ONLY standalone imaging sections/paragraphs (not imaging mentioned within system notes)
-- labs: ONLY standalone lab sections/paragraphs (not labs mentioned within system notes)
-- systems.neuro: ALL neuro content including any imaging/labs mentioned within it
-- systems.cv: ALL cv content including any imaging/labs mentioned within it
-- systems.resp: ALL resp content including any imaging/labs mentioned within it
-- systems.renalGU: ALL renal/GU content including any imaging/labs mentioned within it
-- systems.gi: ALL GI content including any imaging/labs mentioned within it
-- systems.endo: ALL endo content including any imaging/labs mentioned within it
-- systems.heme: ALL heme content including any imaging/labs mentioned within it
-- systems.infectious: ALL ID content including any imaging/labs mentioned within it
-- systems.skinLines: ALL skin/lines content
-- systems.dispo: ALL disposition content
+CRITICAL - CONTENT RULES:
+- Copy text EXACTLY - do not rephrase or modify
+- Do NOT move imaging/labs mentioned within a system section to separate imaging/labs fields
+- Keep each piece of text in its original context
+- The "imaging" and "labs" fields should ONLY have standalone sections, not content extracted from system notes`;
 
-Return JSON:
-{
-  "name": "",
-  "bed": "",
-  "clinicalSummary": "",
-  "intervalEvents": "",
-  "imaging": "",
-  "labs": "",
-  "systems": {
-    "neuro": "",
-    "cv": "",
-    "resp": "",
-    "renalGU": "",
-    "gi": "",
-    "endo": "",
-    "heme": "",
-    "infectious": "",
-    "skinLines": "",
-    "dispo": ""
-  }
-}`;
-    const userPrompt = `Organize these clinical notes into sections. COPY TEXT EXACTLY - do not modify, rephrase, or move content between sections. Keep imaging/labs within their original system context.
+    const userPrompt = `Organize these notes. PRESERVE EVERY LINE BREAK using \\n in the JSON output. Do NOT merge lines into paragraphs.
 
-CLINICAL NOTES:
+INPUT:
 ${content}`;
 
     console.log("Calling AI gateway for single patient parsing...");
 
+    // Use tool calling for better structured output
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -140,8 +103,39 @@ ${content}`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        temperature: 0.1,
-        max_tokens: 8000,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "organize_patient_data",
+              description: "Organize clinical notes into structured patient data. PRESERVE ALL LINE BREAKS using \\n",
+              parameters: {
+                type: "object",
+                properties: {
+                  name: { type: "string", description: "Patient name only" },
+                  bed: { type: "string", description: "Room/bed number only" },
+                  clinicalSummary: { type: "string", description: "General history, diagnoses. Preserve line breaks with \\n" },
+                  intervalEvents: { type: "string", description: "Recent events. Preserve line breaks with \\n" },
+                  imaging: { type: "string", description: "ONLY standalone imaging sections, not extracted from systems" },
+                  labs: { type: "string", description: "ONLY standalone lab sections, not extracted from systems" },
+                  neuro: { type: "string", description: "ALL neuro content including imaging/labs within it. Preserve line breaks with \\n" },
+                  cv: { type: "string", description: "ALL cv content. Preserve line breaks with \\n" },
+                  resp: { type: "string", description: "ALL resp content. Preserve line breaks with \\n" },
+                  renalGU: { type: "string", description: "ALL renal/GU content. Preserve line breaks with \\n" },
+                  gi: { type: "string", description: "ALL GI content. Preserve line breaks with \\n" },
+                  endo: { type: "string", description: "ALL endo content. Preserve line breaks with \\n" },
+                  heme: { type: "string", description: "ALL heme content. Preserve line breaks with \\n" },
+                  infectious: { type: "string", description: "ALL ID content. Preserve line breaks with \\n" },
+                  skinLines: { type: "string", description: "ALL skin/lines content. Preserve line breaks with \\n" },
+                  dispo: { type: "string", description: "ALL disposition content. Preserve line breaks with \\n" }
+                },
+                required: ["name", "bed", "clinicalSummary", "intervalEvents", "imaging", "labs", "neuro", "cv", "resp", "renalGU", "gi", "endo", "heme", "infectious", "skinLines", "dispo"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "organize_patient_data" } },
       }),
     });
 
@@ -169,56 +163,89 @@ ${content}`;
     }
 
     const aiResponse = await response.json();
-    let aiContent = aiResponse.choices?.[0]?.message?.content;
+    
+    console.log("AI response received, parsing...");
 
-    if (!aiContent) {
-      console.error("No content in AI response");
-      return new Response(
-        JSON.stringify({ error: "No response from AI service" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log("AI response received, parsing JSON...");
-
-    // Extract JSON from response
-    let jsonStr = aiContent;
-    const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[1].trim();
-    } else {
-      // Try to find JSON object directly
-      const startIdx = aiContent.indexOf('{');
-      const endIdx = aiContent.lastIndexOf('}');
-      if (startIdx !== -1 && endIdx !== -1) {
-        jsonStr = aiContent.substring(startIdx, endIdx + 1);
+    let parsedData: any;
+    
+    // Check for tool call response
+    const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      try {
+        parsedData = JSON.parse(toolCall.function.arguments);
+      } catch (e) {
+        console.error("Failed to parse tool call arguments:", e);
       }
     }
-
-    let parsedPatient: ParsedPatient;
-    try {
-      parsedPatient = JSON.parse(jsonStr);
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      console.log("Attempting JSON repair...");
-      
-      // Try to repair common JSON issues
-      let repaired = jsonStr
-        .replace(/,\s*}/g, '}')
-        .replace(/,\s*]/g, ']')
-        .replace(/\n/g, '\\n')
-        .replace(/\r/g, '')
-        .replace(/\t/g, '  ');
-      
-      try {
-        parsedPatient = JSON.parse(repaired);
-      } catch {
+    
+    // Fallback to content parsing if tool call didn't work
+    if (!parsedData) {
+      let aiContent = aiResponse.choices?.[0]?.message?.content;
+      if (!aiContent) {
+        console.error("No content in AI response");
         return new Response(
-          JSON.stringify({ error: "Failed to parse AI response" }),
+          JSON.stringify({ error: "No response from AI service" }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+
+      // Extract JSON from response
+      let jsonStr = aiContent;
+      const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+      } else {
+        const startIdx = aiContent.indexOf('{');
+        const endIdx = aiContent.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1) {
+          jsonStr = aiContent.substring(startIdx, endIdx + 1);
+        }
+      }
+
+      try {
+        parsedData = JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError);
+        // Try to repair common JSON issues
+        let repaired = jsonStr
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/\n/g, '\\n')
+          .replace(/\r/g, '')
+          .replace(/\t/g, '  ');
+        
+        try {
+          parsedData = JSON.parse(repaired);
+        } catch {
+          return new Response(
+            JSON.stringify({ error: "Failed to parse AI response" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
     }
+
+    // Build the patient object - handle both flat structure (from tool call) and nested structure
+    const parsedPatient: ParsedPatient = {
+      name: parsedData.name || '',
+      bed: parsedData.bed || '',
+      clinicalSummary: parsedData.clinicalSummary || '',
+      intervalEvents: parsedData.intervalEvents || '',
+      imaging: parsedData.imaging || '',
+      labs: parsedData.labs || '',
+      systems: parsedData.systems || {
+        neuro: parsedData.neuro || '',
+        cv: parsedData.cv || '',
+        resp: parsedData.resp || '',
+        renalGU: parsedData.renalGU || '',
+        gi: parsedData.gi || '',
+        endo: parsedData.endo || '',
+        heme: parsedData.heme || '',
+        infectious: parsedData.infectious || '',
+        skinLines: parsedData.skinLines || '',
+        dispo: parsedData.dispo || '',
+      },
+    };
 
     // Preserve text exactly as provided
     const cleanedPatient: ParsedPatient = {
