@@ -29,13 +29,15 @@ interface ParsedPatient {
 }
 
 /**
- * Preserve text exactly as provided - only convert CRLF to LF
+ * Convert literal \n strings to actual newlines and normalize line endings
  */
-function preserveText(text: string): string {
+function convertLineBreaks(text: string): string {
   if (!text) return '';
   
-  // Only normalize line endings, preserve everything else exactly
   return text
+    // Convert literal \n strings to actual newlines
+    .replace(/\\n/g, '\n')
+    // Normalize CRLF and CR to LF
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 }
@@ -250,25 +252,25 @@ ${content}`;
       },
     };
 
-    // Preserve text exactly as provided
+    // Convert literal \n to actual newlines
     const cleanedPatient: ParsedPatient = {
-      name: preserveText(parsedPatient.name || '').trim(),
-      bed: preserveText(parsedPatient.bed || '').trim(),
-      clinicalSummary: preserveText(parsedPatient.clinicalSummary || ''),
-      intervalEvents: preserveText(parsedPatient.intervalEvents || ''),
-      imaging: preserveText(parsedPatient.imaging || ''),
-      labs: preserveText(parsedPatient.labs || ''),
+      name: convertLineBreaks(parsedPatient.name || '').trim(),
+      bed: convertLineBreaks(parsedPatient.bed || '').trim(),
+      clinicalSummary: convertLineBreaks(parsedPatient.clinicalSummary || ''),
+      intervalEvents: convertLineBreaks(parsedPatient.intervalEvents || ''),
+      imaging: convertLineBreaks(parsedPatient.imaging || ''),
+      labs: convertLineBreaks(parsedPatient.labs || ''),
       systems: {
-        neuro: preserveText(parsedPatient.systems?.neuro || ''),
-        cv: preserveText(parsedPatient.systems?.cv || ''),
-        resp: preserveText(parsedPatient.systems?.resp || ''),
-        renalGU: preserveText(parsedPatient.systems?.renalGU || ''),
-        gi: preserveText(parsedPatient.systems?.gi || ''),
-        endo: preserveText(parsedPatient.systems?.endo || ''),
-        heme: preserveText(parsedPatient.systems?.heme || ''),
-        infectious: preserveText(parsedPatient.systems?.infectious || ''),
-        skinLines: preserveText(parsedPatient.systems?.skinLines || ''),
-        dispo: preserveText(parsedPatient.systems?.dispo || ''),
+        neuro: convertLineBreaks(parsedPatient.systems?.neuro || ''),
+        cv: convertLineBreaks(parsedPatient.systems?.cv || ''),
+        resp: convertLineBreaks(parsedPatient.systems?.resp || ''),
+        renalGU: convertLineBreaks(parsedPatient.systems?.renalGU || ''),
+        gi: convertLineBreaks(parsedPatient.systems?.gi || ''),
+        endo: convertLineBreaks(parsedPatient.systems?.endo || ''),
+        heme: convertLineBreaks(parsedPatient.systems?.heme || ''),
+        infectious: convertLineBreaks(parsedPatient.systems?.infectious || ''),
+        skinLines: convertLineBreaks(parsedPatient.systems?.skinLines || ''),
+        dispo: convertLineBreaks(parsedPatient.systems?.dispo || ''),
       },
     };
 
