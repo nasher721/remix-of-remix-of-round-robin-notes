@@ -60,8 +60,10 @@ import {
   Zap,
   ChevronRight,
   ChevronDown,
+  Settings2,
 } from 'lucide-react';
 import { useClinicalPhrases } from '@/hooks/useClinicalPhrases';
+import { PhraseFieldEditor } from './PhraseFieldEditor';
 import type { ClinicalPhrase, PhraseFolder, PhraseField, PhraseVersion } from '@/types/phrases';
 import { toast } from 'sonner';
 
@@ -85,6 +87,9 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
     updateFolder,
     deleteFolder,
     getPhraseFields,
+    addPhraseField,
+    updatePhraseField,
+    deletePhraseField,
     getPhraseVersions,
     restoreVersion,
   } = useClinicalPhrases();
@@ -106,6 +111,10 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
   const [showVersions, setShowVersions] = useState(false);
   const [versions, setVersions] = useState<PhraseVersion[]>([]);
   const [versionPhrase, setVersionPhrase] = useState<ClinicalPhrase | null>(null);
+
+  // Dynamic fields state
+  const [phraseFields, setPhraseFields] = useState<PhraseField[]>([]);
+  const [loadingFields, setLoadingFields] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -133,6 +142,7 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
       setIsCreating(false);
       setIsCreatingFolder(false);
       setShowVersions(false);
+      setPhraseFields([]);
     }
   }, [open]);
 
@@ -149,6 +159,12 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         isShared: editingPhrase.isShared,
         folderId: editingPhrase.folderId || null,
       });
+      // Load phrase fields
+      setLoadingFields(true);
+      getPhraseFields(editingPhrase.id).then(fields => {
+        setPhraseFields(fields);
+        setLoadingFields(false);
+      });
     } else if (isCreating) {
       setFormData({
         name: '',
@@ -160,8 +176,9 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         isShared: false,
         folderId: selectedFolder,
       });
+      setPhraseFields([]);
     }
-  }, [editingPhrase, isCreating, selectedFolder]);
+  }, [editingPhrase, isCreating, selectedFolder, getPhraseFields]);
 
   useEffect(() => {
     if (editingFolder) {
@@ -216,6 +233,8 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
       return;
     }
 
+    let phraseId: string;
+
     if (editingPhrase) {
       await updatePhrase(editingPhrase.id, {
         name: formData.name,
@@ -227,9 +246,58 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         isShared: formData.isShared,
         folderId: formData.folderId,
       });
+      phraseId = editingPhrase.id;
+
+      // Sync phrase fields: get existing, update/add/delete as needed
+      const existingFields = await getPhraseFields(phraseId);
+      const existingIds = new Set(existingFields.map(f => f.id));
+      const currentIds = new Set(phraseFields.map(f => f.id));
+
+      // Delete removed fields
+      for (const existing of existingFields) {
+        if (!currentIds.has(existing.id)) {
+          await deletePhraseField(existing.id);
+        }
+      }
+
+      // Update or add fields
+      for (let i = 0; i < phraseFields.length; i++) {
+        const field = phraseFields[i];
+        if (existingIds.has(field.id) && !field.id.startsWith('temp_')) {
+          // Update existing
+          await updatePhraseField(field.id, {
+            fieldKey: field.fieldKey,
+            fieldType: field.fieldType,
+            label: field.label,
+            placeholder: field.placeholder,
+            defaultValue: field.defaultValue,
+            options: field.options,
+            validation: field.validation,
+            conditionalLogic: field.conditionalLogic,
+            calculationFormula: field.calculationFormula,
+            sortOrder: i,
+          });
+        } else {
+          // Add new
+          await addPhraseField({
+            phraseId,
+            fieldKey: field.fieldKey,
+            fieldType: field.fieldType,
+            label: field.label,
+            placeholder: field.placeholder,
+            defaultValue: field.defaultValue,
+            options: field.options,
+            validation: field.validation,
+            conditionalLogic: field.conditionalLogic,
+            calculationFormula: field.calculationFormula,
+            sortOrder: i,
+          });
+        }
+      }
+
       setEditingPhrase(null);
     } else {
-      await createPhrase({
+      const newPhrase = await createPhrase({
         name: formData.name,
         description: formData.description || null,
         content: formData.content,
@@ -241,9 +309,31 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         folderId: formData.folderId,
         lastUsedAt: null,
       });
+
+      if (newPhrase && phraseFields.length > 0) {
+        // Add all fields for new phrase
+        for (let i = 0; i < phraseFields.length; i++) {
+          const field = phraseFields[i];
+          await addPhraseField({
+            phraseId: newPhrase.id,
+            fieldKey: field.fieldKey,
+            fieldType: field.fieldType,
+            label: field.label,
+            placeholder: field.placeholder,
+            defaultValue: field.defaultValue,
+            options: field.options,
+            validation: field.validation,
+            conditionalLogic: field.conditionalLogic,
+            calculationFormula: field.calculationFormula,
+            sortOrder: i,
+          });
+        }
+      }
+
       setIsCreating(false);
     }
-  }, [formData, editingPhrase, updatePhrase, createPhrase]);
+    setPhraseFields([]);
+  }, [formData, editingPhrase, phraseFields, updatePhrase, createPhrase, getPhraseFields, addPhraseField, updatePhraseField, deletePhraseField]);
 
   const handleSaveFolder = useCallback(async () => {
     if (!folderFormData.name.trim()) {
@@ -429,6 +519,21 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                   Use {'{{field_name}}'} for dynamic placeholders
                 </p>
               </div>
+
+              <Separator />
+
+              {/* Dynamic Fields Section */}
+              {loadingFields ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <PhraseFieldEditor
+                  fields={phraseFields}
+                  onChange={setPhraseFields}
+                  phraseContent={formData.content}
+                />
+              )}
 
               <Separator />
 
@@ -761,6 +866,12 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                               <Badge variant="outline">
                                 <Keyboard className="h-3 w-3 mr-1" />
                                 {phrase.hotkey}
+                              </Badge>
+                            )}
+                            {phrase.fields && phrase.fields.length > 0 && (
+                              <Badge variant="outline" className="bg-primary/10">
+                                <Settings2 className="h-3 w-3 mr-1" />
+                                {phrase.fields.length} fields
                               </Badge>
                             )}
                           </div>
