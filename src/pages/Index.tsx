@@ -10,6 +10,7 @@ import { PatientCard } from "@/components/PatientCard";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
+import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
 import { useIBCCState } from "@/contexts/IBCCContext";
@@ -66,6 +67,7 @@ const IndexContent = () => {
     patients, 
     loading: patientsLoading, 
     addPatient, 
+    addPatientWithData,
     updatePatient, 
     removePatient, 
     duplicatePatient,
@@ -304,6 +306,7 @@ const IndexContent = () => {
                     <MobileAddPanel
                       onAddPatient={handleAddPatient}
                       onOpenImport={() => setShowImportModal(true)}
+                      onSmartImport={addPatientWithData}
                     />
                   </div>
                 </>
@@ -451,6 +454,7 @@ const IndexContent = () => {
                 <Plus className="h-4 w-4" />
                 Add Patient
               </Button>
+              <SmartPatientImport onImportPatient={addPatientWithData} />
               <EpicHandoffImport 
                 existingBeds={patients.map(p => p.bed)}
                 onImportPatients={importPatients}

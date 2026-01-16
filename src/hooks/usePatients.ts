@@ -339,6 +339,71 @@ export const usePatients = () => {
     }
   }, [user, patientCounter, toast]);
 
+  // Add a patient with pre-populated data (for smart import)
+  const addPatientWithData = useCallback(async (patientData: {
+    name: string;
+    bed: string;
+    clinicalSummary: string;
+    intervalEvents: string;
+    imaging: string;
+    labs: string;
+    systems: PatientSystems;
+  }) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("patients")
+        .insert([{
+          user_id: user.id,
+          patient_number: patientCounter,
+          name: patientData.name || "",
+          bed: patientData.bed || "",
+          clinical_summary: patientData.clinicalSummary || "",
+          interval_events: patientData.intervalEvents || "",
+          imaging: patientData.imaging || "",
+          labs: patientData.labs || "",
+          systems: patientData.systems as unknown as Json,
+          collapsed: false,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newPatient: Patient = {
+        id: data.id,
+        patientNumber: data.patient_number,
+        name: data.name,
+        bed: data.bed,
+        clinicalSummary: data.clinical_summary,
+        intervalEvents: data.interval_events,
+        imaging: data.imaging || '',
+        labs: data.labs || '',
+        systems: parseSystemsJson(data.systems),
+        collapsed: data.collapsed,
+        createdAt: data.created_at,
+        lastModified: data.last_modified,
+      };
+
+      setPatients((prev) => [...prev, newPatient]);
+      setPatientCounter((prev) => prev + 1);
+      
+      toast({
+        title: "Patient Imported",
+        description: `${patientData.name || 'New patient'} added successfully.`,
+      });
+    } catch (error) {
+      console.error("Error adding patient with data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to import patient.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [user, patientCounter, toast]);
+
   const clearAll = useCallback(async () => {
     if (!user) return;
 
@@ -372,6 +437,7 @@ export const usePatients = () => {
     patients,
     loading,
     addPatient,
+    addPatientWithData,
     updatePatient,
     removePatient,
     duplicatePatient,

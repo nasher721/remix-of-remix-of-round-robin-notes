@@ -1,13 +1,23 @@
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, FileUp, Clipboard } from "lucide-react";
+import { Plus, FileUp, Wand2 } from "lucide-react";
+import { SmartPatientImport } from "@/components/SmartPatientImport";
+import type { PatientSystems } from "@/types/patient";
 
 interface MobileAddPanelProps {
   onAddPatient: () => void;
   onOpenImport: () => void;
+  onSmartImport: (patient: {
+    name: string;
+    bed: string;
+    clinicalSummary: string;
+    intervalEvents: string;
+    imaging: string;
+    labs: string;
+    systems: PatientSystems;
+  }) => Promise<void>;
 }
 
-export const MobileAddPanel = ({ onAddPatient, onOpenImport }: MobileAddPanelProps) => {
+export const MobileAddPanel = ({ onAddPatient, onOpenImport, onSmartImport }: MobileAddPanelProps) => {
   return (
     <div className="p-4 space-y-4 pb-20">
       <h2 className="text-xl font-semibold mb-4">Add Patients</h2>
@@ -29,6 +39,25 @@ export const MobileAddPanel = ({ onAddPatient, onOpenImport }: MobileAddPanelPro
         </div>
       </Card>
 
+      <SmartPatientImport
+        onImportPatient={onSmartImport}
+        trigger={
+          <Card className="p-6 cursor-pointer hover:bg-secondary/50 active:bg-secondary transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-2xl bg-purple-500/10 flex items-center justify-center">
+                <Wand2 className="h-7 w-7 text-purple-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Smart Import</h3>
+                <p className="text-sm text-muted-foreground">
+                  Paste notes and AI organizes them
+                </p>
+              </div>
+            </div>
+          </Card>
+        }
+      />
+
       <Card 
         className="p-6 cursor-pointer hover:bg-secondary/50 active:bg-secondary transition-colors"
         onClick={onOpenImport}
@@ -40,7 +69,7 @@ export const MobileAddPanel = ({ onAddPatient, onOpenImport }: MobileAddPanelPro
           <div>
             <h3 className="font-semibold text-lg">Import Epic Handoff</h3>
             <p className="text-sm text-muted-foreground">
-              Upload PDF or paste handoff text
+              Upload PDF or paste handoff text (multiple patients)
             </p>
           </div>
         </div>
