@@ -1,0 +1,850 @@
+/**
+ * Phrase Manager - Full CRUD interface for managing clinical phrases
+ */
+
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Plus,
+  Folder,
+  FileText,
+  Search,
+  MoreVertical,
+  Edit,
+  Trash2,
+  Copy,
+  History,
+  Share2,
+  FolderPlus,
+  Loader2,
+  Keyboard,
+  Zap,
+  ChevronRight,
+  ChevronDown,
+} from 'lucide-react';
+import { useClinicalPhrases } from '@/hooks/useClinicalPhrases';
+import type { ClinicalPhrase, PhraseFolder, PhraseField, PhraseVersion } from '@/types/phrases';
+import { toast } from 'sonner';
+
+interface PhraseManagerProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export const PhraseManager: React.FC<PhraseManagerProps> = ({
+  open,
+  onOpenChange,
+}) => {
+  const {
+    phrases,
+    folders,
+    loading,
+    createPhrase,
+    updatePhrase,
+    deletePhrase,
+    createFolder,
+    updateFolder,
+    deleteFolder,
+    getPhraseFields,
+    getPhraseVersions,
+    restoreVersion,
+  } = useClinicalPhrases();
+
+  const [search, setSearch] = useState('');
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  
+  // Edit state
+  const [editingPhrase, setEditingPhrase] = useState<ClinicalPhrase | null>(null);
+  const [editingFolder, setEditingFolder] = useState<PhraseFolder | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  
+  // Delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'phrase' | 'folder'; id: string; name: string } | null>(null);
+
+  // Version history
+  const [showVersions, setShowVersions] = useState(false);
+  const [versions, setVersions] = useState<PhraseVersion[]>([]);
+  const [versionPhrase, setVersionPhrase] = useState<ClinicalPhrase | null>(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    content: '',
+    shortcut: '',
+    hotkey: '',
+    isActive: true,
+    isShared: false,
+    folderId: null as string | null,
+  });
+
+  const [folderFormData, setFolderFormData] = useState({
+    name: '',
+    description: '',
+    parentId: null as string | null,
+  });
+
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setEditingPhrase(null);
+      setEditingFolder(null);
+      setIsCreating(false);
+      setIsCreatingFolder(false);
+      setShowVersions(false);
+    }
+  }, [open]);
+
+  // Load phrase data into form
+  useEffect(() => {
+    if (editingPhrase) {
+      setFormData({
+        name: editingPhrase.name,
+        description: editingPhrase.description || '',
+        content: editingPhrase.content,
+        shortcut: editingPhrase.shortcut || '',
+        hotkey: editingPhrase.hotkey || '',
+        isActive: editingPhrase.isActive,
+        isShared: editingPhrase.isShared,
+        folderId: editingPhrase.folderId || null,
+      });
+    } else if (isCreating) {
+      setFormData({
+        name: '',
+        description: '',
+        content: '',
+        shortcut: '',
+        hotkey: '',
+        isActive: true,
+        isShared: false,
+        folderId: selectedFolder,
+      });
+    }
+  }, [editingPhrase, isCreating, selectedFolder]);
+
+  useEffect(() => {
+    if (editingFolder) {
+      setFolderFormData({
+        name: editingFolder.name,
+        description: editingFolder.description || '',
+        parentId: editingFolder.parentId || null,
+      });
+    } else if (isCreatingFolder) {
+      setFolderFormData({
+        name: '',
+        description: '',
+        parentId: selectedFolder,
+      });
+    }
+  }, [editingFolder, isCreatingFolder, selectedFolder]);
+
+  // Filter phrases
+  const filteredPhrases = phrases.filter(p => {
+    const matchesSearch = !search || 
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      p.content.toLowerCase().includes(search.toLowerCase()) ||
+      p.shortcut?.toLowerCase().includes(search.toLowerCase());
+    
+    const matchesFolder = !selectedFolder || p.folderId === selectedFolder;
+    
+    return matchesSearch && matchesFolder;
+  });
+
+  // Build folder tree
+  const getFolderChildren = useCallback((parentId: string | null): PhraseFolder[] => {
+    return folders
+      .filter(f => f.parentId === parentId)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [folders]);
+
+  const toggleFolder = useCallback((folderId: string) => {
+    setExpandedFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) {
+        next.delete(folderId);
+      } else {
+        next.add(folderId);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSavePhrase = useCallback(async () => {
+    if (!formData.name.trim() || !formData.content.trim()) {
+      toast.error('Name and content are required');
+      return;
+    }
+
+    if (editingPhrase) {
+      await updatePhrase(editingPhrase.id, {
+        name: formData.name,
+        description: formData.description || null,
+        content: formData.content,
+        shortcut: formData.shortcut || null,
+        hotkey: formData.hotkey || null,
+        isActive: formData.isActive,
+        isShared: formData.isShared,
+        folderId: formData.folderId,
+      });
+      setEditingPhrase(null);
+    } else {
+      await createPhrase({
+        name: formData.name,
+        description: formData.description || null,
+        content: formData.content,
+        shortcut: formData.shortcut || null,
+        hotkey: formData.hotkey || null,
+        contextTriggers: {},
+        isActive: formData.isActive,
+        isShared: formData.isShared,
+        folderId: formData.folderId,
+        lastUsedAt: null,
+      });
+      setIsCreating(false);
+    }
+  }, [formData, editingPhrase, updatePhrase, createPhrase]);
+
+  const handleSaveFolder = useCallback(async () => {
+    if (!folderFormData.name.trim()) {
+      toast.error('Folder name is required');
+      return;
+    }
+
+    if (editingFolder) {
+      await updateFolder(editingFolder.id, {
+        name: folderFormData.name,
+        description: folderFormData.description || null,
+        parentId: folderFormData.parentId,
+      });
+      setEditingFolder(null);
+    } else {
+      await createFolder({
+        name: folderFormData.name,
+        description: folderFormData.description || null,
+        parentId: folderFormData.parentId,
+        teamId: null,
+        icon: 'folder',
+        sortOrder: folders.length,
+        isShared: false,
+      });
+      setIsCreatingFolder(false);
+    }
+  }, [folderFormData, editingFolder, updateFolder, createFolder, folders.length]);
+
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+
+    if (deleteTarget.type === 'phrase') {
+      await deletePhrase(deleteTarget.id);
+    } else {
+      await deleteFolder(deleteTarget.id);
+    }
+    setDeleteTarget(null);
+  }, [deleteTarget, deletePhrase, deleteFolder]);
+
+  const handleViewVersions = useCallback(async (phrase: ClinicalPhrase) => {
+    const history = await getPhraseVersions(phrase.id);
+    setVersions(history);
+    setVersionPhrase(phrase);
+    setShowVersions(true);
+  }, [getPhraseVersions]);
+
+  const handleRestoreVersion = useCallback(async (version: PhraseVersion) => {
+    if (!versionPhrase) return;
+    await restoreVersion(versionPhrase.id, version);
+    setShowVersions(false);
+    setVersionPhrase(null);
+    toast.success('Version restored');
+  }, [versionPhrase, restoreVersion]);
+
+  const renderFolderTree = (parentId: string | null = null, level = 0) => {
+    const children = getFolderChildren(parentId);
+    
+    return children.map(folder => {
+      const isExpanded = expandedFolders.has(folder.id);
+      const hasChildren = folders.some(f => f.parentId === folder.id);
+      const phraseCount = phrases.filter(p => p.folderId === folder.id).length;
+
+      return (
+        <div key={folder.id}>
+          <div
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent ${
+              selectedFolder === folder.id ? 'bg-accent' : ''
+            }`}
+            style={{ paddingLeft: `${level * 16 + 8}px` }}
+            onClick={() => setSelectedFolder(folder.id)}
+          >
+            {hasChildren && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFolder(folder.id);
+                }}
+                className="p-0.5"
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+            )}
+            {!hasChildren && <div className="w-5" />}
+            <Folder className="h-4 w-4 text-primary" />
+            <span className="flex-1 truncate text-sm">{folder.name}</span>
+            <Badge variant="secondary" className="text-xs">
+              {phraseCount}
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <MoreVertical className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setEditingFolder(folder)}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setDeleteTarget({ type: 'folder', id: folder.id, name: folder.name })}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          {isExpanded && renderFolderTree(folder.id, level + 1)}
+        </div>
+      );
+    });
+  };
+
+  // Form view
+  if (editingPhrase || isCreating) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPhrase ? 'Edit Phrase' : 'New Phrase'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., SOB Denial"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="folder">Folder</Label>
+                  <Select
+                    value={formData.folderId || 'none'}
+                    onValueChange={v => setFormData(prev => ({ ...prev, folderId: v === 'none' ? null : v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select folder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No folder</SelectItem>
+                      {folders.map(f => (
+                        <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Input
+                  id="description"
+                  value={formData.description}
+                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Brief description of when to use this phrase"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="content">Content *</Label>
+                <Textarea
+                  id="content"
+                  value={formData.content}
+                  onChange={e => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                  placeholder="Patient denies shortness of breath at rest or with exertion."
+                  className="min-h-[150px] font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use {'{{field_name}}'} for dynamic placeholders
+                </p>
+              </div>
+
+              <Separator />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shortcut" className="flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    Autotext Shortcut
+                  </Label>
+                  <Input
+                    id="shortcut"
+                    value={formData.shortcut}
+                    onChange={e => setFormData(prev => ({ ...prev, shortcut: e.target.value }))}
+                    placeholder=".sob"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hotkey" className="flex items-center gap-2">
+                    <Keyboard className="h-4 w-4" />
+                    Keyboard Shortcut
+                  </Label>
+                  <Input
+                    id="hotkey"
+                    value={formData.hotkey}
+                    onChange={e => setFormData(prev => ({ ...prev, hotkey: e.target.value }))}
+                    placeholder="ctrl+shift+1"
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Active</Label>
+                  <p className="text-xs text-muted-foreground">Enable or disable this phrase</p>
+                </div>
+                <Switch
+                  checked={formData.isActive}
+                  onCheckedChange={v => setFormData(prev => ({ ...prev, isActive: v }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="flex items-center gap-2">
+                    <Share2 className="h-4 w-4" />
+                    Share with team
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Allow team members to use this phrase</p>
+                </div>
+                <Switch
+                  checked={formData.isShared}
+                  onCheckedChange={v => setFormData(prev => ({ ...prev, isShared: v }))}
+                />
+              </div>
+            </div>
+          </ScrollArea>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setEditingPhrase(null);
+              setIsCreating(false);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePhrase}>
+              {editingPhrase ? 'Save Changes' : 'Create Phrase'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Folder form view
+  if (editingFolder || isCreatingFolder) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingFolder ? 'Edit Folder' : 'New Folder'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="folderName">Name *</Label>
+              <Input
+                id="folderName"
+                value={folderFormData.name}
+                onChange={e => setFolderFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="e.g., SOAP Notes"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="folderDesc">Description</Label>
+              <Input
+                id="folderDesc"
+                value={folderFormData.description}
+                onChange={e => setFolderFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Phrases for SOAP documentation"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="parentFolder">Parent Folder</Label>
+              <Select
+                value={folderFormData.parentId || 'none'}
+                onValueChange={v => setFolderFormData(prev => ({ ...prev, parentId: v === 'none' ? null : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select parent folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (root level)</SelectItem>
+                  {folders
+                    .filter(f => f.id !== editingFolder?.id)
+                    .map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                    ))
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setEditingFolder(null);
+              setIsCreatingFolder(false);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveFolder}>
+              {editingFolder ? 'Save Changes' : 'Create Folder'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Version history view
+  if (showVersions && versionPhrase) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Version History: {versionPhrase.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1">
+            <div className="space-y-3">
+              {/* Current version */}
+              <div className="p-3 border rounded-lg bg-accent/50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge>Current</Badge>
+                    <span className="text-sm text-muted-foreground">
+                      v{versionPhrase.version}
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(versionPhrase.updatedAt).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-sm font-mono whitespace-pre-wrap">
+                  {versionPhrase.content}
+                </p>
+              </div>
+
+              {versions.map(version => (
+                <div key={version.id} className="p-3 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-muted-foreground">
+                      v{version.version}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(version.createdAt).toLocaleString()}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestoreVersion(version)}
+                      >
+                        Restore
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-sm font-mono whitespace-pre-wrap">
+                    {version.content}
+                  </p>
+                  {version.changeNote && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Note: {version.changeNote}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              {versions.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">
+                  No previous versions
+                </p>
+              )}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowVersions(false);
+              setVersionPhrase(null);
+            }}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Main list view
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+          <DialogTitle>Clinical Phrase Manager</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar - Folders */}
+          <div className="w-64 border-r flex flex-col">
+            <div className="p-3 border-b">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => setIsCreatingFolder(true)}
+              >
+                <FolderPlus className="h-4 w-4 mr-2" />
+                New Folder
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-2">
+                <div
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent ${
+                    !selectedFolder ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => setSelectedFolder(null)}
+                >
+                  <FileText className="h-4 w-4" />
+                  <span className="flex-1 text-sm">All Phrases</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {phrases.length}
+                  </Badge>
+                </div>
+                <Separator className="my-2" />
+                {renderFolderTree()}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Main content - Phrases */}
+          <div className="flex-1 flex flex-col">
+            <div className="p-3 border-b flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search phrases..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Button onClick={() => setIsCreating(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Phrase
+              </Button>
+            </div>
+
+            <ScrollArea className="flex-1">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredPhrases.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <FileText className="h-12 w-12 mb-2 opacity-50" />
+                  <p>No phrases found</p>
+                  <Button
+                    variant="link"
+                    onClick={() => setIsCreating(true)}
+                    className="mt-2"
+                  >
+                    Create your first phrase
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-3 space-y-2">
+                  {filteredPhrases.map(phrase => (
+                    <div
+                      key={phrase.id}
+                      className="p-3 border rounded-lg hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">{phrase.name}</span>
+                            {!phrase.isActive && (
+                              <Badge variant="secondary">Disabled</Badge>
+                            )}
+                            {phrase.isShared && (
+                              <Badge variant="outline">
+                                <Share2 className="h-3 w-3 mr-1" />
+                                Shared
+                              </Badge>
+                            )}
+                            {phrase.shortcut && (
+                              <Badge variant="secondary">{phrase.shortcut}</Badge>
+                            )}
+                            {phrase.hotkey && (
+                              <Badge variant="outline">
+                                <Keyboard className="h-3 w-3 mr-1" />
+                                {phrase.hotkey}
+                              </Badge>
+                            )}
+                          </div>
+                          {phrase.description && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {phrase.description}
+                            </p>
+                          )}
+                          <p className="text-sm font-mono mt-2 line-clamp-2 text-muted-foreground">
+                            {phrase.content}
+                          </p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span>Used {phrase.usageCount} times</span>
+                            {phrase.lastUsedAt && (
+                              <span>Last: {new Date(phrase.lastUsedAt).toLocaleDateString()}</span>
+                            )}
+                            <span>v{phrase.version}</span>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setEditingPhrase(phrase)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleViewVersions(phrase)}>
+                              <History className="h-4 w-4 mr-2" />
+                              Version History
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              navigator.clipboard.writeText(phrase.content);
+                              toast.success('Content copied');
+                            }}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy Content
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => setDeleteTarget({ 
+                                type: 'phrase', 
+                                id: phrase.id, 
+                                name: phrase.name 
+                              })}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </div>
+
+        {/* Delete confirmation */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {deleteTarget?.type}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{deleteTarget?.name}"? 
+                {deleteTarget?.type === 'folder' && ' All phrases in this folder will become uncategorized.'}
+                This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DialogContent>
+    </Dialog>
+  );
+};

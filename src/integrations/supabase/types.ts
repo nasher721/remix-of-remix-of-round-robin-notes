@@ -41,6 +41,101 @@ export type Database = {
         }
         Relationships: []
       }
+      clinical_phrases: {
+        Row: {
+          content: string
+          context_triggers: Json | null
+          created_at: string
+          description: string | null
+          folder_id: string | null
+          hotkey: string | null
+          id: string
+          is_active: boolean | null
+          is_shared: boolean | null
+          last_used_at: string | null
+          name: string
+          shortcut: string | null
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+          version: number | null
+        }
+        Insert: {
+          content: string
+          context_triggers?: Json | null
+          created_at?: string
+          description?: string | null
+          folder_id?: string | null
+          hotkey?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_shared?: boolean | null
+          last_used_at?: string | null
+          name: string
+          shortcut?: string | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+          version?: number | null
+        }
+        Update: {
+          content?: string
+          context_triggers?: Json | null
+          created_at?: string
+          description?: string | null
+          folder_id?: string | null
+          hotkey?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_shared?: boolean | null
+          last_used_at?: string | null
+          name?: string
+          shortcut?: string | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_phrases_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "phrase_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learned_phrases: {
+        Row: {
+          created_at: string
+          frequency: number | null
+          id: string
+          suggested_as_phrase: boolean | null
+          text_pattern: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          frequency?: number | null
+          id?: string
+          suggested_as_phrase?: boolean | null
+          text_pattern: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          frequency?: number | null
+          id?: string
+          suggested_as_phrase?: boolean | null
+          text_pattern?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       patient_field_history: {
         Row: {
           changed_at: string
@@ -171,6 +266,260 @@ export type Database = {
         }
         Relationships: []
       }
+      phrase_fields: {
+        Row: {
+          calculation_formula: string | null
+          conditional_logic: Json | null
+          created_at: string
+          default_value: string | null
+          field_key: string
+          field_type: Database["public"]["Enums"]["phrase_field_type"]
+          id: string
+          label: string
+          options: Json | null
+          phrase_id: string
+          placeholder: string | null
+          sort_order: number | null
+          validation: Json | null
+        }
+        Insert: {
+          calculation_formula?: string | null
+          conditional_logic?: Json | null
+          created_at?: string
+          default_value?: string | null
+          field_key: string
+          field_type: Database["public"]["Enums"]["phrase_field_type"]
+          id?: string
+          label: string
+          options?: Json | null
+          phrase_id: string
+          placeholder?: string | null
+          sort_order?: number | null
+          validation?: Json | null
+        }
+        Update: {
+          calculation_formula?: string | null
+          conditional_logic?: Json | null
+          created_at?: string
+          default_value?: string | null
+          field_key?: string
+          field_type?: Database["public"]["Enums"]["phrase_field_type"]
+          id?: string
+          label?: string
+          options?: Json | null
+          phrase_id?: string
+          placeholder?: string | null
+          sort_order?: number | null
+          validation?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phrase_fields_phrase_id_fkey"
+            columns: ["phrase_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_phrases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phrase_folders: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_shared: boolean | null
+          name: string
+          parent_id: string | null
+          sort_order: number | null
+          team_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_shared?: boolean | null
+          name: string
+          parent_id?: string | null
+          sort_order?: number | null
+          team_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_shared?: boolean | null
+          name?: string
+          parent_id?: string | null
+          sort_order?: number | null
+          team_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phrase_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "phrase_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phrase_team_members: {
+        Row: {
+          created_at: string
+          id: string
+          role: string | null
+          team_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: string | null
+          team_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: string | null
+          team_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phrase_team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "phrase_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phrase_teams: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      phrase_usage_log: {
+        Row: {
+          created_at: string
+          id: string
+          input_values: Json | null
+          inserted_content: string | null
+          patient_id: string | null
+          phrase_id: string
+          target_field: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_values?: Json | null
+          inserted_content?: string | null
+          patient_id?: string | null
+          phrase_id: string
+          target_field?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_values?: Json | null
+          inserted_content?: string | null
+          patient_id?: string | null
+          phrase_id?: string
+          target_field?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phrase_usage_log_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phrase_usage_log_phrase_id_fkey"
+            columns: ["phrase_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_phrases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phrase_versions: {
+        Row: {
+          change_note: string | null
+          changed_by: string | null
+          content: string
+          created_at: string
+          fields_snapshot: Json | null
+          id: string
+          phrase_id: string
+          version: number
+        }
+        Insert: {
+          change_note?: string | null
+          changed_by?: string | null
+          content: string
+          created_at?: string
+          fields_snapshot?: Json | null
+          id?: string
+          phrase_id: string
+          version: number
+        }
+        Update: {
+          change_note?: string | null
+          changed_by?: string | null
+          content?: string
+          created_at?: string
+          fields_snapshot?: Json | null
+          id?: string
+          phrase_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phrase_versions_phrase_id_fkey"
+            columns: ["phrase_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_phrases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       templates: {
         Row: {
           category: string
@@ -230,7 +579,21 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      phrase_field_type:
+        | "text"
+        | "number"
+        | "date"
+        | "dropdown"
+        | "checkbox"
+        | "radio"
+        | "patient_data"
+        | "calculation"
+        | "conditional"
+      phrase_trigger_type:
+        | "autotext"
+        | "hotkey"
+        | "context_menu"
+        | "smart_suggestion"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -357,6 +720,24 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      phrase_field_type: [
+        "text",
+        "number",
+        "date",
+        "dropdown",
+        "checkbox",
+        "radio",
+        "patient_data",
+        "calculation",
+        "conditional",
+      ],
+      phrase_trigger_type: [
+        "autotext",
+        "hotkey",
+        "context_menu",
+        "smart_suggestion",
+      ],
+    },
   },
 } as const
