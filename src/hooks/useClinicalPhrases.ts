@@ -163,7 +163,7 @@ export const useClinicalPhrases = () => {
           content: phrase.content,
           shortcut: phrase.shortcut,
           hotkey: phrase.hotkey,
-          context_triggers: phrase.contextTriggers as Record<string, unknown>,
+          context_triggers: JSON.parse(JSON.stringify(phrase.contextTriggers || {})),
           is_active: phrase.isActive ?? true,
           is_shared: phrase.isShared ?? false,
         }])
@@ -289,9 +289,9 @@ export const useClinicalPhrases = () => {
           label: field.label,
           placeholder: field.placeholder,
           default_value: field.defaultValue,
-          options: field.options as Record<string, unknown>,
-          validation: field.validation as Record<string, unknown>,
-          conditional_logic: field.conditionalLogic as Record<string, unknown>,
+          options: field.options ? JSON.parse(JSON.stringify(field.options)) : null,
+          validation: field.validation ? JSON.parse(JSON.stringify(field.validation)) : null,
+          conditional_logic: field.conditionalLogic ? JSON.parse(JSON.stringify(field.conditionalLogic)) : null,
           calculation_formula: field.calculationFormula,
           sort_order: field.sortOrder,
         }])
@@ -402,7 +402,7 @@ export const useClinicalPhrases = () => {
         phrase_id: phraseId,
         patient_id: patientId,
         target_field: targetField,
-        input_values: inputValues as Record<string, unknown>,
+        input_values: inputValues ? JSON.parse(JSON.stringify(inputValues)) : null,
         inserted_content: insertedContent,
       }]);
 
