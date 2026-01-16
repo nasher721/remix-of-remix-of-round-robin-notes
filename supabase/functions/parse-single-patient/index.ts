@@ -29,13 +29,15 @@ interface ParsedPatient {
 }
 
 /**
- * Convert literal \n strings to actual newlines and normalize line endings
+ * Convert <BR> markers to actual newlines and normalize line endings
  */
 function convertLineBreaks(text: string): string {
   if (!text) return '';
   
   return text
-    // Convert literal \n strings to actual newlines
+    // Convert <BR> markers to actual newlines
+    .replace(/<BR>/g, '\n')
+    // Also handle literal \n strings just in case
     .replace(/\\n/g, '\n')
     // Normalize CRLF and CR to LF
     .replace(/\r\n/g, '\n')
@@ -67,32 +69,33 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You organize clinical notes into sections. 
+    const systemPrompt = `You organize clinical notes into sections.
 
-CRITICAL - LINE BREAK RULES:
-- Every line in the input that ends with a newline MUST have \\n in the output
-- If the input has:
-  Line 1
-  Line 2
-  Line 3
-- The output MUST be: "Line 1\\nLine 2\\nLine 3"
-- NEVER join lines into a single paragraph
-- NEVER remove line breaks
+LINE BREAK RULE - THIS IS CRITICAL:
+Use <BR> to represent each line break from the original input.
 
-CRITICAL - CONTENT RULES:
-- Copy text EXACTLY - do not rephrase or modify
-- Do NOT move imaging/labs mentioned within a system section to separate imaging/labs fields
-- Keep each piece of text in its original context
-- The "imaging" and "labs" fields should ONLY have standalone sections, not content extracted from system notes`;
+Example input:
+Line one
+Line two
+Line three
 
-    const userPrompt = `Organize these notes. PRESERVE EVERY LINE BREAK using \\n in the JSON output. Do NOT merge lines into paragraphs.
+Example output for a field: "Line one<BR>Line two<BR>Line three"
+
+If the input has text on separate lines, the output MUST have <BR> between them. NEVER merge lines into one continuous paragraph.
+
+CONTENT RULES:
+- Copy text EXACTLY as written
+- Do NOT move imaging/labs from system sections to separate imaging/labs fields
+- The "imaging" and "labs" fields should ONLY contain standalone imaging/labs sections`;
+
+    const userPrompt = `Organize these notes. Use <BR> for EVERY line break. Do NOT merge lines together.
 
 INPUT:
 ${content}`;
 
     console.log("Calling AI gateway for single patient parsing...");
 
-    // Use tool calling for better structured output
+    // Use gemini-2.5-pro for better instruction following
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -100,7 +103,7 @@ ${content}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -110,26 +113,26 @@ ${content}`;
             type: "function",
             function: {
               name: "organize_patient_data",
-              description: "Organize clinical notes into structured patient data. PRESERVE ALL LINE BREAKS using \\n",
+              description: "Organize clinical notes. Use <BR> for line breaks.",
               parameters: {
                 type: "object",
                 properties: {
-                  name: { type: "string", description: "Patient name only" },
-                  bed: { type: "string", description: "Room/bed number only" },
-                  clinicalSummary: { type: "string", description: "General history, diagnoses. Preserve line breaks with \\n" },
-                  intervalEvents: { type: "string", description: "Recent events. Preserve line breaks with \\n" },
-                  imaging: { type: "string", description: "ONLY standalone imaging sections, not extracted from systems" },
-                  labs: { type: "string", description: "ONLY standalone lab sections, not extracted from systems" },
-                  neuro: { type: "string", description: "ALL neuro content including imaging/labs within it. Preserve line breaks with \\n" },
-                  cv: { type: "string", description: "ALL cv content. Preserve line breaks with \\n" },
-                  resp: { type: "string", description: "ALL resp content. Preserve line breaks with \\n" },
-                  renalGU: { type: "string", description: "ALL renal/GU content. Preserve line breaks with \\n" },
-                  gi: { type: "string", description: "ALL GI content. Preserve line breaks with \\n" },
-                  endo: { type: "string", description: "ALL endo content. Preserve line breaks with \\n" },
-                  heme: { type: "string", description: "ALL heme content. Preserve line breaks with \\n" },
-                  infectious: { type: "string", description: "ALL ID content. Preserve line breaks with \\n" },
-                  skinLines: { type: "string", description: "ALL skin/lines content. Preserve line breaks with \\n" },
-                  dispo: { type: "string", description: "ALL disposition content. Preserve line breaks with \\n" }
+                  name: { type: "string", description: "Patient name" },
+                  bed: { type: "string", description: "Room/bed" },
+                  clinicalSummary: { type: "string", description: "History/diagnoses. Use <BR> for line breaks" },
+                  intervalEvents: { type: "string", description: "Recent events. Use <BR> for line breaks" },
+                  imaging: { type: "string", description: "ONLY standalone imaging sections" },
+                  labs: { type: "string", description: "ONLY standalone lab sections" },
+                  neuro: { type: "string", description: "ALL neuro content with <BR> for line breaks" },
+                  cv: { type: "string", description: "ALL cv content with <BR> for line breaks" },
+                  resp: { type: "string", description: "ALL resp content with <BR> for line breaks" },
+                  renalGU: { type: "string", description: "ALL renal/GU content with <BR> for line breaks" },
+                  gi: { type: "string", description: "ALL GI content with <BR> for line breaks" },
+                  endo: { type: "string", description: "ALL endo content with <BR> for line breaks" },
+                  heme: { type: "string", description: "ALL heme content with <BR> for line breaks" },
+                  infectious: { type: "string", description: "ALL ID content with <BR> for line breaks" },
+                  skinLines: { type: "string", description: "ALL skin/lines content with <BR> for line breaks" },
+                  dispo: { type: "string", description: "ALL disposition content with <BR> for line breaks" }
                 },
                 required: ["name", "bed", "clinicalSummary", "intervalEvents", "imaging", "labs", "neuro", "cv", "resp", "renalGU", "gi", "endo", "heme", "infectious", "skinLines", "dispo"],
                 additionalProperties: false
