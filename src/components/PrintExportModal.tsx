@@ -176,7 +176,15 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     return localStorage.getItem('printFontFamily') || 'system';
   });
   const [typographyOpen, setTypographyOpen] = useState(false);
+  const [onePatientPerPage, setOnePatientPerPage] = useState(() => {
+    return localStorage.getItem('printOnePatientPerPage') === 'true';
+  });
   const { toast } = useToast();
+
+  // Save one patient per page preference
+  useEffect(() => {
+    localStorage.setItem('printOnePatientPerPage', onePatientPerPage.toString());
+  }, [onePatientPerPage]);
 
   // Font family options
   const fontFamilies = [
@@ -1009,55 +1017,111 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       
       let tableRows = '';
       patients.forEach((patient, idx) => {
-        let row = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">`;
-        
-        if (isColumnEnabled("patient")) {
-          row += `<td class="patient-cell">
-            <div class="patient-name">${patient.name || 'Unnamed'}</div>
-            <div class="bed">Bed: ${patient.bed || 'N/A'}</div>
-          </td>`;
-        }
-        if (isColumnEnabled("clinicalSummary")) {
-          row += `<td class="content-cell">${cleanInlineStyles(patient.clinicalSummary) || ''}</td>`;
-        }
-        if (isColumnEnabled("intervalEvents")) {
-          row += `<td class="content-cell">${cleanInlineStyles(patient.intervalEvents) || ''}</td>`;
-        }
-        if (isColumnEnabled("imaging")) {
-          row += `<td class="content-cell">${cleanInlineStyles(patient.imaging) || ''}</td>`;
-        }
-        if (isColumnEnabled("labs")) {
-          row += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
-        }
-        enabledSystemKeys.forEach(key => {
-          row += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
-        });
-        if (showTodosColumn) {
-          const todos = getPatientTodos(patient.id);
-          row += `<td class="content-cell todos-cell">${formatTodosHtml(todos)}</td>`;
-        }
-        if (showNotesColumn) {
-          row += `<td class="notes-cell">
-            <div class="notes-lines">
-              <div class="note-line"></div>
-              <div class="note-line"></div>
-              <div class="note-line"></div>
-              <div class="note-line"></div>
-              <div class="note-line"></div>
+        // For one-per-page in table view, wrap each row in a separate table
+        if (onePatientPerPage) {
+          let singleRow = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">`;
+          
+          if (isColumnEnabled("patient")) {
+            singleRow += `<td class="patient-cell">
+              <div class="patient-name">${patient.name || 'Unnamed'}</div>
+              <div class="bed">Bed: ${patient.bed || 'N/A'}</div>
+            </td>`;
+          }
+          if (isColumnEnabled("clinicalSummary")) {
+            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.clinicalSummary) || ''}</td>`;
+          }
+          if (isColumnEnabled("intervalEvents")) {
+            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.intervalEvents) || ''}</td>`;
+          }
+          if (isColumnEnabled("imaging")) {
+            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.imaging) || ''}</td>`;
+          }
+          if (isColumnEnabled("labs")) {
+            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
+          }
+          enabledSystemKeys.forEach(key => {
+            singleRow += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
+          });
+          if (showTodosColumn) {
+            const todos = getPatientTodos(patient.id);
+            singleRow += `<td class="content-cell todos-cell">${formatTodosHtml(todos)}</td>`;
+          }
+          if (showNotesColumn) {
+            singleRow += `<td class="notes-cell">
+              <div class="notes-lines">
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+              </div>
+            </td>`;
+          }
+          singleRow += '</tr>';
+          
+          tableRows += `
+            <div class="patient-page-wrapper">
+              <table class="data-table single-patient-table">
+                <thead><tr>${tableHeaders}</tr></thead>
+                <tbody>${singleRow}</tbody>
+              </table>
             </div>
-          </td>`;
+          `;
+        } else {
+          let row = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">`;
+          
+          if (isColumnEnabled("patient")) {
+            row += `<td class="patient-cell">
+              <div class="patient-name">${patient.name || 'Unnamed'}</div>
+              <div class="bed">Bed: ${patient.bed || 'N/A'}</div>
+            </td>`;
+          }
+          if (isColumnEnabled("clinicalSummary")) {
+            row += `<td class="content-cell">${cleanInlineStyles(patient.clinicalSummary) || ''}</td>`;
+          }
+          if (isColumnEnabled("intervalEvents")) {
+            row += `<td class="content-cell">${cleanInlineStyles(patient.intervalEvents) || ''}</td>`;
+          }
+          if (isColumnEnabled("imaging")) {
+            row += `<td class="content-cell">${cleanInlineStyles(patient.imaging) || ''}</td>`;
+          }
+          if (isColumnEnabled("labs")) {
+            row += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
+          }
+          enabledSystemKeys.forEach(key => {
+            row += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
+          });
+          if (showTodosColumn) {
+            const todos = getPatientTodos(patient.id);
+            row += `<td class="content-cell todos-cell">${formatTodosHtml(todos)}</td>`;
+          }
+          if (showNotesColumn) {
+            row += `<td class="notes-cell">
+              <div class="notes-lines">
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+                <div class="note-line"></div>
+              </div>
+            </td>`;
+          }
+          
+          row += '</tr>';
+          tableRows += row;
         }
-        
-        row += '</tr>';
-        tableRows += row;
       });
       
-      contentHTML = `
-        <table class="data-table">
-          <thead><tr>${tableHeaders}</tr></thead>
-          <tbody>${tableRows}</tbody>
-        </table>
-      `;
+      if (onePatientPerPage) {
+        contentHTML = tableRows;
+      } else {
+        contentHTML = `
+          <table class="data-table">
+            <thead><tr>${tableHeaders}</tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        `;
+      }
     } else if (activeTab === 'cards') {
       // Card view HTML
       let cardsHTML = '<div class="cards-grid">';
@@ -1147,7 +1211,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         }
         
         cardsHTML += `
-          <div class="patient-card">
+          <div class="patient-card${onePatientPerPage ? ' patient-page-wrapper' : ''}">
             <div class="card-header">
               <span class="patient-number">${idx + 1}</span>
               <span class="patient-name">${patient.name || 'Unnamed'}</span>
@@ -1251,7 +1315,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         }
         
         listHTML += `
-          <div class="patient-item">
+          <div class="patient-item${onePatientPerPage ? ' patient-page-wrapper' : ''}">
             <div class="item-header">
               <span class="patient-number">${index + 1}</span>
               <span class="patient-name">${patient.name || 'Unnamed'}</span>
@@ -1285,7 +1349,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     const smallerFontSize = Math.max(baseFontSize - 1, 7);
     const patientNameSize = Math.max(baseFontSize + 1, 9);
     
-    const viewLabel = activeTab === 'table' ? 'Dense Table View' : activeTab === 'cards' ? 'Card View' : 'Detailed List View';
+    const baseViewLabel = activeTab === 'table' ? 'Dense Table View' : activeTab === 'cards' ? 'Card View' : 'Detailed List View';
+    const viewLabel = onePatientPerPage ? `${baseViewLabel} (One Per Page)` : baseViewLabel;
+    const dateStr = new Date().toLocaleDateString('en-US', { 
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
+    });
+    const timeStr = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -1659,6 +1728,30 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               text-align: center;
             }
             
+            /* One Patient Per Page Styles */
+            .patient-page-wrapper {
+              page-break-after: always;
+              page-break-inside: avoid;
+              break-after: page;
+              break-inside: avoid;
+            }
+            .patient-page-wrapper:last-child {
+              page-break-after: auto;
+              break-after: auto;
+            }
+            .single-patient-table {
+              height: auto;
+              max-height: 100vh;
+            }
+            ${onePatientPerPage ? `
+            .cards-grid {
+              display: block;
+            }
+            .cards-grid .patient-card {
+              margin-bottom: 0;
+            }
+            ` : ''}
+            
             @media print {
               @page { size: landscape; margin: 0.4in; }
               body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1673,7 +1766,26 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               .imaging-header { background: #3b82f6 !important; }
               .labs-header { background: #22c55e !important; }
               .notes-header { background: #f59e0b !important; }
+              ${onePatientPerPage ? `
+              .patient-page-wrapper {
+                page-break-after: always !important;
+                page-break-inside: avoid !important;
+                break-after: page !important;
+                break-inside: avoid !important;
+                height: auto;
+                min-height: 0;
+              }
+              .patient-page-wrapper:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
+              }
+              .report-header {
+                page-break-after: avoid;
+                break-after: avoid;
+              }
+              ` : `
               tr, .patient-card, .patient-item { page-break-inside: avoid !important; break-inside: avoid !important; }
+              `}
               .systems-grid, .systems-section, .system-item { page-break-inside: avoid !important; break-inside: avoid !important; }
               .section, .two-col-row, .imaging-labs-row { page-break-inside: avoid !important; break-inside: avoid !important; }
             }
@@ -2565,6 +2677,25 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                 <p className="text-xs text-muted-foreground">
                   Preview: <span style={{ fontFamily: getFontFamilyCSS() }}>The quick brown fox jumps</span>
                 </p>
+              </div>
+            </div>
+            
+            {/* Page Layout Control */}
+            <div className="pt-3 border-t">
+              <div className="flex items-center gap-3">
+                <Checkbox 
+                  id="onePatientPerPage" 
+                  checked={onePatientPerPage}
+                  onCheckedChange={(checked) => setOnePatientPerPage(checked === true)}
+                />
+                <div className="flex-1">
+                  <Label htmlFor="onePatientPerPage" className="text-sm font-medium cursor-pointer">
+                    One patient per page
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Each patient starts on a new page. Content auto-sizes to fit without breaking across pages.
+                  </p>
+                </div>
               </div>
             </div>
           </CollapsibleContent>
