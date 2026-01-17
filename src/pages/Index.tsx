@@ -14,6 +14,7 @@ import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
 import { PhraseManager } from "@/components/phrases";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider, useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,6 @@ import {
   Users,
   LogOut,
   Loader2,
-  Cloud,
   Type,
   ArrowUpDown,
   ListTodo,
@@ -429,10 +429,7 @@ const IndexContent = () => {
                 <span>patients</span>
               </div>
               <div className="h-4 w-px bg-border" />
-              <div className="flex items-center gap-2">
-                <Cloud className="h-4 w-4 text-success" />
-                <span>Synced</span>
-              </div>
+              <OfflineIndicator />
               <div className="h-4 w-px bg-border" />
               <span>
                 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}

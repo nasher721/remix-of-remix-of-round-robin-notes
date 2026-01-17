@@ -1,8 +1,8 @@
-import { Cloud, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 interface MobileHeaderProps {
   title: string;
@@ -57,15 +57,13 @@ export const MobileHeader = ({
               <div className="min-w-0">
                 <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
                 {subtitle && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Cloud className="h-3 w-3 text-success" />
-                    <span className="truncate">{subtitle}</span>
-                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
                 )}
               </div>
             </div>
 
             <div className="flex items-center gap-1">
+              <OfflineIndicator />
               {showSearch && onSearchChange && (
                 <Button
                   variant="ghost"
