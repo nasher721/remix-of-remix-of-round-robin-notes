@@ -291,6 +291,19 @@ const IndexContent = () => {
                     subtitle="Synced"
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
+                    rightAction={
+                      patients.length > 0 ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={collapseAll}
+                          className="h-10 w-10"
+                          title={patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                        >
+                          <ChevronsUpDown className="h-5 w-5" />
+                        </Button>
+                      ) : undefined
+                    }
                   />
                   <div className="pb-mobile-nav">
                     <MobilePatientList
