@@ -2646,6 +2646,46 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           </Button>
         </div>
 
+        {/* Quick Presets */}
+        <div className="flex items-center gap-2 border-b pb-3 mb-2">
+          <span className="text-sm font-medium text-muted-foreground">Presets:</span>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              // Enable Systems Review combination
+              if (!combinedColumns.includes('systemsReview')) {
+                setCombinedColumns(prev => [...prev.filter(c => c !== 'allContent'), 'systemsReview']);
+              }
+              // Set landscape orientation
+              setPrintOrientation('landscape');
+              // Enable smaller font for compactness
+              setPrintFontSize(8);
+            }}
+            className="gap-2 bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 border-primary/30"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="5" width="20" height="14" rx="2" />
+              <path d="M7 9h10M7 13h6" />
+            </svg>
+            Compact Mode
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => {
+              // Reset to defaults
+              setCombinedColumns([]);
+              setPrintOrientation('portrait');
+              setPrintFontSize(10);
+            }}
+            className="gap-1 text-xs"
+          >
+            <RotateCcw className="h-3 w-3" />
+            Reset
+          </Button>
+        </div>
+
         {/* Column Selection */}
         <Collapsible open={columnsOpen} onOpenChange={setColumnsOpen} className="border-b pb-2 mb-2">
           <CollapsibleTrigger asChild>
