@@ -95,7 +95,11 @@ export const PhraseFieldEditor: React.FC<PhraseFieldEditorProps> = ({
     });
   }, []);
 
-  const addField = useCallback(() => {
+  const addField = useCallback((e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const newField: PhraseField = {
       id: `temp_${Date.now()}`,
       phraseId: '',
@@ -111,7 +115,8 @@ export const PhraseFieldEditor: React.FC<PhraseFieldEditorProps> = ({
       sortOrder: fields.length,
       createdAt: new Date().toISOString(),
     };
-    onChange([...fields, newField]);
+    const updatedFields = [...fields, newField];
+    onChange(updatedFields);
     setExpandedFields(prev => new Set([...prev, newField.id]));
   }, [fields, onChange]);
 
@@ -443,7 +448,7 @@ export const PhraseFieldEditor: React.FC<PhraseFieldEditorProps> = ({
           type="button"
           variant="outline"
           size="sm"
-          onClick={addField}
+          onClick={(e) => addField(e)}
         >
           <Plus className="h-4 w-4 mr-1" />
           Add Field
