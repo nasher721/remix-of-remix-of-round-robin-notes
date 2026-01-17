@@ -204,6 +204,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     const saved = localStorage.getItem('printCombinedColumns');
     return saved ? JSON.parse(saved) : [];
   });
+  const [printOrientation, setPrintOrientation] = useState<'portrait' | 'landscape'>(() => {
+    return (localStorage.getItem('printOrientation') as 'portrait' | 'landscape') || 'portrait';
+  });
   const { toast } = useToast();
 
   // Save one patient per page preference
@@ -220,6 +223,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   useEffect(() => {
     localStorage.setItem('printCombinedColumns', JSON.stringify(combinedColumns));
   }, [combinedColumns]);
+
+  // Save print orientation preference
+  useEffect(() => {
+    localStorage.setItem('printOrientation', printOrientation);
+  }, [printOrientation]);
 
   // Font family options
   const fontFamilies = [
@@ -1519,6 +1527,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         <head>
           <title>Patient Rounding Report - ${new Date().toLocaleDateString()}</title>
           <style>
+            @page {
+              size: ${printOrientation};
+              margin: 0.5in;
+            }
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { 
               font-family: ${fontCSS}; 
@@ -2923,6 +2935,38 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                   Preview: <span style={{ fontFamily: getFontFamilyCSS() }}>The quick brown fox jumps</span>
                 </p>
               </div>
+            </div>
+            
+            {/* Print Orientation Control */}
+            <div className="pt-3 border-t space-y-3">
+              <Label className="text-sm font-medium">Page Orientation</Label>
+              <div className="flex gap-2">
+                <Button
+                  variant={printOrientation === 'portrait' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrintOrientation('portrait')}
+                  className="flex-1 gap-2"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" />
+                  </svg>
+                  Portrait
+                </Button>
+                <Button
+                  variant={printOrientation === 'landscape' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrintOrientation('landscape')}
+                  className="flex-1 gap-2"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="5" width="20" height="14" rx="2" />
+                  </svg>
+                  Landscape
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Landscape mode provides more horizontal space for tables with many columns.
+              </p>
             </div>
             
             {/* Page Layout Control */}
