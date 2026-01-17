@@ -35,6 +35,7 @@ import {
   ArrowUpDown,
   ListTodo,
   FileText,
+  ChevronsUpDown,
 } from "lucide-react";
 import {
   Select,
@@ -74,6 +75,7 @@ const IndexContent = () => {
     removePatient, 
     duplicatePatient,
     toggleCollapse,
+    collapseAll,
     clearAll,
     importPatients
   } = usePatients();
@@ -497,6 +499,18 @@ const IndexContent = () => {
 
             {/* Secondary Actions */}
             <div className="flex items-center gap-2">
+              <Button 
+                onClick={collapseAll} 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                disabled={patients.length === 0}
+              >
+                <ChevronsUpDown className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                </span>
+              </Button>
               <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
                 <Printer className="h-4 w-4" />
                 <span className="hidden sm:inline">Print/Export</span>

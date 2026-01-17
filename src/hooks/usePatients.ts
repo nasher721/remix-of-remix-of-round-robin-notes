@@ -322,6 +322,29 @@ export const usePatients = () => {
     await updatePatient(id, "collapsed", !patient.collapsed);
   }, [patients, updatePatient]);
 
+  const collapseAll = useCallback(async () => {
+    if (!user || patients.length === 0) return;
+
+    // Check if all are already collapsed
+    const allCollapsed = patients.every(p => p.collapsed);
+    const newCollapseState = !allCollapsed;
+
+    // Optimistic update
+    setPatients(prev => prev.map(p => ({ ...p, collapsed: newCollapseState })));
+
+    try {
+      const { error } = await supabase
+        .from("patients")
+        .update({ collapsed: newCollapseState })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error collapsing all patients:", error);
+      fetchPatients(); // Revert on error
+    }
+  }, [user, patients, fetchPatients]);
+
   const importPatients = useCallback(async (patientsToImport: Array<{
     name: string;
     bed: string;
@@ -498,6 +521,7 @@ export const usePatients = () => {
     removePatient,
     duplicatePatient,
     toggleCollapse,
+    collapseAll,
     clearAll,
     importPatients,
     refetch: fetchPatients,
