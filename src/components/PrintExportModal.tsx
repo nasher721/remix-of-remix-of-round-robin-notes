@@ -28,7 +28,10 @@ import {
   X,
   Type,
   CheckSquare,
-  Square
+  Square,
+  Bookmark,
+  Plus,
+  Check
 } from "lucide-react";
 import { useRef, useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -37,6 +40,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Collapsible,
   CollapsibleContent,
@@ -106,6 +110,32 @@ const defaultColumns: ColumnConfig[] = [
 interface ExpandedCell {
   patientId: string;
   field: string;
+}
+
+// Column widths type
+type ColumnWidthsType = {
+  patient: number;
+  summary: number;
+  events: number;
+  imaging: number;
+  labs: number;
+  systems: number;
+  notes: number;
+};
+
+// Custom print preset structure
+interface PrintPreset {
+  id: string;
+  name: string;
+  columns: ColumnConfig[];
+  combinedColumns: string[];
+  printOrientation: 'portrait' | 'landscape';
+  printFontSize: number;
+  printFontFamily: string;
+  onePatientPerPage: boolean;
+  autoFitFontSize: boolean;
+  columnWidths: ColumnWidthsType;
+  createdAt: string;
 }
 
 // Strip HTML tags for exports
@@ -207,6 +237,15 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const [printOrientation, setPrintOrientation] = useState<'portrait' | 'landscape'>(() => {
     return (localStorage.getItem('printOrientation') as 'portrait' | 'landscape') || 'portrait';
   });
+  
+  // Custom presets state
+  const [customPresets, setCustomPresets] = useState<PrintPreset[]>(() => {
+    const saved = localStorage.getItem('printCustomPresets');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newPresetName, setNewPresetName] = useState('');
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  
   const { toast } = useToast();
 
   // Save one patient per page preference
@@ -228,6 +267,72 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   useEffect(() => {
     localStorage.setItem('printOrientation', printOrientation);
   }, [printOrientation]);
+
+  // Save custom presets
+  useEffect(() => {
+    localStorage.setItem('printCustomPresets', JSON.stringify(customPresets));
+  }, [customPresets]);
+
+  // Save current settings as a preset
+  const saveCurrentAsPreset = useCallback(() => {
+    if (!newPresetName.trim()) {
+      toast({
+        title: "Name required",
+        description: "Please enter a name for your preset.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const preset: PrintPreset = {
+      id: Date.now().toString(),
+      name: newPresetName.trim(),
+      columns: columns,
+      combinedColumns: combinedColumns,
+      printOrientation: printOrientation,
+      printFontSize: printFontSize,
+      printFontFamily: printFontFamily,
+      onePatientPerPage: onePatientPerPage,
+      autoFitFontSize: autoFitFontSize,
+      columnWidths: columnWidths,
+      createdAt: new Date().toISOString()
+    };
+    
+    setCustomPresets(prev => [...prev, preset]);
+    setNewPresetName('');
+    setShowSavePreset(false);
+    
+    toast({
+      title: "Preset saved",
+      description: `"${preset.name}" has been saved for quick access.`
+    });
+  }, [newPresetName, columns, combinedColumns, printOrientation, printFontSize, printFontFamily, onePatientPerPage, autoFitFontSize, columnWidths, toast]);
+
+  // Load a preset
+  const loadPreset = useCallback((preset: PrintPreset) => {
+    setColumns(preset.columns);
+    setCombinedColumns(preset.combinedColumns);
+    setPrintOrientation(preset.printOrientation);
+    setPrintFontSize(preset.printFontSize);
+    setPrintFontFamily(preset.printFontFamily);
+    setOnePatientPerPage(preset.onePatientPerPage);
+    setAutoFitFontSize(preset.autoFitFontSize);
+    setColumnWidths(preset.columnWidths);
+    
+    toast({
+      title: "Preset loaded",
+      description: `"${preset.name}" settings applied.`
+    });
+  }, [toast]);
+
+  // Delete a preset
+  const deletePreset = useCallback((presetId: string) => {
+    setCustomPresets(prev => prev.filter(p => p.id !== presetId));
+    toast({
+      title: "Preset deleted",
+      description: "The preset has been removed."
+    });
+  }, [toast]);
 
   // Font family options
   const fontFamilies = [
@@ -2647,43 +2752,128 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         </div>
 
         {/* Quick Presets */}
-        <div className="flex items-center gap-2 border-b pb-3 mb-2">
-          <span className="text-sm font-medium text-muted-foreground">Presets:</span>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => {
-              // Enable Systems Review combination
-              if (!combinedColumns.includes('systemsReview')) {
-                setCombinedColumns(prev => [...prev.filter(c => c !== 'allContent'), 'systemsReview']);
-              }
-              // Set landscape orientation
-              setPrintOrientation('landscape');
-              // Enable smaller font for compactness
-              setPrintFontSize(8);
-            }}
-            className="gap-2 bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 border-primary/30"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="2" y="5" width="20" height="14" rx="2" />
-              <path d="M7 9h10M7 13h6" />
-            </svg>
-            Compact Mode
-          </Button>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => {
-              // Reset to defaults
-              setCombinedColumns([]);
-              setPrintOrientation('portrait');
-              setPrintFontSize(10);
-            }}
-            className="gap-1 text-xs"
-          >
-            <RotateCcw className="h-3 w-3" />
-            Reset
-          </Button>
+        <div className="border-b pb-3 mb-2 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-muted-foreground">Presets:</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => {
+                // Enable Systems Review combination
+                if (!combinedColumns.includes('systemsReview')) {
+                  setCombinedColumns(prev => [...prev.filter(c => c !== 'allContent'), 'systemsReview']);
+                }
+                // Set landscape orientation
+                setPrintOrientation('landscape');
+                // Enable smaller font for compactness
+                setPrintFontSize(8);
+              }}
+              className="gap-2 bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 border-primary/30"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <path d="M7 9h10M7 13h6" />
+              </svg>
+              Compact Mode
+            </Button>
+            
+            {/* Custom presets */}
+            {customPresets.map(preset => (
+              <div key={preset.id} className="flex items-center gap-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => loadPreset(preset)}
+                  className="gap-2 bg-secondary/50 hover:bg-secondary"
+                >
+                  <Bookmark className="h-3.5 w-3.5" />
+                  {preset.name}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deletePreset(preset.id)}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+            
+            {/* Save preset button */}
+            {!showSavePreset ? (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setShowSavePreset(true)}
+                className="gap-1 text-xs border border-dashed border-muted-foreground/30 hover:border-primary/50"
+              >
+                <Plus className="h-3 w-3" />
+                Save Current
+              </Button>
+            ) : (
+              <div className="flex items-center gap-1">
+                <Input
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                  placeholder="Preset name..."
+                  className="h-7 w-32 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveCurrentAsPreset();
+                    if (e.key === 'Escape') {
+                      setShowSavePreset(false);
+                      setNewPresetName('');
+                    }
+                  }}
+                  autoFocus
+                />
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={saveCurrentAsPreset}
+                  className="h-7 px-2"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowSavePreset(false);
+                    setNewPresetName('');
+                  }}
+                  className="h-7 px-2"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+            
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => {
+                // Reset to defaults
+                setCombinedColumns([]);
+                setPrintOrientation('portrait');
+                setPrintFontSize(10);
+                setColumns(defaultColumns);
+                setColumnWidths(defaultColumnWidths);
+                setOnePatientPerPage(false);
+                setAutoFitFontSize(false);
+              }}
+              className="gap-1 text-xs"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset All
+            </Button>
+          </div>
+          
+          {customPresets.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {customPresets.length} saved preset{customPresets.length !== 1 ? 's' : ''} • Click to apply, × to delete
+            </p>
+          )}
         </div>
 
         {/* Column Selection */}
