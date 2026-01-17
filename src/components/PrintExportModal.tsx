@@ -72,7 +72,21 @@ interface ColumnConfig {
   key: string;
   label: string;
   enabled: boolean;
+  combinedWith?: string; // Key of another column to combine with
 }
+
+// Column combination presets
+interface ColumnCombination {
+  key: string;
+  label: string;
+  columns: string[];
+}
+
+const columnCombinations: ColumnCombination[] = [
+  { key: "summaryEvents", label: "Summary + Events", columns: ["clinicalSummary", "intervalEvents"] },
+  { key: "imagingLabs", label: "Imaging + Labs", columns: ["imaging", "labs"] },
+  { key: "allContent", label: "All Clinical Data", columns: ["clinicalSummary", "intervalEvents", "imaging", "labs"] },
+];
 
 const defaultColumns: ColumnConfig[] = [
   { key: "patient", label: "Patient/Bed", enabled: true },
@@ -182,6 +196,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const [autoFitFontSize, setAutoFitFontSize] = useState(() => {
     return localStorage.getItem('printAutoFitFontSize') === 'true';
   });
+  const [combinedColumns, setCombinedColumns] = useState<string[]>(() => {
+    const saved = localStorage.getItem('printCombinedColumns');
+    return saved ? JSON.parse(saved) : [];
+  });
   const { toast } = useToast();
 
   // Save one patient per page preference
@@ -193,6 +211,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   useEffect(() => {
     localStorage.setItem('printAutoFitFontSize', autoFitFontSize.toString());
   }, [autoFitFontSize]);
+
+  // Save combined columns preference
+  useEffect(() => {
+    localStorage.setItem('printCombinedColumns', JSON.stringify(combinedColumns));
+  }, [combinedColumns]);
 
   // Font family options
   const fontFamilies = [
@@ -384,6 +407,44 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       localStorage.setItem('printColumnPrefs', JSON.stringify(updated));
       return updated;
     });
+  };
+
+  // Toggle column combination
+  const toggleColumnCombination = (combinationKey: string) => {
+    setCombinedColumns(prev => {
+      if (prev.includes(combinationKey)) {
+        return prev.filter(k => k !== combinationKey);
+      } else {
+        return [...prev, combinationKey];
+      }
+    });
+  };
+
+  // Check if a column is part of an active combination
+  const isColumnCombined = (columnKey: string): string | null => {
+    for (const combo of columnCombinations) {
+      if (combinedColumns.includes(combo.key) && combo.columns.includes(columnKey)) {
+        return combo.key;
+      }
+    }
+    return null;
+  };
+
+  // Get combined content for a patient
+  const getCombinedContent = (patient: Patient, combinationKey: string): string => {
+    const combination = columnCombinations.find(c => c.key === combinationKey);
+    if (!combination) return '';
+    
+    const sections: string[] = [];
+    combination.columns.forEach(colKey => {
+      const value = getCellValue(patient, colKey);
+      if (value) {
+        const label = columns.find(c => c.key === colKey)?.label || colKey;
+        sections.push(`<div class="combined-section"><strong>${label}:</strong> ${cleanInlineStyles(value)}</div>`);
+      }
+    });
+    
+    return sections.join('');
   };
 
   const handleCellClick = (patientId: string, field: string) => {
@@ -1047,24 +1108,63 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     
     let contentHTML = '';
     
+    // Track which columns we've already rendered as part of a combination
+    const renderedCombinations = new Set<string>();
+    
+    // Helper to check if column should be rendered (not combined or is the first in combination)
+    const shouldRenderColumn = (colKey: string): { render: boolean; asCombined?: string } => {
+      const comboKey = isColumnCombined(colKey);
+      if (comboKey) {
+        if (renderedCombinations.has(comboKey)) {
+          return { render: false };
+        }
+        renderedCombinations.add(comboKey);
+        return { render: true, asCombined: comboKey };
+      }
+      return { render: true };
+    };
+    
     if (activeTab === 'table') {
+      // Reset for header generation
+      renderedCombinations.clear();
+      
       // Table view HTML
       let tableHeaders = '';
       if (isColumnEnabled("patient")) {
         tableHeaders += `<th style="width: ${columnWidths.patient}px;">Patient</th>`;
       }
-      if (isColumnEnabled("clinicalSummary")) {
-        tableHeaders += `<th style="width: ${columnWidths.summary}px;">Clinical Summary</th>`;
+      
+      // Check for Summary + Events combination
+      const summaryRender = shouldRenderColumn("clinicalSummary");
+      if (isColumnEnabled("clinicalSummary") && summaryRender.render) {
+        if (summaryRender.asCombined) {
+          const combo = columnCombinations.find(c => c.key === summaryRender.asCombined);
+          tableHeaders += `<th style="width: ${columnWidths.summary + columnWidths.events}px;" class="combined-header">${combo?.label || 'Combined'}</th>`;
+        } else {
+          tableHeaders += `<th style="width: ${columnWidths.summary}px;">Clinical Summary</th>`;
+        }
       }
-      if (isColumnEnabled("intervalEvents")) {
+      
+      const eventsRender = shouldRenderColumn("intervalEvents");
+      if (isColumnEnabled("intervalEvents") && eventsRender.render && !eventsRender.asCombined) {
         tableHeaders += `<th style="width: ${columnWidths.events}px;">Interval Events</th>`;
       }
-      if (isColumnEnabled("imaging")) {
-        tableHeaders += `<th style="width: ${columnWidths.imaging}px;">Imaging</th>`;
+      
+      const imagingRender = shouldRenderColumn("imaging");
+      if (isColumnEnabled("imaging") && imagingRender.render) {
+        if (imagingRender.asCombined) {
+          const combo = columnCombinations.find(c => c.key === imagingRender.asCombined);
+          tableHeaders += `<th style="width: ${columnWidths.imaging + columnWidths.labs}px;" class="combined-header">${combo?.label || 'Combined'}</th>`;
+        } else {
+          tableHeaders += `<th style="width: ${columnWidths.imaging}px;">Imaging</th>`;
+        }
       }
-      if (isColumnEnabled("labs")) {
+      
+      const labsRender = shouldRenderColumn("labs");
+      if (isColumnEnabled("labs") && labsRender.render && !labsRender.asCombined) {
         tableHeaders += `<th style="width: ${columnWidths.labs}px;">Labs</th>`;
       }
+      
       enabledSystemKeys.forEach(key => {
         tableHeaders += `<th style="width: ${columnWidths.systems}px;">${systemLabels[key]}</th>`;
       });
@@ -1077,37 +1177,60 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       
       let tableRows = '';
       patients.forEach((patient, idx) => {
-        // For one-per-page in table view, wrap each row in a separate table
-        if (onePatientPerPage) {
-          let singleRow = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">`;
+        // Reset rendered combinations for each row
+        renderedCombinations.clear();
+        
+        // Helper to generate cell content considering combinations
+        const generateRowCells = (): string => {
+          let cells = '';
           
           if (isColumnEnabled("patient")) {
-            singleRow += `<td class="patient-cell">
+            cells += `<td class="patient-cell">
               <div class="patient-name">${patient.name || 'Unnamed'}</div>
               <div class="bed">Bed: ${patient.bed || 'N/A'}</div>
             </td>`;
           }
-          if (isColumnEnabled("clinicalSummary")) {
-            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.clinicalSummary) || ''}</td>`;
+          
+          // Check for Summary combination
+          const summaryCell = shouldRenderColumn("clinicalSummary");
+          if (isColumnEnabled("clinicalSummary") && summaryCell.render) {
+            if (summaryCell.asCombined) {
+              cells += `<td class="content-cell combined-cell">${getCombinedContent(patient, summaryCell.asCombined)}</td>`;
+            } else {
+              cells += `<td class="content-cell">${cleanInlineStyles(patient.clinicalSummary) || ''}</td>`;
+            }
           }
-          if (isColumnEnabled("intervalEvents")) {
-            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.intervalEvents) || ''}</td>`;
+          
+          const eventsCell = shouldRenderColumn("intervalEvents");
+          if (isColumnEnabled("intervalEvents") && eventsCell.render && !eventsCell.asCombined) {
+            cells += `<td class="content-cell">${cleanInlineStyles(patient.intervalEvents) || ''}</td>`;
           }
-          if (isColumnEnabled("imaging")) {
-            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.imaging) || ''}</td>`;
+          
+          const imagingCell = shouldRenderColumn("imaging");
+          if (isColumnEnabled("imaging") && imagingCell.render) {
+            if (imagingCell.asCombined) {
+              cells += `<td class="content-cell combined-cell">${getCombinedContent(patient, imagingCell.asCombined)}</td>`;
+            } else {
+              cells += `<td class="content-cell">${cleanInlineStyles(patient.imaging) || ''}</td>`;
+            }
           }
-          if (isColumnEnabled("labs")) {
-            singleRow += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
+          
+          const labsCell = shouldRenderColumn("labs");
+          if (isColumnEnabled("labs") && labsCell.render && !labsCell.asCombined) {
+            cells += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
           }
+          
           enabledSystemKeys.forEach(key => {
-            singleRow += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
+            cells += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
           });
+          
           if (showTodosColumn) {
             const todos = getPatientTodos(patient.id);
-            singleRow += `<td class="content-cell todos-cell">${formatTodosHtml(todos)}</td>`;
+            cells += `<td class="content-cell todos-cell">${formatTodosHtml(todos)}</td>`;
           }
+          
           if (showNotesColumn) {
-            singleRow += `<td class="notes-cell">
+            cells += `<td class="notes-cell">
               <div class="notes-lines">
                 <div class="note-line"></div>
                 <div class="note-line"></div>
@@ -1117,7 +1240,14 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               </div>
             </td>`;
           }
-          singleRow += '</tr>';
+          
+          return cells;
+        };
+        
+        // For one-per-page in table view, wrap each row in a separate table
+        if (onePatientPerPage) {
+          renderedCombinations.clear(); // Reset for this patient
+          const singleRow = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">${generateRowCells()}</tr>`;
           
           tableRows += `
             <div class="patient-page-wrapper">
@@ -1128,46 +1258,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             </div>
           `;
         } else {
-          let row = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">`;
-          
-          if (isColumnEnabled("patient")) {
-            row += `<td class="patient-cell">
-              <div class="patient-name">${patient.name || 'Unnamed'}</div>
-              <div class="bed">Bed: ${patient.bed || 'N/A'}</div>
-            </td>`;
-          }
-          if (isColumnEnabled("clinicalSummary")) {
-            row += `<td class="content-cell">${cleanInlineStyles(patient.clinicalSummary) || ''}</td>`;
-          }
-          if (isColumnEnabled("intervalEvents")) {
-            row += `<td class="content-cell">${cleanInlineStyles(patient.intervalEvents) || ''}</td>`;
-          }
-          if (isColumnEnabled("imaging")) {
-            row += `<td class="content-cell">${cleanInlineStyles(patient.imaging) || ''}</td>`;
-          }
-          if (isColumnEnabled("labs")) {
-            row += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
-          }
-          enabledSystemKeys.forEach(key => {
-            row += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
-          });
-          if (showTodosColumn) {
-            const todos = getPatientTodos(patient.id);
-            row += `<td class="content-cell todos-cell">${formatTodosHtml(todos)}</td>`;
-          }
-          if (showNotesColumn) {
-            row += `<td class="notes-cell">
-              <div class="notes-lines">
-                <div class="note-line"></div>
-                <div class="note-line"></div>
-                <div class="note-line"></div>
-                <div class="note-line"></div>
-                <div class="note-line"></div>
-              </div>
-            </td>`;
-          }
-          
-          row += '</tr>';
+          renderedCombinations.clear(); // Reset for this patient
+          const row = `<tr class="${idx % 2 === 0 ? 'even-row' : 'odd-row'}">${generateRowCells()}</tr>`;
           tableRows += row;
         }
       });
@@ -1530,6 +1622,32 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               width: 100%;
             }
             
+            /* Combined Column Styles */
+            .combined-header {
+              background: #6366f1 !important;
+            }
+            .combined-cell {
+              background: #eef2ff;
+            }
+            .combined-section {
+              margin-bottom: 8px;
+              padding-bottom: 8px;
+              border-bottom: 1px dashed #c7d2fe;
+            }
+            .combined-section:last-child {
+              margin-bottom: 0;
+              padding-bottom: 0;
+              border-bottom: none;
+            }
+            .combined-section strong {
+              color: #4338ca;
+              display: block;
+              margin-bottom: 2px;
+              font-size: ${Math.max(baseFontSize - 1, 7)}px;
+              text-transform: uppercase;
+              letter-spacing: 0.3px;
+            }
+            
             /* CARD VIEW STYLES */
             .cards-grid {
               display: grid;
@@ -1791,24 +1909,45 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             
             /* One Patient Per Page Styles */
             .patient-page-wrapper {
-              page-break-after: always;
-              page-break-inside: avoid;
-              break-after: page;
-              break-inside: avoid;
+              page-break-after: always !important;
+              page-break-before: auto;
+              page-break-inside: avoid !important;
+              break-after: page !important;
+              break-before: auto;
+              break-inside: avoid !important;
+              display: block;
+              margin-bottom: 0;
+            }
+            .patient-page-wrapper:first-child {
+              page-break-before: avoid;
+              break-before: avoid;
             }
             .patient-page-wrapper:last-child {
-              page-break-after: auto;
-              break-after: auto;
+              page-break-after: auto !important;
+              break-after: auto !important;
             }
             .single-patient-table {
+              width: 100%;
               height: auto;
-              max-height: 100vh;
+              max-height: none;
+              table-layout: fixed;
+            }
+            .single-patient-table td {
+              vertical-align: top;
+              overflow-wrap: break-word;
+              word-wrap: break-word;
             }
             ${onePatientPerPage ? `
             .cards-grid {
               display: block;
             }
             .cards-grid .patient-card {
+              margin-bottom: 0;
+            }
+            .list-view {
+              display: block;
+            }
+            .list-view .patient-item {
               margin-bottom: 0;
             }
             ` : ''}
@@ -2528,6 +2667,47 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                   <span className={cn(col.key === "patient" && "text-muted-foreground")}>{col.label}</span>
                 </label>
               ))}
+            </div>
+            
+            {/* Column Combinations */}
+            <div className="mt-4 pt-3 border-t">
+              <div className="flex items-center gap-2 mb-2">
+                <Columns className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Combine Columns for Compact Print</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Merge related columns into a single column to reduce table width and fit more on each page.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {columnCombinations.map(combo => (
+                  <label 
+                    key={combo.key}
+                    className={cn(
+                      "flex items-center gap-2 text-xs p-2 rounded border cursor-pointer hover:bg-muted/50 transition-colors",
+                      combinedColumns.includes(combo.key) 
+                        ? "bg-primary/20 border-primary text-primary-foreground" 
+                        : "bg-muted/20 border-muted"
+                    )}
+                  >
+                    <Checkbox 
+                      checked={combinedColumns.includes(combo.key)}
+                      onCheckedChange={() => toggleColumnCombination(combo.key)}
+                    />
+                    <span className={cn(combinedColumns.includes(combo.key) && "font-medium")}>{combo.label}</span>
+                  </label>
+                ))}
+                {combinedColumns.length > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setCombinedColumns([])}
+                    className="h-8 text-xs gap-1"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    Clear
+                  </Button>
+                )}
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
