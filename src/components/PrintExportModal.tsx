@@ -1301,10 +1301,26 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         tableHeaders += `<th style="width: ${columnWidths.labs}px;">Labs</th>`;
       }
       
-      enabledSystemKeys.forEach(key => {
-        const sysWidth = columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90;
-        tableHeaders += `<th style="width: ${sysWidth}px;">${systemLabels[key]}</th>`;
-      });
+      // Check for Systems Review combination
+      const firstSystemKey = enabledSystemKeys[0];
+      const systemsComboKey = firstSystemKey ? isColumnCombined(`systems.${firstSystemKey}`) : null;
+      
+      if (systemsComboKey && enabledSystemKeys.length > 0) {
+        // Render combined systems header
+        const combo = columnCombinations.find(c => c.key === systemsComboKey);
+        const totalSystemWidth = enabledSystemKeys.reduce((sum, key) => 
+          sum + (columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90), 0
+        );
+        tableHeaders += `<th style="width: ${totalSystemWidth}px;" class="combined-header">${combo?.label || 'Systems Review'}</th>`;
+        // Mark all system columns as rendered for this combination
+        renderedCombinations.add(systemsComboKey);
+      } else {
+        // Render individual system headers
+        enabledSystemKeys.forEach(key => {
+          const sysWidth = columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90;
+          tableHeaders += `<th style="width: ${sysWidth}px;">${systemLabels[key]}</th>`;
+        });
+      }
       if (showTodosColumn) {
         tableHeaders += `<th class="todos-header" style="width: ${columnWidths.notes}px;">Todos</th>`;
       }
@@ -1357,9 +1373,26 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             cells += `<td class="content-cell">${cleanInlineStyles(patient.labs) || ''}</td>`;
           }
           
-          enabledSystemKeys.forEach(key => {
-            cells += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
-          });
+          // Check for Systems Review combination
+          const firstSysKey = enabledSystemKeys[0];
+          const sysComboKey = firstSysKey ? isColumnCombined(`systems.${firstSysKey}`) : null;
+          
+          if (sysComboKey && enabledSystemKeys.length > 0) {
+            // Render combined systems cell
+            const systemsSections = enabledSystemKeys.map(key => {
+              const value = cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || '';
+              if (value) {
+                return `<div class="combined-section"><strong>${systemLabels[key]}:</strong> ${value}</div>`;
+              }
+              return '';
+            }).filter(Boolean).join('');
+            cells += `<td class="content-cell combined-cell">${systemsSections}</td>`;
+          } else {
+            // Render individual system cells
+            enabledSystemKeys.forEach(key => {
+              cells += `<td class="content-cell system-cell">${cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || ''}</td>`;
+            });
+          }
           
           if (showTodosColumn) {
             const todos = getPatientTodos(patient.id);
