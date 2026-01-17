@@ -2747,7 +2747,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -3328,8 +3328,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           </CollapsibleContent>
         </Collapsible>
 
-        <Tabs defaultValue="table" value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="table" value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
+          <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
             <TabsTrigger value="table" className="flex items-center gap-2">
               <Grid3X3 className="h-4 w-4" />
               Dense Table
@@ -3345,7 +3345,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           </TabsList>
 
           <div 
-            className="flex-1 overflow-auto mt-4 border rounded-lg p-4 bg-white text-foreground print-content-wrapper"
+            className="flex-1 min-h-0 overflow-y-auto mt-4 border rounded-lg p-4 bg-white text-foreground print-content-wrapper"
             style={{ fontFamily: getFontFamilyCSS(), fontSize: `${printFontSize}px` }}
           >
             {/* CSS to force override all inline styles from rich text content */}
@@ -3413,15 +3413,32 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                           Labs
                         </ResizableHeader>
                       )}
-                      {enabledSystemKeys.map((key) => (
-                        <ResizableHeader 
-                          key={key} 
-                          column={`systems.${key}`} 
-                          width={columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90}
-                        >
-                          {systemLabels[key]}
-                        </ResizableHeader>
-                      ))}
+                      {/* Check for Systems Review combination */}
+                      {(() => {
+                        const systemsComboActive = combinedColumns.includes('systemsReview') && enabledSystemKeys.length > 0;
+                        if (systemsComboActive) {
+                          const totalSystemWidth = enabledSystemKeys.reduce((sum, key) => 
+                            sum + (columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90), 0
+                          );
+                          return (
+                            <th 
+                              className="border border-border p-2 text-left font-bold bg-primary text-primary-foreground"
+                              style={{ width: totalSystemWidth }}
+                            >
+                              Systems Review
+                            </th>
+                          );
+                        }
+                        return enabledSystemKeys.map((key) => (
+                          <ResizableHeader 
+                            key={key} 
+                            column={`systems.${key}`} 
+                            width={columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90}
+                          >
+                            {systemLabels[key]}
+                          </ResizableHeader>
+                        ));
+                      })()}
                       {showNotesColumn && (
                         <ResizableHeader column="notes" width={columnWidths.notes} className="bg-amber-500 text-white">
                           Notes
@@ -3453,14 +3470,34 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                         {isColumnEnabled("labs") && (
                           <ExpandableCell patient={patient} field="labs" className="border border-border" />
                         )}
-                        {enabledSystemKeys.map(key => (
-                          <ExpandableCell 
-                            key={key} 
-                            patient={patient} 
-                            field={`systems.${key}`} 
-                            className="border border-border"
-                          />
-                        ))}
+                        {/* Check for Systems Review combination in cells */}
+                        {(() => {
+                          const systemsComboActive = combinedColumns.includes('systemsReview') && enabledSystemKeys.length > 0;
+                          if (systemsComboActive) {
+                            return (
+                              <td className="border border-border p-2 align-top">
+                                {enabledSystemKeys.map(key => {
+                                  const value = patient.systems[key as keyof typeof patient.systems];
+                                  if (!value) return null;
+                                  return (
+                                    <div key={key} className="mb-1">
+                                      <strong className="text-primary">{systemLabels[key]}:</strong>{' '}
+                                      <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(value) }} />
+                                    </div>
+                                  );
+                                })}
+                              </td>
+                            );
+                          }
+                          return enabledSystemKeys.map(key => (
+                            <ExpandableCell 
+                              key={key} 
+                              patient={patient} 
+                              field={`systems.${key}`} 
+                              className="border border-border"
+                            />
+                          ));
+                        })()}
                         {showNotesColumn && <NotesCell patient={patient} />}
                       </tr>
                     ))}
