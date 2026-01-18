@@ -3420,7 +3420,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 min-h-0 mt-4 border rounded-lg">
+          <ScrollArea className="flex-1 min-h-0 mt-4 border rounded-lg h-[300px]">
           <div 
             className="p-4 bg-white text-foreground print-content-wrapper"
             style={{ fontFamily: getFontFamilyCSS(), fontSize: `${printFontSize}px` }}
