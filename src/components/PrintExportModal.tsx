@@ -2269,6 +2269,282 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }, 250);
   };
 
+  // Download PDF from print view (same configuration as print preview)
+  const handleDownloadPDFFromPrintView = () => {
+    const fontCSS = getFontFamilyCSS();
+    const baseFontSize = autoFitFontSize && onePatientPerPage ? getEffectiveFontSize() : printFontSize;
+    
+    const doc = new jsPDF({
+      orientation: printOrientation,
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 10;
+    const usableWidth = pageWidth - (margin * 2);
+
+    // Set default font
+    doc.setFont("helvetica", "normal");
+
+    // Header
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 64, 175); // Primary blue
+    doc.text("Patient Rounding Report", margin, 15);
+    
+    const viewLabel = activeTab === 'table' ? 'Dense Table View' : activeTab === 'cards' ? 'Card View' : 'Detailed List View';
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(`${viewLabel}${onePatientPerPage ? ' (One Per Page)' : ''}`, margin, 21);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.text(new Date().toLocaleDateString('en-US', { 
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
+    }), pageWidth - margin, 15, { align: 'right' });
+    doc.setFontSize(9);
+    doc.text(`${patients.length} patients`, pageWidth - margin, 21, { align: 'right' });
+
+    // Build headers and data based on enabled columns
+    const headers: string[] = [];
+    const columnKeys: string[] = [];
+    
+    if (isColumnEnabled("patient")) {
+      headers.push("Patient");
+      columnKeys.push("patient");
+    }
+    if (isColumnEnabled("clinicalSummary")) {
+      headers.push("Summary");
+      columnKeys.push("clinicalSummary");
+    }
+    if (isColumnEnabled("intervalEvents")) {
+      headers.push("Events");
+      columnKeys.push("intervalEvents");
+    }
+    if (isColumnEnabled("imaging")) {
+      headers.push("Imaging");
+      columnKeys.push("imaging");
+    }
+    if (isColumnEnabled("labs")) {
+      headers.push("Labs");
+      columnKeys.push("labs");
+    }
+    
+    systemKeys.forEach(key => {
+      if (isColumnEnabled(`systems.${key}`)) {
+        headers.push(systemLabels[key]);
+        columnKeys.push(`systems.${key}`);
+      }
+    });
+    
+    if (showTodosColumn) {
+      headers.push("Todos");
+      columnKeys.push("todos");
+    }
+    if (showNotesColumn) {
+      headers.push("Notes");
+      columnKeys.push("notes");
+    }
+
+    // Generate table data
+    const tableData = patients.map(patient => {
+      return columnKeys.map(key => {
+        if (key === "patient") {
+          return `${patient.name || 'Unnamed'}\nBed: ${patient.bed || 'N/A'}`;
+        }
+        if (key === "clinicalSummary") return stripHtml(patient.clinicalSummary);
+        if (key === "intervalEvents") return stripHtml(patient.intervalEvents);
+        if (key === "imaging") return stripHtml(patient.imaging);
+        if (key === "labs") return stripHtml(patient.labs);
+        if (key === "todos") {
+          const todos = getPatientTodos(patient.id);
+          return formatTodosForDisplay(todos);
+        }
+        if (key === "notes") return "";
+        if (key.startsWith("systems.")) {
+          const systemKey = key.replace("systems.", "") as keyof typeof patient.systems;
+          return stripHtml(patient.systems[systemKey] || "");
+        }
+        return "";
+      });
+    });
+
+    // Use autoTable for the main table
+    if (onePatientPerPage) {
+      // One patient per page mode
+      patients.forEach((patient, idx) => {
+        if (idx > 0) doc.addPage();
+        
+        // Patient header
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 64, 175);
+        doc.text(`${patient.name || 'Unnamed Patient'}`, margin, 35);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Bed: ${patient.bed || 'N/A'} • Patient ${idx + 1} of ${patients.length}`, margin, 42);
+        
+        let yPos = 50;
+        const lineHeight = 5;
+        const maxWidth = usableWidth;
+        
+        // Clinical Summary
+        if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.text("Clinical Summary:", margin, yPos);
+          yPos += lineHeight;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(baseFontSize > 9 ? 9 : baseFontSize);
+          const lines = doc.splitTextToSize(stripHtml(patient.clinicalSummary), maxWidth);
+          doc.text(lines, margin, yPos);
+          yPos += lines.length * (baseFontSize > 9 ? 4 : 3.5) + 5;
+        }
+        
+        // Interval Events
+        if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
+          if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.text("Interval Events:", margin, yPos);
+          yPos += lineHeight;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(baseFontSize > 9 ? 9 : baseFontSize);
+          const lines = doc.splitTextToSize(stripHtml(patient.intervalEvents), maxWidth);
+          doc.text(lines, margin, yPos);
+          yPos += lines.length * (baseFontSize > 9 ? 4 : 3.5) + 5;
+        }
+        
+        // Imaging
+        if (isColumnEnabled("imaging") && patient.imaging) {
+          if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.text("Imaging:", margin, yPos);
+          yPos += lineHeight;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(baseFontSize > 9 ? 9 : baseFontSize);
+          const lines = doc.splitTextToSize(stripHtml(patient.imaging), maxWidth);
+          doc.text(lines, margin, yPos);
+          yPos += lines.length * (baseFontSize > 9 ? 4 : 3.5) + 5;
+        }
+        
+        // Labs
+        if (isColumnEnabled("labs") && patient.labs) {
+          if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.text("Labs:", margin, yPos);
+          yPos += lineHeight;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(baseFontSize > 9 ? 9 : baseFontSize);
+          const lines = doc.splitTextToSize(stripHtml(patient.labs), maxWidth);
+          doc.text(lines, margin, yPos);
+          yPos += lines.length * (baseFontSize > 9 ? 4 : 3.5) + 5;
+        }
+        
+        // Systems
+        const enabledSystems = getEnabledSystemKeys();
+        if (enabledSystems.length > 0) {
+          if (yPos > pageHeight - 40) { doc.addPage(); yPos = 20; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.text("Systems Review:", margin, yPos);
+          yPos += lineHeight + 2;
+          
+          enabledSystems.forEach(key => {
+            const value = patient.systems[key as keyof typeof patient.systems];
+            if (value) {
+              if (yPos > pageHeight - 20) { doc.addPage(); yPos = 20; }
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(9);
+              doc.text(`${systemLabels[key]}:`, margin, yPos);
+              doc.setFont("helvetica", "normal");
+              const systemLines = doc.splitTextToSize(stripHtml(value), maxWidth - 30);
+              doc.text(systemLines, margin + 30, yPos);
+              yPos += Math.max(systemLines.length * 3.5, 4) + 2;
+            }
+          });
+          yPos += 3;
+        }
+        
+        // Todos
+        if (showTodosColumn) {
+          const todos = getPatientTodos(patient.id);
+          if (todos.length > 0) {
+            if (yPos > pageHeight - 30) { doc.addPage(); yPos = 20; }
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.text("Todos:", margin, yPos);
+            yPos += lineHeight;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            todos.forEach(todo => {
+              if (yPos > pageHeight - 15) { doc.addPage(); yPos = 20; }
+              const todoText = `${todo.completed ? '☑' : '☐'} ${todo.content}`;
+              const todoLines = doc.splitTextToSize(todoText, maxWidth);
+              doc.text(todoLines, margin, yPos);
+              yPos += todoLines.length * 3.5 + 1;
+            });
+          }
+        }
+      });
+    } else {
+      // Table mode - use autoTable
+      autoTable(doc, {
+        head: [headers],
+        body: tableData,
+        startY: 28,
+        styles: {
+          fontSize: Math.min(baseFontSize, 7),
+          cellPadding: 2,
+          overflow: 'linebreak',
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [30, 64, 175],
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: Math.min(baseFontSize, 7)
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        margin: { top: 28, left: margin, right: margin },
+        tableWidth: 'auto',
+        showHead: 'everyPage',
+        rowPageBreak: 'auto',
+      });
+    }
+
+    // Footer
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(128, 128, 128);
+      doc.text(
+        `Generated by Patient Rounding Assistant • ${new Date().toLocaleString()} • Page ${i} of ${totalPages}`,
+        pageWidth / 2,
+        pageHeight - 5,
+        { align: 'center' }
+      );
+    }
+
+    const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    
+    toast({
+      title: "PDF Downloaded",
+      description: `Saved as ${fileName}`
+    });
+  };
+
   const dateStr = new Date().toLocaleDateString('en-US', { 
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
   });
@@ -3851,9 +4127,13 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
+            <Button variant="outline" onClick={handleDownloadPDFFromPrintView} className="gap-2">
+              <Download className="h-4 w-4" />
+              Download PDF
+            </Button>
             <Button onClick={handlePrint} className="bg-primary hover:bg-primary/90">
               <Printer className="h-4 w-4 mr-2" />
-              Print Selected Format
+              Print
             </Button>
           </div>
         </Tabs>
