@@ -2308,37 +2308,66 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     doc.setFontSize(9);
     doc.text(`${patients.length} patients`, pageWidth - margin, 21, { align: 'right' });
 
-    // Build headers and data based on enabled columns
+    // Build headers and data based on enabled columns AND column combinations
     const headers: string[] = [];
     const columnKeys: string[] = [];
+    
+    const summaryEventsCombo = combinedColumns.includes('summaryEvents');
+    const imagingLabsCombo = combinedColumns.includes('imagingLabs');
+    const allContentCombo = combinedColumns.includes('allContent');
+    const systemsReviewCombo = combinedColumns.includes('systemsReview');
     
     if (isColumnEnabled("patient")) {
       headers.push("Patient");
       columnKeys.push("patient");
     }
-    if (isColumnEnabled("clinicalSummary")) {
-      headers.push("Summary");
-      columnKeys.push("clinicalSummary");
-    }
-    if (isColumnEnabled("intervalEvents")) {
-      headers.push("Events");
-      columnKeys.push("intervalEvents");
-    }
-    if (isColumnEnabled("imaging")) {
-      headers.push("Imaging");
-      columnKeys.push("imaging");
-    }
-    if (isColumnEnabled("labs")) {
-      headers.push("Labs");
-      columnKeys.push("labs");
+    
+    // Handle column combinations for summary, events, imaging, labs
+    if (allContentCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents") || isColumnEnabled("imaging") || isColumnEnabled("labs"))) {
+      headers.push("All Clinical Data");
+      columnKeys.push("allContent");
+    } else {
+      if (summaryEventsCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents"))) {
+        headers.push("Summary + Events");
+        columnKeys.push("summaryEvents");
+      } else {
+        if (isColumnEnabled("clinicalSummary")) {
+          headers.push("Summary");
+          columnKeys.push("clinicalSummary");
+        }
+        if (isColumnEnabled("intervalEvents")) {
+          headers.push("Events");
+          columnKeys.push("intervalEvents");
+        }
+      }
+      
+      if (imagingLabsCombo && (isColumnEnabled("imaging") || isColumnEnabled("labs"))) {
+        headers.push("Imaging + Labs");
+        columnKeys.push("imagingLabs");
+      } else {
+        if (isColumnEnabled("imaging")) {
+          headers.push("Imaging");
+          columnKeys.push("imaging");
+        }
+        if (isColumnEnabled("labs")) {
+          headers.push("Labs");
+          columnKeys.push("labs");
+        }
+      }
     }
     
-    systemKeys.forEach(key => {
-      if (isColumnEnabled(`systems.${key}`)) {
-        headers.push(systemLabels[key]);
-        columnKeys.push(`systems.${key}`);
-      }
-    });
+    // Handle systems combination
+    if (systemsReviewCombo && enabledSystemKeys.length > 0) {
+      headers.push("Systems Review");
+      columnKeys.push("systemsReview");
+    } else {
+      systemKeys.forEach(key => {
+        if (isColumnEnabled(`systems.${key}`)) {
+          headers.push(systemLabels[key]);
+          columnKeys.push(`systems.${key}`);
+        }
+      });
+    }
     
     if (showTodosColumn) {
       headers.push("Todos");
@@ -2349,11 +2378,57 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       columnKeys.push("notes");
     }
 
-    // Generate table data
+    // Generate table data with combination support
     const tableData = patients.map(patient => {
       return columnKeys.map(key => {
         if (key === "patient") {
           return `${patient.name || 'Unnamed'}\nBed: ${patient.bed || 'N/A'}`;
+        }
+        if (key === "allContent") {
+          const parts: string[] = [];
+          if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
+            parts.push(`Summary: ${stripHtml(patient.clinicalSummary)}`);
+          }
+          if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
+            parts.push(`Events: ${stripHtml(patient.intervalEvents)}`);
+          }
+          if (isColumnEnabled("imaging") && patient.imaging) {
+            parts.push(`Imaging: ${stripHtml(patient.imaging)}`);
+          }
+          if (isColumnEnabled("labs") && patient.labs) {
+            parts.push(`Labs: ${stripHtml(patient.labs)}`);
+          }
+          return parts.join('\n\n');
+        }
+        if (key === "summaryEvents") {
+          const parts: string[] = [];
+          if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
+            parts.push(`Summary: ${stripHtml(patient.clinicalSummary)}`);
+          }
+          if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
+            parts.push(`Events: ${stripHtml(patient.intervalEvents)}`);
+          }
+          return parts.join('\n\n');
+        }
+        if (key === "imagingLabs") {
+          const parts: string[] = [];
+          if (isColumnEnabled("imaging") && patient.imaging) {
+            parts.push(`Imaging: ${stripHtml(patient.imaging)}`);
+          }
+          if (isColumnEnabled("labs") && patient.labs) {
+            parts.push(`Labs: ${stripHtml(patient.labs)}`);
+          }
+          return parts.join('\n\n');
+        }
+        if (key === "systemsReview") {
+          const parts: string[] = [];
+          enabledSystemKeys.forEach(sysKey => {
+            const value = patient.systems[sysKey as keyof typeof patient.systems];
+            if (value) {
+              parts.push(`${systemLabels[sysKey]}: ${stripHtml(value)}`);
+            }
+          });
+          return parts.join('\n');
         }
         if (key === "clinicalSummary") return stripHtml(patient.clinicalSummary);
         if (key === "intervalEvents") return stripHtml(patient.intervalEvents);
@@ -3746,26 +3821,86 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                           Patient
                         </ResizableHeader>
                       )}
-                      {isColumnEnabled("clinicalSummary") && (
-                        <ResizableHeader column="summary" width={columnWidths.summary}>
-                          Clinical Summary
-                        </ResizableHeader>
-                      )}
-                      {isColumnEnabled("intervalEvents") && (
-                        <ResizableHeader column="events" width={columnWidths.events}>
-                          Interval Events
-                        </ResizableHeader>
-                      )}
-                      {isColumnEnabled("imaging") && (
-                        <ResizableHeader column="imaging" width={columnWidths.imaging}>
-                          Imaging
-                        </ResizableHeader>
-                      )}
-                      {isColumnEnabled("labs") && (
-                        <ResizableHeader column="labs" width={columnWidths.labs}>
-                          Labs
-                        </ResizableHeader>
-                      )}
+                      {/* Check for Summary + Events combination */}
+                      {(() => {
+                        const summaryEventsCombo = combinedColumns.includes('summaryEvents');
+                        const allContentCombo = combinedColumns.includes('allContent');
+                        
+                        if (allContentCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents") || isColumnEnabled("imaging") || isColumnEnabled("labs"))) {
+                          const totalWidth = 
+                            (isColumnEnabled("clinicalSummary") ? columnWidths.summary : 0) +
+                            (isColumnEnabled("intervalEvents") ? columnWidths.events : 0) +
+                            (isColumnEnabled("imaging") ? columnWidths.imaging : 0) +
+                            (isColumnEnabled("labs") ? columnWidths.labs : 0);
+                          return (
+                            <th 
+                              className="border border-border p-2 text-left font-bold bg-primary text-primary-foreground"
+                              style={{ width: totalWidth }}
+                            >
+                              All Clinical Data
+                            </th>
+                          );
+                        }
+                        
+                        const headers: JSX.Element[] = [];
+                        
+                        if (summaryEventsCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents"))) {
+                          headers.push(
+                            <th 
+                              key="summaryEvents"
+                              className="border border-border p-2 text-left font-bold bg-primary text-primary-foreground"
+                              style={{ width: columnWidths.summary + columnWidths.events }}
+                            >
+                              Summary + Events
+                            </th>
+                          );
+                        } else {
+                          if (isColumnEnabled("clinicalSummary")) {
+                            headers.push(
+                              <ResizableHeader key="summary" column="summary" width={columnWidths.summary}>
+                                Clinical Summary
+                              </ResizableHeader>
+                            );
+                          }
+                          if (isColumnEnabled("intervalEvents")) {
+                            headers.push(
+                              <ResizableHeader key="events" column="events" width={columnWidths.events}>
+                                Interval Events
+                              </ResizableHeader>
+                            );
+                          }
+                        }
+                        
+                        const imagingLabsCombo = combinedColumns.includes('imagingLabs');
+                        if (imagingLabsCombo && (isColumnEnabled("imaging") || isColumnEnabled("labs"))) {
+                          headers.push(
+                            <th 
+                              key="imagingLabs"
+                              className="border border-border p-2 text-left font-bold bg-primary text-primary-foreground"
+                              style={{ width: columnWidths.imaging + columnWidths.labs }}
+                            >
+                              Imaging + Labs
+                            </th>
+                          );
+                        } else {
+                          if (isColumnEnabled("imaging")) {
+                            headers.push(
+                              <ResizableHeader key="imaging" column="imaging" width={columnWidths.imaging}>
+                                Imaging
+                              </ResizableHeader>
+                            );
+                          }
+                          if (isColumnEnabled("labs")) {
+                            headers.push(
+                              <ResizableHeader key="labs" column="labs" width={columnWidths.labs}>
+                                Labs
+                              </ResizableHeader>
+                            );
+                          }
+                        }
+                        
+                        return headers;
+                      })()}
                       {/* Check for Systems Review combination */}
                       {(() => {
                         const systemsComboActive = combinedColumns.includes('systemsReview') && enabledSystemKeys.length > 0;
@@ -3811,18 +3946,99 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                             <div className="text-muted-foreground" style={{ fontSize: `${printFontSize - 1}px` }}>Bed: {patient.bed || 'N/A'}</div>
                           </td>
                         )}
-                        {isColumnEnabled("clinicalSummary") && (
-                          <ExpandableCell patient={patient} field="clinicalSummary" className="border border-border" />
-                        )}
-                        {isColumnEnabled("intervalEvents") && (
-                          <ExpandableCell patient={patient} field="intervalEvents" className="border border-border" />
-                        )}
-                        {isColumnEnabled("imaging") && (
-                          <ExpandableCell patient={patient} field="imaging" className="border border-border" />
-                        )}
-                        {isColumnEnabled("labs") && (
-                          <ExpandableCell patient={patient} field="labs" className="border border-border" />
-                        )}
+                        {/* Render cells based on column combinations */}
+                        {(() => {
+                          const summaryEventsCombo = combinedColumns.includes('summaryEvents');
+                          const imagingLabsCombo = combinedColumns.includes('imagingLabs');
+                          const allContentCombo = combinedColumns.includes('allContent');
+                          
+                          const cells: JSX.Element[] = [];
+                          
+                          if (allContentCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents") || isColumnEnabled("imaging") || isColumnEnabled("labs"))) {
+                            cells.push(
+                              <td key="allContent" className="border border-border p-2 align-top">
+                                {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
+                                  <div className="mb-2">
+                                    <strong className="text-primary">Summary:</strong>{' '}
+                                    <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.clinicalSummary) }} />
+                                  </div>
+                                )}
+                                {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
+                                  <div className="mb-2">
+                                    <strong className="text-primary">Events:</strong>{' '}
+                                    <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.intervalEvents) }} />
+                                  </div>
+                                )}
+                                {isColumnEnabled("imaging") && patient.imaging && (
+                                  <div className="mb-2">
+                                    <strong className="text-blue-600">Imaging:</strong>{' '}
+                                    <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.imaging) }} />
+                                  </div>
+                                )}
+                                {isColumnEnabled("labs") && patient.labs && (
+                                  <div className="mb-2">
+                                    <strong className="text-green-600">Labs:</strong>{' '}
+                                    <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.labs) }} />
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          } else {
+                            if (summaryEventsCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents"))) {
+                              cells.push(
+                                <td key="summaryEvents" className="border border-border p-2 align-top">
+                                  {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
+                                    <div className="mb-2">
+                                      <strong className="text-primary">Summary:</strong>{' '}
+                                      <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.clinicalSummary) }} />
+                                    </div>
+                                  )}
+                                  {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
+                                    <div>
+                                      <strong className="text-primary">Events:</strong>{' '}
+                                      <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.intervalEvents) }} />
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            } else {
+                              if (isColumnEnabled("clinicalSummary")) {
+                                cells.push(<ExpandableCell key="summary" patient={patient} field="clinicalSummary" className="border border-border" />);
+                              }
+                              if (isColumnEnabled("intervalEvents")) {
+                                cells.push(<ExpandableCell key="events" patient={patient} field="intervalEvents" className="border border-border" />);
+                              }
+                            }
+                            
+                            if (imagingLabsCombo && (isColumnEnabled("imaging") || isColumnEnabled("labs"))) {
+                              cells.push(
+                                <td key="imagingLabs" className="border border-border p-2 align-top">
+                                  {isColumnEnabled("imaging") && patient.imaging && (
+                                    <div className="mb-2">
+                                      <strong className="text-blue-600">Imaging:</strong>{' '}
+                                      <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.imaging) }} />
+                                    </div>
+                                  )}
+                                  {isColumnEnabled("labs") && patient.labs && (
+                                    <div>
+                                      <strong className="text-green-600">Labs:</strong>{' '}
+                                      <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.labs) }} />
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            } else {
+                              if (isColumnEnabled("imaging")) {
+                                cells.push(<ExpandableCell key="imaging" patient={patient} field="imaging" className="border border-border" />);
+                              }
+                              if (isColumnEnabled("labs")) {
+                                cells.push(<ExpandableCell key="labs" patient={patient} field="labs" className="border border-border" />);
+                              }
+                            }
+                          }
+                          
+                          return cells;
+                        })()}
                         {/* Check for Systems Review combination in cells */}
                         {(() => {
                           const systemsComboActive = combinedColumns.includes('systemsReview') && enabledSystemKeys.length > 0;
