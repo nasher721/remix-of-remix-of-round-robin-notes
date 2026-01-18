@@ -211,7 +211,18 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     'systems.skinLines': 90,
     'systems.dispo': 90,
   };
-  const [columnWidths, setColumnWidths] = useState<ColumnWidthsType>(defaultColumnWidths);
+  const [columnWidths, setColumnWidths] = useState<ColumnWidthsType>(() => {
+    const saved = localStorage.getItem('printColumnWidths');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...defaultColumnWidths, ...parsed };
+      } catch {
+        return defaultColumnWidths;
+      }
+    }
+    return defaultColumnWidths;
+  });
   const [columnWidthsOpen, setColumnWidthsOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [columns, setColumns] = useState<ColumnConfig[]>(() => {
@@ -371,6 +382,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     localStorage.setItem('printFontSize', printFontSize.toString());
     localStorage.setItem('printFontFamily', printFontFamily);
   }, [printFontSize, printFontFamily]);
+
+  // Save column widths preference
+  useEffect(() => {
+    localStorage.setItem('printColumnWidths', JSON.stringify(columnWidths));
+  }, [columnWidths]);
 
   // Drag-to-resize handlers
   const handleResizeStart = useCallback((column: string, startWidth: number, e: React.MouseEvent) => {
