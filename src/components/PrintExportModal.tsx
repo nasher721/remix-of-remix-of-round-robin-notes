@@ -55,6 +55,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
@@ -3419,8 +3420,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             </TabsTrigger>
           </TabsList>
 
+          <ScrollArea className="flex-1 min-h-0 mt-4 border rounded-lg">
           <div 
-            className="flex-1 min-h-0 overflow-y-auto mt-4 border rounded-lg p-4 bg-white text-foreground print-content-wrapper"
+            className="p-4 bg-white text-foreground print-content-wrapper"
             style={{ fontFamily: getFontFamilyCSS(), fontSize: `${printFontSize}px` }}
           >
             {/* CSS to force override all inline styles from rich text content */}
@@ -3843,6 +3845,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               </div>
             </TabsContent>
           </div>
+          </ScrollArea>
 
           <div className="flex justify-end gap-2 mt-4 pt-4 border-t">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
