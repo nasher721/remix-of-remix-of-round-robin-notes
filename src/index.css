@@ -4,6 +4,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom Loading Animation */
+.loading svg polyline {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.loading svg polyline#back {
+  fill: none;
+  stroke: hsl(var(--primary) / 0.2);
+}
+
+.loading svg polyline#front {
+  fill: none;
+  stroke: hsl(var(--primary));
+  stroke-dasharray: 48, 144;
+  stroke-dashoffset: 192;
+  animation: dash_loading 1.4s linear infinite;
+}
+
+@keyframes dash_loading {
+  72.5% {
+    opacity: 0;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Apple-inspired Design System
    Clean, minimal, sophisticated - characteristic of apple.com
    All colors MUST be HSL.
