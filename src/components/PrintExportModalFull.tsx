@@ -3053,6 +3053,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const renderFullPreviewContent = () => {
     const fontCSS = getFontFamilyCSS();
     
+    // Check for column combinations
+    const summaryEventsCombo = combinedColumns.includes('summaryEvents');
+    const imagingLabsCombo = combinedColumns.includes('imagingLabs');
+    const allContentCombo = combinedColumns.includes('allContent');
+    const systemsReviewCombo = combinedColumns.includes('systemsReview');
+    
     if (activeTab === 'table') {
       return (
         <div className="overflow-x-auto">
@@ -3064,35 +3070,75 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                     Patient
                   </th>
                 )}
-                {isColumnEnabled("clinicalSummary") && (
-                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.summary, fontSize: `${printFontSize + 1}px` }}>
-                    Clinical Summary
+                {/* Handle column combinations for headers */}
+                {allContentCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents") || isColumnEnabled("imaging") || isColumnEnabled("labs")) ? (
+                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.summary + columnWidths.events + columnWidths.imaging + columnWidths.labs, fontSize: `${printFontSize + 1}px` }}>
+                    All Clinical Data
                   </th>
+                ) : (
+                  <>
+                    {summaryEventsCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents")) ? (
+                      <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.summary + columnWidths.events, fontSize: `${printFontSize + 1}px` }}>
+                        Summary + Events
+                      </th>
+                    ) : (
+                      <>
+                        {isColumnEnabled("clinicalSummary") && (
+                          <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.summary, fontSize: `${printFontSize + 1}px` }}>
+                            Clinical Summary
+                          </th>
+                        )}
+                        {isColumnEnabled("intervalEvents") && (
+                          <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.events, fontSize: `${printFontSize + 1}px` }}>
+                            Interval Events
+                          </th>
+                        )}
+                      </>
+                    )}
+                    {imagingLabsCombo && (isColumnEnabled("imaging") || isColumnEnabled("labs")) ? (
+                      <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.imaging + columnWidths.labs, fontSize: `${printFontSize + 1}px` }}>
+                        Imaging + Labs
+                      </th>
+                    ) : (
+                      <>
+                        {isColumnEnabled("imaging") && (
+                          <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.imaging, fontSize: `${printFontSize + 1}px` }}>
+                            Imaging
+                          </th>
+                        )}
+                        {isColumnEnabled("labs") && (
+                          <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.labs, fontSize: `${printFontSize + 1}px` }}>
+                            Labs
+                          </th>
+                        )}
+                      </>
+                    )}
+                  </>
                 )}
-                {isColumnEnabled("intervalEvents") && (
-                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.events, fontSize: `${printFontSize + 1}px` }}>
-                    Interval Events
+                {/* Systems Review combination */}
+                {systemsReviewCombo && enabledSystemKeys.length > 0 ? (
+                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ fontSize: `${printFontSize + 1}px` }}>
+                    Systems Review
                   </th>
+                ) : (
+                  enabledSystemKeys.map(key => (
+                    <th 
+                      key={key} 
+                      className="border border-border p-3 text-left font-bold uppercase"
+                      style={{ width: columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90, fontSize: `${printFontSize}px` }}
+                    >
+                      {systemLabels[key]}
+                    </th>
+                  ))
                 )}
-                {isColumnEnabled("imaging") && (
-                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.imaging, fontSize: `${printFontSize + 1}px` }}>
-                    Imaging
-                  </th>
-                )}
-                {isColumnEnabled("labs") && (
-                  <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.labs, fontSize: `${printFontSize + 1}px` }}>
-                    Labs
-                  </th>
-                )}
-                {enabledSystemKeys.map(key => (
+                {showTodosColumn && (
                   <th 
-                    key={key} 
-                    className="border border-border p-3 text-left font-bold uppercase"
-                    style={{ width: columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90, fontSize: `${printFontSize}px` }}
+                    className="border border-border p-3 text-left font-bold bg-violet-500 text-white uppercase"
+                    style={{ width: columnWidths.notes, fontSize: `${printFontSize + 1}px` }}
                   >
-                    {systemLabels[key]}
+                    Todos
                   </th>
-                ))}
+                )}
                 {showNotesColumn && (
                   <th 
                     className="border border-border p-3 text-left font-bold bg-amber-500 text-white uppercase"
@@ -3112,51 +3158,171 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                       <div className="text-muted-foreground" style={{ fontSize: `${printFontSize - 1}px` }}>Bed: {patient.bed || 'N/A'}</div>
                     </td>
                   )}
-                  {isColumnEnabled("clinicalSummary") && (
+                  {/* Handle column combinations for cells */}
+                  {allContentCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents") || isColumnEnabled("imaging") || isColumnEnabled("labs")) ? (
                     <td className="border border-border p-3 align-top">
+                      {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
+                        <div className="mb-2">
+                          <strong className="text-primary">Summary:</strong>{' '}
+                          <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.clinicalSummary) }} />
+                        </div>
+                      )}
+                      {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
+                        <div className="mb-2">
+                          <strong className="text-primary">Events:</strong>{' '}
+                          <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.intervalEvents) }} />
+                        </div>
+                      )}
+                      {isColumnEnabled("imaging") && patient.imaging && (
+                        <div className="mb-2">
+                          <strong className="text-blue-600">Imaging:</strong>{' '}
+                          <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.imaging) }} />
+                        </div>
+                      )}
+                      {isColumnEnabled("labs") && patient.labs && (
+                        <div>
+                          <strong className="text-green-600">Labs:</strong>{' '}
+                          <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.labs) }} />
+                        </div>
+                      )}
+                    </td>
+                  ) : (
+                    <>
+                      {summaryEventsCombo && (isColumnEnabled("clinicalSummary") || isColumnEnabled("intervalEvents")) ? (
+                        <td className="border border-border p-3 align-top">
+                          {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
+                            <div className="mb-2">
+                              <strong className="text-primary">Summary:</strong>{' '}
+                              <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.clinicalSummary) }} />
+                            </div>
+                          )}
+                          {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
+                            <div>
+                              <strong className="text-primary">Events:</strong>{' '}
+                              <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.intervalEvents) }} />
+                            </div>
+                          )}
+                        </td>
+                      ) : (
+                        <>
+                          {isColumnEnabled("clinicalSummary") && (
+                            <td className="border border-border p-3 align-top">
+                              <div 
+                                className="whitespace-pre-wrap break-words"
+                                style={{ fontSize: `${printFontSize}px` }}
+                                dangerouslySetInnerHTML={{ __html: patient.clinicalSummary }}
+                              />
+                            </td>
+                          )}
+                          {isColumnEnabled("intervalEvents") && (
+                            <td className="border border-border p-3 align-top">
+                              <div 
+                                className="whitespace-pre-wrap break-words"
+                                style={{ fontSize: `${printFontSize}px` }}
+                                dangerouslySetInnerHTML={{ __html: patient.intervalEvents }}
+                              />
+                            </td>
+                          )}
+                        </>
+                      )}
+                      {imagingLabsCombo && (isColumnEnabled("imaging") || isColumnEnabled("labs")) ? (
+                        <td className="border border-border p-3 align-top">
+                          {isColumnEnabled("imaging") && patient.imaging && (
+                            <div className="mb-2">
+                              <strong className="text-blue-600">Imaging:</strong>{' '}
+                              <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.imaging) }} />
+                            </div>
+                          )}
+                          {isColumnEnabled("labs") && patient.labs && (
+                            <div>
+                              <strong className="text-green-600">Labs:</strong>{' '}
+                              <span style={{ fontSize: `${printFontSize}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.labs) }} />
+                            </div>
+                          )}
+                        </td>
+                      ) : (
+                        <>
+                          {isColumnEnabled("imaging") && (
+                            <td className="border border-border p-3 align-top">
+                              <div 
+                                className="whitespace-pre-wrap break-words"
+                                style={{ fontSize: `${printFontSize}px` }}
+                                dangerouslySetInnerHTML={{ __html: patient.imaging }}
+                              />
+                            </td>
+                          )}
+                          {isColumnEnabled("labs") && (
+                            <td className="border border-border p-3 align-top">
+                              <div 
+                                className="whitespace-pre-wrap break-words"
+                                style={{ fontSize: `${printFontSize}px` }}
+                                dangerouslySetInnerHTML={{ __html: patient.labs }}
+                              />
+                            </td>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                  {/* Systems Review combination */}
+                  {systemsReviewCombo && enabledSystemKeys.length > 0 ? (
+                    <td className="border border-border p-2 align-top">
                       <div 
-                        className="whitespace-pre-wrap break-words"
-                        style={{ fontSize: `${printFontSize}px` }}
-                        dangerouslySetInnerHTML={{ __html: patient.clinicalSummary }}
-                      />
+                        className="systems-review-columns"
+                        style={{
+                          columns: `${systemsReviewColumnCount}`,
+                          columnGap: '1rem',
+                          columnFill: 'balance',
+                        }}
+                      >
+                        {enabledSystemKeys.map(key => {
+                          const value = patient.systems[key as keyof typeof patient.systems];
+                          if (!value) return null;
+                          return (
+                            <div 
+                              key={key} 
+                              className="mb-2"
+                              style={{
+                                breakInside: 'avoid',
+                                pageBreakInside: 'avoid',
+                                display: 'inline-block',
+                                width: '100%',
+                              } as React.CSSProperties}
+                            >
+                              <strong className="text-primary">{systemLabels[key]}:</strong>{' '}
+                              <span style={{ fontSize: `${printFontSize - 1}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(value) }} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </td>
+                  ) : (
+                    enabledSystemKeys.map(key => (
+                      <td key={key} className="border border-border p-2 align-top">
+                        <div 
+                          className="whitespace-pre-wrap break-words"
+                          style={{ fontSize: `${printFontSize - 1}px` }}
+                          dangerouslySetInnerHTML={{ __html: patient.systems[key as keyof typeof patient.systems] }}
+                        />
+                      </td>
+                    ))
+                  )}
+                  {showTodosColumn && (
+                    <td className="border border-border p-2 align-top bg-violet-50/50">
+                      {getPatientTodos(patient.id).length > 0 ? (
+                        <ul className="space-y-1">
+                          {getPatientTodos(patient.id).map(todo => (
+                            <li key={todo.id} className={cn("flex items-start gap-2", todo.completed && "line-through text-muted-foreground")} style={{ fontSize: `${printFontSize}px` }}>
+                              {todo.completed ? <CheckSquare className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" /> : <Square className="h-3.5 w-3.5 mt-0.5 text-muted-foreground flex-shrink-0" />}
+                              <span>{todo.content}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-muted-foreground italic" style={{ fontSize: `${printFontSize}px` }}>No todos</span>
+                      )}
                     </td>
                   )}
-                  {isColumnEnabled("intervalEvents") && (
-                    <td className="border border-border p-3 align-top">
-                      <div 
-                        className="whitespace-pre-wrap break-words"
-                        style={{ fontSize: `${printFontSize}px` }}
-                        dangerouslySetInnerHTML={{ __html: patient.intervalEvents }}
-                      />
-                    </td>
-                  )}
-                  {isColumnEnabled("imaging") && (
-                    <td className="border border-border p-3 align-top">
-                      <div 
-                        className="whitespace-pre-wrap break-words"
-                        style={{ fontSize: `${printFontSize}px` }}
-                        dangerouslySetInnerHTML={{ __html: patient.imaging }}
-                      />
-                    </td>
-                  )}
-                  {isColumnEnabled("labs") && (
-                    <td className="border border-border p-3 align-top">
-                      <div 
-                        className="whitespace-pre-wrap break-words"
-                        style={{ fontSize: `${printFontSize}px` }}
-                        dangerouslySetInnerHTML={{ __html: patient.labs }}
-                      />
-                    </td>
-                  )}
-                  {enabledSystemKeys.map(key => (
-                    <td key={key} className="border border-border p-2 align-top">
-                      <div 
-                        className="whitespace-pre-wrap break-words"
-                        style={{ fontSize: `${printFontSize - 1}px` }}
-                        dangerouslySetInnerHTML={{ __html: patient.systems[key as keyof typeof patient.systems] }}
-                      />
-                    </td>
-                  ))}
                   {showNotesColumn && (
                     <td className="border border-border p-2 align-top bg-amber-50/50">
                       <div className="min-h-[80px] w-full relative">
