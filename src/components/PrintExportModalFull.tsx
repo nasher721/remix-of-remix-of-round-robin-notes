@@ -2064,15 +2064,24 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               background: #fff;
             }
             /* CRITICAL: Force consistent font on ALL elements including those with inline styles */
-            body *, body *[style], body span, body div, body p, body td, body li, body ul, body ol {
+            body *, body *[style], body span, body div, body p, body td, body th, body li, body ul, body ol, body strong, body b, body em, body i {
               font-family: ${fontCSS} !important;
-              font-size: inherit !important;
-              line-height: inherit !important;
             }
-            /* Override any remaining inline font-size styles */
-            [style*="font-size"], [style*="font-family"] {
+            /* Override any inline font-size/font-family styles - use explicit size, not inherit */
+            [style*="font-size"], [style*="font-family"], 
+            span[style], div[style], p[style] {
               font-family: ${fontCSS} !important;
-              font-size: inherit !important;
+              font-size: ${baseFontSize}px !important;
+            }
+            /* Content cells should inherit base font size */
+            .content-cell, .content-cell *, 
+            .section-body, .section-body *,
+            .system-body, .system-body *,
+            .combined-section, .combined-section *,
+            .card-body *, .item-body * {
+              font-family: ${fontCSS} !important;
+              font-size: ${baseFontSize}px !important;
+              line-height: 1.4 !important;
             }
             
             /* Header */
