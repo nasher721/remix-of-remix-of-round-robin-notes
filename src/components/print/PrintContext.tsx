@@ -3,6 +3,7 @@ import { usePrintState } from './usePrintState';
 import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import type { PatientTodosMap } from './types';
+import { systemKeys } from './constants';
 
 interface PrintContextValue extends ReturnType<typeof usePrintState> {
   patients: Patient[];
@@ -46,7 +47,6 @@ export const PrintContextProvider = ({
   const showNotesColumn = columns.find(c => c.key === "notes")?.enabled ?? false;
   const showTodosColumn = columns.find(c => c.key === "todos")?.enabled ?? true;
   
-  const { systemKeys } = require('./constants');
   const enabledSystemKeys = systemKeys.filter((key: string) => isColumnEnabled(`systems.${key}`));
   
   const getPatientTodos = (patientId: string) => patientTodos[patientId] || [];
