@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { PhraseContentEditor } from './PhraseContentEditor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -508,16 +508,12 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
 
               <div className="space-y-2">
                 <Label htmlFor="content">Content *</Label>
-                <Textarea
-                  id="content"
+                <PhraseContentEditor
                   value={formData.content}
-                  onChange={e => setFormData(prev => ({ ...prev, content: e.target.value }))}
+                  onChange={(val) => setFormData(prev => ({ ...prev, content: val }))}
                   placeholder="Patient denies shortness of breath at rest or with exertion."
-                  className="min-h-[150px] font-mono"
+                  minHeight="150px"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Use {'{{field_name}}'} for dynamic placeholders
-                </p>
               </div>
 
               <Separator />
