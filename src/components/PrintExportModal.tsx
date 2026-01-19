@@ -265,6 +265,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     const saved = localStorage.getItem('printCombinedColumns');
     return saved ? JSON.parse(saved) : [];
   });
+  const [systemsReviewColumnCount, setSystemsReviewColumnCount] = useState<number>(() => {
+    const saved = localStorage.getItem('printSystemsReviewColumnCount');
+    return saved ? parseInt(saved, 10) : 2;
+  });
   const [printOrientation, setPrintOrientation] = useState<'portrait' | 'landscape'>(() => {
     return (localStorage.getItem('printOrientation') as 'portrait' | 'landscape') || 'portrait';
   });
@@ -293,6 +297,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   useEffect(() => {
     localStorage.setItem('printCombinedColumns', JSON.stringify(combinedColumns));
   }, [combinedColumns]);
+
+  // Save systems review column count preference
+  useEffect(() => {
+    localStorage.setItem('printSystemsReviewColumnCount', systemsReviewColumnCount.toString());
+  }, [systemsReviewColumnCount]);
 
   // Save print orientation preference
   useEffect(() => {
@@ -3434,6 +3443,31 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                   </Button>
                 )}
               </div>
+              
+              {/* Systems Review Column Count - only show when Systems Review is active */}
+              {combinedColumns.includes('systemsReview') && (
+                <div className="mt-3 pt-3 border-t border-dashed">
+                  <div className="flex items-center gap-4">
+                    <Label className="text-xs font-medium whitespace-nowrap">Systems Review Columns:</Label>
+                    <div className="flex gap-1">
+                      {[2, 3, 4].map(count => (
+                        <Button
+                          key={count}
+                          variant={systemsReviewColumnCount === count ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSystemsReviewColumnCount(count)}
+                          className="h-7 w-8 text-xs"
+                        >
+                          {count}
+                        </Button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      More columns = higher density
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -4049,7 +4083,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                                 <div 
                                   className="systems-review-columns"
                                   style={{
-                                    columnCount: 2,
+                                    columnCount: systemsReviewColumnCount,
                                     columnGap: '1rem',
                                     columnFill: 'auto',
                                   }}
