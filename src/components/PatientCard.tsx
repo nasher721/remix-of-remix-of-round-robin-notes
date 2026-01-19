@@ -1,16 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History } from "lucide-react";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
 import { FieldTimestamp } from "./FieldTimestamp";
 import { FieldHistoryViewer } from "./FieldHistoryViewer";
+import { SystemsConfigManager } from "./SystemsConfigManager";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems } from "@/types/patient";
-import { SYSTEM_LABELS, SYSTEM_ICONS } from "@/constants/systems";
+import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 interface PatientCardProps {
@@ -40,8 +41,10 @@ export const PatientCard = ({
   todosAlwaysVisible = false
 }: PatientCardProps) => {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [showSystemsConfig, setShowSystemsConfig] = useState(false);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
   const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
+  const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
 
   const handleGenerateIntervalEvents = async () => {
     const result = await generateIntervalEvents(
@@ -406,29 +409,41 @@ export const PatientCard = ({
 
           {/* Systems Review */}
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-primary text-sm">⚕️</span>
-              <h3 className="text-sm font-medium">Systems Review</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-primary text-sm">⚕️</span>
+                <h3 className="text-sm font-medium">Systems Review</h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSystemsConfig(true)}
+                className="h-7 px-2 text-muted-foreground hover:text-foreground no-print"
+                title="Customize systems"
+              >
+                <Settings2 className="h-3.5 w-3.5 mr-1" />
+                <span className="text-xs">Customize</span>
+              </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {Object.entries(SYSTEM_LABELS).map(([key, label]) => (
+              {enabledSystems.map((system) => (
                 <div 
-                  key={key} 
+                  key={system.key} 
                   className={`rounded-lg p-3 border transition-all duration-200 ${
-                    hasSystemContent(key) 
+                    hasSystemContent(system.key) 
                       ? 'bg-card border-primary/20 shadow-sm' 
                       : 'bg-secondary/30 border-border/50 hover:border-border'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
-                      <span>{SYSTEM_ICONS[key]}</span>
-                      {label}
+                      <span>{system.icon}</span>
+                      {system.label}
                     </label>
                     <div className="flex items-center gap-1">
                       <PatientTodos
                         todos={todos}
-                        section={key}
+                        section={system.key}
                         patient={patient}
                         generating={generating}
                         onAddTodo={addTodo}
@@ -436,23 +451,23 @@ export const PatientCard = ({
                         onDeleteTodo={deleteTodo}
                         onGenerateTodos={generateTodos}
                       />
-                      {hasSystemContent(key) && (
+                      {hasSystemContent(system.key) && (
                         <div className="w-1.5 h-1.5 rounded-full bg-success" />
                       )}
                     </div>
                   </div>
                   <div className="space-y-1">
                     <RichTextEditor
-                      value={patient.systems[key as keyof PatientSystems]}
-                      onChange={(value) => onUpdate(patient.id, `systems.${key}`, value)}
-                      placeholder={`${label}...`}
+                      value={patient.systems[system.key as keyof PatientSystems] || ''}
+                      onChange={(value) => onUpdate(patient.id, `systems.${system.key}`, value)}
+                      placeholder={`${system.label}...`}
                       minHeight="50px"
                       autotexts={autotexts}
                       fontSize={globalFontSize}
                       changeTracking={changeTracking}
                     />
                     <FieldTimestamp 
-                      timestamp={patient.fieldTimestamps?.[`systems.${key}` as keyof typeof patient.fieldTimestamps]} 
+                      timestamp={patient.fieldTimestamps?.[`systems.${system.key}` as keyof typeof patient.fieldTimestamps]} 
                       className="pl-1" 
                     />
                   </div>
@@ -462,6 +477,11 @@ export const PatientCard = ({
           </div>
         </div>
       )}
+      
+      <SystemsConfigManager 
+        open={showSystemsConfig} 
+        onOpenChange={setShowSystemsConfig} 
+      />
     </div>
   );
 };

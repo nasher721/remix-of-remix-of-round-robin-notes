@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,30 +17,13 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { History, Clock, ArrowRight, Trash2, Loader2 } from "lucide-react";
 import { useFieldHistory, FieldHistoryEntry } from "@/hooks/useFieldHistory";
-import { SYSTEM_LABELS } from "@/constants/systems";
+import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 
 interface FieldHistoryViewerProps {
   patientId: string;
   patientName: string;
   trigger?: React.ReactNode;
 }
-
-const FIELD_LABELS: Record<string, string> = {
-  clinicalSummary: "Clinical Summary",
-  intervalEvents: "Interval Events",
-  imaging: "Imaging",
-  labs: "Labs",
-  "systems.neuro": `Systems: ${SYSTEM_LABELS.neuro}`,
-  "systems.cv": `Systems: ${SYSTEM_LABELS.cv}`,
-  "systems.resp": `Systems: ${SYSTEM_LABELS.resp}`,
-  "systems.renalGU": `Systems: ${SYSTEM_LABELS.renalGU}`,
-  "systems.gi": `Systems: ${SYSTEM_LABELS.gi}`,
-  "systems.endo": `Systems: ${SYSTEM_LABELS.endo}`,
-  "systems.heme": `Systems: ${SYSTEM_LABELS.heme}`,
-  "systems.infectious": `Systems: ${SYSTEM_LABELS.infectious}`,
-  "systems.skinLines": `Systems: ${SYSTEM_LABELS.skinLines}`,
-  "systems.dispo": `Systems: ${SYSTEM_LABELS.dispo}`,
-};
 
 const formatRelativeTime = (dateString: string): string => {
   const date = new Date(dateString);
@@ -65,14 +48,14 @@ const truncateText = (text: string | null, maxLength: number = 100): string => {
   return stripped.substring(0, maxLength) + "...";
 };
 
-const HistoryEntry = ({ entry }: { entry: FieldHistoryEntry }) => {
+const HistoryEntry = ({ entry, fieldLabels }: { entry: FieldHistoryEntry; fieldLabels: Record<string, string> }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="border border-border rounded-lg p-3 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-primary">
-          {FIELD_LABELS[entry.fieldName] || entry.fieldName}
+          {fieldLabels[entry.fieldName] || entry.fieldName}
         </span>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
@@ -128,6 +111,21 @@ export const FieldHistoryViewer = ({
   const [open, setOpen] = useState(false);
   const [selectedField, setSelectedField] = useState<string>("all");
   const { history, loading, fetchHistory, clearHistory } = useFieldHistory(patientId);
+  const { systems, systemLabels } = useSystemsConfig();
+
+  // Build field labels dynamically based on systems config
+  const fieldLabels = useMemo(() => {
+    const labels: Record<string, string> = {
+      clinicalSummary: "Clinical Summary",
+      intervalEvents: "Interval Events",
+      imaging: "Imaging",
+      labs: "Labs",
+    };
+    systems.forEach(s => {
+      labels[`systems.${s.key}`] = `Systems: ${s.label}`;
+    });
+    return labels;
+  }, [systems]);
 
   useEffect(() => {
     if (open) {
@@ -170,9 +168,9 @@ export const FieldHistoryViewer = ({
               <SelectItem value="intervalEvents">Interval Events</SelectItem>
               <SelectItem value="imaging">Imaging</SelectItem>
               <SelectItem value="labs">Labs</SelectItem>
-              {Object.keys(SYSTEM_LABELS).map((key) => (
-                <SelectItem key={key} value={`systems.${key}`}>
-                  {SYSTEM_LABELS[key as keyof typeof SYSTEM_LABELS]}
+              {systems.map((system) => (
+                <SelectItem key={system.key} value={`systems.${system.key}`}>
+                  {system.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -204,7 +202,7 @@ export const FieldHistoryViewer = ({
           ) : (
             <div className="space-y-3">
               {history.map((entry) => (
-                <HistoryEntry key={entry.id} entry={entry} />
+                <HistoryEntry key={entry.id} entry={entry} fieldLabels={fieldLabels} />
               ))}
             </div>
           )}

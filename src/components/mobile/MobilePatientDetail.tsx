@@ -36,7 +36,7 @@ import { ImagePasteEditor } from "@/components/ImagePasteEditor";
 import { PatientTodos } from "@/components/PatientTodos";
 import { FieldTimestamp } from "@/components/FieldTimestamp";
 import { FieldHistoryViewer } from "@/components/FieldHistoryViewer";
-import { SYSTEM_LABELS, SYSTEM_ICONS } from "@/constants/systems";
+import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { AutoText } from "@/types/autotext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 
@@ -69,6 +69,7 @@ export const MobilePatientDetail = ({
   const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
   const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
+  const { enabledSystems } = useSystemsConfig();
 
   const handleGenerateIntervalEvents = async () => {
     const result = await generateIntervalEvents(
@@ -412,16 +413,16 @@ export const MobilePatientDetail = ({
           </AccordionTrigger>
           <AccordionContent className="pb-4">
             <div className="space-y-3">
-              {Object.entries(SYSTEM_LABELS).map(([key, label]) => (
-                <div key={key} className="rounded-lg p-3 border border-border/50 bg-secondary/30">
+              {enabledSystems.map((system) => (
+                <div key={system.key} className="rounded-lg p-3 border border-border/50 bg-secondary/30">
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
-                      <span>{SYSTEM_ICONS[key]}</span>
-                      {label}
+                      <span>{system.icon}</span>
+                      {system.label}
                     </label>
                     <PatientTodos
                       todos={todos}
-                      section={key}
+                      section={system.key}
                       patient={patient}
                       generating={generating}
                       onAddTodo={addTodo}
@@ -432,16 +433,16 @@ export const MobilePatientDetail = ({
                   </div>
                   <div className="space-y-1">
                     <RichTextEditor
-                      value={patient.systems[key as keyof PatientSystems]}
-                      onChange={(value) => onUpdate(patient.id, `systems.${key}`, value)}
-                      placeholder={`${label}...`}
+                      value={patient.systems[system.key as keyof PatientSystems] || ''}
+                      onChange={(value) => onUpdate(patient.id, `systems.${system.key}`, value)}
+                      placeholder={`${system.label}...`}
                       minHeight="60px"
                       autotexts={autotexts}
                       fontSize={globalFontSize}
                       changeTracking={changeTracking}
                     />
                     <FieldTimestamp 
-                      timestamp={patient.fieldTimestamps?.[`systems.${key}` as keyof typeof patient.fieldTimestamps]} 
+                      timestamp={patient.fieldTimestamps?.[`systems.${system.key}` as keyof typeof patient.fieldTimestamps]} 
                       className="pl-1" 
                     />
                   </div>
