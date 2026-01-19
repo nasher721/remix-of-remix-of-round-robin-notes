@@ -617,7 +617,7 @@ export const RichTextEditor = ({
             className="h-7 px-2 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
             title="Font size"
           >
-            {[10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24].map((size) => (
+            {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24].map((size) => (
               <option key={size} value={size}>{size}px</option>
             ))}
           </select>
