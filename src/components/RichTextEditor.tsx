@@ -1,6 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import { 
   Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter, HighlighterIcon,
   Indent, Outdent, Palette, Undo2, Redo2, FileText
@@ -612,15 +611,16 @@ export const RichTextEditor = ({
         <div className="w-px h-5 bg-border mx-1" />
         <div className="flex items-center gap-2 ml-2">
           <Type className="h-3.5 w-3.5 text-muted-foreground" />
-          <Slider
-            defaultValue={[14]}
-            min={10}
-            max={24}
-            step={1}
-            className="w-20"
-            onValueChange={handleFontSizeChange}
-          />
-          <span className="text-xs text-muted-foreground w-6">{fontSizeRef.current}px</span>
+          <select
+            value={fontSizeRef.current}
+            onChange={(e) => handleFontSizeChange([parseInt(e.target.value)])}
+            className="h-7 px-2 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+            title="Font size"
+          >
+            {[10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24].map((size) => (
+              <option key={size} value={size}>{size}px</option>
+            ))}
+          </select>
           <Button
             type="button"
             variant="outline"
