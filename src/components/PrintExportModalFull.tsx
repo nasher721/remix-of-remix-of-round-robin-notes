@@ -1473,7 +1473,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           const sysComboKey = firstSysKey ? isColumnCombined(`systems.${firstSysKey}`) : null;
           
           if (sysComboKey && enabledSystemKeys.length > 0) {
-            // Render combined systems cell
+            // Render combined systems cell with multi-column wrapper
             const systemsSections = enabledSystemKeys.map(key => {
               const value = cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) || '';
               if (value) {
@@ -1481,7 +1481,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               }
               return '';
             }).filter(Boolean).join('');
-            cells += `<td class="content-cell combined-cell">${systemsSections}</td>`;
+            cells += `<td class="content-cell combined-cell"><div class="systems-review-wrapper">${systemsSections}</div></td>`;
           } else {
             // Render individual system cells
             enabledSystemKeys.forEach(key => {
@@ -2168,10 +2168,21 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             .combined-cell {
               background: #eef2ff;
             }
+            /* Systems Review Multi-Column Layout */
+            .systems-review-wrapper {
+              columns: ${systemsReviewColumnCount};
+              column-gap: 1rem;
+              column-fill: balance;
+            }
             .combined-section {
-              margin-bottom: 8px;
-              padding-bottom: 8px;
+              margin-bottom: 4px;
+              padding-bottom: 4px;
               border-bottom: 1px dashed #c7d2fe;
+              break-inside: avoid;
+              page-break-inside: avoid;
+              display: inline-block;
+              width: 100%;
+              line-height: 1.2;
             }
             .combined-section:last-child {
               margin-bottom: 0;
@@ -2180,8 +2191,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             }
             .combined-section strong {
               color: #4338ca;
-              display: block;
-              margin-bottom: 2px;
+              display: inline;
+              margin-right: 4px;
               font-size: ${Math.max(baseFontSize - 1, 7)}px;
               text-transform: uppercase;
               letter-spacing: 0.3px;
