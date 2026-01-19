@@ -4083,9 +4083,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                                 <div 
                                   className="systems-review-columns"
                                   style={{
-                                    columnCount: systemsReviewColumnCount,
+                                    columns: `${systemsReviewColumnCount}`,
                                     columnGap: '1rem',
-                                    columnFill: 'auto',
+                                    columnFill: 'balance',
                                   }}
                                 >
                                   {enabledSystemKeys.map(key => {
@@ -4094,11 +4094,13 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                                     return (
                                       <div 
                                         key={key} 
-                                        className="mb-2 break-inside-avoid"
+                                        className="mb-2"
                                         style={{
                                           breakInside: 'avoid',
                                           pageBreakInside: 'avoid',
-                                        }}
+                                          display: 'inline-block',
+                                          width: '100%',
+                                        } as React.CSSProperties}
                                       >
                                         <strong className="text-primary">{systemLabels[key]}:</strong>{' '}
                                         <span dangerouslySetInnerHTML={{ __html: cleanInlineStyles(value) }} />
