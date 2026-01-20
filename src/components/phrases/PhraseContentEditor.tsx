@@ -227,8 +227,8 @@ export const PhraseContentEditor = ({
         </Popover>
       </div>
       
-      {/* Editor Area */}
-      <div className="relative">
+      {/* Editor Area with scroll container */}
+      <div className="relative max-h-[300px] overflow-y-auto">
         <div
           ref={editorRef}
           contentEditable
@@ -238,14 +238,12 @@ export const PhraseContentEditor = ({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           className={cn(
-            "p-3 outline-none overflow-auto",
+            "p-3 outline-none min-h-[80px]",
             "prose prose-sm max-w-none",
             "[&_ul]:list-disc [&_ul]:ml-4",
             "[&_ol]:list-decimal [&_ol]:ml-4"
           )}
           style={{ 
-            minHeight,
-            maxHeight: '300px',
             fontSize: '14px',
             lineHeight: '1.5',
           }}

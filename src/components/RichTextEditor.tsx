@@ -733,28 +733,30 @@ export const RichTextEditor = ({
         </div>
       </div>
       
-      {/* Editor */}
-      <div
-        ref={editorRef}
-        contentEditable
-        className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none overflow-y-auto"
-        style={{ minHeight, maxHeight: '300px', fontSize: `${fontSizeRef.current}px` }}
-        onInput={handleInput}
-        onPaste={handlePaste}
-        onKeyDown={handleKeyDown}
-        onKeyUp={handleKeyUp}
-        data-placeholder={placeholder}
-        onFocus={(e) => {
-          if (e.currentTarget.innerHTML === '' || e.currentTarget.innerHTML === '<br>') {
-            e.currentTarget.dataset.empty = 'true';
-          }
-        }}
-        onBlur={(e) => {
-          delete e.currentTarget.dataset.empty;
-          setShowAutocomplete(false);
-        }}
-        suppressContentEditableWarning
-      />
+      {/* Editor with scroll container */}
+      <div className="max-h-[300px] overflow-y-auto">
+        <div
+          ref={editorRef}
+          contentEditable
+          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px]"
+          style={{ fontSize: `${fontSizeRef.current}px` }}
+          onInput={handleInput}
+          onPaste={handlePaste}
+          onKeyDown={handleKeyDown}
+          onKeyUp={handleKeyUp}
+          data-placeholder={placeholder}
+          onFocus={(e) => {
+            if (e.currentTarget.innerHTML === '' || e.currentTarget.innerHTML === '<br>') {
+              e.currentTarget.dataset.empty = 'true';
+            }
+          }}
+          onBlur={(e) => {
+            delete e.currentTarget.dataset.empty;
+            setShowAutocomplete(false);
+          }}
+          suppressContentEditableWarning
+        />
+      </div>
 
       {/* Autocomplete dropdown */}
       {showAutocomplete && autocompleteOptions.length > 0 && (
