@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import * as React from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { STORAGE_KEYS, DEFAULT_CONFIG } from '@/constants/config';
 
 export type SortBy = 'number' | 'room' | 'name';
