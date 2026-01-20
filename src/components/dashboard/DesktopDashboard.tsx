@@ -1,8 +1,8 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
-import { PatientCard } from "@/components/PatientCard";
+import { VirtualizedPatientList } from "./VirtualizedPatientList";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
@@ -131,11 +131,6 @@ export const DesktopDashboard = ({
     URL.revokeObjectURL(url);
   }, [patients]);
 
-  const handleRemovePatient = useCallback((id: string) => {
-    if (confirm('Remove this patient from rounds?')) {
-      onRemovePatient(id);
-    }
-  }, [onRemovePatient]);
 
   const handleClearAll = useCallback(() => {
     if (confirm('Clear all patients? This cannot be undone.')) {
@@ -367,46 +362,36 @@ export const DesktopDashboard = ({
 
       {/* Patient Cards */}
       <div className="container mx-auto px-6 pb-12">
-        <div className="space-y-4">
-          {filteredPatients.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-6">
-                <span className="text-3xl">🏥</span>
-              </div>
-              <h3 className="text-2xl font-semibold mb-2">
-                {patients.length === 0 ? 'Ready to Start Rounds' : 'No patients match your filter'}
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-sm">
-                {patients.length === 0 
-                  ? 'Add your first patient to begin documenting rounds.' 
-                  : 'Try adjusting your search or filter criteria.'}
-              </p>
-              {patients.length === 0 && (
-                <Button onClick={onAddPatient} size="lg" className="gap-2">
-                  <Plus className="h-5 w-5" />
-                  Add First Patient
-                </Button>
-              )}
+        {filteredPatients.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-6">
+              <span className="text-3xl">🏥</span>
             </div>
-          ) : (
-            filteredPatients.map((patient, index) => (
-              <div 
-                key={patient.id} 
-                className="animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                <PatientCard
-                  patient={patient}
-                  onUpdate={onUpdatePatient}
-                  onRemove={handleRemovePatient}
-                  onDuplicate={onDuplicatePatient}
-                  onToggleCollapse={onToggleCollapse}
-                  autotexts={autotexts}
-                />
-              </div>
-            ))
-          )}
-        </div>
+            <h3 className="text-2xl font-semibold mb-2">
+              {patients.length === 0 ? 'Ready to Start Rounds' : 'No patients match your filter'}
+            </h3>
+            <p className="text-muted-foreground mb-6 max-w-sm">
+              {patients.length === 0 
+                ? 'Add your first patient to begin documenting rounds.' 
+                : 'Try adjusting your search or filter criteria.'}
+            </p>
+            {patients.length === 0 && (
+              <Button onClick={onAddPatient} size="lg" className="gap-2">
+                <Plus className="h-5 w-5" />
+                Add First Patient
+              </Button>
+            )}
+          </div>
+        ) : (
+          <VirtualizedPatientList
+            patients={filteredPatients}
+            autotexts={autotexts}
+            onUpdatePatient={onUpdatePatient}
+            onRemovePatient={onRemovePatient}
+            onDuplicatePatient={onDuplicatePatient}
+            onToggleCollapse={onToggleCollapse}
+          />
+        )}
       </div>
 
       <PrintExportModal
