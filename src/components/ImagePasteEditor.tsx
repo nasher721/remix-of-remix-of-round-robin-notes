@@ -784,20 +784,22 @@ export const ImagePasteEditor = ({
         </div>
       )}
       
-      {/* Editor */}
-      <div
-        ref={editorRef}
-        contentEditable
-        className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none overflow-y-auto"
-        style={{ minHeight, maxHeight: '300px', fontSize: `${fontSize}px` }}
-        onInput={handleInput}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        data-placeholder={placeholder}
-        suppressContentEditableWarning
-      />
+      {/* Editor with scroll container */}
+      <div className="max-h-[300px] overflow-y-auto">
+        <div
+          ref={editorRef}
+          contentEditable
+          className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none min-h-[80px]"
+          style={{ fontSize: `${fontSize}px` }}
+          onInput={handleInput}
+          onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          data-placeholder={placeholder}
+          suppressContentEditableWarning
+        />
+      </div>
 
       {/* Lightbox */}
       <ImageLightbox
