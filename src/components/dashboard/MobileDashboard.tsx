@@ -85,7 +85,7 @@ export const MobileDashboard = ({
   mobileTab,
   setMobileTab,
 }: MobileDashboardProps) => {
-  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
+  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones } = useSettings();
   const changeTracking = useChangeTracking();
   
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -208,6 +208,8 @@ export const MobileDashboard = ({
                   userEmail={user.email}
                   todosAlwaysVisible={todosAlwaysVisible}
                   onTodosAlwaysVisibleChange={setTodosAlwaysVisible}
+                  showLabFishbones={showLabFishbones}
+                  onShowLabFishbonesChange={setShowLabFishbones}
                 />
               </div>
             </>

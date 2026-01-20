@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   GLOBAL_FONT_SIZE: 'globalFontSize',
   TODOS_ALWAYS_VISIBLE: 'todosAlwaysVisible',
   PATIENT_SORT_BY: 'patientSortBy',
+  SHOW_LAB_FISHBONES: 'showLabFishbones',
   
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
@@ -26,6 +27,7 @@ export const DEFAULT_CONFIG = {
   PRINT_ORIENTATION: 'portrait' as const,
   SYSTEMS_REVIEW_COLUMN_COUNT: 2,
   DEFAULT_SORT_BY: 'room' as const,
+  SHOW_LAB_FISHBONES: true,
 } as const;
 
 // Patient filter state enum

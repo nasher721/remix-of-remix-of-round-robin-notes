@@ -8,6 +8,7 @@ import { PatientTodos } from "./PatientTodos";
 import { FieldTimestamp } from "./FieldTimestamp";
 import { FieldHistoryViewer } from "./FieldHistoryViewer";
 import { SystemsConfigManager } from "./SystemsConfigManager";
+import { LabFishbone } from "./labs";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems } from "@/types/patient";
@@ -34,7 +35,7 @@ export const PatientCard = ({
   onToggleCollapse,
   autotexts = defaultAutotexts,
 }: PatientCardProps) => {
-  const { globalFontSize, todosAlwaysVisible } = useSettings();
+  const { globalFontSize, todosAlwaysVisible, showLabFishbones } = useSettings();
   const changeTracking = useChangeTracking();
   
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -400,12 +401,18 @@ export const PatientCard = ({
                   </Button>
                 </div>
               </div>
+              
+              {/* Lab Fishbone Display (when enabled and labs have data) */}
+              {showLabFishbones && patient.labs && (
+                <LabFishbone labs={patient.labs} className="mb-2" />
+              )}
+              
               <div className="space-y-1">
                 <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
                   <RichTextEditor
                     value={patient.labs}
                     onChange={(value) => onUpdate(patient.id, 'labs', value)}
-                    placeholder="CBC, BMP, LFTs, coags..."
+                    placeholder="CBC, BMP, LFTs, coags... (e.g., Na: 140, K: 4.0, Cr: 1.0)"
                     minHeight="60px"
                     autotexts={autotexts}
                     fontSize={globalFontSize}

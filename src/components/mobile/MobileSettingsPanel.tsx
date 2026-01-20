@@ -21,6 +21,7 @@ import {
   PenLine,
   ListTodo,
   FileText,
+  TestTube,
 } from "lucide-react";
 
 interface MobileSettingsPanelProps {
@@ -44,6 +45,8 @@ interface MobileSettingsPanelProps {
   userEmail?: string;
   todosAlwaysVisible?: boolean;
   onTodosAlwaysVisibleChange?: (visible: boolean) => void;
+  showLabFishbones?: boolean;
+  onShowLabFishbonesChange?: (show: boolean) => void;
 }
 
 const colorPresets = [
@@ -69,6 +72,8 @@ export const MobileSettingsPanel = ({
   userEmail,
   todosAlwaysVisible = false,
   onTodosAlwaysVisibleChange,
+  showLabFishbones = true,
+  onShowLabFishbonesChange,
 }: MobileSettingsPanelProps) => {
   return (
     <div className="p-4 space-y-4 pb-24">
@@ -133,6 +138,23 @@ export const MobileSettingsPanel = ({
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           Show todos inline instead of in a popup
+        </p>
+      </Card>
+
+      {/* Lab Fishbone Toggle */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TestTube className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Lab Fishbone Display</span>
+          </div>
+          <Switch
+            checked={showLabFishbones}
+            onCheckedChange={onShowLabFishbonesChange}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Show BMP/CBC in graphical fishbone format
         </p>
       </Card>
 

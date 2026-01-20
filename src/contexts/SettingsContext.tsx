@@ -15,6 +15,10 @@ interface SettingsContextType {
   // Sort preferences
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
+  
+  // Lab Fishbone toggle
+  showLabFishbones: boolean;
+  setShowLabFishbones: (show: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -38,6 +42,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return (saved as SortBy) || DEFAULT_CONFIG.DEFAULT_SORT_BY;
   });
 
+  const [showLabFishbones, setShowLabFishbonesState] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SHOW_LAB_FISHBONES);
+    return saved !== null ? saved === 'true' : true; // Default to true
+  });
+
   // Persist font size
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(globalFontSize));
@@ -53,6 +62,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     localStorage.setItem(STORAGE_KEYS.PATIENT_SORT_BY, sortBy);
   }, [sortBy]);
 
+  // Persist lab fishbones preference
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(showLabFishbones));
+  }, [showLabFishbones]);
+
   const setGlobalFontSize = useCallback((size: number) => {
     setGlobalFontSizeState(size);
   }, []);
@@ -65,6 +79,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setSortByState(sort);
   }, []);
 
+  const setShowLabFishbones = useCallback((show: boolean) => {
+    setShowLabFishbonesState(show);
+  }, []);
+
   const value: SettingsContextType = {
     globalFontSize,
     setGlobalFontSize,
@@ -72,6 +90,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setTodosAlwaysVisible,
     sortBy,
     setSortBy,
+    showLabFishbones,
+    setShowLabFishbones,
   };
 
   return (
