@@ -11,7 +11,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
-// Create stable QueryClient outside component to survive HMR
+// Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
