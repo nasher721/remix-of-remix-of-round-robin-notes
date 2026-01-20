@@ -785,7 +785,10 @@ export const ImagePasteEditor = ({
       )}
       
       {/* Editor with scroll container */}
-      <div className="max-h-[300px] overflow-y-auto">
+      <div 
+        className="max-h-[300px] overflow-y-scroll scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'hsl(var(--muted-foreground) / 0.3) transparent' }}
+      >
         <div
           ref={editorRef}
           contentEditable
