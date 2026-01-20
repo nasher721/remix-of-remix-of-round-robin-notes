@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePatients } from "@/hooks/usePatients";
@@ -16,7 +16,7 @@ import type { MobileTab } from "@/components/layout";
 import type { Patient } from "@/types/patient";
 
 // Inner component that uses all contexts
-const IndexContent = () => {
+function IndexContent(): React.ReactElement | null {
   const isMobile = useIsMobile();
   const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
@@ -38,7 +38,7 @@ const IndexContent = () => {
   const { customDictionary, importDictionary } = useCloudDictionary();
   
   // Fetch todos for all patients for print/export
-  const patientIds = useMemo(() => patients.map(p => p.id), [patients]);
+  const patientIds = React.useMemo(() => patients.map(p => p.id), [patients]);
   const { todosMap } = useAllPatientTodos(patientIds);
   
   // Patient filtering and sorting
@@ -47,23 +47,23 @@ const IndexContent = () => {
     sortBy,
   });
 
-  const [lastSaved, setLastSaved] = useState<Date>(new Date());
+  const [lastSaved, setLastSaved] = React.useState<Date>(new Date());
   
   // Mobile-specific state
-  const [mobileTab, setMobileTab] = useState<MobileTab>("patients");
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [mobileTab, setMobileTab] = React.useState<MobileTab>("patients");
+  const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
   
   const navigate = useNavigate();
 
   // Redirect to auth if not logged in
-  useEffect(() => {
+  React.useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth");
     }
   }, [user, authLoading, navigate]);
 
   // Update last saved time when patients change
-  useEffect(() => {
+  React.useEffect(() => {
     if (patients.length > 0) {
       setLastSaved(new Date());
     }
@@ -73,27 +73,27 @@ const IndexContent = () => {
   const currentPatient = isMobile && selectedPatient ? selectedPatient : (filteredPatients.length > 0 ? filteredPatients[0] : undefined);
   
   // Update IBCC context with current patient for context-aware suggestions
-  useEffect(() => {
+  React.useEffect(() => {
     setCurrentPatient(currentPatient);
   }, [currentPatient, setCurrentPatient]);
 
-  const handleUpdatePatient = useCallback((id: string, field: string, value: unknown) => {
+  const handleUpdatePatient = React.useCallback((id: string, field: string, value: unknown) => {
     updatePatient(id, field, value);
   }, [updatePatient]);
 
-  const handleRemovePatient = useCallback((id: string) => {
+  const handleRemovePatient = React.useCallback((id: string) => {
     removePatient(id);
   }, [removePatient]);
 
-  const handleDuplicatePatient = useCallback((id: string) => {
+  const handleDuplicatePatient = React.useCallback((id: string) => {
     duplicatePatient(id);
   }, [duplicatePatient]);
 
-  const handleToggleCollapse = useCallback((id: string) => {
+  const handleToggleCollapse = React.useCallback((id: string) => {
     toggleCollapse(id);
   }, [toggleCollapse]);
 
-  const handleAddPatient = useCallback(() => {
+  const handleAddPatient = React.useCallback(() => {
     addPatient();
   }, [addPatient]);
 
@@ -184,15 +184,17 @@ const IndexContent = () => {
       lastSaved={lastSaved}
     />
   );
-};
+}
 
 // Wrap with all providers
-const Index = () => (
-  <SettingsProvider>
-    <ChangeTrackingProvider>
-      <IndexContent />
-    </ChangeTrackingProvider>
-  </SettingsProvider>
-);
+function Index(): React.ReactElement {
+  return (
+    <SettingsProvider>
+      <ChangeTrackingProvider>
+        <IndexContent />
+      </ChangeTrackingProvider>
+    </SettingsProvider>
+  );
+}
 
 export default Index;
