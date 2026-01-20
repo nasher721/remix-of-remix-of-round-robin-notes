@@ -788,8 +788,8 @@ export const ImagePasteEditor = ({
       <div
         ref={editorRef}
         contentEditable
-        className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none"
-        style={{ minHeight, fontSize: `${fontSize}px` }}
+        className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none overflow-y-auto"
+        style={{ minHeight, maxHeight: '300px', fontSize: `${fontSize}px` }}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}

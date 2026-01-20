@@ -245,6 +245,7 @@ export const PhraseContentEditor = ({
           )}
           style={{ 
             minHeight,
+            maxHeight: '300px',
             fontSize: '14px',
             lineHeight: '1.5',
           }}

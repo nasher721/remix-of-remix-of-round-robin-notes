@@ -737,8 +737,8 @@ export const RichTextEditor = ({
       <div
         ref={editorRef}
         contentEditable
-        className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none"
-        style={{ minHeight, fontSize: `${fontSizeRef.current}px` }}
+        className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none overflow-y-auto"
+        style={{ minHeight, maxHeight: '300px', fontSize: `${fontSizeRef.current}px` }}
         onInput={handleInput}
         onPaste={handlePaste}
         onKeyDown={handleKeyDown}
