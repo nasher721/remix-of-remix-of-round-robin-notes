@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2 } from "lucide-react";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X } from "lucide-react";
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
@@ -40,7 +40,7 @@ export const PatientCard = ({
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = useState(false);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
-  const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
+  const { generateIntervalEvents, isGenerating: isGeneratingEvents, cancelGeneration } = useIntervalEventsGenerator();
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
 
   const handleGenerateIntervalEvents = async () => {
@@ -243,21 +243,34 @@ export const PatientCard = ({
                 )}
               </div>
               <div className="flex gap-1 no-print">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleGenerateIntervalEvents}
-                  disabled={isGeneratingEvents}
-                  className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                  title="Generate from Systems (AI)"
-                >
-                  {isGeneratingEvents ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
+                {isGeneratingEvents ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={cancelGeneration}
+                    className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title="Cancel generation"
+                  >
+                    <X className="h-3 w-3" />
+                    <span className="ml-1 text-xs">Cancel</span>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleGenerateIntervalEvents}
+                    className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                    title="Generate from Systems (AI)"
+                  >
                     <Sparkles className="h-3 w-3" />
-                  )}
-                  <span className="ml-1 text-xs">Generate</span>
-                </Button>
+                    <span className="ml-1 text-xs">Generate</span>
+                  </Button>
+                )}
+                {isGeneratingEvents && (
+                  <div className="flex items-center h-7 px-2">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  </div>
+                )}
                 <PatientTodos
                   todos={todos}
                   section="interval_events"

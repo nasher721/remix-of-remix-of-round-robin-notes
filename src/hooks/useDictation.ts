@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,6 +16,7 @@ interface UseDictationReturn {
   transcript: string | null;
   error: string | null;
   audioStream: MediaStream | null;
+  audioLevel: number; // 0-100 representing volume level
 }
 
 export const useDictation = (options: UseDictationOptions = {}): UseDictationReturn => {
@@ -26,12 +27,78 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
   const [transcript, setTranscript] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   
   const { toast } = useToast();
+
+  // Cleanup function for audio analysis
+  const stopAudioAnalysis = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current = null;
+    }
+    analyserRef.current = null;
+    setAudioLevel(0);
+  }, []);
+
+  // Start audio level analysis
+  const startAudioAnalysis = useCallback((stream: MediaStream) => {
+    try {
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+      analyserRef.current = analyser;
+      
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      const updateLevel = () => {
+        if (!analyserRef.current) return;
+        
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        // Calculate average volume level
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const average = sum / dataArray.length;
+        
+        // Normalize to 0-100 range with some amplification for better visual feedback
+        const normalizedLevel = Math.min(100, Math.round((average / 128) * 100 * 1.5));
+        setAudioLevel(normalizedLevel);
+        
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+      
+      updateLevel();
+    } catch (err) {
+      console.error('Failed to start audio analysis:', err);
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopAudioAnalysis();
+    };
+  }, [stopAudioAnalysis]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -52,6 +119,9 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
       streamRef.current = stream;
       setAudioStream(stream);
       chunksRef.current = [];
+      
+      // Start audio level analysis
+      startAudioAnalysis(stream);
       
       // Determine best supported format
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -87,11 +157,14 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [toast, startAudioAnalysis]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
     return new Promise((resolve) => {
       const mediaRecorder = mediaRecorderRef.current;
+      
+      // Stop audio analysis first
+      stopAudioAnalysis();
       
       if (!mediaRecorder || mediaRecorder.state === 'inactive') {
         setIsRecording(false);
@@ -197,7 +270,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
       
       mediaRecorder.stop();
     });
-  }, [enhanceMedical, onTranscript, toast]);
+  }, [enhanceMedical, onTranscript, toast, stopAudioAnalysis]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) {
@@ -216,5 +289,6 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
     transcript,
     error,
     audioStream,
+    audioLevel,
   };
 };

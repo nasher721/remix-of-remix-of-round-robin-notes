@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useDictation } from "@/hooks/useDictation";
-import { AudioWaveform } from "./AudioWaveform";
 
 interface DictationButtonProps {
   onTranscript: (text: string) => void;
@@ -24,6 +23,36 @@ interface DictationButtonProps {
   enhanceMedical?: boolean;
 }
 
+// Simple audio level bars component
+const AudioLevelIndicator = ({ level }: { level: number }) => {
+  const barCount = 5;
+  const bars = Array.from({ length: barCount }, (_, i) => {
+    const threshold = ((i + 1) / barCount) * 100;
+    const isActive = level >= threshold * 0.6; // Activate with some headroom
+    const height = 8 + (i * 3); // Bars get progressively taller
+    
+    return (
+      <div
+        key={i}
+        className={cn(
+          "w-1 rounded-full transition-all duration-75",
+          isActive ? "bg-destructive" : "bg-destructive/30"
+        )}
+        style={{ 
+          height: `${height}px`,
+          transform: isActive ? `scaleY(${0.7 + (level / 100) * 0.3})` : 'scaleY(0.5)',
+        }}
+      />
+    );
+  });
+
+  return (
+    <div className="flex items-center gap-0.5 h-6">
+      {bars}
+    </div>
+  );
+};
+
 export const DictationButton = ({
   onTranscript,
   disabled = false,
@@ -32,7 +61,7 @@ export const DictationButton = ({
   variant = "ghost",
   enhanceMedical = true,
 }: DictationButtonProps) => {
-  const { isRecording, isProcessing, toggleRecording, audioStream } = useDictation({
+  const { isRecording, isProcessing, toggleRecording, audioLevel } = useDictation({
     onTranscript,
     enhanceMedical,
   });
@@ -69,7 +98,7 @@ export const DictationButton = ({
     </Button>
   );
 
-  // When recording, show popover with waveform
+  // When recording, show popover with audio level indicator
   if (isRecording) {
     return (
       <Popover open={isRecording}>
@@ -88,12 +117,7 @@ export const DictationButton = ({
               <span className="text-xs font-medium text-destructive">Recording</span>
             </div>
             <div className="w-px h-4 bg-destructive/30" />
-            <AudioWaveform 
-              stream={audioStream}
-              isActive={isRecording}
-              color="hsl(var(--destructive))"
-              barCount={7}
-            />
+            <AudioLevelIndicator level={audioLevel} />
             <div className="w-px h-4 bg-destructive/30" />
             <button
               onClick={handleClick}
