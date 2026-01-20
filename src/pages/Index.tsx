@@ -7,7 +7,7 @@ import { useCloudDictionary } from "@/hooks/useCloudDictionary";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAllPatientTodos } from "@/hooks/useAllPatientTodos";
 import { usePatientFilter } from "@/hooks/usePatientFilter";
-import { useSettings, SettingsProvider } from "@/contexts/SettingsContext";
+import { useSettings } from "@/contexts/SettingsContext";
 import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
@@ -186,14 +186,12 @@ function IndexContent(): React.ReactElement | null {
   );
 }
 
-// Wrap with all providers
+// Wrap with ChangeTrackingProvider (SettingsProvider is now at App level)
 function Index(): React.ReactElement {
   return (
-    <SettingsProvider>
-      <ChangeTrackingProvider>
-        <IndexContent />
-      </ChangeTrackingProvider>
-    </SettingsProvider>
+    <ChangeTrackingProvider>
+      <IndexContent />
+    </ChangeTrackingProvider>
   );
 }
 
