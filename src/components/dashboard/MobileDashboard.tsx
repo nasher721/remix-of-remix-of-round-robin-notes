@@ -16,7 +16,7 @@ import {
 // Mobile components
 import { MobileNavBar, MobileHeader, type MobileTab } from "@/components/layout";
 import {
-  MobilePatientList,
+  VirtualizedMobilePatientList,
   MobilePatientDetail,
   MobileAddPanel,
   MobileSettingsPanel,
@@ -157,7 +157,7 @@ export const MobileDashboard = ({
                 }
               />
               <div className="pb-mobile-nav">
-                <MobilePatientList
+                <VirtualizedMobilePatientList
                   patients={filteredPatients}
                   onPatientSelect={onPatientSelect}
                   onPatientDelete={handleRemovePatient}
