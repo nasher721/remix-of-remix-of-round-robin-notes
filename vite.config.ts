@@ -14,5 +14,11 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Dedupe React to prevent multiple instances during HMR
+    dedupe: ["react", "react-dom"],
+  },
+  optimizeDeps: {
+    // Force pre-bundle React to avoid HMR issues
+    include: ["react", "react-dom", "react/jsx-runtime"],
   },
 }));
