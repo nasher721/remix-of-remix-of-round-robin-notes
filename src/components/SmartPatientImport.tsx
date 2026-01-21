@@ -14,8 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Wand2, Loader2, Clipboard, FileText, Check, Edit2 } from "lucide-react";
-import type { PatientSystems } from "@/types/patient";
+import { Wand2, Loader2, Clipboard, FileText, Check, Edit2, Pill } from "lucide-react";
+import type { PatientSystems, PatientMedications } from "@/types/patient";
 
 interface ParsedPatientData {
   name: string;
@@ -25,6 +25,7 @@ interface ParsedPatientData {
   imaging: string;
   labs: string;
   systems: PatientSystems;
+  medications: PatientMedications;
 }
 
 interface SmartPatientImportProps {
@@ -36,6 +37,7 @@ interface SmartPatientImportProps {
     imaging: string;
     labs: string;
     systems: PatientSystems;
+    medications?: PatientMedications;
   }) => Promise<void>;
   trigger?: React.ReactNode;
 }
@@ -262,6 +264,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
               <Tabs defaultValue="main" className="w-full">
                 <TabsList className="mb-3">
                   <TabsTrigger value="main">Main Info</TabsTrigger>
+                  <TabsTrigger value="medications">Medications</TabsTrigger>
                   <TabsTrigger value="systems">Systems Review</TabsTrigger>
                 </TabsList>
 
@@ -274,6 +277,70 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
                   {renderEditableField("Interval Events", "intervalEvents", parsedData.intervalEvents, true)}
                   {renderEditableField("Imaging", "imaging", parsedData.imaging, true)}
                   {renderEditableField("Labs", "labs", parsedData.labs, true)}
+                </TabsContent>
+
+                <TabsContent value="medications" className="space-y-4 mt-0">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Pill className="h-4 w-4 text-red-500" />
+                        Infusions ({parsedData.medications?.infusions?.length || 0})
+                      </Label>
+                      <div className="text-sm p-2 bg-muted/50 rounded-md min-h-[40px]">
+                        {parsedData.medications?.infusions?.length ? (
+                          <ul className="space-y-1">
+                            {parsedData.medications.infusions.map((med, i) => (
+                              <li key={i} className="flex items-center gap-2">
+                                <span className="text-red-500">•</span> {med}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-muted-foreground italic">No infusions</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Pill className="h-4 w-4 text-blue-500" />
+                        Scheduled ({parsedData.medications?.scheduled?.length || 0})
+                      </Label>
+                      <div className="text-sm p-2 bg-muted/50 rounded-md min-h-[40px]">
+                        {parsedData.medications?.scheduled?.length ? (
+                          <ul className="space-y-1">
+                            {parsedData.medications.scheduled.map((med, i) => (
+                              <li key={i} className="flex items-center gap-2">
+                                <span className="text-blue-500">•</span> {med}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-muted-foreground italic">No scheduled medications</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium flex items-center gap-2">
+                        <Pill className="h-4 w-4 text-amber-500" />
+                        PRN ({parsedData.medications?.prn?.length || 0})
+                      </Label>
+                      <div className="text-sm p-2 bg-muted/50 rounded-md min-h-[40px]">
+                        {parsedData.medications?.prn?.length ? (
+                          <ul className="space-y-1">
+                            {parsedData.medications.prn.map((med, i) => (
+                              <li key={i} className="flex items-center gap-2">
+                                <span className="text-amber-500">•</span> {med}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-muted-foreground italic">No PRN medications</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="systems" className="space-y-3 mt-0">

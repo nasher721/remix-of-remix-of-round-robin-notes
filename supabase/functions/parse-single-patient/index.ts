@@ -18,6 +18,13 @@ interface PatientSystems {
   dispo: string;
 }
 
+interface PatientMedications {
+  infusions: string[];
+  scheduled: string[];
+  prn: string[];
+  rawText: string;
+}
+
 interface ParsedPatient {
   name: string;
   bed: string;
@@ -26,6 +33,7 @@ interface ParsedPatient {
   imaging: string;
   labs: string;
   systems: PatientSystems;
+  medications: PatientMedications;
 }
 
 /**
@@ -86,7 +94,32 @@ If the input has text on separate lines, the output MUST have <BR> between them.
 CONTENT RULES:
 - Copy text EXACTLY as written
 - Do NOT move imaging/labs from system sections to separate imaging/labs fields
-- The "imaging" and "labs" fields should ONLY contain standalone imaging/labs sections`;
+- The "imaging" and "labs" fields should ONLY contain standalone imaging/labs sections
+
+MEDICATION CATEGORIZATION RULES:
+When extracting medications, categorize them into three buckets:
+
+1. INFUSIONS: Any medication with these indicators:
+   - "mcg/kg/min", "mg/hr", "units/hr", "mL/hr"
+   - Keywords: "titrate", "gtt", "drip", "infusion", "continuous"
+   - Examples: Norepinephrine, Propofol drip, Insulin gtt, Heparin infusion
+
+2. PRN (As Needed): Any medication with:
+   - Keywords: "PRN", "as needed", "p.r.n.", "when", "if needed"
+   - Examples: Morphine PRN, Ondansetron as needed
+
+3. SCHEDULED: All other regular medications
+   - Includes: daily, BID, TID, QID, q6h, q8h, etc.
+
+MEDICATION FORMATTING RULES:
+- Capitalize the first letter of each drug name
+- Remove brand names if generic is known (keep just one name)
+- Remove suffixes like "sulfate", "HCl", "hydrochloride", "sodium" unless critical
+- Remove indication text like "for pain", "for blood pressure", "for nausea"
+- Use abbreviations: "mg" not "milligrams", "mcg" not "micrograms"
+- Keep dosing frequency: daily, BID, TID, q6h, q8h, etc.
+- For infusions, include the rate: "5 mcg/kg/min" or "10 units/hr"
+- Format: "DrugName Dose Route Frequency" (e.g., "Metoprolol 25 mg PO BID")`;
 
     const userPrompt = `Organize these notes. Use <BR> for EVERY line break. Do NOT merge lines together.
 
@@ -132,9 +165,25 @@ ${content}`;
                   heme: { type: "string", description: "ALL heme content with <BR> for line breaks" },
                   infectious: { type: "string", description: "ALL ID content with <BR> for line breaks" },
                   skinLines: { type: "string", description: "ALL skin/lines content with <BR> for line breaks" },
-                  dispo: { type: "string", description: "ALL disposition content with <BR> for line breaks" }
+                  dispo: { type: "string", description: "ALL disposition content with <BR> for line breaks" },
+                  medicationsRaw: { type: "string", description: "Raw medication text from input" },
+                  medicationsInfusions: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "Continuous infusion medications with rates (e.g., Norepinephrine 5 mcg/min)" 
+                  },
+                  medicationsScheduled: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "Regularly scheduled medications (e.g., Metoprolol 25 mg PO BID)" 
+                  },
+                  medicationsPrn: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "As-needed medications (e.g., Morphine 2 mg IV PRN)" 
+                  }
                 },
-                required: ["name", "bed", "clinicalSummary", "intervalEvents", "imaging", "labs", "neuro", "cv", "resp", "renalGU", "gi", "endo", "heme", "infectious", "skinLines", "dispo"],
+                required: ["name", "bed", "clinicalSummary", "intervalEvents", "imaging", "labs", "neuro", "cv", "resp", "renalGU", "gi", "endo", "heme", "infectious", "skinLines", "dispo", "medicationsRaw", "medicationsInfusions", "medicationsScheduled", "medicationsPrn"],
                 additionalProperties: false
               }
             }
@@ -253,6 +302,12 @@ ${content}`;
         skinLines: parsedData.skinLines || '',
         dispo: parsedData.dispo || '',
       },
+      medications: parsedData.medications || {
+        infusions: parsedData.medicationsInfusions || [],
+        scheduled: parsedData.medicationsScheduled || [],
+        prn: parsedData.medicationsPrn || [],
+        rawText: parsedData.medicationsRaw || '',
+      },
     };
 
     // Convert literal \n to actual newlines
@@ -274,6 +329,12 @@ ${content}`;
         infectious: convertLineBreaks(parsedPatient.systems?.infectious || ''),
         skinLines: convertLineBreaks(parsedPatient.systems?.skinLines || ''),
         dispo: convertLineBreaks(parsedPatient.systems?.dispo || ''),
+      },
+      medications: {
+        infusions: parsedPatient.medications?.infusions || [],
+        scheduled: parsedPatient.medications?.scheduled || [],
+        prn: parsedPatient.medications?.prn || [],
+        rawText: convertLineBreaks(parsedPatient.medications?.rawText || ''),
       },
     };
 

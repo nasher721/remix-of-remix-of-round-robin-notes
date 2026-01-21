@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Plus, FileUp, Wand2 } from "lucide-react";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
-import type { PatientSystems } from "@/types/patient";
+import type { PatientSystems, PatientMedications } from "@/types/patient";
 
 interface MobileAddPanelProps {
   onAddPatient: () => void;
@@ -14,6 +14,7 @@ interface MobileAddPanelProps {
     imaging: string;
     labs: string;
     systems: PatientSystems;
+    medications?: PatientMedications;
   }) => Promise<void>;
 }
 
