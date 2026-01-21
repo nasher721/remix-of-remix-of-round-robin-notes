@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Patient, PatientSystems } from "@/types/patient";
+import { Patient, PatientSystems, PatientMedications } from "@/types/patient";
+import { MedicationList } from "@/components/MedicationList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +16,7 @@ import {
   Calendar, 
   ImageIcon, 
   TestTube,
+  Pill,
   Clock,
   Copy,
   Trash2,
@@ -400,6 +402,24 @@ export const MobilePatientDetail = ({
               </div>
               <FieldTimestamp timestamp={patient.fieldTimestamps?.labs} className="pl-1" />
             </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Medications */}
+        <AccordionItem value="medications" className="border-b">
+          <AccordionTrigger className="py-4">
+            <div className="flex items-center gap-2">
+              <Pill className="h-4 w-4 text-success" />
+              <span className="font-medium">Medications</span>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pb-4">
+            <MedicationList
+              medications={patient.medications || { infusions: [], scheduled: [], prn: [] }}
+              onMedicationsChange={(medications: PatientMedications) => 
+                onUpdate(patient.id, "medications", medications)
+              }
+            />
           </AccordionContent>
         </AccordionItem>
 
