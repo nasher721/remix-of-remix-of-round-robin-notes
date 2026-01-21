@@ -1,14 +1,32 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Dynamic CORS configuration
+const ALLOWED_ORIGINS = [
+  'https://id-preview--ef738429-6422-423b-9027-a14e31e88b4d.lovable.app',
+  'https://ef738429-6422-423b-9027-a14e31e88b4d.lovableproject.com',
+];
+
+const isLovableOrigin = (origin: string): boolean => {
+  return /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(origin) ||
+         /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/.test(origin);
 };
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.includes(origin) || isLovableOrigin(origin);
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -45,7 +63,6 @@ serve(async (req) => {
     for (const [key, label] of Object.entries(systemLabels)) {
       const content = systems[key];
       if (content && typeof content === 'string' && content.trim()) {
-        // Strip HTML tags for cleaner processing
         const cleanContent = content.replace(/<[^>]*>/g, '').trim();
         if (cleanContent) {
           systemSummaries.push(`${label}: ${cleanContent}`);
@@ -71,23 +88,12 @@ serve(async (req) => {
 REQUIRED FORMAT:
 - Start with today's date: "${today}:"
 - Use bullet points (•) for each key event/finding
-- Use standard medical abbreviations:
-  - pt = patient, w/ = with, w/o = without
-  - h/o = history of, hx = history
-  - dx = diagnosis, tx = treatment, sx = symptoms
-  - ↑ = increased, ↓ = decreased
-  - nl = normal, abn = abnormal
-  - neg = negative, pos = positive
-  - q = every, prn = as needed
-  - BP = blood pressure, HR = heart rate, RR = respiratory rate
-  - f/u = follow up, d/c = discharge
-  - y/o = year old
+- Use standard medical abbreviations
 
 GUIDELINES:
 - Be extremely concise - aim for 3-6 bullet points
 - Focus on NEW findings, changes, and actions taken today
 - Exclude routine stable findings unless clinically relevant
-- Group related items together
 - Prioritize: 1) Clinical changes 2) New interventions 3) Pending items
 
 ${existingIntervalEvents ? `EXISTING INTERVAL EVENTS (add new summary below, do not repeat):\n${existingIntervalEvents}\n` : ''}
@@ -150,6 +156,7 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
   } catch (error) {
     console.error('Generate interval events error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate interval events';
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

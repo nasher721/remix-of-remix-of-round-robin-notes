@@ -1,9 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+// Dynamic CORS configuration
+const ALLOWED_ORIGINS = [
+  'https://id-preview--ef738429-6422-423b-9027-a14e31e88b4d.lovable.app',
+  'https://ef738429-6422-423b-9027-a14e31e88b4d.lovableproject.com',
+];
+
+const isLovableOrigin = (origin: string): boolean => {
+  return /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(origin) ||
+         /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/.test(origin);
 };
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.includes(origin) || isLovableOrigin(origin);
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 interface PatientSystems {
   neuro: string;
@@ -40,13 +56,10 @@ interface ParsedPatient {
 
 /**
  * Remove duplicate sentences/phrases within a text field
- * Detects repeated phrases (>15 chars) and keeps only first occurrence
- * PRESERVES original line breaks and paragraph structure
  */
 function deduplicateText(text: string): string {
   if (!text || text.length < 30) return text;
 
-  // Split by line breaks first to preserve paragraph structure
   const lines = text.split(/\n/);
   const processedLines: string[] = [];
   const seenLines = new Set<string>();
@@ -54,7 +67,6 @@ function deduplicateText(text: string): string {
   for (const line of lines) {
     const trimmedLine = line.trim();
     
-    // Preserve empty lines for paragraph spacing
     if (trimmedLine === '') {
       processedLines.push('');
       continue;
@@ -62,17 +74,14 @@ function deduplicateText(text: string): string {
     
     const normalizedLine = trimmedLine.toLowerCase().replace(/\s+/g, ' ');
     
-    // Skip if we've seen this exact line
     if (normalizedLine.length > 15 && seenLines.has(normalizedLine)) {
       console.log("Removed duplicate line:", trimmedLine.substring(0, 50) + "...");
       continue;
     }
     
-    // Check for substantial substring matches (80%+ overlap)
     let isDuplicate = false;
     for (const existing of seenLines) {
       if (normalizedLine.length > 20 && existing.length > 20) {
-        // Check if one contains the other
         if (normalizedLine.includes(existing) || existing.includes(normalizedLine)) {
           isDuplicate = true;
           console.log("Removed overlapping content:", trimmedLine.substring(0, 50) + "...");
@@ -83,23 +92,19 @@ function deduplicateText(text: string): string {
     
     if (!isDuplicate) {
       seenLines.add(normalizedLine);
-      processedLines.push(line); // Keep original line with its formatting
+      processedLines.push(line);
     }
   }
 
-  // Rejoin with newlines to preserve original structure
   return processedLines.join('\n').trim();
 }
 
 /**
- * Remove repeated phrases within text (stuttering/echoing artifacts)
- * Detects when the same phrase appears multiple times in sequence
- * PRESERVES original line breaks
+ * Remove repeated phrases within text
  */
 function removeRepeatedPhrases(text: string): string {
   if (!text || text.length < 20) return text;
 
-  // Process line by line to preserve structure
   const lines = text.split(/\n/);
   const processedLines: string[] = [];
   
@@ -109,13 +114,11 @@ function removeRepeatedPhrases(text: string): string {
       continue;
     }
     
-    // Pattern: detect repeated consecutive phrases of 3+ words within this line
     const words = line.split(/\s+/);
     const result: string[] = [];
     let i = 0;
     
     while (i < words.length) {
-      // Try to find repeating patterns of various lengths
       let foundRepeat = false;
       
       for (let patternLen = 3; patternLen <= Math.min(10, Math.floor((words.length - i) / 2)); patternLen++) {
@@ -123,18 +126,15 @@ function removeRepeatedPhrases(text: string): string {
         const nextPattern = words.slice(i + patternLen, i + patternLen * 2).join(' ');
         
         if (pattern.length > 10 && pattern === nextPattern) {
-          // Found a repeat - add pattern once and skip the duplicate
           result.push(...words.slice(i, i + patternLen));
           i += patternLen * 2;
           foundRepeat = true;
           console.log("Removed repeated phrase:", pattern.substring(0, 50));
           
-          // Continue checking for more repeats of the same pattern
           while (i + patternLen <= words.length) {
             const checkPattern = words.slice(i, i + patternLen).join(' ');
             if (checkPattern === pattern) {
               i += patternLen;
-              console.log("Removed additional repeat of:", pattern.substring(0, 50));
             } else {
               break;
             }
@@ -156,34 +156,23 @@ function removeRepeatedPhrases(text: string): string {
 }
 
 /**
- * Main text cleaning function - applies all deduplication strategies
- * Preserves HTML formatting tags and original line breaks
+ * Main text cleaning function
  */
 function cleanPatientText(text: string): string {
   if (!text) return '';
   
   let cleaned = text;
-  
-  // Step 1: Normalize escaped newlines to actual newlines
   cleaned = cleaned.replace(/\\n/g, '\n');
-  
-  // Step 2: Remove repeated phrases (OCR stuttering)
   cleaned = removeRepeatedPhrases(cleaned);
-  
-  // Step 3: Remove duplicate lines
   cleaned = deduplicateText(cleaned);
-  
-  // Step 4: Clean up horizontal whitespace but PRESERVE newlines
   cleaned = cleaned.replace(/[ \t]+/g, ' ');
-  
-  // Step 5: Normalize multiple consecutive blank lines to max 2
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
   
   return cleaned.trim();
 }
 
 /**
- * Merge medication arrays, removing duplicates
+ * Merge medication arrays
  */
 function mergeMedications(
   a: MedicationCategories | undefined,
@@ -202,7 +191,7 @@ function mergeMedications(
 }
 
 /**
- * Deduplicate patients by bed number - keeps the most complete record
+ * Deduplicate patients by bed number
  */
 function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
   const bedMap = new Map<string, ParsedPatient>();
@@ -220,7 +209,6 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
     if (!existing) {
       bedMap.set(normalizedBed, patient);
     } else {
-      // Merge: keep the version with more content, combine if needed
       console.log(`Merging duplicate bed ${patient.bed}: existing vs new`);
       
       const merged: ParsedPatient = {
@@ -262,6 +250,8 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -289,77 +279,29 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data with system-based organization.
 
-Given the content from an Epic Handoff (either as text or scanned page images), extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient in the document.
+Given the content from an Epic Handoff (either as text or scanned page images), extract ALL patients into a structured JSON format.
 
 PATIENT IDENTIFICATION:
 - Look for bed/room numbers like "15-ED", "G054-02", "H022-01", or similar patterns
 - Each patient section typically starts with a bed number followed by patient name
 - Names are often followed by MRN in parentheses and age/sex
-- Look for repeating patterns that indicate separate patient entries
-- Page breaks may separate patients but one patient may span multiple pages
 
 For each patient, extract:
-- bed: The bed/room number (e.g., "15-ED", "G054-02", "H022-01")
+- bed: The bed/room number
 - name: Patient's full name
-- mrn: Medical Record Number (usually a number in parentheses after the name)
-- age: Patient's age (e.g., "65 yo", "72y")
+- mrn: Medical Record Number
+- age: Patient's age
 - sex: Patient's sex (M or F)
-- handoffSummary: The main handoff summary text (clinical overview, history, plan - but NOT system-specific content or "What we did on rounds")
-- intervalEvents: Content from "What we did on rounds" section (or "Rounds update", "Events", "Daily update"). Do NOT include the section header.
+- handoffSummary: The main handoff summary text
+- intervalEvents: Content from "What we did on rounds" section
 - bedStatus: Any bed status information
-- medications: STRUCTURED OBJECT with three arrays (infusions, scheduled, prn) - see MEDICATION PARSING below
-- systems: Object containing system-based review content. Parse ALL content into appropriate systems:
-  - neuro: Neurological (mental status, neuro exams, seizures, sedation, pain, ALSO include brain/spine imaging like CT head, MRI brain)
-  - cv: Cardiovascular (heart, BP, rhythms, pressors, fluids, cardiac, ALSO include cardiac labs like troponin, BNP and cardiac imaging like echo, EKG)
-  - resp: Respiratory (lungs, ventilator, O2, breathing, pulmonary, ALSO include chest imaging like CXR, CT chest and ABGs)
-  - renalGU: Renal/GU (kidneys, creatinine, urine, dialysis, Foley, electrolytes, ALSO include renal labs like BMP, Cr, BUN, electrolytes and renal imaging)
-  - gi: GI/Nutrition (abdomen, bowels, diet, TPN, liver, GI bleed, ALSO include liver labs like LFTs, lipase and abdominal imaging)
-  - endo: Endocrine (glucose, insulin, thyroid, steroids, ALSO include endocrine labs like A1c, TSH, cortisol)
-  - heme: Hematology (blood counts, anticoagulation, transfusions, bleeding, ALSO include heme labs like CBC, coags, INR)
-  - infectious: Infectious Disease (cultures, antibiotics, fever, infection, ALSO include ID labs like WBC, procalcitonin, cultures and relevant imaging)
-  - skinLines: Skin/Lines (IV access, wounds, pressure ulcers, drains, central lines, PICC, arterial lines)
-  - dispo: Disposition (discharge planning, goals of care, family discussions, social work)
+- medications: STRUCTURED OBJECT with three arrays (infusions, scheduled, prn)
+- systems: Object containing system-based review content
 
-MEDICATION PARSING (CRITICAL):
-Extract medications and categorize them into three arrays within a medications object:
-
-1. INFUSIONS array: Continuous drips with these indicators:
-   - Keywords: "mcg/kg/min", "mg/hr", "units/hr", "mL/hr", "titrate", "gtt", "drip", "infusion"
-   - Examples: ["Norepinephrine 5 mcg/kg/min", "Propofol 20 mcg/kg/min", "Insulin gtt 2 units/hr"]
-
-2. SCHEDULED array: Regular scheduled medications:
-   - Includes: daily, BID, TID, QID, q6h, q8h, q12h, etc.
-   - Examples: ["Metoprolol 25 mg PO BID", "Amlodipine 10 mg daily", "Vancomycin 1g IV q12h"]
-
-3. PRN array: As-needed medications:
-   - Keywords: "PRN", "as needed", "p.r.n.", "when"
-   - Examples: ["Morphine 2 mg IV q4h PRN pain", "Ondansetron 4 mg IV PRN nausea"]
-
-MEDICATION FORMATTING RULES:
-- Capitalize first letter of drug name
-- Remove brand names, keep generic only (e.g., "Norvasc" -> "Amlodipine")
-- Remove suffixes like "sulfate", "HCl", "hydrochloride", "sodium"
-- Remove indication text like "for pain", "for blood pressure"
-- Use abbreviations: "mg" not "milligrams", "mcg" not "micrograms"
-- Format: "DrugName Dose Route Frequency" (e.g., "Metoprolol 25 mg PO BID")
-- For infusions include rate: "Norepinephrine 5 mcg/kg/min"
-
-IMPORTANT: Do NOT create separate imaging or labs fields. Instead, include all imaging and lab information within the relevant system section where it clinically belongs. For example:
-- CT head results go in "neuro"
-- Chest X-ray and ABG go in "resp"
-- CBC and INR go in "heme"
-- BMP and creatinine go in "renalGU"
-- Troponin and echo go in "cv"
-
-FORMATTING PRESERVATION (CRITICAL):
-- Preserve ALL original line breaks exactly as they appear in the source document using \\n
-- Preserve paragraph structure - if there are blank lines between sections, keep them as \\n\\n
-- Do NOT collapse multiple lines into a single sentence or paragraph
-- Do NOT rewrite or rephrase content - copy it exactly as written
-- Preserve bullet points and lists with their original line breaks
-- Use <b>text</b> for bold/emphasized text (section headers, important findings)
-- Use <u>text</u> for underlined text (diagnoses, key terms)
-- Preserve numbered lists (1. 2. 3.) and bullet points (- or •) on their own lines
+MEDICATION PARSING:
+1. INFUSIONS: "mcg/kg/min", "mg/hr", "units/hr", "mL/hr", "titrate", "gtt", "drip"
+2. SCHEDULED: daily, BID, TID, QID, q6h, q8h, q12h
+3. PRN: "PRN", "as needed", "p.r.n."
 
 Return ONLY valid JSON in this exact format:
 {
@@ -374,9 +316,9 @@ Return ONLY valid JSON in this exact format:
       "intervalEvents": "string",
       "bedStatus": "string",
       "medications": {
-        "infusions": ["string array of formatted infusion meds"],
-        "scheduled": ["string array of formatted scheduled meds"],
-        "prn": ["string array of formatted PRN meds"]
+        "infusions": ["string array"],
+        "scheduled": ["string array"],
+        "prn": ["string array"]
       },
       "systems": {
         "neuro": "string",
@@ -392,38 +334,19 @@ Return ONLY valid JSON in this exact format:
       }
     }
   ]
-}
+}`;
 
-CRITICAL DEDUPLICATION RULES:
-- If the same patient/bed appears on multiple pages, MERGE them into ONE entry
-- NEVER output the same bed number twice
-- NEVER repeat text within a field - each sentence should appear only ONCE
-- If you see repeated/duplicated content in the source (OCR artifacts), include it only ONCE
-- Remove any stuttering, echoing, or repeated phrases
-- Clean up any OCR artifacts or formatting issues
-- If a field is missing, use an empty string (for strings) or empty array (for medications)
-
-SYSTEM MAPPING GUIDANCE:
-- Look for section headers like "Neuro:", "CV:", "Pulm:", "Renal:", "GI:", "ID:", "Heme:", "Endo:", "Access:", "Dispo:", "Meds:"
-- Also map content based on clinical context even without explicit headers
-- "Pulm" or "Pulmonary" maps to "resp"
-- "ID" or "Infectious Disease" maps to "infectious"
-- "Access" or "Lines" maps to "skinLines"
-- Include relevant imaging and labs WITHIN each system section, not separately`;
-
-    // Build message content based on whether we have images or text
     let userContent: any;
     if (images && images.length > 0) {
-      // Vision-based OCR: send images to the model
       userContent = [
-        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Preserve formatting with HTML tags. Parse content into the appropriate system categories (neuro, cv, resp, renalGU, gi, endo, heme, infectious, skinLines, dispo):" },
-        ...images.map((img: string, idx: number) => ({
+        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data with system-based organization. Each patient/bed should appear only ONCE:" },
+        ...images.map((img: string) => ({
           type: "image_url",
           image_url: { url: img }
         }))
       ];
     } else {
-      userContent = `Parse the following Epic Handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Parse content into the appropriate system categories:\n\n${pdfContent}`;
+      userContent = `Parse the following Epic Handoff document and extract all patient data:\n\n${pdfContent}`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -443,140 +366,97 @@ SYSTEM MAPPING GUIDANCE:
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI gateway error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
+          JSON.stringify({ success: false, error: "Rate limit exceeded" }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ success: false, error: "AI credits exhausted. Please add funds." }),
+          JSON.stringify({ success: false, error: "AI credits exhausted" }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      
       return new Response(
-        JSON.stringify({ success: false, error: "AI processing failed" }),
+        JSON.stringify({ success: false, error: "Failed to process handoff" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const aiResponse = await response.json();
-    const content = aiResponse.choices?.[0]?.message?.content || "";
+    const data = await response.json();
+    let aiContent = data.choices?.[0]?.message?.content;
 
-    // LOG RAW RESPONSE for debugging
-    console.log("=== RAW AI RESPONSE START ===");
-    console.log(content.substring(0, 2000));
-    if (content.length > 2000) {
-      console.log("... (truncated, total length:", content.length, ")");
+    if (!aiContent) {
+      return new Response(
+        JSON.stringify({ success: false, error: "No response from AI" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
-    console.log("=== RAW AI RESPONSE END ===");
 
-    // Extract and repair JSON from the response
-    let parsedData: { patients: ParsedPatient[] };
+    // Extract JSON from response
+    let jsonStr = aiContent;
+    const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1].trim();
+    } else {
+      const startIdx = aiContent.indexOf('{');
+      const endIdx = aiContent.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        jsonStr = aiContent.substring(startIdx, endIdx + 1);
+      }
+    }
+
+    let parsedData;
     try {
-      let jsonStr = content;
-      
-      // Remove markdown code blocks if present
-      jsonStr = jsonStr.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
-      // Find the JSON object
-      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in response");
-      }
-      
-      jsonStr = jsonMatch[0];
-      
-      // Try to parse as-is first
-      try {
-        parsedData = JSON.parse(jsonStr);
-      } catch (initialError) {
-        console.log("Initial parse failed, attempting repair...");
-        
-        // Attempt to repair truncated JSON
-        const openBraces = (jsonStr.match(/\{/g) || []).length;
-        const closeBraces = (jsonStr.match(/\}/g) || []).length;
-        const openBrackets = (jsonStr.match(/\[/g) || []).length;
-        const closeBrackets = (jsonStr.match(/\]/g) || []).length;
-        
-        console.log(`Braces: ${openBraces} open, ${closeBraces} close. Brackets: ${openBrackets} open, ${closeBrackets} close`);
-        
-        // Try a simpler fix: just close the truncated JSON
-        let repaired = jsonStr;
-        
-        // Remove any trailing incomplete property
-        repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, '');
-        repaired = repaired.replace(/,\s*\{[^}]*$/, '');
-        
-        const missingBrackets = openBrackets - closeBrackets;
-        const missingBraces = openBraces - closeBraces;
-        
-        repaired += ']'.repeat(Math.max(0, missingBrackets));
-        repaired += '}'.repeat(Math.max(0, missingBraces));
-        
-        console.log("Attempting simple bracket repair...");
-        parsedData = JSON.parse(repaired);
-      }
+      parsedData = JSON.parse(jsonStr);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
-      console.log("Raw content:", content.substring(0, 500));
+      console.error("JSON parse error:", parseError);
       return new Response(
         JSON.stringify({ success: false, error: "Failed to parse AI response" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Initial parse: ${parsedData.patients?.length || 0} patients`);
+    // Clean and deduplicate patients
+    let patients: ParsedPatient[] = parsedData.patients || [];
+    
+    patients = patients.map((p: ParsedPatient) => ({
+      ...p,
+      handoffSummary: cleanPatientText(p.handoffSummary),
+      intervalEvents: cleanPatientText(p.intervalEvents),
+      systems: {
+        neuro: cleanPatientText(p.systems?.neuro || ''),
+        cv: cleanPatientText(p.systems?.cv || ''),
+        resp: cleanPatientText(p.systems?.resp || ''),
+        renalGU: cleanPatientText(p.systems?.renalGU || ''),
+        gi: cleanPatientText(p.systems?.gi || ''),
+        endo: cleanPatientText(p.systems?.endo || ''),
+        heme: cleanPatientText(p.systems?.heme || ''),
+        infectious: cleanPatientText(p.systems?.infectious || ''),
+        skinLines: cleanPatientText(p.systems?.skinLines || ''),
+        dispo: cleanPatientText(p.systems?.dispo || ''),
+      },
+    }));
 
-    // POST-PROCESSING: Apply deduplication and ensure systems/medications structure
-    if (parsedData.patients && parsedData.patients.length > 0) {
-      // Step 1: Clean text within each patient's fields and ensure systems/medications structure
-      parsedData.patients = parsedData.patients.map(patient => {
-        const systems = patient.systems || {};
-        const medications = patient.medications || { infusions: [], scheduled: [], prn: [] };
-        return {
-          ...patient,
-          handoffSummary: cleanPatientText(patient.handoffSummary),
-          intervalEvents: cleanPatientText(patient.intervalEvents),
-          bedStatus: cleanPatientText(patient.bedStatus),
-          medications: {
-            infusions: medications.infusions || [],
-            scheduled: medications.scheduled || [],
-            prn: medications.prn || [],
-          },
-          systems: {
-            neuro: cleanPatientText(systems.neuro || ''),
-            cv: cleanPatientText(systems.cv || ''),
-            resp: cleanPatientText(systems.resp || ''),
-            renalGU: cleanPatientText(systems.renalGU || ''),
-            gi: cleanPatientText(systems.gi || ''),
-            endo: cleanPatientText(systems.endo || ''),
-            heme: cleanPatientText(systems.heme || ''),
-            infectious: cleanPatientText(systems.infectious || ''),
-            skinLines: cleanPatientText(systems.skinLines || ''),
-            dispo: cleanPatientText(systems.dispo || ''),
-          },
-        };
-      });
+    patients = deduplicatePatientsByBed(patients);
 
-      // Step 2: Deduplicate patients by bed number
-      parsedData.patients = deduplicatePatientsByBed(parsedData.patients);
-    }
-
-    console.log(`After deduplication: ${parsedData.patients?.length || 0} patients`);
+    console.log(`Successfully parsed ${patients.length} patients`);
 
     return new Response(
-      JSON.stringify({ success: true, data: parsedData }),
+      JSON.stringify({ success: true, patients }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
-    console.error("Parse handoff error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error in parse-handoff:", error);
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

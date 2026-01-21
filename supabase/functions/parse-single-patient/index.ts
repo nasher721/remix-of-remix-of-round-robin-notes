@@ -1,9 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+// Dynamic CORS configuration
+const ALLOWED_ORIGINS = [
+  'https://id-preview--ef738429-6422-423b-9027-a14e31e88b4d.lovable.app',
+  'https://ef738429-6422-423b-9027-a14e31e88b4d.lovableproject.com',
+];
+
+const isLovableOrigin = (origin: string): boolean => {
+  return /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(origin) ||
+         /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/.test(origin);
 };
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.includes(origin) || isLovableOrigin(origin);
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 interface PatientSystems {
   neuro: string;
@@ -43,17 +59,15 @@ function convertLineBreaks(text: string): string {
   if (!text) return '';
   
   return text
-    // Convert <BR> markers to actual newlines
     .replace(/<BR>/g, '\n')
-    // Also handle literal \n strings just in case
     .replace(/\\n/g, '\n')
-    // Normalize CRLF and CR to LF
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n');
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
+  const corsHeaders = getCorsHeaders(req);
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -82,53 +96,23 @@ serve(async (req) => {
 LINE BREAK RULE - THIS IS CRITICAL:
 Use <BR> to represent each line break from the original input.
 
-Example input:
-Line one
-Line two
-Line three
-
-Example output for a field: "Line one<BR>Line two<BR>Line three"
-
-If the input has text on separate lines, the output MUST have <BR> between them. NEVER merge lines into one continuous paragraph.
-
 CONTENT RULES:
 - Copy text EXACTLY as written
-- Do NOT move imaging/labs from system sections to separate imaging/labs fields
-- The "imaging" and "labs" fields should ONLY contain standalone imaging/labs sections
+- Do NOT move imaging/labs from system sections to separate fields
+- The "imaging" and "labs" fields should ONLY contain standalone sections
 
-MEDICATION CATEGORIZATION RULES:
-When extracting medications, categorize them into three buckets:
+MEDICATION CATEGORIZATION:
+1. INFUSIONS: "mcg/kg/min", "mg/hr", "units/hr", "mL/hr", "titrate", "gtt", "drip"
+2. PRN: "PRN", "as needed", "p.r.n."
+3. SCHEDULED: All other regular medications`;
 
-1. INFUSIONS: Any medication with these indicators:
-   - "mcg/kg/min", "mg/hr", "units/hr", "mL/hr"
-   - Keywords: "titrate", "gtt", "drip", "infusion", "continuous"
-   - Examples: Norepinephrine, Propofol drip, Insulin gtt, Heparin infusion
-
-2. PRN (As Needed): Any medication with:
-   - Keywords: "PRN", "as needed", "p.r.n.", "when", "if needed"
-   - Examples: Morphine PRN, Ondansetron as needed
-
-3. SCHEDULED: All other regular medications
-   - Includes: daily, BID, TID, QID, q6h, q8h, etc.
-
-MEDICATION FORMATTING RULES:
-- Capitalize the first letter of each drug name
-- Remove brand names if generic is known (keep just one name)
-- Remove suffixes like "sulfate", "HCl", "hydrochloride", "sodium" unless critical
-- Remove indication text like "for pain", "for blood pressure", "for nausea"
-- Use abbreviations: "mg" not "milligrams", "mcg" not "micrograms"
-- Keep dosing frequency: daily, BID, TID, q6h, q8h, etc.
-- For infusions, include the rate: "5 mcg/kg/min" or "10 units/hr"
-- Format: "DrugName Dose Route Frequency" (e.g., "Metoprolol 25 mg PO BID")`;
-
-    const userPrompt = `Organize these notes. Use <BR> for EVERY line break. Do NOT merge lines together.
+    const userPrompt = `Organize these notes. Use <BR> for EVERY line break.
 
 INPUT:
 ${content}`;
 
     console.log("Calling AI gateway for single patient parsing...");
 
-    // Use gemini-2.5-pro for better instruction following
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -170,17 +154,17 @@ ${content}`;
                   medicationsInfusions: { 
                     type: "array", 
                     items: { type: "string" },
-                    description: "Continuous infusion medications with rates (e.g., Norepinephrine 5 mcg/min)" 
+                    description: "Continuous infusion medications with rates" 
                   },
                   medicationsScheduled: { 
                     type: "array", 
                     items: { type: "string" },
-                    description: "Regularly scheduled medications (e.g., Metoprolol 25 mg PO BID)" 
+                    description: "Regularly scheduled medications" 
                   },
                   medicationsPrn: { 
                     type: "array", 
                     items: { type: "string" },
-                    description: "As-needed medications (e.g., Morphine 2 mg IV PRN)" 
+                    description: "As-needed medications" 
                   }
                 },
                 required: ["name", "bed", "clinicalSummary", "intervalEvents", "imaging", "labs", "neuro", "cv", "resp", "renalGU", "gi", "endo", "heme", "infectious", "skinLines", "dispo", "medicationsRaw", "medicationsInfusions", "medicationsScheduled", "medicationsPrn"],
@@ -219,23 +203,18 @@ ${content}`;
     const aiResponse = await response.json();
     
     console.log("AI response received, parsing...");
-    console.log("Full AI response:", JSON.stringify(aiResponse, null, 2));
 
     let parsedData: any;
     
-    // Check for tool call response
     const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
-      console.log("Tool call arguments raw:", toolCall.function.arguments);
       try {
         parsedData = JSON.parse(toolCall.function.arguments);
-        console.log("Parsed tool data neuro sample:", parsedData.neuro?.substring(0, 200));
       } catch (e) {
         console.error("Failed to parse tool call arguments:", e);
       }
     }
     
-    // Fallback to content parsing if tool call didn't work
     if (!parsedData) {
       let aiContent = aiResponse.choices?.[0]?.message?.content;
       if (!aiContent) {
@@ -246,7 +225,6 @@ ${content}`;
         );
       }
 
-      // Extract JSON from response
       let jsonStr = aiContent;
       const jsonMatch = aiContent.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
@@ -263,7 +241,6 @@ ${content}`;
         parsedData = JSON.parse(jsonStr);
       } catch (parseError) {
         console.error("JSON parse error:", parseError);
-        // Try to repair common JSON issues
         let repaired = jsonStr
           .replace(/,\s*}/g, '}')
           .replace(/,\s*]/g, ']')
@@ -282,7 +259,6 @@ ${content}`;
       }
     }
 
-    // Build the patient object - handle both flat structure (from tool call) and nested structure
     const parsedPatient: ParsedPatient = {
       name: parsedData.name || '',
       bed: parsedData.bed || '',
@@ -310,7 +286,6 @@ ${content}`;
       },
     };
 
-    // Convert literal \n to actual newlines
     const cleanedPatient: ParsedPatient = {
       name: convertLineBreaks(parsedPatient.name || '').trim(),
       bed: convertLineBreaks(parsedPatient.bed || '').trim(),
@@ -347,6 +322,7 @@ ${content}`;
 
   } catch (error) {
     console.error("Error in parse-single-patient:", error);
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -1,11 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Dynamic CORS configuration
+const ALLOWED_ORIGINS = [
+  'https://id-preview--ef738429-6422-423b-9027-a14e31e88b4d.lovable.app',
+  'https://ef738429-6422-423b-9027-a14e31e88b4d.lovableproject.com',
+];
+
+const isLovableOrigin = (origin: string): boolean => {
+  return /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(origin) ||
+         /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/.test(origin);
 };
 
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.includes(origin) || isLovableOrigin(origin);
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
+
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -22,7 +40,6 @@ serve(async (req) => {
     let contextData = "";
 
     if (section === "all") {
-      // Generate todos for entire patient
       contextData = `
 Patient Name: ${patientData.name || "Unknown"}
 Bed: ${patientData.bed || "N/A"}
@@ -34,7 +51,6 @@ Systems Review: ${JSON.stringify(patientData.systems || {}, null, 2)}
 `;
       prompt = `Based on this patient's complete information, generate a prioritized list of actionable to-do items for the care team. Focus on clinical tasks, follow-ups, pending orders, and important monitoring.`;
     } else {
-      // Generate todos for specific section
       const sectionNames: Record<string, string> = {
         clinical_summary: "Clinical Summary",
         interval_events: "Interval Events", 
@@ -120,17 +136,14 @@ Do not include explanations or markdown, just the JSON array.`
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "[]";
     
-    // Parse the JSON array from the response
     let todos: string[] = [];
     try {
-      // Try to extract JSON array from the response
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         todos = JSON.parse(jsonMatch[0]);
       }
     } catch (parseError) {
       console.error("Failed to parse todos:", parseError);
-      // If parsing fails, split by newlines and clean up
       todos = content
         .split('\n')
         .map((line: string) => line.replace(/^[-*•]\s*/, '').trim())
@@ -144,6 +157,7 @@ Do not include explanations or markdown, just the JSON array.`
 
   } catch (error) {
     console.error("Error generating todos:", error);
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

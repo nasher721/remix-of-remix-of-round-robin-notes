@@ -1,9 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// Dynamic CORS configuration
+const ALLOWED_ORIGINS = [
+  'https://id-preview--ef738429-6422-423b-9027-a14e31e88b4d.lovable.app',
+  'https://ef738429-6422-423b-9027-a14e31e88b4d.lovableproject.com',
+];
+
+const isLovableOrigin = (origin: string): boolean => {
+  return /^https:\/\/[a-z0-9-]+\.lovable\.app$/.test(origin) ||
+         /^https:\/\/[a-z0-9-]+\.lovableproject\.com$/.test(origin);
 };
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.includes(origin) || isLovableOrigin(origin);
+  
+  return {
+    'Access-Control-Allow-Origin': isAllowed ? origin : ALLOWED_ORIGINS[0],
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 // Process base64 in chunks to prevent memory issues
 function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Array {
@@ -39,18 +55,20 @@ function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Arra
 const MEDICAL_ENHANCEMENT_PROMPT = `You are a medical transcription assistant. Your task is to enhance and correct medical dictation.
 
 Rules:
-1. Fix medical terminology spelling (e.g., "die a bee tees" → "diabetes", "high per tension" → "hypertension")
-2. Expand common medical abbreviations when spoken (e.g., "bee pee" → "blood pressure", "see oh pee dee" → "COPD")
-3. Format vital signs properly (e.g., "blood pressure one twenty over eighty" → "BP 120/80")
-4. Format lab values properly (e.g., "hemoglobin of twelve point five" → "Hgb 12.5")
+1. Fix medical terminology spelling
+2. Expand common medical abbreviations when spoken
+3. Format vital signs properly
+4. Format lab values properly
 5. Use standard medical abbreviations where appropriate
-6. Preserve the clinical meaning exactly - do not add or remove medical information
-7. Keep formatting clean and readable for clinical documentation
+6. Preserve the clinical meaning exactly
+7. Keep formatting clean and readable
 8. If unsure about a term, keep the original transcription
 
 Return ONLY the corrected text, no explanations.`;
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -78,17 +96,12 @@ serve(async (req) => {
     formData.append('language', 'en');
     formData.append('prompt', 'Medical clinical documentation. Patient assessment, vital signs, medications, diagnoses, treatment plans.');
 
-    // Transcribe with Whisper via Lovable AI Gateway
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // First, transcribe using Whisper through OpenAI-compatible endpoint
-    // Since Lovable AI doesn't have Whisper, we'll use the chat model to process
-    // For now, we'll simulate with a direct transcription approach
-    
-    // Use Lovable AI for transcription enhancement
+    // Transcribe using Whisper through OpenAI
     const transcribeResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
@@ -99,20 +112,15 @@ serve(async (req) => {
 
     let rawTranscript = '';
     
-    // If OpenAI key is available, use Whisper
     if (transcribeResponse.ok) {
       const whisperResult = await transcribeResponse.json();
       rawTranscript = whisperResult.text;
       console.log('Whisper transcription:', rawTranscript);
     } else {
-      // Fallback: Use Lovable AI to process audio description
-      // This won't work for actual audio, so we need a different approach
-      console.log('Whisper not available, checking for alternative...');
-      
-      // For demo purposes, return an error asking for OpenAI key
+      console.log('Whisper not available');
       return new Response(
         JSON.stringify({ 
-          error: 'Audio transcription requires OPENAI_API_KEY secret to be configured for Whisper API access.',
+          error: 'Audio transcription service unavailable. Please configure the required API access.',
           needsApiKey: true 
         }),
         {
@@ -166,6 +174,7 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error('Transcription error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    const corsHeaders = getCorsHeaders(req);
     return new Response(
       JSON.stringify({ error: message }),
       {
