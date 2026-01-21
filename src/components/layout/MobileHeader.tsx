@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 
 interface MobileHeaderProps {
   title: string;
@@ -53,7 +54,7 @@ export const MobileHeader = ({
         ) : (
           <>
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <span className="text-2xl">🏥</span>
+              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-8 w-auto" />
               <div className="min-w-0">
                 <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
                 {subtitle && (
