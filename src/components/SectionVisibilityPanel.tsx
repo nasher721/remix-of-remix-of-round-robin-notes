@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -32,23 +33,23 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 export const SectionVisibilityPanel = () => {
   const { sectionVisibility, setSectionVisibility, resetSectionVisibility } = useSettings();
 
-  const toggleSection = (key: ClinicalSectionKey) => {
+  const toggleSection = React.useCallback((key: ClinicalSectionKey) => {
     setSectionVisibility({
       ...sectionVisibility,
       [key]: !sectionVisibility[key],
     });
-  };
+  }, [sectionVisibility, setSectionVisibility]);
 
   const allVisible = Object.values(sectionVisibility).every(Boolean);
   const noneVisible = Object.values(sectionVisibility).every(v => !v);
 
-  const toggleAll = () => {
+  const toggleAll = React.useCallback(() => {
     const newValue = !allVisible;
     const newVisibility = Object.fromEntries(
       CLINICAL_SECTIONS.map(s => [s.key, newValue])
     ) as typeof sectionVisibility;
     setSectionVisibility(newVisibility);
-  };
+  }, [allVisible, setSectionVisibility]);
 
   const visibleCount = Object.values(sectionVisibility).filter(Boolean).length;
 
