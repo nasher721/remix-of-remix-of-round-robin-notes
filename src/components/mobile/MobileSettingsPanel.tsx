@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -13,7 +13,6 @@ import {
 import {
   Type,
   ArrowUpDown,
-  Palette,
   LogOut,
   Printer,
   Trash2,
@@ -22,7 +21,24 @@ import {
   ListTodo,
   FileText,
   TestTube,
+  Eye,
+  Calendar,
+  ImageIcon,
+  Pill,
+  Activity,
+  RotateCcw,
 } from "lucide-react";
+import { useSettings } from "@/contexts/SettingsContext";
+import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  FileText,
+  Calendar,
+  ImageIcon,
+  TestTube,
+  Pill,
+  Activity,
+};
 
 interface MobileSettingsPanelProps {
   globalFontSize: number;
@@ -75,6 +91,15 @@ export const MobileSettingsPanel = ({
   showLabFishbones = true,
   onShowLabFishbonesChange,
 }: MobileSettingsPanelProps) => {
+  const { sectionVisibility, setSectionVisibility, resetSectionVisibility } = useSettings();
+
+  const toggleSection = (key: ClinicalSectionKey) => {
+    setSectionVisibility({
+      ...sectionVisibility,
+      [key]: !sectionVisibility[key],
+    });
+  };
+
   return (
     <div className="p-4 space-y-4 pb-24">
       <h2 className="text-xl font-semibold mb-2">Settings</h2>
@@ -156,6 +181,48 @@ export const MobileSettingsPanel = ({
         <p className="text-xs text-muted-foreground mt-2">
           Show BMP/CBC in graphical fishbone format
         </p>
+      </Card>
+
+      {/* Section Visibility */}
+      <Card className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Eye className="h-4 w-4" />
+            Section Visibility
+          </h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetSectionVisibility}
+            className="h-7 px-2 text-xs text-muted-foreground"
+          >
+            <RotateCcw className="h-3 w-3 mr-1" />
+            Reset
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Toggle which clinical sections are visible for all patients.
+        </p>
+        <div className="space-y-3">
+          {CLINICAL_SECTIONS.map((section) => {
+            const IconComponent = iconMap[section.icon];
+            return (
+              <div key={section.key} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {IconComponent && <IconComponent className="h-4 w-4 text-muted-foreground" />}
+                  <Label htmlFor={`mobile-${section.key}`} className="text-sm cursor-pointer">
+                    {section.label}
+                  </Label>
+                </div>
+                <Switch
+                  id={`mobile-${section.key}`}
+                  checked={sectionVisibility[section.key]}
+                  onCheckedChange={() => toggleSection(section.key)}
+                />
+              </div>
+            );
+          })}
+        </div>
       </Card>
 
       {/* Change Tracking */}

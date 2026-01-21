@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
   TODOS_ALWAYS_VISIBLE: 'todosAlwaysVisible',
   PATIENT_SORT_BY: 'patientSortBy',
   SHOW_LAB_FISHBONES: 'showLabFishbones',
+  SECTION_VISIBILITY: 'sectionVisibility',
   
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
@@ -18,6 +19,29 @@ export const STORAGE_KEYS = {
   PRINT_ORIENTATION: 'printOrientation',
   PRINT_CUSTOM_PRESETS: 'printCustomPresets',
 } as const;
+
+// Clinical section keys for visibility toggles
+export const CLINICAL_SECTIONS = [
+  { key: 'clinicalSummary', label: 'Clinical Summary', icon: 'FileText' },
+  { key: 'intervalEvents', label: 'Interval Events', icon: 'Calendar' },
+  { key: 'imaging', label: 'Imaging', icon: 'ImageIcon' },
+  { key: 'labs', label: 'Labs', icon: 'TestTube' },
+  { key: 'medications', label: 'Medications', icon: 'Pill' },
+  { key: 'systemsReview', label: 'Systems Review', icon: 'Activity' },
+] as const;
+
+export type ClinicalSectionKey = typeof CLINICAL_SECTIONS[number]['key'];
+
+export type SectionVisibility = Record<ClinicalSectionKey, boolean>;
+
+export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
+  clinicalSummary: true,
+  intervalEvents: true,
+  imaging: true,
+  labs: true,
+  medications: true,
+  systemsReview: true,
+};
 
 // Default configuration values
 export const DEFAULT_CONFIG = {

@@ -10,6 +10,7 @@ import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
 import { PhraseManager } from "@/components/phrases";
+import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -338,6 +339,9 @@ export const DesktopDashboard = ({
             </div>
             <span className="text-xs font-mono text-muted-foreground w-8">{globalFontSize}px</span>
           </div>
+
+          {/* Section Visibility Panel */}
+          <SectionVisibilityPanel />
 
           {/* Todos Always Visible Toggle */}
           <Button
