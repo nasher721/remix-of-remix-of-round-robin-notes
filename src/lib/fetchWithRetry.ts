@@ -16,6 +16,23 @@ const DEFAULT_OPTIONS: Required<RetryOptions> = {
 };
 
 /**
+ * Check if an error is a network-related error that can be retried
+ */
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('failed to fetch') ||
+      message.includes('networkerror') ||
+      message.includes('net::err_') ||
+      message.includes('network request failed') ||
+      message.includes('load failed')
+    );
+  }
+  return false;
+}
+
+/**
  * Wraps a fetch-like function with retry logic using exponential backoff
  */
 export async function withRetry<T>(
@@ -23,23 +40,17 @@ export async function withRetry<T>(
   options: RetryOptions = {}
 ): Promise<T> {
   const { maxRetries, baseDelay, maxDelay } = { ...DEFAULT_OPTIONS, ...options };
-  let lastError: Error | null = null;
+  let lastError: unknown = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
+      lastError = error;
       
-      // Check if it's a network error that we should retry
-      const isNetworkError = 
-        lastError.message.includes('Failed to fetch') ||
-        lastError.message.includes('NetworkError') ||
-        lastError.message.includes('net::ERR_');
-
       // Don't retry if it's not a network error or if we've exhausted retries
-      if (!isNetworkError || attempt >= maxRetries) {
-        throw lastError;
+      if (!isRetryableError(error) || attempt >= maxRetries) {
+        throw error; // Throw the original error, not a wrapped one
       }
 
       // Calculate delay with exponential backoff and jitter

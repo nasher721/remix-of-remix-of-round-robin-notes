@@ -5,7 +5,6 @@ import { useToast } from "./use-toast";
 import type { Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
 import { parseSystemsJson, parseFieldTimestampsJson, parseMedicationsJson, prepareUpdateData } from "@/lib/mappers/patientMapper";
 import type { Json } from "@/integrations/supabase/types";
-import { withRetry } from "@/lib/fetchWithRetry";
 
 const UNKNOWN_COLUMN_CODES = new Set(["42703", "PGRST204"]);
 const MISSING_COLUMN_PATTERNS = [
@@ -85,15 +84,13 @@ export const usePatients = () => {
     }
 
     try {
-      const { data, error } = await withRetry(async () => {
-        const result = await supabase
-          .from("patients")
-          .select("*")
-          .order("patient_number", { ascending: true });
+      const result = await supabase
+        .from("patients")
+        .select("*")
+        .order("patient_number", { ascending: true });
         
-        if (result.error) throw result.error;
-        return result;
-      }, { maxRetries: 3, baseDelay: 1000 });
+      if (result.error) throw result.error;
+      const data = result.data;
 
       const formattedPatients: Patient[] = (data || []).map((p) => ({
         id: p.id,
@@ -149,30 +146,27 @@ export const usePatients = () => {
     let attemptPayload: Record<string, unknown> = { ...payload };
     let lastError: unknown;
 
-    // Wrap the entire insert logic with retry for network failures
-    return await withRetry(async () => {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const { data, error } = await supabase
-          .from("patients")
-          .insert([attemptPayload as typeof payload])
-          .select()
-          .single();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error } = await supabase
+        .from("patients")
+        .insert([attemptPayload as typeof payload])
+        .select()
+        .single();
 
-        if (!error) {
-          return data;
-        }
-
-        lastError = error;
-        const nextPayload = stripMissingColumn(attemptPayload, error);
-        if (!nextPayload) {
-          throw error;
-        }
-
-        attemptPayload = nextPayload;
+      if (!error) {
+        return data;
       }
 
-      throw lastError;
-    }, { maxRetries: 3, baseDelay: 1000 });
+      lastError = error;
+      const nextPayload = stripMissingColumn(attemptPayload, error);
+      if (!nextPayload) {
+        throw error;
+      }
+
+      attemptPayload = nextPayload;
+    }
+
+    throw lastError;
   }, []);
 
   const updatePatientRow = useCallback(async (id: string, payload: Record<string, unknown>) => {
