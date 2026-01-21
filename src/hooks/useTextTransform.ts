@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
@@ -16,12 +16,12 @@ const CUSTOM_PROMPTS_KEY = 'ai-custom-prompts';
 
 export const useTextTransform = () => {
   const { user } = useAuth();
-  const [isTransforming, setIsTransforming] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const initialSyncDone = useRef(false);
+  const [isTransforming, setIsTransforming] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
+  const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const initialSyncDone = React.useRef(false);
 
-  const [customPrompts, setCustomPrompts] = useState<CustomPrompt[]>(() => {
+  const [customPrompts, setCustomPrompts] = React.useState<CustomPrompt[]>(() => {
     try {
       const stored = localStorage.getItem(CUSTOM_PROMPTS_KEY);
       return stored ? JSON.parse(stored) : [];
@@ -31,7 +31,7 @@ export const useTextTransform = () => {
   });
 
   // Sync custom prompts to database
-  const syncPromptsToDb = useCallback(async (prompts: CustomPrompt[]) => {
+  const syncPromptsToDb = React.useCallback(async (prompts: CustomPrompt[]) => {
     if (!user) return;
 
     try {
@@ -60,7 +60,7 @@ export const useTextTransform = () => {
   }, [user]);
 
   // Load prompts from database on login
-  useEffect(() => {
+  React.useEffect(() => {
     const loadFromDb = async () => {
       if (!user || initialSyncDone.current) return;
 
@@ -103,13 +103,13 @@ export const useTextTransform = () => {
   }, [user]);
 
   // Reset sync flag on logout
-  useEffect(() => {
+  React.useEffect(() => {
     if (!user) {
       initialSyncDone.current = false;
     }
   }, [user]);
 
-  const saveCustomPrompts = useCallback((prompts: CustomPrompt[]) => {
+  const saveCustomPrompts = React.useCallback((prompts: CustomPrompt[]) => {
     setCustomPrompts(prompts);
     localStorage.setItem(CUSTOM_PROMPTS_KEY, JSON.stringify(prompts));
     
@@ -127,7 +127,7 @@ export const useTextTransform = () => {
     }
   }, [user, syncPromptsToDb]);
 
-  const addCustomPrompt = useCallback((name: string, prompt: string) => {
+  const addCustomPrompt = React.useCallback((name: string, prompt: string) => {
     const newPrompt: CustomPrompt = {
       id: crypto.randomUUID(),
       name,
@@ -138,12 +138,12 @@ export const useTextTransform = () => {
     return newPrompt;
   }, [customPrompts, saveCustomPrompts]);
 
-  const removeCustomPrompt = useCallback((id: string) => {
+  const removeCustomPrompt = React.useCallback((id: string) => {
     saveCustomPrompts(customPrompts.filter(p => p.id !== id));
     toast.success('Prompt deleted');
   }, [customPrompts, saveCustomPrompts]);
 
-  const transformText = useCallback(async (
+  const transformText = React.useCallback(async (
     text: string,
     transformType: TransformType,
     customPrompt?: string
