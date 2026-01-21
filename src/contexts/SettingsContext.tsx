@@ -1,6 +1,8 @@
 import * as React from 'react';
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, type SectionVisibility } from '@/constants/config';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 export type SortBy = 'number' | 'room' | 'name';
 
@@ -25,6 +27,9 @@ interface SettingsContextType {
   sectionVisibility: SectionVisibility;
   setSectionVisibility: (visibility: SectionVisibility) => void;
   resetSectionVisibility: () => void;
+  
+  // Sync status
+  isSyncingSettings: boolean;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -34,6 +39,11 @@ interface SettingsProviderProps {
 }
 
 export const SettingsProvider = ({ children }: SettingsProviderProps) => {
+  const { user } = useAuth();
+  const [isSyncingSettings, setIsSyncingSettings] = useState(false);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialSyncDone = useRef(false);
+
   const [globalFontSize, setGlobalFontSizeState] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_FONT_SIZE);
     return saved ? parseInt(saved, 10) : DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
@@ -50,7 +60,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
 
   const [showLabFishbones, setShowLabFishbonesState] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SHOW_LAB_FISHBONES);
-    return saved !== null ? saved === 'true' : true; // Default to true
+    return saved !== null ? saved === 'true' : true;
   });
 
   const [sectionVisibility, setSectionVisibilityState] = useState<SectionVisibility>(() => {
@@ -64,6 +74,78 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     }
     return DEFAULT_SECTION_VISIBILITY;
   });
+
+  // Sync section visibility to database with debounce
+  const syncSectionVisibilityToDb = useCallback(async (visibility: SectionVisibility) => {
+    if (!user) return;
+
+    try {
+      const { data: existing } = await supabase
+        .from('user_settings')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('user_settings')
+          .update({ section_visibility: visibility })
+          .eq('user_id', user.id);
+      } else {
+        await supabase
+          .from('user_settings')
+          .insert({ user_id: user.id, section_visibility: visibility });
+      }
+    } catch (err) {
+      console.error('Failed to sync section visibility:', err);
+    }
+  }, [user]);
+
+  // Load settings from database on login
+  useEffect(() => {
+    const loadFromDb = async () => {
+      if (!user || initialSyncDone.current) return;
+
+      try {
+        const { data } = await supabase
+          .from('user_settings')
+          .select('section_visibility')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (data?.section_visibility) {
+          const dbVisibility = data.section_visibility as unknown as SectionVisibility;
+          setSectionVisibilityState(dbVisibility);
+          localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(dbVisibility));
+        } else {
+          // No DB settings, sync current local storage to DB
+          const localVisibility = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
+          if (localVisibility) {
+            try {
+              const parsed = JSON.parse(localVisibility);
+              await supabase
+                .from('user_settings')
+                .insert({ user_id: user.id, section_visibility: parsed });
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+        initialSyncDone.current = true;
+      } catch (err) {
+        console.error('Failed to load settings from DB:', err);
+      }
+    };
+
+    loadFromDb();
+  }, [user]);
+
+  // Reset sync flag on logout
+  useEffect(() => {
+    if (!user) {
+      initialSyncDone.current = false;
+    }
+  }, [user]);
 
   // Persist font size
   useEffect(() => {
@@ -85,10 +167,23 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(showLabFishbones));
   }, [showLabFishbones]);
 
-  // Persist section visibility
+  // Persist section visibility to local storage and sync to DB with debounce
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
-  }, [sectionVisibility]);
+    
+    // Debounce DB sync to avoid too many requests
+    if (user && initialSyncDone.current) {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      setIsSyncingSettings(true);
+      syncTimeoutRef.current = setTimeout(() => {
+        syncSectionVisibilityToDb(sectionVisibility).finally(() => {
+          setIsSyncingSettings(false);
+        });
+      }, 1000);
+    }
+  }, [sectionVisibility, user, syncSectionVisibilityToDb]);
 
   const setGlobalFontSize = useCallback((size: number) => {
     setGlobalFontSizeState(size);
@@ -126,6 +221,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     sectionVisibility,
     setSectionVisibility,
     resetSectionVisibility,
+    isSyncingSettings,
   };
 
   return (
