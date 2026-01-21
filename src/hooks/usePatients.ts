@@ -5,6 +5,7 @@ import { useToast } from "./use-toast";
 import type { Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
 import { parseSystemsJson, parseFieldTimestampsJson, parseMedicationsJson, prepareUpdateData } from "@/lib/mappers/patientMapper";
 import type { Json } from "@/integrations/supabase/types";
+import { withRetry } from "@/lib/fetchWithRetry";
 
 const UNKNOWN_COLUMN_CODES = new Set(["42703", "PGRST204"]);
 const MISSING_COLUMN_PATTERNS = [
@@ -75,7 +76,7 @@ export const usePatients = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch patients from database
+  // Fetch patients from database with retry logic
   const fetchPatients = useCallback(async () => {
     if (!user) {
       setPatients([]);
@@ -84,12 +85,15 @@ export const usePatients = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from("patients")
-        .select("*")
-        .order("patient_number", { ascending: true });
-
-      if (error) throw error;
+      const { data, error } = await withRetry(async () => {
+        const result = await supabase
+          .from("patients")
+          .select("*")
+          .order("patient_number", { ascending: true });
+        
+        if (result.error) throw result.error;
+        return result;
+      }, { maxRetries: 3, baseDelay: 1000 });
 
       const formattedPatients: Patient[] = (data || []).map((p) => ({
         id: p.id,
@@ -117,7 +121,7 @@ export const usePatients = () => {
       console.error("Error fetching patients:", error);
       toast({
         title: "Error",
-        description: "Failed to load patients.",
+        description: "Failed to load patients. Please check your connection and try again.",
         variant: "destructive",
       });
     } finally {
@@ -145,27 +149,30 @@ export const usePatients = () => {
     let attemptPayload: Record<string, unknown> = { ...payload };
     let lastError: unknown;
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { data, error } = await supabase
-        .from("patients")
-        .insert([attemptPayload as typeof payload])
-        .select()
-        .single();
+    // Wrap the entire insert logic with retry for network failures
+    return await withRetry(async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const { data, error } = await supabase
+          .from("patients")
+          .insert([attemptPayload as typeof payload])
+          .select()
+          .single();
 
-      if (!error) {
-        return data;
+        if (!error) {
+          return data;
+        }
+
+        lastError = error;
+        const nextPayload = stripMissingColumn(attemptPayload, error);
+        if (!nextPayload) {
+          throw error;
+        }
+
+        attemptPayload = nextPayload;
       }
 
-      lastError = error;
-      const nextPayload = stripMissingColumn(attemptPayload, error);
-      if (!nextPayload) {
-        throw error;
-      }
-
-      attemptPayload = nextPayload;
-    }
-
-    throw lastError;
+      throw lastError;
+    }, { maxRetries: 3, baseDelay: 1000 });
   }, []);
 
   const updatePatientRow = useCallback(async (id: string, payload: Record<string, unknown>) => {

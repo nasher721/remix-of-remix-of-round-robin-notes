@@ -4,6 +4,7 @@ import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
 import { defaultAutotexts, defaultTemplates } from "@/data/autotexts";
 import type { AutoText, Template } from "@/types/autotext";
+import { withRetry } from "@/lib/fetchWithRetry";
 
 export const useCloudAutotexts = () => {
   const [autotexts, setAutotexts] = useState<AutoText[]>(defaultAutotexts);
@@ -12,7 +13,7 @@ export const useCloudAutotexts = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch custom autotexts and templates from database
+  // Fetch custom autotexts and templates from database with retry logic
   const fetchData = useCallback(async () => {
     if (!user) {
       setAutotexts(defaultAutotexts);
@@ -22,13 +23,17 @@ export const useCloudAutotexts = () => {
     }
 
     try {
-      const [autotextsRes, templatesRes] = await Promise.all([
-        supabase.from("autotexts").select("*"),
-        supabase.from("templates").select("*"),
-      ]);
-
-      if (autotextsRes.error) throw autotextsRes.error;
-      if (templatesRes.error) throw templatesRes.error;
+      const [autotextsRes, templatesRes] = await withRetry(async () => {
+        const results = await Promise.all([
+          supabase.from("autotexts").select("*"),
+          supabase.from("templates").select("*"),
+        ]);
+        
+        if (results[0].error) throw results[0].error;
+        if (results[1].error) throw results[1].error;
+        
+        return results;
+      }, { maxRetries: 3, baseDelay: 1000 });
 
       // Merge custom autotexts with defaults
       const customAutotexts: AutoText[] = (autotextsRes.data || []).map((a) => ({
@@ -56,6 +61,7 @@ export const useCloudAutotexts = () => {
       setTemplates([...defaultTemplates, ...customTemplates]);
     } catch (error) {
       console.error("Error fetching autotexts:", error);
+      // Don't show toast on initial load failures, just use defaults
     } finally {
       setLoading(false);
     }

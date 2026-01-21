@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { withRetry } from '@/lib/fetchWithRetry';
 import type { 
   ClinicalPhrase, 
   PhraseField, 
@@ -79,7 +80,7 @@ export const useClinicalPhrases = () => {
   const [folders, setFolders] = useState<PhraseFolder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch all phrases and folders
+  // Fetch all phrases and folders with retry logic
   const fetchData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -90,13 +91,18 @@ export const useClinicalPhrases = () => {
         return;
       }
 
-      const [phrasesRes, foldersRes] = await Promise.all([
-        supabase.from('clinical_phrases').select('*').order('name'),
-        supabase.from('phrase_folders').select('*').order('sort_order'),
-      ]);
+      const [phrasesRes, foldersRes] = await withRetry(async () => {
+        const results = await Promise.all([
+          supabase.from('clinical_phrases').select('*').order('name'),
+          supabase.from('phrase_folders').select('*').order('sort_order'),
+        ]);
+        
+        if (results[0].error) throw results[0].error;
+        if (results[1].error) throw results[1].error;
+        
+        return results;
+      }, { maxRetries: 3, baseDelay: 1000 });
 
-      if (phrasesRes.error) throw phrasesRes.error;
-      if (foldersRes.error) throw foldersRes.error;
 
       setPhrases((phrasesRes.data || []).map(mapPhrase));
       setFolders((foldersRes.data || []).map(mapFolder));
