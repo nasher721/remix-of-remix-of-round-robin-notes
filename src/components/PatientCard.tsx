@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X } from "lucide-react";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser } from "lucide-react";
 import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
@@ -76,6 +76,15 @@ export const PatientCard = ({
   const clearSection = (field: string) => {
     if (confirm('Clear this section?')) {
       onUpdate(patient.id, field, '');
+    }
+  };
+
+  const clearAllSystems = () => {
+    if (confirm('Clear ALL systems review data? This cannot be undone.')) {
+      // Clear each enabled system
+      enabledSystems.forEach((system) => {
+        onUpdate(patient.id, `systems.${system.key}`, '');
+      });
     }
   };
 
@@ -441,16 +450,28 @@ export const PatientCard = ({
                 <span className="text-primary text-sm">⚕️</span>
                 <h3 className="text-sm font-medium">Systems Review</h3>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSystemsConfig(true)}
-                className="h-7 px-2 text-muted-foreground hover:text-foreground no-print"
-                title="Customize systems"
-              >
-                <Settings2 className="h-3.5 w-3.5 mr-1" />
-                <span className="text-xs">Customize</span>
-              </Button>
+              <div className="flex gap-1 no-print">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllSystems}
+                  className="h-7 px-2 text-muted-foreground hover:text-destructive"
+                  title="Clear all systems"
+                >
+                  <Eraser className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Clear All</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSystemsConfig(true)}
+                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                  title="Customize systems"
+                >
+                  <Settings2 className="h-3.5 w-3.5 mr-1" />
+                  <span className="text-xs">Customize</span>
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {enabledSystems.map((system) => (

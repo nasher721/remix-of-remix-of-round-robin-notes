@@ -23,7 +23,8 @@ import {
   Printer,
   Sparkles,
   Loader2,
-  History
+  History,
+  Eraser
 } from "lucide-react";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import {
@@ -112,6 +113,14 @@ export const MobilePatientDetail = ({
     onBack();
   };
 
+  const clearAllSystems = () => {
+    if (confirm('Clear ALL systems review data? This cannot be undone.')) {
+      enabledSystems.forEach((system) => {
+        onUpdate(patient.id, `systems.${system.key}`, '');
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
@@ -148,6 +157,10 @@ export const MobilePatientDetail = ({
                 Duplicate Patient
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={clearAllSystems} className="text-orange-600">
+                <Eraser className="h-4 w-4 mr-2" />
+                Clear Systems Review
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleRemove} className="text-destructive">
                 <Trash2 className="h-4 w-4 mr-2" />
                 Remove Patient
@@ -432,6 +445,17 @@ export const MobilePatientDetail = ({
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
+            <div className="flex justify-end mb-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearAllSystems}
+                className="h-7 text-xs text-muted-foreground hover:text-destructive"
+              >
+                <Eraser className="h-3 w-3 mr-1" />
+                Clear All Systems
+              </Button>
+            </div>
             <div className="space-y-3">
               {enabledSystems.map((system) => (
                 <div key={system.key} className="rounded-lg p-3 border border-border/50 bg-secondary/30">
