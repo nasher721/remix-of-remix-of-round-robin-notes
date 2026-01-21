@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
@@ -106,14 +106,14 @@ export const DesktopDashboard = ({
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
   const changeTracking = useChangeTracking();
   
-  const [showPrintModal, setShowPrintModal] = useState(false);
-  const [showPhraseManager, setShowPhraseManager] = useState(false);
+  const [showPrintModal, setShowPrintModal] = React.useState(false);
+  const [showPhraseManager, setShowPhraseManager] = React.useState(false);
 
-  const handlePrint = useCallback(() => {
+  const handlePrint = React.useCallback(() => {
     setShowPrintModal(true);
   }, []);
 
-  const handleExport = useCallback(() => {
+  const handleExport = React.useCallback(() => {
     const exportData = patients.map(p => ({
       name: p.name,
       bed: p.bed,
@@ -134,7 +134,7 @@ export const DesktopDashboard = ({
   }, [patients]);
 
 
-  const handleClearAll = useCallback(() => {
+  const handleClearAll = React.useCallback(() => {
     if (confirm('Clear all patients? This cannot be undone.')) {
       onClearAll();
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { 
@@ -75,12 +75,12 @@ const mapVersion = (row: Record<string, unknown>): PhraseVersion => ({
 });
 
 export const useClinicalPhrases = () => {
-  const [phrases, setPhrases] = useState<ClinicalPhrase[]>([]);
-  const [folders, setFolders] = useState<PhraseFolder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [phrases, setPhrases] = React.useState<ClinicalPhrase[]>([]);
+  const [folders, setFolders] = React.useState<PhraseFolder[]>([]);
+  const [loading, setLoading] = React.useState(true);
 
   // Fetch all phrases and folders
-  const fetchData = useCallback(async () => {
+  const fetchData = React.useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -108,22 +108,22 @@ export const useClinicalPhrases = () => {
     }
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   // Get phrase by shortcut (for autotext expansion)
-  const getPhraseByShortcut = useCallback((shortcut: string): ClinicalPhrase | undefined => {
+  const getPhraseByShortcut = React.useCallback((shortcut: string): ClinicalPhrase | undefined => {
     return phrases.find(p => p.shortcut === shortcut && p.isActive);
   }, [phrases]);
 
   // Get phrase by hotkey
-  const getPhraseByHotkey = useCallback((hotkey: string): ClinicalPhrase | undefined => {
+  const getPhraseByHotkey = React.useCallback((hotkey: string): ClinicalPhrase | undefined => {
     return phrases.find(p => p.hotkey === hotkey && p.isActive);
   }, [phrases]);
 
   // Get phrases matching context
-  const getPhrasesByContext = useCallback((context: {
+  const getPhrasesByContext = React.useCallback((context: {
     noteType?: string;
     section?: string;
     timeOfDay?: 'morning' | 'afternoon' | 'evening';
@@ -145,7 +145,7 @@ export const useClinicalPhrases = () => {
   }, [phrases]);
 
   // Create a new phrase
-  const createPhrase = useCallback(async (phrase: Omit<ClinicalPhrase, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'usageCount' | 'version'>): Promise<ClinicalPhrase | null> => {
+  const createPhrase = React.useCallback(async (phrase: Omit<ClinicalPhrase, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'usageCount' | 'version'>): Promise<ClinicalPhrase | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -184,7 +184,7 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Update a phrase
-  const updatePhrase = useCallback(async (
+  const updatePhrase = React.useCallback(async (
     id: string, 
     updates: Partial<ClinicalPhrase>,
     saveVersion = true
@@ -241,7 +241,7 @@ export const useClinicalPhrases = () => {
   }, [phrases]);
 
   // Delete a phrase
-  const deletePhrase = useCallback(async (id: string): Promise<boolean> => {
+  const deletePhrase = React.useCallback(async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('clinical_phrases')
@@ -261,7 +261,7 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Get fields for a phrase
-  const getPhraseFields = useCallback(async (phraseId: string): Promise<PhraseField[]> => {
+  const getPhraseFields = React.useCallback(async (phraseId: string): Promise<PhraseField[]> => {
     try {
       const { data, error } = await supabase
         .from('phrase_fields')
@@ -278,7 +278,7 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Add field to phrase
-  const addPhraseField = useCallback(async (field: Omit<PhraseField, 'id' | 'createdAt'>): Promise<PhraseField | null> => {
+  const addPhraseField = React.useCallback(async (field: Omit<PhraseField, 'id' | 'createdAt'>): Promise<PhraseField | null> => {
     try {
       const { data, error } = await supabase
         .from('phrase_fields')
@@ -308,7 +308,7 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Update field
-  const updatePhraseField = useCallback(async (id: string, updates: Partial<PhraseField>): Promise<boolean> => {
+  const updatePhraseField = React.useCallback(async (id: string, updates: Partial<PhraseField>): Promise<boolean> => {
     try {
       const dbUpdates: Record<string, unknown> = {};
       if (updates.fieldKey !== undefined) dbUpdates.field_key = updates.fieldKey;
@@ -336,7 +336,7 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Delete field
-  const deletePhraseField = useCallback(async (id: string): Promise<boolean> => {
+  const deletePhraseField = React.useCallback(async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('phrase_fields')
@@ -352,7 +352,7 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Get version history
-  const getPhraseVersions = useCallback(async (phraseId: string): Promise<PhraseVersion[]> => {
+  const getPhraseVersions = React.useCallback(async (phraseId: string): Promise<PhraseVersion[]> => {
     try {
       const { data, error } = await supabase
         .from('phrase_versions')
@@ -369,14 +369,14 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Restore to a version
-  const restoreVersion = useCallback(async (phraseId: string, version: PhraseVersion): Promise<boolean> => {
+  const restoreVersion = React.useCallback(async (phraseId: string, version: PhraseVersion): Promise<boolean> => {
     return updatePhrase(phraseId, {
       content: version.content,
     });
   }, [updatePhrase]);
 
   // Log phrase usage
-  const logUsage = useCallback(async (
+  const logUsage = React.useCallback(async (
     phraseId: string,
     patientId?: string,
     targetField?: string,
@@ -418,7 +418,7 @@ export const useClinicalPhrases = () => {
   }, [phrases]);
 
   // Folder operations
-  const createFolder = useCallback(async (folder: Omit<PhraseFolder, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<PhraseFolder | null> => {
+  const createFolder = React.useCallback(async (folder: Omit<PhraseFolder, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<PhraseFolder | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
@@ -451,7 +451,7 @@ export const useClinicalPhrases = () => {
     }
   }, []);
 
-  const updateFolder = useCallback(async (id: string, updates: Partial<PhraseFolder>): Promise<boolean> => {
+  const updateFolder = React.useCallback(async (id: string, updates: Partial<PhraseFolder>): Promise<boolean> => {
     try {
       const dbUpdates: Record<string, unknown> = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
@@ -476,7 +476,7 @@ export const useClinicalPhrases = () => {
     }
   }, []);
 
-  const deleteFolder = useCallback(async (id: string): Promise<boolean> => {
+  const deleteFolder = React.useCallback(async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('phrase_folders')
@@ -496,7 +496,7 @@ export const useClinicalPhrases = () => {
   }, []);
 
   // Build folder tree
-  const getFolderTree = useCallback((): PhraseFolder[] => {
+  const getFolderTree = React.useCallback((): PhraseFolder[] => {
     const map = new Map<string, PhraseFolder>();
     const roots: PhraseFolder[] = [];
 

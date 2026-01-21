@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import * as React from 'react';
 import { Wand2, ChevronDown, ChevronUp, Droplets, Clock, Pill, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,8 +39,8 @@ const categoryConfig = {
 };
 
 function MedicationListComponent({ medications, onMedicationsChange, readOnly = false }: MedicationListProps) {
-  const [showRaw, setShowRaw] = useState(false);
-  const [rawInput, setRawInput] = useState(medications.rawText || '');
+  const [showRaw, setShowRaw] = React.useState(false);
+  const [rawInput, setRawInput] = React.useState(medications.rawText || '');
   const { formatMedications, isFormatting } = useMedicationFormat();
 
   const hasStructuredMeds = 
@@ -204,4 +204,4 @@ function MedicationListComponent({ medications, onMedicationsChange, readOnly = 
   );
 }
 
-export const MedicationList = memo(MedicationListComponent);
+export const MedicationList = React.memo(MedicationListComponent);
