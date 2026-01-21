@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter, HighlighterIcon,
@@ -62,16 +62,16 @@ export const RichTextEditor = ({
   patient,
   section
 }: RichTextEditorProps) => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const fontSizeRef = useRef(fontSize);
-  const [showAutocomplete, setShowAutocomplete] = useState(false);
-  const [autocompleteOptions, setAutocompleteOptions] = useState<{shortcut: string; expansion: string}[]>([]);
-  const [autocompletePosition, setAutocompletePosition] = useState({ top: 0, left: 0 });
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const lastWordRef = useRef("");
-  const isInternalUpdate = useRef(false);
+  const editorRef = React.useRef<HTMLDivElement>(null);
+  const fontSizeRef = React.useRef(fontSize);
+  const [showAutocomplete, setShowAutocomplete] = React.useState(false);
+  const [autocompleteOptions, setAutocompleteOptions] = React.useState<{shortcut: string; expansion: string}[]>([]);
+  const [autocompletePosition, setAutocompletePosition] = React.useState({ top: 0, left: 0 });
+  const [selectedIndex, setSelectedIndex] = React.useState(0);
+  const lastWordRef = React.useRef("");
+  const isInternalUpdate = React.useRef(false);
   // Per-editor toggle: null means follow global setting, false means disabled for this editor
-  const [localMarkingDisabled, setLocalMarkingDisabled] = useState(false);
+  const [localMarkingDisabled, setLocalMarkingDisabled] = React.useState(false);
   
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
@@ -80,7 +80,7 @@ export const RichTextEditor = ({
   const { folders } = useClinicalPhrases();
   
   // Insert phrase content handler
-  const insertPhraseContent = useCallback((content: string) => {
+  const insertPhraseContent = React.useCallback((content: string) => {
     if (!editorRef.current) return;
     
     const selection = window.getSelection();
@@ -131,7 +131,7 @@ export const RichTextEditor = ({
   });
 
   // Handle dictation transcript insertion
-  const handleDictationTranscript = useCallback((text: string) => {
+  const handleDictationTranscript = React.useCallback((text: string) => {
     if (!editorRef.current) return;
     
     const selection = window.getSelection();
@@ -167,7 +167,7 @@ export const RichTextEditor = ({
     editorRef.current.focus();
   }, [effectiveChangeTracking, onChange]);
 
-  const execCommand = useCallback((command: string, cmdValue?: string) => {
+  const execCommand = React.useCallback((command: string, cmdValue?: string) => {
     document.execCommand(command, false, cmdValue);
     editorRef.current?.focus();
     if (editorRef.current) {
@@ -177,7 +177,7 @@ export const RichTextEditor = ({
   }, [onChange]);
 
   // Use native event listener for beforeinput (more reliable than React's onBeforeInput)
-  useEffect(() => {
+  React.useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
 
@@ -218,7 +218,7 @@ export const RichTextEditor = ({
   }, [effectiveChangeTracking, onChange]);
 
   // Handle paste separately for text content
-  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+  const handlePaste = React.useCallback((e: React.ClipboardEvent) => {
     if (!effectiveChangeTracking?.enabled) return;
     
     const text = e.clipboardData?.getData('text/plain');
@@ -251,7 +251,7 @@ export const RichTextEditor = ({
     }
   }, [effectiveChangeTracking, onChange]);
 
-  const handleInput = useCallback(() => {
+  const handleInput = React.useCallback(() => {
     if (editorRef.current) {
       isInternalUpdate.current = true;
       onChange(editorRef.current.innerHTML);
@@ -348,7 +348,7 @@ export const RichTextEditor = ({
     setShowAutocomplete(false);
   };
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
     // Handle autocomplete navigation
     if (showAutocomplete && autocompleteOptions.length > 0) {
       if (e.key === "ArrowDown") {
@@ -396,7 +396,7 @@ export const RichTextEditor = ({
     }
   }, [showAutocomplete, autocompleteOptions, selectedIndex, autotexts]);
 
-  const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyUp = React.useCallback((e: React.KeyboardEvent) => {
     // Don't show autocomplete for navigation/modifier keys
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Shift", "Control", "Alt", "Meta", "Escape", "Enter", "Tab"].includes(e.key)) {
       return;
@@ -438,7 +438,7 @@ export const RichTextEditor = ({
   }, [autotexts]);
 
   // Sync fontSize prop with ref
-  useEffect(() => {
+  React.useEffect(() => {
     fontSizeRef.current = fontSize;
     if (editorRef.current) {
       editorRef.current.style.fontSize = `${fontSize}px`;
@@ -446,7 +446,7 @@ export const RichTextEditor = ({
   }, [fontSize]);
 
   // Sync external value changes - only when value actually changes externally
-  useEffect(() => {
+  React.useEffect(() => {
     if (isInternalUpdate.current) {
       isInternalUpdate.current = false;
       return;

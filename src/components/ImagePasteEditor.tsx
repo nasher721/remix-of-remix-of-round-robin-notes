@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState, useMemo } from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter, HighlighterIcon,
@@ -81,15 +81,15 @@ export const ImagePasteEditor = ({
   patient,
   section
 }: ImagePasteEditorProps) => {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const isInternalUpdate = useRef(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const editorRef = React.useRef<HTMLDivElement>(null);
+  const isInternalUpdate = React.useRef(false);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [lightboxOpen, setLightboxOpen] = React.useState(false);
+  const [lightboxIndex, setLightboxIndex] = React.useState(0);
   const { user } = useAuth();
   const { toast } = useToast();
   // Per-editor toggle: when true, marking is disabled for this editor
-  const [localMarkingDisabled, setLocalMarkingDisabled] = useState(false);
+  const [localMarkingDisabled, setLocalMarkingDisabled] = React.useState(false);
   
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
@@ -98,7 +98,7 @@ export const ImagePasteEditor = ({
   const { folders } = useClinicalPhrases();
   
   // Insert phrase content handler
-  const insertPhraseContent = useCallback((content: string) => {
+  const insertPhraseContent = React.useCallback((content: string) => {
     if (!editorRef.current) return;
     
     const selection = window.getSelection();
@@ -149,10 +149,10 @@ export const ImagePasteEditor = ({
   });
 
   // Extract images from current value
-  const imageUrls = useMemo(() => extractImageUrls(value), [value]);
+  const imageUrls = React.useMemo(() => extractImageUrls(value), [value]);
 
   // Handle dictation transcript insertion
-  const handleDictationTranscript = useCallback((text: string) => {
+  const handleDictationTranscript = React.useCallback((text: string) => {
     if (!editorRef.current) return;
     
     const selection = window.getSelection();
@@ -188,7 +188,7 @@ export const ImagePasteEditor = ({
     editorRef.current.focus();
   }, [effectiveChangeTracking, onChange]);
 
-  const execCommand = useCallback((command: string, value?: string) => {
+  const execCommand = React.useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
     if (editorRef.current) {
@@ -198,7 +198,7 @@ export const ImagePasteEditor = ({
   }, [onChange]);
 
   // Use native event listener for beforeinput (more reliable than React's onBeforeInput)
-  useEffect(() => {
+  React.useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
 
@@ -238,7 +238,7 @@ export const ImagePasteEditor = ({
     return () => editor.removeEventListener('beforeinput', handleBeforeInput);
   }, [effectiveChangeTracking, onChange]);
 
-  const handleInput = useCallback(() => {
+  const handleInput = React.useCallback(() => {
     if (editorRef.current) {
       isInternalUpdate.current = true;
       let html = editorRef.current.innerHTML;
@@ -487,7 +487,7 @@ export const ImagePasteEditor = ({
     }
   };
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
     if (e.key === " " || e.key === "Tab") {
       const { word } = getCurrentWord();
       if (word) {
@@ -516,7 +516,7 @@ export const ImagePasteEditor = ({
   };
 
   // Sync external value changes
-  useEffect(() => {
+  React.useEffect(() => {
     if (isInternalUpdate.current) {
       isInternalUpdate.current = false;
       return;

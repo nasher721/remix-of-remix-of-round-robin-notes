@@ -1,5 +1,5 @@
+import * as React from "react";
 import { Search, X } from "lucide-react";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
@@ -22,7 +22,7 @@ export const MobileHeader = ({
   showSearch = true,
   rightAction,
 }: MobileHeaderProps) => {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
 
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border safe-area-top">

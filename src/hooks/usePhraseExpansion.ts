@@ -3,7 +3,7 @@
  * Detects autotext shortcuts and hotkeys, triggers phrase insertion
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import * as React from 'react';
 import { useClinicalPhrases } from './useClinicalPhrases';
 import type { ClinicalPhrase, PhraseField } from '@/types/phrases';
 import type { Patient } from '@/types/patient';
@@ -30,16 +30,16 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
     logUsage,
   } = useClinicalPhrases();
 
-  const [selectedPhrase, setSelectedPhrase] = useState<ClinicalPhrase | null>(null);
-  const [phraseFields, setPhraseFields] = useState<PhraseField[]>([]);
-  const [showForm, setShowForm] = useState(false);
+  const [selectedPhrase, setSelectedPhrase] = React.useState<ClinicalPhrase | null>(null);
+  const [phraseFields, setPhraseFields] = React.useState<PhraseField[]>([]);
+  const [showForm, setShowForm] = React.useState(false);
   
   // Track text input for autotext detection
-  const inputBuffer = useRef('');
-  const inputTimeout = useRef<NodeJS.Timeout>();
+  const inputBuffer = React.useRef('');
+  const inputTimeout = React.useRef<NodeJS.Timeout>();
 
   // Load fields when phrase is selected
-  useEffect(() => {
+  React.useEffect(() => {
     if (selectedPhrase) {
       getPhraseFields(selectedPhrase.id).then(fields => {
         setPhraseFields(fields);
@@ -57,7 +57,7 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
   }, [selectedPhrase, getPhraseFields, patient, onInsert, logUsage, context?.section]);
 
   // Check for autotext match
-  const checkAutotext = useCallback((text: string): ClinicalPhrase | null => {
+  const checkAutotext = React.useCallback((text: string): ClinicalPhrase | null => {
     // Look for patterns like ".sob" at end of text
     const match = text.match(/(\.\w+)$/);
     if (match) {
@@ -69,7 +69,7 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
   }, [getPhraseByShortcut]);
 
   // Handle text input for autotext detection
-  const handleTextInput = useCallback((char: string) => {
+  const handleTextInput = React.useCallback((char: string) => {
     // Clear timeout
     if (inputTimeout.current) {
       clearTimeout(inputTimeout.current);
@@ -100,7 +100,7 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
   }, [checkAutotext]);
 
   // Handle keyboard shortcuts
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+  const handleKeyDown = React.useCallback((event: KeyboardEvent) => {
     // Build hotkey string
     const parts: string[] = [];
     if (event.ctrlKey) parts.push('ctrl');
@@ -129,12 +129,12 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
   }, [getPhraseByHotkey]);
 
   // Select a phrase for insertion
-  const selectPhrase = useCallback((phrase: ClinicalPhrase) => {
+  const selectPhrase = React.useCallback((phrase: ClinicalPhrase) => {
     setSelectedPhrase(phrase);
   }, []);
 
   // Handle form submission
-  const handleFormInsert = useCallback((content: string) => {
+  const handleFormInsert = React.useCallback((content: string) => {
     onInsert?.(content);
     setShowForm(false);
     setSelectedPhrase(null);
@@ -142,14 +142,14 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
   }, [onInsert]);
 
   // Log usage from form
-  const handleLogUsage = useCallback((values: Record<string, unknown>, content: string) => {
+  const handleLogUsage = React.useCallback((values: Record<string, unknown>, content: string) => {
     if (selectedPhrase) {
       logUsage(selectedPhrase.id, patient?.id, context?.section, values, content);
     }
   }, [selectedPhrase, patient?.id, context?.section, logUsage]);
 
   // Close form
-  const closeForm = useCallback(() => {
+  const closeForm = React.useCallback(() => {
     setShowForm(false);
     setSelectedPhrase(null);
     setPhraseFields([]);
