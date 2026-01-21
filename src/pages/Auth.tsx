@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
+import { ConnectionTest } from "@/components/ConnectionTest";
 
 const authSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -192,6 +193,7 @@ const Auth = () => {
               {isLogin ? "Sign up" : "Sign in"}
             </button>
           </div>
+          <ConnectionTest />
         </CardContent>
       </Card>
     </div>
