@@ -579,6 +579,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_phrase_team_id: { Args: { _phrase_id: string }; Returns: string }
       is_phrase_team_admin: {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
