@@ -62,18 +62,6 @@ Object.defineProperty(window, "localStorage", { value: localStorageMock });
 // Mock sessionStorage
 Object.defineProperty(window, "sessionStorage", { value: localStorageMock });
 
-// Suppress console errors during tests (optional - can be enabled for debugging)
-// const originalError = console.error;
-// beforeAll(() => {
-//   console.error = (...args) => {
-//     if (args[0]?.includes?.('Warning:')) return;
-//     originalError.call(console, ...args);
-//   };
-// });
-// afterAll(() => {
-//   console.error = originalError;
-// });
-
 // Mock crypto.randomUUID
 Object.defineProperty(globalThis, 'crypto', {
   value: {
@@ -81,14 +69,5 @@ Object.defineProperty(globalThis, 'crypto', {
   },
 });
 
-// Mock import.meta.env for environment variables
-const _mockEnv = {
-  VITE_SUPABASE_URL: "https://test.supabase.co",
-  VITE_SUPABASE_PUBLISHABLE_KEY: "test-key",
-  VITE_SUPABASE_PROJECT_ID: "test-project",
-  DEV: true,
-  PROD: false,
-};
-
-// @ts-expect-error - Mocking import.meta.env
-globalThis.import = { meta: { env: mockEnv } };
+// Note: Vitest handles import.meta.env automatically via vi.stubEnv()
+// Environment variables are mocked in individual test files as needed
