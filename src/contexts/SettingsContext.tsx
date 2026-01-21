@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { STORAGE_KEYS, DEFAULT_CONFIG } from '@/constants/config';
+import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, type SectionVisibility } from '@/constants/config';
 
 export type SortBy = 'number' | 'room' | 'name';
 
@@ -20,6 +20,11 @@ interface SettingsContextType {
   // Lab Fishbone toggle
   showLabFishbones: boolean;
   setShowLabFishbones: (show: boolean) => void;
+
+  // Section visibility
+  sectionVisibility: SectionVisibility;
+  setSectionVisibility: (visibility: SectionVisibility) => void;
+  resetSectionVisibility: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -48,6 +53,18 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return saved !== null ? saved === 'true' : true; // Default to true
   });
 
+  const [sectionVisibility, setSectionVisibilityState] = useState<SectionVisibility>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
+    if (saved) {
+      try {
+        return { ...DEFAULT_SECTION_VISIBILITY, ...JSON.parse(saved) };
+      } catch {
+        return DEFAULT_SECTION_VISIBILITY;
+      }
+    }
+    return DEFAULT_SECTION_VISIBILITY;
+  });
+
   // Persist font size
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(globalFontSize));
@@ -68,6 +85,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(showLabFishbones));
   }, [showLabFishbones]);
 
+  // Persist section visibility
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
+  }, [sectionVisibility]);
+
   const setGlobalFontSize = useCallback((size: number) => {
     setGlobalFontSizeState(size);
   }, []);
@@ -84,6 +106,14 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setShowLabFishbonesState(show);
   }, []);
 
+  const setSectionVisibility = useCallback((visibility: SectionVisibility) => {
+    setSectionVisibilityState(visibility);
+  }, []);
+
+  const resetSectionVisibility = useCallback(() => {
+    setSectionVisibilityState(DEFAULT_SECTION_VISIBILITY);
+  }, []);
+
   const value: SettingsContextType = {
     globalFontSize,
     setGlobalFontSize,
@@ -93,6 +123,9 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setSortBy,
     showLabFishbones,
     setShowLabFishbones,
+    sectionVisibility,
+    setSectionVisibility,
+    resetSectionVisibility,
   };
 
   return (
