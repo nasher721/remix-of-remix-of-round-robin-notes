@@ -129,14 +129,26 @@ export const usePatients = () => {
     fetchPatients();
   }, [fetchPatients]);
 
-  const insertPatientRow = useCallback(async (payload: Record<string, unknown>) => {
-    let attemptPayload = { ...payload };
+  const insertPatientRow = useCallback(async (payload: {
+    user_id: string;
+    patient_number: number;
+    name: string;
+    bed: string;
+    clinical_summary: string;
+    interval_events: string;
+    imaging: string;
+    labs: string;
+    systems: Json;
+    medications: Json;
+    collapsed: boolean;
+  }) => {
+    let attemptPayload: Record<string, unknown> = { ...payload };
     let lastError: unknown;
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const { data, error } = await supabase
         .from("patients")
-        .insert([attemptPayload])
+        .insert([attemptPayload as typeof payload])
         .select()
         .single();
 
