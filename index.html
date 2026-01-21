@@ -2,33 +2,75 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    
+    <!-- Primary Meta Tags -->
     <title>Patient Rounding Assistant Pro - Medical Rounding Tool</title>
+    <meta name="title" content="Patient Rounding Assistant Pro - Medical Rounding Tool" />
     <meta name="description" content="Professional medical rounding tool for healthcare providers. Organize patient notes, clinical summaries, and systems reviews efficiently." />
     <meta name="author" content="Medical Rounding Assistant" />
+    <meta name="keywords" content="medical rounding, patient management, clinical notes, healthcare, HIPAA" />
 
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
     <meta property="og:title" content="Patient Rounding Assistant Pro - Medical Rounding Tool" />
     <meta property="og:description" content="Professional medical rounding tool for healthcare providers. Organize patient notes, clinical summaries, and systems reviews efficiently." />
-    <meta property="og:type" content="website" />
     <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@lovable_dev" />
+    <meta name="twitter:title" content="Patient Rounding Assistant Pro" />
+    <meta name="twitter:description" content="Professional medical rounding tool for healthcare providers." />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
 
-    <!-- Theme color for PWA -->
+    <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#1a1a2e" />
-
-    <!-- Apple-style fonts - preloaded for performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Rounding" />
+    <link rel="manifest" href="/manifest.json" />
     
-    <!-- Preload critical resources -->
-    <link rel="preload" href="/src/main.tsx" as="script" crossorigin>
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <!-- Security Headers (CSP) -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.gpteng.co;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com;
+      img-src 'self' data: blob: https:;
+      connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.openai.com;
+      frame-src 'self';
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      upgrade-insecure-requests;
+    " />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="SAMEORIGIN" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <!-- Preconnect to external resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- DNS Prefetch for Supabase -->
+    <link rel="dns-prefetch" href="https://lkjylvrhwebxyahzblfl.supabase.co" />
   </head>
 
   <body>
+    <!-- No-JS Fallback -->
+    <noscript>
+      <div style="padding: 2rem; text-align: center; font-family: system-ui;">
+        <h1>JavaScript Required</h1>
+        <p>Please enable JavaScript to use Patient Rounding Assistant.</p>
+      </div>
+    </noscript>
+    
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

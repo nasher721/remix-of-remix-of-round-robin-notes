@@ -8,15 +8,19 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { IBCCProvider } from "@/contexts/IBCCContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
+import { PageLoadingFallback } from "@/components/LoadingFallback";
+import { SkipLinks, AnnouncerProvider } from "@/components/Accessibility";
 import { initWebVitals } from "@/lib/performance";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
 
 // Initialize performance monitoring
 if (typeof window !== 'undefined') {
   initWebVitals();
 }
+
+// Lazy load route components for code splitting
+const Index = React.lazy(() => import("./pages/Index"));
+const Auth = React.lazy(() => import("./pages/Auth"));
+const NotFound = React.lazy(() => import("./pages/NotFound"));
 
 // Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({
@@ -42,17 +46,22 @@ function App(): React.ReactElement {
         <AuthProvider>
           <SettingsProvider>
             <IBCCProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </BrowserRouter>
-              </TooltipProvider>
+              <AnnouncerProvider>
+                <TooltipProvider>
+                  <SkipLinks />
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <React.Suspense fallback={<PageLoadingFallback />}>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/auth" element={<Auth />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </React.Suspense>
+                  </BrowserRouter>
+                </TooltipProvider>
+              </AnnouncerProvider>
             </IBCCProvider>
           </SettingsProvider>
         </AuthProvider>

@@ -1,73 +1,156 @@
-# Welcome to your Lovable project
+# Patient Rounding Assistant Pro
 
-## Project info
+A professional medical rounding tool for healthcare providers built with React, TypeScript, and Lovable Cloud.
 
-**URL**: https://lovable.dev/projects/cb01e966-8312-4ea9-b831-9b20ea42b695
+## 🏥 Features
 
-## How can I edit this code?
+- **Patient Management** - Add, edit, and organize patients for daily rounds
+- **Systems Review** - Structured organ system documentation
+- **Clinical Phrases** - Quick-insert templates for common findings
+- **IBCC Reference** - Integrated critical care reference (Ctrl+I)
+- **Change Tracking** - Track daily updates with timestamps
+- **Dictation** - Voice-to-text for hands-free documentation
+- **Offline Support** - Continue working without internet
+- **Print/Export** - PDF, Excel, and print outputs
 
-There are several ways of editing your application.
+## 🚀 Quick Start
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/cb01e966-8312-4ea9-b831-9b20ea42b695) and start prompting.
+- Node.js 18+ (LTS recommended)
+- npm or bun package manager
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
+```bash
+# Clone the repository
+git clone <repository-url>
+cd patient-rounding-assistant
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# Install dependencies
+npm install
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app will be available at http://localhost:8080
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+This project uses Lovable Cloud for backend services. Environment variables are automatically configured when deployed through Lovable.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+For local development, ensure you have:
+- `VITE_SUPABASE_URL` - Your Supabase project URL
+- `VITE_SUPABASE_PUBLISHABLE_KEY` - Your Supabase anon key
+- `VITE_SUPABASE_PROJECT_ID` - Your Supabase project ID
 
-## What technologies are used for this project?
+> ⚠️ **Security Warning**: Never commit `.env` files with real credentials to version control.
 
-This project is built with:
+## 📚 Documentation
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- [Architecture Overview](./src/docs/ARCHITECTURE.md) - System design and patterns
+- [Contributing Guide](./CONTRIBUTING.md) - How to contribute
 
-## How can I deploy this project?
+## 🧪 Testing
 
-Simply open [Lovable](https://lovable.dev/projects/cb01e966-8312-4ea9-b831-9b20ea42b695) and click on Share -> Publish.
+```bash
+# Run all tests
+npm test
 
-## Can I connect a custom domain to my Lovable project?
+# Run with coverage report
+npm run test:coverage
 
-Yes, you can!
+# Run in watch mode
+npm run test:watch
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🔧 Development
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm test` | Run tests |
+| `npm run lint` | Run ESLint |
+
+### Project Structure
+
+```
+src/
+├── components/     # React components
+├── hooks/          # Custom React hooks
+├── lib/            # Utility libraries
+├── pages/          # Route components
+├── types/          # TypeScript types
+├── contexts/       # React contexts
+└── test/           # Test utilities
+```
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl + I` | Open IBCC Reference |
+| `Ctrl + Shift + M` | Toggle Change Tracking |
+| `Ctrl + Shift + D` | Start Dictation |
+| `Ctrl + P` | Print/Export |
+| `?` | Show keyboard shortcuts |
+
+## 🔒 Security
+
+- All patient data is protected by Row Level Security (RLS)
+- Users can only access their own patient records
+- Authentication required for all data operations
+- HIPAA-conscious design principles
+
+## 🌐 Browser Support
+
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
+
+## 📱 Mobile Support
+
+The application is fully responsive and optimized for:
+- iOS Safari
+- Android Chrome
+- Tablet devices
+
+## 🤝 Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+## 📄 License
+
+Private - All rights reserved.
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**Blank screen after loading**
+- Clear browser cache and reload
+- Check browser console for errors
+- Ensure JavaScript is enabled
+
+**Data not syncing**
+- Check internet connection
+- Look for offline indicator
+- Data will sync when connection is restored
+
+**Authentication issues**
+- Clear localStorage and try again
+- Ensure email is verified (if applicable)
+
+### Getting Help
+
+Open an issue in the repository with:
+1. Description of the problem
+2. Steps to reproduce
+3. Browser and OS version
+4. Console error messages (if any)

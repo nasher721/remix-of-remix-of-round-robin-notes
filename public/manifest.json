@@ -1,0 +1,37 @@
+{
+  "name": "Patient Rounding Assistant",
+  "short_name": "Rounding",
+  "description": "Professional medical rounding tool for healthcare providers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "orientation": "any",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["medical", "health", "productivity"],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "Add Patient",
+      "short_name": "Add",
+      "description": "Add a new patient to rounds",
+      "url": "/?action=add",
+      "icons": [{ "src": "/icons/add-patient.png", "sizes": "96x96" }]
+    }
+  ]
+}
