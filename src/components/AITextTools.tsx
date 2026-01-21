@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import * as React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -40,12 +40,12 @@ export const AITextTools = ({
   replaceSelectedText,
   disabled,
 }: AITextToolsProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [showCustomDialog, setShowCustomDialog] = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [customPromptText, setCustomPromptText] = useState('');
-  const [newPromptName, setNewPromptName] = useState('');
-  const [newPromptText, setNewPromptText] = useState('');
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [showCustomDialog, setShowCustomDialog] = React.useState(false);
+  const [showSaveDialog, setShowSaveDialog] = React.useState(false);
+  const [customPromptText, setCustomPromptText] = React.useState('');
+  const [newPromptName, setNewPromptName] = React.useState('');
+  const [newPromptText, setNewPromptText] = React.useState('');
 
   const {
     transformText,
