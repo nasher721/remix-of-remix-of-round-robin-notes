@@ -30,6 +30,7 @@ import {
   FileText,
   ChevronsUpDown,
 } from "lucide-react";
+import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import {
   Select,
   SelectContent,
@@ -148,9 +149,9 @@ export const DesktopDashboard = ({
             {/* Logo & Title */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">🏥</span>
+                <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-10 w-auto" />
                 <div>
-                  <h1 className="text-xl font-semibold tracking-tight">Patient Rounding</h1>
+                  <h1 className="text-xl font-semibold tracking-tight">Rolling Rounds</h1>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
                 </div>
               </div>
@@ -368,8 +369,8 @@ export const DesktopDashboard = ({
       <div className="container mx-auto px-6 pb-12">
         {filteredPatients.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-6">
-              <span className="text-3xl">🏥</span>
+            <div className="mb-6">
+              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto mx-auto opacity-50" />
             </div>
             <h3 className="text-2xl font-semibold mb-2">
               {patients.length === 0 ? 'Ready to Start Rounds' : 'No patients match your filter'}

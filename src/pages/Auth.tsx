@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { z } from "zod";
 
 const authSchema = z.object({
@@ -112,8 +113,10 @@ const Auth = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="text-5xl mb-4">🏥</div>
-          <CardTitle className="text-2xl">Patient Rounding Assistant</CardTitle>
+          <div className="flex justify-center mb-4">
+            <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-24 w-auto" />
+          </div>
+          <CardTitle className="text-2xl">Rolling Rounds</CardTitle>
           <CardDescription>
             {isLogin ? "Sign in to access your patient data" : "Create an account to get started"}
           </CardDescription>
