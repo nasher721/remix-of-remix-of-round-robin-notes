@@ -1,4 +1,4 @@
-import { useState } from "react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,12 +43,12 @@ interface SmartPatientImportProps {
 }
 
 export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImportProps) => {
-  const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<"input" | "review">("input");
-  const [content, setContent] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [parsedData, setParsedData] = useState<ParsedPatientData | null>(null);
-  const [editingField, setEditingField] = useState<string | null>(null);
+  const [open, setOpen] = React.useState(false);
+  const [step, setStep] = React.useState<"input" | "review">("input");
+  const [content, setContent] = React.useState("");
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [parsedData, setParsedData] = React.useState<ParsedPatientData | null>(null);
+  const [editingField, setEditingField] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const handlePaste = async () => {
