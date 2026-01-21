@@ -7,9 +7,16 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { IBCCProvider } from "@/contexts/IBCCContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
+import { initWebVitals } from "@/lib/performance";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+
+// Initialize performance monitoring
+if (typeof window !== 'undefined') {
+  initWebVitals();
+}
 
 // Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({
@@ -30,25 +37,27 @@ const queryClient = new QueryClient({
 
 function App(): React.ReactElement {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <SettingsProvider>
-          <IBCCProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </IBCCProvider>
-        </SettingsProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary fallback={PageErrorFallback}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <SettingsProvider>
+            <IBCCProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
+                <BrowserRouter>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/auth" element={<Auth />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </BrowserRouter>
+              </TooltipProvider>
+            </IBCCProvider>
+          </SettingsProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
