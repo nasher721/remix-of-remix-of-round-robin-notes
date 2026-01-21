@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, type SectionVisibility } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,38 +31,38 @@ interface SettingsContextType {
   isSyncingSettings: boolean;
 }
 
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
 
 interface SettingsProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   const { user } = useAuth();
-  const [isSyncingSettings, setIsSyncingSettings] = useState(false);
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const initialSyncDone = useRef(false);
+  const [isSyncingSettings, setIsSyncingSettings] = React.useState(false);
+  const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const initialSyncDone = React.useRef(false);
 
-  const [globalFontSize, setGlobalFontSizeState] = useState(() => {
+  const [globalFontSize, setGlobalFontSizeState] = React.useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_FONT_SIZE);
     return saved ? parseInt(saved, 10) : DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
   });
 
-  const [todosAlwaysVisible, setTodosAlwaysVisibleState] = useState(() => {
+  const [todosAlwaysVisible, setTodosAlwaysVisibleState] = React.useState(() => {
     return localStorage.getItem(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE) === 'true';
   });
 
-  const [sortBy, setSortByState] = useState<SortBy>(() => {
+  const [sortBy, setSortByState] = React.useState<SortBy>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PATIENT_SORT_BY);
     return (saved as SortBy) || DEFAULT_CONFIG.DEFAULT_SORT_BY;
   });
 
-  const [showLabFishbones, setShowLabFishbonesState] = useState(() => {
+  const [showLabFishbones, setShowLabFishbonesState] = React.useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SHOW_LAB_FISHBONES);
     return saved !== null ? saved === 'true' : true;
   });
 
-  const [sectionVisibility, setSectionVisibilityState] = useState<SectionVisibility>(() => {
+  const [sectionVisibility, setSectionVisibilityState] = React.useState<SectionVisibility>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
     if (saved) {
       try {
@@ -76,7 +75,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   });
 
   // Sync section visibility to database with debounce
-  const syncSectionVisibilityToDb = useCallback(async (visibility: SectionVisibility) => {
+  const syncSectionVisibilityToDb = React.useCallback(async (visibility: SectionVisibility) => {
     if (!user) return;
 
     try {
@@ -102,7 +101,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   }, [user]);
 
   // Load settings from database on login
-  useEffect(() => {
+  React.useEffect(() => {
     const loadFromDb = async () => {
       if (!user || initialSyncDone.current) return;
 
@@ -141,34 +140,34 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   }, [user]);
 
   // Reset sync flag on logout
-  useEffect(() => {
+  React.useEffect(() => {
     if (!user) {
       initialSyncDone.current = false;
     }
   }, [user]);
 
   // Persist font size
-  useEffect(() => {
+  React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(globalFontSize));
   }, [globalFontSize]);
 
   // Persist todos visibility
-  useEffect(() => {
+  React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE, String(todosAlwaysVisible));
   }, [todosAlwaysVisible]);
 
   // Persist sort preference
-  useEffect(() => {
+  React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PATIENT_SORT_BY, sortBy);
   }, [sortBy]);
 
   // Persist lab fishbones preference
-  useEffect(() => {
+  React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(showLabFishbones));
   }, [showLabFishbones]);
 
   // Persist section visibility to local storage and sync to DB with debounce
-  useEffect(() => {
+  React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
     
     // Debounce DB sync to avoid too many requests
@@ -185,27 +184,27 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     }
   }, [sectionVisibility, user, syncSectionVisibilityToDb]);
 
-  const setGlobalFontSize = useCallback((size: number) => {
+  const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(size);
   }, []);
 
-  const setTodosAlwaysVisible = useCallback((visible: boolean) => {
+  const setTodosAlwaysVisible = React.useCallback((visible: boolean) => {
     setTodosAlwaysVisibleState(visible);
   }, []);
 
-  const setSortBy = useCallback((sort: SortBy) => {
+  const setSortBy = React.useCallback((sort: SortBy) => {
     setSortByState(sort);
   }, []);
 
-  const setShowLabFishbones = useCallback((show: boolean) => {
+  const setShowLabFishbones = React.useCallback((show: boolean) => {
     setShowLabFishbonesState(show);
   }, []);
 
-  const setSectionVisibility = useCallback((visibility: SectionVisibility) => {
+  const setSectionVisibility = React.useCallback((visibility: SectionVisibility) => {
     setSectionVisibilityState(visibility);
   }, []);
 
-  const resetSectionVisibility = useCallback(() => {
+  const resetSectionVisibility = React.useCallback(() => {
     setSectionVisibilityState(DEFAULT_SECTION_VISIBILITY);
   }, []);
 
@@ -232,7 +231,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
 };
 
 export const useSettings = (): SettingsContextType => {
-  const context = useContext(SettingsContext);
+  const context = React.useContext(SettingsContext);
   if (context === undefined) {
     throw new Error('useSettings must be used within a SettingsProvider');
   }
