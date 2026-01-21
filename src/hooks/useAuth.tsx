@@ -55,8 +55,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+    console.log('[Auth] Attempting sign in for:', email);
+    console.log('[Auth] Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error('[Auth] Sign in error:', error.message);
+      } else {
+        console.log('[Auth] Sign in successful');
+      }
+      return { error: error as Error | null };
+    } catch (err) {
+      console.error('[Auth] Sign in network error:', err);
+      return { error: err as Error };
+    }
   };
 
   const signUp = async (email: string, password: string) => {
