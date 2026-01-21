@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react-dom"],
   },
   optimizeDeps: {
-    // Force pre-bundle React to avoid HMR issues
-    include: ["react", "react-dom", "react/jsx-runtime"],
+    // Force pre-bundle React and related packages to avoid HMR issues
+    include: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-query"],
   },
 }));
