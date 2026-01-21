@@ -93,10 +93,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // IMPORTANT: Skip Supabase API requests entirely - let them pass through directly
+  // This prevents service worker interference with authenticated requests
+  if (url.hostname.includes('supabase.co')) {
+    return;
+  }
+
+  // Skip lovable infrastructure requests
+  if (url.hostname.includes('lovableproject.com') || url.hostname.includes('lovable.app')) {
+    return;
+  }
+
   // Determine caching strategy based on request type
-  if (isApiRequest(url)) {
-    event.respondWith(networkFirstWithCache(request, API_CACHE, CACHE_TTL.api));
-  } else if (isImageRequest(url)) {
+  if (isImageRequest(url)) {
     event.respondWith(cacheFirstWithNetwork(request, IMAGE_CACHE, CACHE_TTL.images));
   } else if (isStaticAsset(url)) {
     event.respondWith(cacheFirstWithNetwork(request, STATIC_CACHE, CACHE_TTL.static));
