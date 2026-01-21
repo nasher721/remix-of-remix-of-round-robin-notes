@@ -34,10 +34,17 @@ function validateEnv(): Env {
   const envVars = {
     VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
     VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
     VITE_SUPABASE_PROJECT_ID: import.meta.env.VITE_SUPABASE_PROJECT_ID,
   };
 
-  const result = envSchema.safeParse(envVars);
+  const normalizedEnvVars = {
+    ...envVars,
+    VITE_SUPABASE_PUBLISHABLE_KEY:
+      envVars.VITE_SUPABASE_PUBLISHABLE_KEY || envVars.VITE_SUPABASE_ANON_KEY,
+  };
+
+  const result = envSchema.safeParse(normalizedEnvVars);
 
   if (!result.success) {
     const errors = result.error.issues
