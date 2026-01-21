@@ -72,6 +72,7 @@ export interface DbPatient {
   imaging: string;
   labs: string;
   systems: PatientSystems;
+  medications: PatientMedications;
   field_timestamps: FieldTimestamps;
   collapsed: boolean;
   created_at: string;
@@ -92,6 +93,7 @@ export interface Patient {
   imaging: string;
   labs: string;
   systems: PatientSystems;
+  medications: PatientMedications;
   fieldTimestamps: FieldTimestamps;
   collapsed: boolean;
   createdAt: string;

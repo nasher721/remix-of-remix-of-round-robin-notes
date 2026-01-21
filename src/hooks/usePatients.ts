@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
-import type { Patient, PatientSystems, FieldTimestamps } from "@/types/patient";
-import { parseSystemsJson, parseFieldTimestampsJson, prepareUpdateData } from "@/lib/mappers/patientMapper";
+import type { Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
+import { parseSystemsJson, parseFieldTimestampsJson, parseMedicationsJson, prepareUpdateData } from "@/lib/mappers/patientMapper";
 import type { Json } from "@/integrations/supabase/types";
 
 const defaultSystemsValue: PatientSystems = {
@@ -19,7 +19,14 @@ const defaultSystemsValue: PatientSystems = {
   dispo: "",
 };
 
-export type { Patient, PatientSystems };
+const defaultMedicationsValue: PatientMedications = {
+  infusions: [],
+  scheduled: [],
+  prn: [],
+  rawText: "",
+};
+
+export type { Patient, PatientSystems, PatientMedications };
 
 export const usePatients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -54,6 +61,7 @@ export const usePatients = () => {
         imaging: p.imaging || '',
         labs: p.labs || '',
         systems: parseSystemsJson(p.systems),
+        medications: parseMedicationsJson(p.medications),
         fieldTimestamps: parseFieldTimestampsJson(p.field_timestamps),
         collapsed: p.collapsed,
         createdAt: p.created_at,
@@ -97,6 +105,7 @@ export const usePatients = () => {
           imaging: "",
           labs: "",
           systems: defaultSystemsValue as unknown as Json,
+          medications: defaultMedicationsValue as unknown as Json,
           collapsed: false,
         }])
         .select()
@@ -114,6 +123,7 @@ export const usePatients = () => {
         imaging: data.imaging || '',
         labs: data.labs || '',
         systems: parseSystemsJson(data.systems),
+        medications: parseMedicationsJson(data.medications),
         fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
         collapsed: data.collapsed,
         createdAt: data.created_at,
@@ -143,15 +153,16 @@ export const usePatients = () => {
     const now = new Date().toISOString();
     
     // Fields that should track timestamps (content fields only)
-    const trackableFields = ['clinicalSummary', 'intervalEvents', 'imaging', 'labs'];
+    const trackableFields = ['clinicalSummary', 'intervalEvents', 'imaging', 'labs', 'medications'];
     const isSystemField = field.startsWith('systems.');
+    const isMedicationsField = field === 'medications';
     const shouldTrackTimestamp = trackableFields.includes(field) || isSystemField;
 
     // Get old value for history tracking
     const patient = patients.find((p) => p.id === id);
     let oldValue: string | null = null;
     
-    if (shouldTrackTimestamp && patient) {
+    if (shouldTrackTimestamp && patient && !isMedicationsField) {
       if (isSystemField) {
         const systemKey = field.split('.')[1] as keyof PatientSystems;
         oldValue = patient.systems[systemKey] || null;
@@ -178,7 +189,11 @@ export const usePatients = () => {
             const [parent, child] = field.split(".");
             if (parent === "systems") {
               updated.systems = { ...p.systems, [child]: value };
+            } else if (parent === "medications") {
+              updated.medications = { ...p.medications, [child]: value };
             }
+          } else if (field === "medications") {
+            updated.medications = value as PatientMedications;
           } else {
             (updated as Record<string, unknown>)[field] = value;
           }
@@ -189,7 +204,7 @@ export const usePatients = () => {
     );
 
     // Prepare update object
-    const updateData = prepareUpdateData(field, value, patient?.systems);
+    const updateData = prepareUpdateData(field, value, patient?.systems, patient?.medications);
     
     // Add field timestamp update if trackable
     if (shouldTrackTimestamp && patient) {
@@ -275,6 +290,7 @@ export const usePatients = () => {
           imaging: patient.imaging,
           labs: patient.labs,
           systems: patient.systems as unknown as Json,
+          medications: patient.medications as unknown as Json,
           collapsed: false,
         }])
         .select()
@@ -292,6 +308,7 @@ export const usePatients = () => {
         imaging: data.imaging || '',
         labs: data.labs || '',
         systems: parseSystemsJson(data.systems),
+        medications: parseMedicationsJson(data.medications),
         fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
         collapsed: data.collapsed,
         createdAt: data.created_at,
@@ -351,6 +368,7 @@ export const usePatients = () => {
     clinicalSummary: string;
     intervalEvents: string;
     systems?: PatientSystems;
+    medications?: PatientMedications;
   }>) => {
     if (!user) return;
 
@@ -360,6 +378,7 @@ export const usePatients = () => {
 
       for (const p of patientsToImport) {
         const systemsToInsert = p.systems || defaultSystemsValue;
+        const medicationsToInsert = p.medications || defaultMedicationsValue;
         
         const { data, error } = await supabase
           .from("patients")
@@ -373,6 +392,7 @@ export const usePatients = () => {
             imaging: "",
             labs: "",
             systems: systemsToInsert as unknown as Json,
+            medications: medicationsToInsert as unknown as Json,
             collapsed: false,
           }])
           .select()
@@ -390,6 +410,7 @@ export const usePatients = () => {
           imaging: data.imaging || '',
           labs: data.labs || '',
           systems: parseSystemsJson(data.systems),
+          medications: parseMedicationsJson(data.medications),
           fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
           collapsed: data.collapsed,
           createdAt: data.created_at,
@@ -426,6 +447,7 @@ export const usePatients = () => {
     imaging: string;
     labs: string;
     systems: PatientSystems;
+    medications?: PatientMedications;
   }) => {
     if (!user) return;
 
@@ -442,6 +464,7 @@ export const usePatients = () => {
           imaging: patientData.imaging || "",
           labs: patientData.labs || "",
           systems: patientData.systems as unknown as Json,
+          medications: (patientData.medications || defaultMedicationsValue) as unknown as Json,
           collapsed: false,
         }])
         .select()
@@ -459,6 +482,7 @@ export const usePatients = () => {
         imaging: data.imaging || '',
         labs: data.labs || '',
         systems: parseSystemsJson(data.systems),
+        medications: parseMedicationsJson(data.medications),
         fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
         collapsed: data.collapsed,
         createdAt: data.created_at,

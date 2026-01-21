@@ -8,10 +8,11 @@ import { PatientTodos } from "./PatientTodos";
 import { FieldTimestamp } from "./FieldTimestamp";
 import { FieldHistoryViewer } from "./FieldHistoryViewer";
 import { SystemsConfigManager } from "./SystemsConfigManager";
+import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
-import type { Patient, PatientSystems } from "@/types/patient";
+import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
@@ -422,6 +423,15 @@ export const PatientCard = ({
                 <FieldTimestamp timestamp={patient.fieldTimestamps?.labs} className="pl-1" />
               </div>
             </div>
+          </div>
+
+          {/* Medications */}
+          <div className="bg-secondary/20 rounded-lg p-4 border border-border/50">
+            <MedicationList
+              medications={patient.medications}
+              onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
+            />
+            <FieldTimestamp timestamp={patient.fieldTimestamps?.medications} className="pl-1 mt-2" />
           </div>
 
           {/* Systems Review */}
