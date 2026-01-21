@@ -3,7 +3,7 @@
  * Transforms between database and UI patient representations
  */
 
-import type { DbPatient, Patient, PatientSystems, FieldTimestamps } from "@/types/patient";
+import type { DbPatient, Patient, PatientSystems, PatientMedications, FieldTimestamps, defaultMedications } from "@/types/patient";
 import type { Json } from "@/integrations/supabase/types";
 
 /**
@@ -43,6 +43,30 @@ export const parseSystemsJson = (systems: Json | null): PatientSystems => {
 };
 
 /**
+ * Parse medications JSON from database into typed PatientMedications
+ */
+export const parseMedicationsJson = (medications: Json | null): PatientMedications => {
+  const defaults: PatientMedications = {
+    infusions: [],
+    scheduled: [],
+    prn: [],
+    rawText: "",
+  };
+
+  if (!medications || typeof medications !== 'object' || Array.isArray(medications)) {
+    return defaults;
+  }
+
+  const m = medications as Record<string, unknown>;
+  return {
+    infusions: Array.isArray(m.infusions) ? m.infusions.map(String) : [],
+    scheduled: Array.isArray(m.scheduled) ? m.scheduled.map(String) : [],
+    prn: Array.isArray(m.prn) ? m.prn.map(String) : [],
+    rawText: String(m.rawText || ''),
+  };
+};
+
+/**
  * Parse field_timestamps JSON from database into typed FieldTimestamps
  */
 export const parseFieldTimestampsJson = (timestamps: Json | null): FieldTimestamps => {
@@ -65,6 +89,7 @@ export const dbToUiPatient = (dbPatient: DbPatient): Patient => ({
   imaging: dbPatient.imaging,
   labs: dbPatient.labs,
   systems: dbPatient.systems,
+  medications: dbPatient.medications || { infusions: [], scheduled: [], prn: [], rawText: "" },
   fieldTimestamps: dbPatient.field_timestamps || {},
   collapsed: dbPatient.collapsed,
   createdAt: dbPatient.created_at,
@@ -91,7 +116,8 @@ export const uiFieldToDbField = (field: string): string => {
 export const prepareUpdateData = (
   field: string,
   value: unknown,
-  currentSystems?: PatientSystems
+  currentSystems?: PatientSystems,
+  currentMedications?: PatientMedications
 ): Record<string, unknown> => {
   const updateData: Record<string, unknown> = {};
 
@@ -99,7 +125,11 @@ export const prepareUpdateData = (
     const [parent, child] = field.split(".");
     if (parent === "systems" && currentSystems) {
       updateData.systems = { ...currentSystems, [child]: value };
+    } else if (parent === "medications" && currentMedications) {
+      updateData.medications = { ...currentMedications, [child]: value };
     }
+  } else if (field === "medications") {
+    updateData.medications = value;
   } else {
     updateData[uiFieldToDbField(field)] = value;
   }
