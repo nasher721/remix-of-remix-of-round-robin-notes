@@ -9,12 +9,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { 
-  ArrowLeft, 
-  MoreHorizontal, 
-  FileText, 
-  Calendar, 
-  ImageIcon, 
+import {
+  ArrowLeft,
+  MoreHorizontal,
+  FileText,
+  Calendar,
+  ImageIcon,
   TestTube,
   Pill,
   Clock,
@@ -124,7 +124,7 @@ export const MobilePatientDetail = ({
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border safe-area-top">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 safe-area-top shadow-sm">
         <div className="flex items-center justify-between h-14 px-2">
           <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -ml-2">
             <ArrowLeft className="h-5 w-5" />
@@ -429,7 +429,7 @@ export const MobilePatientDetail = ({
           <AccordionContent className="pb-4">
             <MedicationList
               medications={patient.medications || { infusions: [], scheduled: [], prn: [] }}
-              onMedicationsChange={(medications: PatientMedications) => 
+              onMedicationsChange={(medications: PatientMedications) =>
                 onUpdate(patient.id, "medications", medications)
               }
             />
@@ -485,9 +485,9 @@ export const MobilePatientDetail = ({
                       fontSize={globalFontSize}
                       changeTracking={changeTracking}
                     />
-                    <FieldTimestamp 
-                      timestamp={patient.fieldTimestamps?.[`systems.${system.key}` as keyof typeof patient.fieldTimestamps]} 
-                      className="pl-1" 
+                    <FieldTimestamp
+                      timestamp={patient.fieldTimestamps?.[`systems.${system.key}` as keyof typeof patient.fieldTimestamps]}
+                      className="pl-1"
                     />
                   </div>
                 </div>

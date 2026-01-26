@@ -25,7 +25,7 @@ export const MobileHeader = ({
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border safe-area-top">
+    <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 safe-area-top shadow-sm">
       <div className="flex items-center justify-between h-14 px-4">
         {isSearchOpen && onSearchChange ? (
           <div className="flex items-center gap-2 flex-1 animate-fade-in">

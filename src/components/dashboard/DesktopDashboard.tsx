@@ -105,7 +105,7 @@ export const DesktopDashboard = ({
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
   const changeTracking = useChangeTracking();
-  
+
   const [showPrintModal, setShowPrintModal] = React.useState(false);
   const [showPhraseManager, setShowPhraseManager] = React.useState(false);
 
@@ -142,65 +142,76 @@ export const DesktopDashboard = ({
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Apple-style Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl no-print">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex justify-between items-center gap-6">
-            {/* Logo & Title */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-10 w-auto" />
-                <div>
-                  <h1 className="text-xl font-semibold tracking-tight">Rolling Rounds</h1>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                </div>
+      {/* Header - Modern Glass Effect */}
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl no-print shadow-sm">
+        <div className="container mx-auto px-6 h-16 flex items-center justify-between gap-6">
+          {/* Logo & Title */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 group cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/30 transition-colors"></div>
+                <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-9 w-auto relative z-10" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold tracking-tight leading-none text-foreground">Rolling Rounds</h1>
+                <p className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase mt-0.5">Professional Edition</p>
               </div>
             </div>
+          </div>
 
-            {/* Center - Stats */}
-            <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                <span className="font-medium text-foreground">{patients.length}</span>
-                <span>patients</span>
-              </div>
-              <div className="h-4 w-px bg-border" />
-              <OfflineIndicator />
-              <div className="h-4 w-px bg-border" />
-              <span>
-                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-              </span>
+          {/* Center - Stats Pill */}
+          <div className="hidden md:flex items-center gap-1 px-3 py-1.5 bg-secondary/50 rounded-full border border-border/50 text-xs font-medium text-muted-foreground shadow-sm">
+            <Users className="h-3.5 w-3.5 text-primary" />
+            <span className="text-foreground">{patients.length}</span>
+            <span className="mr-2">active</span>
+            <div className="h-3 w-px bg-border/80" />
+            <OfflineIndicator />
+            <div className="h-3 w-px bg-border/80" />
+            <Clock className="h-3.5 w-3.5 ml-1" />
+            <span>
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+
+          {/* Right - Profile */}
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-medium leading-none text-foreground">{user.email}</p>
+              <p className="text-[10px] text-muted-foreground">Physician</p>
             </div>
-
-            {/* Right - Sign Out */}
-            <Button 
-              onClick={onSignOut} 
-              variant="ghost" 
-              size="sm"
-              className="text-muted-foreground hover:text-foreground"
+            <Button
+              onClick={onSignOut}
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+              title="Sign Out"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Action Bar */}
-      <div className="border-b border-border bg-secondary/30 no-print">
-        <div className="container mx-auto px-6 py-3">
+      {/* Action Bar - Clean Toolbar */}
+      <div className="border-b border-border/40 bg-secondary/20 no-print py-3">
+        <div className="container mx-auto px-6">
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            {/* Primary Actions */}
-            <div className="flex items-center gap-2">
-              <Button onClick={onAddPatient} size="sm" className="gap-2">
-                <Plus className="h-4 w-4" />
+            {/* Primary Actions Group */}
+            <div className="flex items-center gap-2 p-1 bg-background rounded-lg border border-border/60 shadow-sm">
+              <Button onClick={onAddPatient} size="sm" className="gap-2 h-8 font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
+                <Plus className="h-3.5 w-3.5" />
                 Add Patient
               </Button>
+              <div className="w-px h-5 bg-border mx-1 my-auto" />
               <SmartPatientImport onImportPatient={onAddPatientWithData} />
-              <EpicHandoffImport 
+              <EpicHandoffImport
                 existingBeds={patients.map(p => p.bed)}
                 onImportPatients={onImportPatients}
               />
+            </div>
+
+            {/* Tools Group */}
+            <div className="flex items-center gap-2">
               <ChangeTrackingControls
                 enabled={changeTracking.enabled}
                 color={changeTracking.color}
@@ -209,7 +220,7 @@ export const DesktopDashboard = ({
                 onColorChange={changeTracking.setColor}
                 onToggleStyle={changeTracking.toggleStyle}
               />
-              <div className="h-6 w-px bg-border mx-1" />
+              <div className="w-px h-5 bg-border mx-1" />
               <AutotextManager
                 autotexts={autotexts}
                 templates={templates}
@@ -222,40 +233,41 @@ export const DesktopDashboard = ({
               />
               <Button
                 onClick={() => setShowPhraseManager(true)}
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="gap-2"
+                className="gap-2 h-8 text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border/60"
               >
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Phrases</span>
               </Button>
             </div>
 
-            {/* Secondary Actions */}
-            <div className="flex items-center gap-2">
-              <Button 
-                onClick={onCollapseAll} 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
+            {/* View Options Group */}
+            <div className="flex items-center gap-1 ml-auto">
+              <Button
+                onClick={onCollapseAll}
+                variant="ghost"
+                size="sm"
+                className="gap-2 h-8 text-muted-foreground hover:text-foreground"
                 disabled={patients.length === 0}
               >
                 <ChevronsUpDown className="h-4 w-4" />
-                <span className="hidden sm:inline">
+                <span className="hidden lg:inline">
                   {patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
                 </span>
               </Button>
-              <Button onClick={handlePrint} variant="outline" size="sm" className="gap-2">
+              <Button onClick={handlePrint} variant="ghost" size="sm" className="gap-2 h-8 text-muted-foreground hover:text-foreground">
                 <Printer className="h-4 w-4" />
-                <span className="hidden sm:inline">Print/Export</span>
+                <span className="hidden lg:inline">Print</span>
               </Button>
-              <Button onClick={handleExport} variant="ghost" size="sm" className="gap-2">
+              <Button onClick={handleExport} variant="ghost" size="sm" className="gap-2 h-8 text-muted-foreground hover:text-foreground">
                 <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">JSON</span>
+                <span className="hidden lg:inline">Export</span>
               </Button>
-              <Button onClick={handleClearAll} variant="ghost" size="sm" className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+              <div className="w-px h-4 bg-border mx-1" />
+              <Button onClick={handleClearAll} variant="ghost" size="sm" className="gap-2 h-8 text-destructive/80 hover:text-destructive hover:bg-destructive/10">
                 <Trash2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Clear</span>
+                <span className="hidden lg:inline">Clear All</span>
               </Button>
             </div>
           </div>
@@ -289,7 +301,7 @@ export const DesktopDashboard = ({
                 </Button>
               ))}
             </div>
-            
+
             {/* Sort Control */}
             <div className="flex items-center gap-2">
               <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
@@ -376,8 +388,8 @@ export const DesktopDashboard = ({
               {patients.length === 0 ? 'Ready to Start Rounds' : 'No patients match your filter'}
             </h3>
             <p className="text-muted-foreground mb-6 max-w-sm">
-              {patients.length === 0 
-                ? 'Add your first patient to begin documenting rounds.' 
+              {patients.length === 0
+                ? 'Add your first patient to begin documenting rounds.'
                 : 'Try adjusting your search or filter criteria.'}
             </p>
             {patients.length === 0 && (
