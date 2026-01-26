@@ -87,7 +87,7 @@ export const MobileDashboard = ({
 }: MobileDashboardProps) => {
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones } = useSettings();
   const changeTracking = useChangeTracking();
-  
+
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAutotextModal, setShowAutotextModal] = useState(false);
@@ -131,6 +131,20 @@ export const MobileDashboard = ({
           autotexts={autotexts}
           globalFontSize={globalFontSize}
           changeTracking={changeTracking}
+          onNext={() => {
+            const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
+            if (currentIndex < filteredPatients.length - 1) {
+              onPatientSelect(filteredPatients[currentIndex + 1]);
+            }
+          }}
+          onPrevious={() => {
+            const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
+            if (currentIndex > 0) {
+              onPatientSelect(filteredPatients[currentIndex - 1]);
+            }
+          }}
+          hasNext={filteredPatients.findIndex(p => p.id === selectedPatient.id) < filteredPatients.length - 1}
+          hasPrevious={filteredPatients.findIndex(p => p.id === selectedPatient.id) > 0}
         />
       ) : (
         <>

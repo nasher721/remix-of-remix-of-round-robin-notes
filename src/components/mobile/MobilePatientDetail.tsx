@@ -56,6 +56,10 @@ interface MobilePatientDetailProps {
     enabled: boolean;
     wrapWithMarkup: (text: string) => string;
   } | null;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  hasNext?: boolean;
+  hasPrevious?: boolean;
 }
 
 export const MobilePatientDetail = ({
@@ -68,6 +72,10 @@ export const MobilePatientDetail = ({
   autotexts = [],
   globalFontSize = 16,
   changeTracking = null,
+  onNext,
+  onPrevious,
+  hasNext = false,
+  hasPrevious = false,
 }: MobilePatientDetailProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
@@ -126,10 +134,35 @@ export const MobilePatientDetail = ({
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 safe-area-top shadow-sm">
         <div className="flex items-center justify-between h-14 px-2">
-          <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -ml-2">
-            <ArrowLeft className="h-5 w-5" />
-            <span>Back</span>
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -ml-2">
+              <ArrowLeft className="h-5 w-5" />
+              <span>Back</span>
+            </Button>
+
+            {/* Quick Navigation */}
+            <div className="flex items-center bg-secondary/50 rounded-full border border-border/50 ml-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onPrevious}
+                disabled={!hasPrevious}
+                className="h-8 w-8 rounded-l-full hover:bg-secondary"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="w-px h-4 bg-border/50"></div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onNext}
+                disabled={!hasNext}
+                className="h-8 w-8 rounded-r-full hover:bg-secondary"
+              >
+                <ArrowLeft className="h-4 w-4 rotate-180" />
+              </Button>
+            </div>
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

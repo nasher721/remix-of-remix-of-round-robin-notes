@@ -11,6 +11,7 @@ import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
 import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
+import { PatientNavigator } from "./PatientNavigator";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -378,7 +379,7 @@ export const DesktopDashboard = ({
       </div>
 
       {/* Patient Cards */}
-      <div className="container mx-auto px-6 pb-12">
+      <div className="container mx-auto px-6 pb-12 pr-16 transition-all duration-300">
         {filteredPatients.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="mb-6">
@@ -410,6 +411,19 @@ export const DesktopDashboard = ({
           />
         )}
       </div>
+
+      <PatientNavigator
+        patients={filteredPatients}
+        onScrollToPatient={(id) => {
+          const element = document.getElementById(`patient-card-${id}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Optional: Flash effect
+            element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+            setTimeout(() => element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 1000);
+          }
+        }}
+      />
 
       <PrintExportModal
         open={showPrintModal}
