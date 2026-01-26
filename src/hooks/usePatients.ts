@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
-import { useToast } from "./use-toast";
+import { useNotifications } from "./use-notifications";
 import type { Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
 import { parseSystemsJson, parseFieldTimestampsJson, parseMedicationsJson, prepareUpdateData } from "@/lib/mappers/patientMapper";
 import type { Json } from "@/integrations/supabase/types";
@@ -33,7 +33,7 @@ export const usePatients = () => {
   const [loading, setLoading] = useState(true);
   const [patientCounter, setPatientCounter] = useState(1);
   const { user } = useAuth();
-  const { toast } = useToast();
+  const notifications = useNotifications();
 
   // Fetch patients from database
   const fetchPatients = useCallback(async () => {
@@ -69,21 +69,20 @@ export const usePatients = () => {
       }));
 
       setPatients(formattedPatients);
-      
+
       // Set counter to max patient_number + 1
       const maxNumber = formattedPatients.reduce((max, p) => Math.max(max, p.patientNumber), 0);
       setPatientCounter(maxNumber + 1);
     } catch (error) {
       console.error("Error fetching patients:", error);
-      toast({
+      notifications.error({
         title: "Error",
         description: "Failed to load patients.",
-        variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  }, [user, toast]);
+  }, [user]);
 
   useEffect(() => {
     fetchPatients();
@@ -132,26 +131,25 @@ export const usePatients = () => {
 
       setPatients((prev) => [...prev, newPatient]);
       setPatientCounter((prev) => prev + 1);
-      
-      toast({
+
+      notifications.success({
         title: "Patient Added",
         description: "New patient card created.",
       });
     } catch (error) {
       console.error("Error adding patient:", error);
-      toast({
+      notifications.error({
         title: "Error",
         description: "Failed to add patient.",
-        variant: "destructive",
       });
     }
-  }, [user, patientCounter, toast]);
+  }, [user, patientCounter]);
 
   const updatePatient = useCallback(async (id: string, field: string, value: unknown) => {
     if (!user) return;
 
     const now = new Date().toISOString();
-    
+
     // Fields that should track timestamps (content fields only)
     const trackableFields = ['clinicalSummary', 'intervalEvents', 'imaging', 'labs', 'medications'];
     const isSystemField = field.startsWith('systems.');
@@ -161,7 +159,7 @@ export const usePatients = () => {
     // Get old value for history tracking
     const patient = patients.find((p) => p.id === id);
     let oldValue: string | null = null;
-    
+
     if (shouldTrackTimestamp && patient && !isMedicationsField) {
       if (isSystemField) {
         const systemKey = field.split('.')[1] as keyof PatientSystems;
@@ -176,7 +174,7 @@ export const usePatients = () => {
       prev.map((p) => {
         if (p.id === id) {
           const updated = { ...p, lastModified: now };
-          
+
           // Update field timestamps if this is a trackable field
           if (shouldTrackTimestamp) {
             updated.fieldTimestamps = {
@@ -184,7 +182,7 @@ export const usePatients = () => {
               [field]: now,
             };
           }
-          
+
           if (field.includes(".")) {
             const [parent, child] = field.split(".");
             if (parent === "systems") {
@@ -205,7 +203,7 @@ export const usePatients = () => {
 
     // Prepare update object
     const updateData = prepareUpdateData(field, value, patient?.systems, patient?.medications);
-    
+
     // Add field timestamp update if trackable
     if (shouldTrackTimestamp && patient) {
       updateData.field_timestamps = {
@@ -255,21 +253,19 @@ export const usePatients = () => {
       if (error) throw error;
 
       setPatients((prev) => prev.filter((p) => p.id !== id));
-      
-      toast({
+
+      notifications.success({
         title: "Patient Removed",
         description: "Patient has been removed.",
-        variant: "destructive",
       });
     } catch (error) {
       console.error("Error removing patient:", error);
-      toast({
+      notifications.error({
         title: "Error",
         description: "Failed to remove patient.",
-        variant: "destructive",
       });
     }
-  }, [user, toast]);
+  }, [user]);
 
   const duplicatePatient = useCallback(async (id: string) => {
     if (!user) return;
@@ -317,20 +313,19 @@ export const usePatients = () => {
 
       setPatients((prev) => [...prev, newPatient]);
       setPatientCounter((prev) => prev + 1);
-      
-      toast({
+
+      notifications.success({
         title: "Patient Duplicated",
         description: "Patient card has been duplicated.",
       });
     } catch (error) {
       console.error("Error duplicating patient:", error);
-      toast({
+      notifications.error({
         title: "Error",
         description: "Failed to duplicate patient.",
-        variant: "destructive",
       });
     }
-  }, [user, patients, patientCounter, toast]);
+  }, [user, patients, patientCounter]);
 
   const toggleCollapse = useCallback(async (id: string) => {
     const patient = patients.find((p) => p.id === id);
@@ -379,10 +374,10 @@ export const usePatients = () => {
       for (const p of patientsToImport) {
         const systemsToInsert = p.systems || defaultSystemsValue;
         const medicationsToInsert = p.medications || defaultMedicationsValue;
-        
+
         const { data, error } = await supabase
           .from("patients")
-        .insert([{
+          .insert([{
             user_id: user.id,
             patient_number: currentCounter,
             name: p.name,
@@ -423,20 +418,19 @@ export const usePatients = () => {
       setPatients((prev) => [...prev, ...newPatients]);
       setPatientCounter(currentCounter);
 
-      toast({
+      notifications.success({
         title: "Import Complete",
         description: `${newPatients.length} patient(s) imported from Epic handoff.`,
       });
     } catch (error) {
       console.error("Error importing patients:", error);
-      toast({
+      notifications.error({
         title: "Import Error",
         description: "Failed to import some patients.",
-        variant: "destructive",
       });
       throw error;
     }
-  }, [user, patientCounter, toast]);
+  }, [user, patientCounter]);
 
   // Add a patient with pre-populated data (for smart import)
   const addPatientWithData = useCallback(async (patientData: {
@@ -491,21 +485,20 @@ export const usePatients = () => {
 
       setPatients((prev) => [...prev, newPatient]);
       setPatientCounter((prev) => prev + 1);
-      
-      toast({
+
+      notifications.success({
         title: "Patient Imported",
         description: `${patientData.name || 'New patient'} added successfully.`,
       });
     } catch (error) {
       console.error("Error adding patient with data:", error);
-      toast({
+      notifications.error({
         title: "Error",
         description: "Failed to import patient.",
-        variant: "destructive",
       });
       throw error;
     }
-  }, [user, patientCounter, toast]);
+  }, [user, patientCounter]);
 
   const clearAll = useCallback(async () => {
     if (!user) return;
@@ -520,21 +513,19 @@ export const usePatients = () => {
 
       setPatients([]);
       setPatientCounter(1);
-      
-      toast({
+
+      notifications.success({
         title: "All Data Cleared",
         description: "All patient data has been removed.",
-        variant: "destructive",
       });
     } catch (error) {
       console.error("Error clearing patients:", error);
-      toast({
+      notifications.error({
         title: "Error",
         description: "Failed to clear patients.",
-        variant: "destructive",
       });
     }
-  }, [user, toast]);
+  }, [user]);
 
   return {
     patients,
@@ -551,3 +542,4 @@ export const usePatients = () => {
     refetch: fetchPatients,
   };
 };
+
