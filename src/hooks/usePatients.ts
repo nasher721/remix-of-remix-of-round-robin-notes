@@ -82,7 +82,7 @@ export const usePatients = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, notifications]);
 
   useEffect(() => {
     fetchPatients();
@@ -143,7 +143,7 @@ export const usePatients = () => {
         description: "Failed to add patient.",
       });
     }
-  }, [user, patientCounter]);
+  }, [user, patientCounter, notifications]);
 
   const updatePatient = useCallback(async (id: string, field: string, value: unknown) => {
     if (!user) return;
@@ -265,7 +265,7 @@ export const usePatients = () => {
         description: "Failed to remove patient.",
       });
     }
-  }, [user]);
+  }, [user, notifications]);
 
   const duplicatePatient = useCallback(async (id: string) => {
     if (!user) return;
@@ -325,7 +325,7 @@ export const usePatients = () => {
         description: "Failed to duplicate patient.",
       });
     }
-  }, [user, patients, patientCounter]);
+  }, [user, patients, patientCounter, notifications]);
 
   const toggleCollapse = useCallback(async (id: string) => {
     const patient = patients.find((p) => p.id === id);
@@ -430,7 +430,7 @@ export const usePatients = () => {
       });
       throw error;
     }
-  }, [user, patientCounter]);
+  }, [user, patientCounter, notifications]);
 
   // Add a patient with pre-populated data (for smart import)
   const addPatientWithData = useCallback(async (patientData: {
@@ -498,16 +498,17 @@ export const usePatients = () => {
       });
       throw error;
     }
-  }, [user, patientCounter]);
+  }, [user, patientCounter, notifications]);
 
   const clearAll = useCallback(async () => {
     if (!user) return;
 
     try {
+      // Delete all patients for the current user
       const { error } = await supabase
         .from("patients")
         .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000"); // Delete all
+        .eq("user_id", user.id);
 
       if (error) throw error;
 
@@ -525,7 +526,7 @@ export const usePatients = () => {
         description: "Failed to clear patients.",
       });
     }
-  }, [user]);
+  }, [user, notifications]);
 
   return {
     patients,
