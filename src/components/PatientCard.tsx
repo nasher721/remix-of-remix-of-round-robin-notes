@@ -1,7 +1,7 @@
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser } from "lucide-react";
-import { useState } from "react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
@@ -28,19 +28,19 @@ interface PatientCardProps {
   autotexts?: AutoText[];
 }
 
-export const PatientCard = ({ 
-  patient, 
-  onUpdate, 
-  onRemove, 
-  onDuplicate, 
+const PatientCardComponent = ({
+  patient,
+  onUpdate,
+  onRemove,
+  onDuplicate,
   onToggleCollapse,
   autotexts = defaultAutotexts,
 }: PatientCardProps) => {
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
-  
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [showSystemsConfig, setShowSystemsConfig] = useState(false);
+
+  const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
+  const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
   const { generateIntervalEvents, isGenerating: isGeneratingEvents, cancelGeneration } = useIntervalEventsGenerator();
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
@@ -540,10 +540,31 @@ export const PatientCard = ({
         </div>
       )}
       
-      <SystemsConfigManager 
-        open={showSystemsConfig} 
-        onOpenChange={setShowSystemsConfig} 
+      <SystemsConfigManager
+        open={showSystemsConfig}
+        onOpenChange={setShowSystemsConfig}
       />
     </div>
   );
 };
+
+// Memoize to prevent unnecessary re-renders when other patients change
+export const PatientCard = React.memo(PatientCardComponent, (prevProps, nextProps) => {
+  // Custom comparison for better performance
+  return (
+    prevProps.patient.id === nextProps.patient.id &&
+    prevProps.patient.name === nextProps.patient.name &&
+    prevProps.patient.bed === nextProps.patient.bed &&
+    prevProps.patient.clinicalSummary === nextProps.patient.clinicalSummary &&
+    prevProps.patient.intervalEvents === nextProps.patient.intervalEvents &&
+    prevProps.patient.imaging === nextProps.patient.imaging &&
+    prevProps.patient.labs === nextProps.patient.labs &&
+    prevProps.patient.collapsed === nextProps.patient.collapsed &&
+    prevProps.patient.lastModified === nextProps.patient.lastModified &&
+    prevProps.autotexts === nextProps.autotexts &&
+    prevProps.onUpdate === nextProps.onUpdate &&
+    prevProps.onRemove === nextProps.onRemove &&
+    prevProps.onDuplicate === nextProps.onDuplicate &&
+    prevProps.onToggleCollapse === nextProps.onToggleCollapse
+  );
+});

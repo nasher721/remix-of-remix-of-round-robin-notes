@@ -159,7 +159,7 @@ export function usePatientTodos(patientId: string | null) {
       }
 
       const generatedTodos: string[] = data.todos || [];
-      
+
       if (generatedTodos.length === 0) {
         toast({
           title: "No todos generated",
@@ -168,16 +168,41 @@ export function usePatientTodos(patientId: string | null) {
         return;
       }
 
-      // Add all generated todos to the database
+      // Batch insert all generated todos for better performance
       const sectionValue = section === 'all' ? null : section;
-      
-      for (const content of generatedTodos) {
-        await addTodo(content, sectionValue);
-      }
+
+      const todosToInsert = generatedTodos.map(content => ({
+        patient_id: patientId,
+        user_id: user.id,
+        section: sectionValue,
+        content,
+        completed: false,
+      }));
+
+      const { data: insertedData, error: insertError } = await supabase
+        .from('patient_todos')
+        .insert(todosToInsert)
+        .select();
+
+      if (insertError) throw insertError;
+
+      // Map inserted data to PatientTodo format and add to state
+      const newTodos: PatientTodo[] = (insertedData || []).map(todo => ({
+        id: todo.id,
+        patientId: todo.patient_id,
+        userId: todo.user_id,
+        section: todo.section,
+        content: todo.content,
+        completed: todo.completed,
+        createdAt: todo.created_at,
+        updatedAt: todo.updated_at,
+      }));
+
+      setTodos(prev => [...newTodos.reverse(), ...prev]);
 
       toast({
         title: "Todos generated",
-        description: `Added ${generatedTodos.length} new todo items.`,
+        description: `Added ${newTodos.length} new todo items.`,
       });
     } catch (error) {
       console.error('Error generating todos:', error);
@@ -189,7 +214,7 @@ export function usePatientTodos(patientId: string | null) {
     } finally {
       setGenerating(false);
     }
-  }, [patientId, user, addTodo, toast]);
+  }, [patientId, user, toast]);
 
   const getTodosBySection = useCallback((section: string | null) => {
     return todos.filter(t => t.section === section);

@@ -146,6 +146,15 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     }
   }, [user]);
 
+  // Cleanup timeout on unmount to prevent memory leaks
+  React.useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Persist font size
   React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(globalFontSize));
