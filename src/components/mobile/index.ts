@@ -5,3 +5,9 @@ export { MobileAddPanel } from "./MobileAddPanel";
 export { MobileSettingsPanel } from "./MobileSettingsPanel";
 export { MobileReferencePanel } from "./MobileReferencePanel";
 export { SwipeablePatientCard } from "./SwipeablePatientCard";
+
+// New clinical feature components
+export { MobileClinicalTools, MobileAlertPanel } from "./MobileClinicalTools";
+export { MobileLabTrends, InlineLabTrends } from "./MobileLabTrends";
+export { MobileHandoff, HandoffSummary } from "./MobileHandoff";
+export { MobileAnalytics } from "./MobileAnalytics";
