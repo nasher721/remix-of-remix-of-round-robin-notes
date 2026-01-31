@@ -98,11 +98,13 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     const loadSettings = () => {
       const savedCols = localStorage.getItem('printColumnPrefs');
       const savedWidths = localStorage.getItem('printColumnWidths');
+      const savedCombined = localStorage.getItem('printCombinedColumns');
 
       setSettings(prev => ({
         ...prev,
         columns: savedCols ? JSON.parse(savedCols) : defaultColumns,
         columnWidths: savedWidths ? { ...defaultColumnWidths, ...JSON.parse(savedWidths) } : defaultColumnWidths,
+        combinedColumns: savedCombined ? JSON.parse(savedCombined) : [],
         printOrientation: (localStorage.getItem('printOrientation') as 'portrait' | 'landscape') || 'portrait',
         printFontSize: parseInt(localStorage.getItem('printFontSize') || '9'),
         printFontFamily: localStorage.getItem('printFontFamily') || 'system',
@@ -134,6 +136,17 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
   const handleResetColumns = () => {
     handleUpdateColumns(defaultColumns);
+  };
+
+  const handleToggleCombination = (combinationKey: string) => {
+    setSettings(prev => {
+      const current = prev.combinedColumns || [];
+      const updated = current.includes(combinationKey)
+        ? current.filter(k => k !== combinationKey)
+        : [...current, combinationKey];
+      localStorage.setItem('printCombinedColumns', JSON.stringify(updated));
+      return { ...prev, combinedColumns: updated };
+    });
   };
 
   // --- Export Handlers (Legacy Logic Wrapper) ---
@@ -242,6 +255,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                   onUpdateSettings={handleUpdateSettings}
                   onUpdateColumns={handleUpdateColumns}
                   onResetColumns={handleResetColumns}
+                  onToggleCombination={handleToggleCombination}
                 />
               </TabsContent>
 

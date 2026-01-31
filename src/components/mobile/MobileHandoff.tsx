@@ -69,7 +69,7 @@ export function MobileHandoff({
       clinicalSummary: patient.clinicalSummary,
       intervalEvents: patient.intervalEvents,
       labs: patient.labs,
-      systems: patient.systems,
+      systems: patient.systems as unknown as Record<string, string>,
     });
     updateHandoff({ sbar });
   };

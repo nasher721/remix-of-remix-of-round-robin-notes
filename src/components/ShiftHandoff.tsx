@@ -183,7 +183,7 @@ export function ShiftHandoff({
       clinicalSummary: selectedPatient.clinicalSummary,
       intervalEvents: selectedPatient.intervalEvents,
       labs: selectedPatient.labs,
-      systems: selectedPatient.systems,
+      systems: selectedPatient.systems as unknown as Record<string, string>,
     });
     updateHandoff({ sbar });
   };
