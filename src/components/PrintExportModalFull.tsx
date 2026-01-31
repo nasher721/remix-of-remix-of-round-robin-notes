@@ -17,7 +17,7 @@ import autoTable from "jspdf-autotable";
 import { PrintSettings } from "./print/PrintSettings";
 import { PrintControls } from "./print/PrintControls";
 import { PrintPreview } from "./print/PrintPreview";
-import type { PrintSettings as PrintSettingsType, ColumnConfig, ColumnWidthsType } from "@/lib/print/types";
+import type { PrintSettings as PrintSettingsType, ColumnConfig, ColumnWidthsType, CustomCombination } from "@/lib/print/types";
 
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
@@ -75,6 +75,7 @@ const stripHtml = (html: string): string => {
 export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = {}, onUpdatePatient, totalPatientCount, isFiltered = false }: PrintExportModalProps) => {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = React.useState(false);
+  const [customCombinations, setCustomCombinations] = React.useState<CustomCombination[]>([]);
 
   // Settings State
   const [settings, setSettings] = React.useState<PrintSettingsType>({
@@ -99,6 +100,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const savedCols = localStorage.getItem('printColumnPrefs');
       const savedWidths = localStorage.getItem('printColumnWidths');
       const savedCombined = localStorage.getItem('printCombinedColumns');
+      const savedCustomCombinations = localStorage.getItem('printCustomCombinations');
 
       setSettings(prev => ({
         ...prev,
@@ -111,6 +113,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         onePatientPerPage: localStorage.getItem('printOnePatientPerPage') === 'true',
         autoFitFontSize: localStorage.getItem('printAutoFitFontSize') === 'true',
       }));
+
+      if (savedCustomCombinations) {
+        setCustomCombinations(JSON.parse(savedCustomCombinations));
+      }
     };
     loadSettings();
   }, [open]);
@@ -147,6 +153,39 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       localStorage.setItem('printCombinedColumns', JSON.stringify(updated));
       return { ...prev, combinedColumns: updated };
     });
+  };
+
+  const handleAddCustomCombination = (combination: CustomCombination) => {
+    setCustomCombinations(prev => {
+      const updated = [...prev, combination];
+      localStorage.setItem('printCustomCombinations', JSON.stringify(updated));
+      return updated;
+    });
+    toast({ title: "Custom combination created" });
+  };
+
+  const handleUpdateCustomCombination = (combination: CustomCombination) => {
+    setCustomCombinations(prev => {
+      const updated = prev.map(c => c.key === combination.key ? combination : c);
+      localStorage.setItem('printCustomCombinations', JSON.stringify(updated));
+      return updated;
+    });
+    toast({ title: "Custom combination updated" });
+  };
+
+  const handleDeleteCustomCombination = (combinationKey: string) => {
+    setCustomCombinations(prev => {
+      const updated = prev.filter(c => c.key !== combinationKey);
+      localStorage.setItem('printCustomCombinations', JSON.stringify(updated));
+      return updated;
+    });
+    // Also remove from active combinations if it was active
+    setSettings(prev => {
+      const updatedCombined = (prev.combinedColumns || []).filter(k => k !== combinationKey);
+      localStorage.setItem('printCombinedColumns', JSON.stringify(updatedCombined));
+      return { ...prev, combinedColumns: updatedCombined };
+    });
+    toast({ title: "Custom combination deleted" });
   };
 
   // --- Export Handlers (Legacy Logic Wrapper) ---
@@ -256,6 +295,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                   onUpdateColumns={handleUpdateColumns}
                   onResetColumns={handleResetColumns}
                   onToggleCombination={handleToggleCombination}
+                  customCombinations={customCombinations}
+                  onAddCustomCombination={handleAddCustomCombination}
+                  onUpdateCustomCombination={handleUpdateCustomCombination}
+                  onDeleteCustomCombination={handleDeleteCustomCombination}
                 />
               </TabsContent>
 
