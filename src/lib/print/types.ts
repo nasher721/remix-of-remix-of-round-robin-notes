@@ -12,6 +12,12 @@ export interface ColumnCombination {
     key: string;
     label: string;
     columns: string[];
+    isCustom?: boolean;
+}
+
+export interface CustomCombination extends ColumnCombination {
+    isCustom: true;
+    createdAt: string;
 }
 
 export type ColumnWidthsType = {

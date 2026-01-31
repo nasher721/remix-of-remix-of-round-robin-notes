@@ -15,9 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SYSTEM_LABELS_SHORT, SYSTEM_KEYS } from "@/constants/systems";
 import { cn } from "@/lib/utils";
-import { Layers } from "lucide-react";
-import type { PrintSettings as SettingsType, ColumnConfig } from "@/lib/print/types";
+import { Layers, Plus, Trash2, Pencil } from "lucide-react";
+import type { PrintSettings as SettingsType, ColumnConfig, CustomCombination } from "@/lib/print/types";
 import { columnCombinations } from "./constants";
+import { CustomCombinationDialog } from "./CustomCombinationDialog";
 
 interface PrintSettingsProps {
   settings: SettingsType;
@@ -25,6 +26,10 @@ interface PrintSettingsProps {
   onUpdateColumns: (columns: ColumnConfig[]) => void;
   onResetColumns: () => void;
   onToggleCombination?: (combinationKey: string) => void;
+  customCombinations?: CustomCombination[];
+  onAddCustomCombination?: (combination: CustomCombination) => void;
+  onUpdateCustomCombination?: (combination: CustomCombination) => void;
+  onDeleteCustomCombination?: (combinationKey: string) => void;
 }
 
 export function PrintSettings({
@@ -32,8 +37,15 @@ export function PrintSettings({
   onUpdateSettings,
   onUpdateColumns,
   onResetColumns,
-  onToggleCombination
+  onToggleCombination,
+  customCombinations = [],
+  onAddCustomCombination,
+  onUpdateCustomCombination,
+  onDeleteCustomCombination
 }: PrintSettingsProps) {
+  const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
+  const [editingCombination, setEditingCombination] = React.useState<CustomCombination | undefined>();
+
   const fontFamilies = [
     { value: 'system', label: 'System Default' },
     { value: 'arial', label: 'Arial' },
@@ -165,7 +177,10 @@ export function PrintSettings({
           <p className="text-xs text-muted-foreground">
             Merge multiple sections into a single column for a more compact print layout.
           </p>
+          
+          {/* Preset Combinations */}
           <div className="space-y-2">
+            <Label className="text-xs font-semibold text-muted-foreground">PRESETS</Label>
             {columnCombinations.map(combo => {
               const isActive = isCombinationActive(combo.key);
               return (
@@ -201,8 +216,120 @@ export function PrintSettings({
               );
             })}
           </div>
+
+          {/* Custom Combinations */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-muted-foreground">CUSTOM</Label>
+              {onAddCustomCombination && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs px-2"
+                  onClick={() => {
+                    setEditingCombination(undefined);
+                    setCustomDialogOpen(true);
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add
+                </Button>
+              )}
+            </div>
+
+            {customCombinations.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-2">
+                No custom combinations yet. Click "Add" to create one.
+              </p>
+            ) : (
+              customCombinations.map(combo => {
+                const isActive = isCombinationActive(combo.key);
+                return (
+                  <div
+                    key={combo.key}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border transition-colors",
+                      isActive
+                        ? "bg-primary/10 border-primary"
+                        : "bg-muted/30 border-transparent hover:bg-muted/50"
+                    )}
+                  >
+                    <div
+                      className="flex items-center gap-2 flex-1 cursor-pointer"
+                      onClick={() => handleToggleCombination(combo.key)}
+                    >
+                      <Checkbox
+                        id={`combo-${combo.key}`}
+                        checked={isActive}
+                        onCheckedChange={() => handleToggleCombination(combo.key)}
+                      />
+                      <div className="flex flex-col">
+                        <Label
+                          htmlFor={`combo-${combo.key}`}
+                          className="text-sm font-medium cursor-pointer"
+                        >
+                          {combo.label}
+                        </Label>
+                        <span className="text-xs text-muted-foreground">
+                          {combo.columns.length} sections
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {isActive && (
+                        <Badge variant="secondary" className="text-xs mr-1">
+                          Active
+                        </Badge>
+                      )}
+                      {onUpdateCustomCombination && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCombination(combo);
+                            setCustomDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {onDeleteCustomCombination && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteCustomCombination(combo.key);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       )}
+
+      {/* Custom Combination Dialog */}
+      <CustomCombinationDialog
+        open={customDialogOpen}
+        onOpenChange={setCustomDialogOpen}
+        existingCombination={editingCombination}
+        onSave={(combo) => {
+          if (editingCombination && onUpdateCustomCombination) {
+            onUpdateCustomCombination(combo);
+          } else if (onAddCustomCombination) {
+            onAddCustomCombination(combo);
+          }
+        }}
+      />
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
