@@ -21,8 +21,8 @@ interface RowProps {
 const ROW_HEIGHT = 88; // Fixed height for mobile cards
 
 // Row component for the virtualized list
-const PatientRowComponent = ({ 
-  index, 
+const PatientRowComponent = ({
+  index,
   style,
   ariaAttributes,
   patients,
@@ -39,7 +39,7 @@ const PatientRowComponent = ({
   style: CSSProperties;
 } & RowProps): ReactElement | null => {
   const patient = patients[index];
-  
+
   if (!patient) return null;
 
   return (
@@ -71,8 +71,8 @@ export const VirtualizedMobilePatientList = memo(({
     const updateHeight = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        // Account for mobile nav bar (64px) and some padding
-        const availableHeight = window.innerHeight - rect.top - 80;
+        // Account for mobile nav bar (64px) + safe area (~34px) + padding buffer
+        const availableHeight = window.innerHeight - rect.top - 120;
         setContainerHeight(Math.max(300, availableHeight));
       }
     };
@@ -120,7 +120,7 @@ export const VirtualizedMobilePatientList = memo(({
         className="scrollbar-thin"
         style={{ height: containerHeight, width: '100%' }}
       />
-      
+
       {/* Swipe hint for first-time users */}
       {patients.length === 1 && (
         <div className="py-4 px-6 text-center text-xs text-muted-foreground animate-fade-in">

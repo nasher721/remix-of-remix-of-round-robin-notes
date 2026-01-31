@@ -12,9 +12,10 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
+import { useDashboard } from "@/contexts/DashboardContext";
 
 // Mobile components
-import { MobileNavBar, MobileHeader, type MobileTab } from "@/components/layout";
+import { MobileNavBar, MobileHeader } from "@/components/layout";
 import {
   VirtualizedMobilePatientList,
   MobilePatientDetail,
@@ -22,69 +23,38 @@ import {
   MobileSettingsPanel,
   MobileReferencePanel,
 } from "@/components/mobile";
-import type { Patient } from "@/types/patient";
-import type { AutoText, Template } from "@/types/autotext";
-import type { PatientTodo } from "@/types/todo";
 
-interface MobileDashboardProps {
-  user: { email?: string };
-  patients: Patient[];
-  filteredPatients: Patient[];
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  autotexts: AutoText[];
-  templates: Template[];
-  customDictionary: Record<string, string>;
-  todosMap: Record<string, PatientTodo[]>;
-  onAddPatient: () => void;
-  onAddPatientWithData: (data: Partial<Patient>) => Promise<void>;
-  onUpdatePatient: (id: string, field: string, value: unknown) => void;
-  onRemovePatient: (id: string) => void;
-  onDuplicatePatient: (id: string) => void;
-  onCollapseAll: () => void;
-  onClearAll: () => void;
-  onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
-  onAddAutotext: (shortcut: string, expansion: string, category: string) => Promise<boolean>;
-  onRemoveAutotext: (shortcut: string) => Promise<void>;
-  onAddTemplate: (name: string, content: string, category: string) => Promise<boolean>;
-  onRemoveTemplate: (id: string) => Promise<void>;
-  onImportDictionary: (entries: Record<string, string>) => Promise<boolean | void>;
-  onSignOut: () => void;
-  onPatientSelect: (patient: Patient | null) => void;
-  selectedPatient: Patient | null;
-  mobileTab: MobileTab;
-  setMobileTab: (tab: MobileTab) => void;
-}
+export const MobileDashboard = () => {
+  const {
+    user,
+    patients,
+    filteredPatients,
+    searchQuery,
+    setSearchQuery,
+    autotexts,
+    templates,
+    customDictionary,
+    todosMap,
+    onAddPatient,
+    onAddPatientWithData,
+    onUpdatePatient,
+    onRemovePatient,
+    onDuplicatePatient,
+    onCollapseAll,
+    onClearAll,
+    onImportPatients,
+    onAddAutotext,
+    onRemoveAutotext,
+    onAddTemplate,
+    onRemoveTemplate,
+    onImportDictionary,
+    onSignOut,
+    onPatientSelect,
+    selectedPatient,
+    mobileTab,
+    setMobileTab,
+  } = useDashboard();
 
-export const MobileDashboard = ({
-  user,
-  patients,
-  filteredPatients,
-  searchQuery,
-  setSearchQuery,
-  autotexts,
-  templates,
-  customDictionary,
-  todosMap,
-  onAddPatient,
-  onAddPatientWithData,
-  onUpdatePatient,
-  onRemovePatient,
-  onDuplicatePatient,
-  onCollapseAll,
-  onClearAll,
-  onImportPatients,
-  onAddAutotext,
-  onRemoveAutotext,
-  onAddTemplate,
-  onRemoveTemplate,
-  onImportDictionary,
-  onSignOut,
-  onPatientSelect,
-  selectedPatient,
-  mobileTab,
-  setMobileTab,
-}: MobileDashboardProps) => {
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones } = useSettings();
   const changeTracking = useChangeTracking();
 
@@ -173,6 +143,10 @@ export const MobileDashboard = ({
               <div className="pb-mobile-nav">
                 <VirtualizedMobilePatientList
                   patients={filteredPatients}
+                  // Pass these for now as VirtualizedMobilePatientList still expects them, 
+                  // but we should eventually refactor that too if consistent.
+                  // Wait, VirtualizedMobilePatientList hasn't been context-ified yet.
+                  // So we must pass props.
                   onPatientSelect={onPatientSelect}
                   onPatientDelete={handleRemovePatient}
                   onPatientDuplicate={onDuplicatePatient}
@@ -284,3 +258,4 @@ export const MobileDashboard = ({
     </div>
   );
 };
+

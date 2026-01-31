@@ -10,6 +10,7 @@ import { usePatientFilter } from "@/hooks/usePatientFilter";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
+import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
 import { Loader2 } from "lucide-react";
 import type { MobileTab } from "@/components/layout";
@@ -21,13 +22,13 @@ function IndexContent(): React.ReactElement | null {
   const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
   const { sortBy } = useSettings();
-  const { 
-    patients, 
-    loading: patientsLoading, 
-    addPatient, 
+  const {
+    patients,
+    loading: patientsLoading,
+    addPatient,
     addPatientWithData,
-    updatePatient, 
-    removePatient, 
+    updatePatient,
+    removePatient,
     duplicatePatient,
     toggleCollapse,
     collapseAll,
@@ -36,11 +37,11 @@ function IndexContent(): React.ReactElement | null {
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
   const { customDictionary, importDictionary } = useCloudDictionary();
-  
+
   // Fetch todos for all patients for print/export
   const patientIds = React.useMemo(() => patients.map(p => p.id), [patients]);
   const { todosMap } = useAllPatientTodos(patientIds);
-  
+
   // Patient filtering and sorting
   const { searchQuery, setSearchQuery, filter, setFilter, filteredPatients } = usePatientFilter({
     patients,
@@ -48,11 +49,11 @@ function IndexContent(): React.ReactElement | null {
   });
 
   const [lastSaved, setLastSaved] = React.useState<Date>(new Date());
-  
+
   // Mobile-specific state
   const [mobileTab, setMobileTab] = React.useState<MobileTab>("patients");
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
-  
+
   const navigate = useNavigate();
 
   // Redirect to auth if not logged in
@@ -71,7 +72,7 @@ function IndexContent(): React.ReactElement | null {
 
   // Get current patient for IBCC context - use selected patient on mobile or first filtered patient
   const currentPatient = isMobile && selectedPatient ? selectedPatient : (filteredPatients.length > 0 ? filteredPatients[0] : undefined);
-  
+
   // Update IBCC context with current patient for context-aware suggestions
   React.useEffect(() => {
     setCurrentPatient(currentPatient);
@@ -117,38 +118,42 @@ function IndexContent(): React.ReactElement | null {
     return null;
   }
 
+  const dashboardContextValue = {
+    user,
+    patients,
+    filteredPatients,
+    searchQuery,
+    setSearchQuery,
+    autotexts,
+    templates,
+    customDictionary,
+    todosMap,
+    onAddPatient: handleAddPatient,
+    onAddPatientWithData: addPatientWithData,
+    onUpdatePatient: handleUpdatePatient,
+    onRemovePatient: handleRemovePatient,
+    onDuplicatePatient: handleDuplicatePatient,
+    onCollapseAll: collapseAll,
+    onClearAll: clearAll,
+    onImportPatients: importPatients,
+    onAddAutotext: addAutotext,
+    onRemoveAutotext: removeAutotext,
+    onAddTemplate: addTemplate,
+    onRemoveTemplate: removeTemplate,
+    onImportDictionary: importDictionary,
+    onSignOut: handleSignOut,
+    onPatientSelect: setSelectedPatient,
+    selectedPatient,
+    mobileTab,
+    setMobileTab,
+  };
+
   // Mobile Layout
   if (isMobile) {
     return (
-      <MobileDashboard
-        user={user}
-        patients={patients}
-        filteredPatients={filteredPatients}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        autotexts={autotexts}
-        templates={templates}
-        customDictionary={customDictionary}
-        todosMap={todosMap}
-        onAddPatient={handleAddPatient}
-        onAddPatientWithData={addPatientWithData}
-        onUpdatePatient={handleUpdatePatient}
-        onRemovePatient={handleRemovePatient}
-        onDuplicatePatient={handleDuplicatePatient}
-        onCollapseAll={collapseAll}
-        onClearAll={clearAll}
-        onImportPatients={importPatients}
-        onAddAutotext={addAutotext}
-        onRemoveAutotext={removeAutotext}
-        onAddTemplate={addTemplate}
-        onRemoveTemplate={removeTemplate}
-        onImportDictionary={importDictionary}
-        onSignOut={handleSignOut}
-        onPatientSelect={setSelectedPatient}
-        selectedPatient={selectedPatient}
-        mobileTab={mobileTab}
-        setMobileTab={setMobileTab}
-      />
+      <DashboardProvider {...dashboardContextValue}>
+        <MobileDashboard />
+      </DashboardProvider>
     );
   }
 
