@@ -12,22 +12,27 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SYSTEM_LABELS_SHORT, SYSTEM_KEYS } from "@/constants/systems";
 import { cn } from "@/lib/utils";
+import { Layers } from "lucide-react";
 import type { PrintSettings as SettingsType, ColumnConfig } from "@/lib/print/types";
+import { columnCombinations } from "./constants";
 
 interface PrintSettingsProps {
   settings: SettingsType;
   onUpdateSettings: (settings: Partial<SettingsType>) => void;
   onUpdateColumns: (columns: ColumnConfig[]) => void;
   onResetColumns: () => void;
+  onToggleCombination?: (combinationKey: string) => void;
 }
 
 export function PrintSettings({
   settings,
   onUpdateSettings,
   onUpdateColumns,
-  onResetColumns
+  onResetColumns,
+  onToggleCombination
 }: PrintSettingsProps) {
   const fontFamilies = [
     { value: 'system', label: 'System Default' },
@@ -44,6 +49,16 @@ export function PrintSettings({
       col.key === key ? { ...col, enabled: !col.enabled } : col
     );
     onUpdateColumns(updatedColumns);
+  };
+
+  const handleToggleCombination = (combinationKey: string) => {
+    if (onToggleCombination) {
+      onToggleCombination(combinationKey);
+    }
+  };
+
+  const isCombinationActive = (combinationKey: string) => {
+    return (settings.combinedColumns || []).includes(combinationKey);
   };
 
   const systemKeys = SYSTEM_KEYS;
@@ -139,6 +154,55 @@ export function PrintSettings({
           </div>
         </div>
       </div>
+
+      {/* Section Combinations */}
+      {onToggleCombination && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Combine Sections</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Merge multiple sections into a single column for a more compact print layout.
+          </p>
+          <div className="space-y-2">
+            {columnCombinations.map(combo => {
+              const isActive = isCombinationActive(combo.key);
+              return (
+                <div
+                  key={combo.key}
+                  className={cn(
+                    "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors",
+                    isActive
+                      ? "bg-primary/10 border-primary"
+                      : "bg-muted/30 border-transparent hover:bg-muted/50"
+                  )}
+                  onClick={() => handleToggleCombination(combo.key)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`combo-${combo.key}`}
+                      checked={isActive}
+                      onCheckedChange={() => handleToggleCombination(combo.key)}
+                    />
+                    <Label
+                      htmlFor={`combo-${combo.key}`}
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      {combo.label}
+                    </Label>
+                  </div>
+                  {isActive && (
+                    <Badge variant="secondary" className="text-xs">
+                      Active
+                    </Badge>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <div className="flex items-center justify-between">
