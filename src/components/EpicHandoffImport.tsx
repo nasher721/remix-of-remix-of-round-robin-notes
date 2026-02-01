@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { FileUp, Loader2, FileText, Users, AlertCircle, Settings2, Info } from "lucide-react";
 import { extractPdfText, extractPdfAsImages } from "@/lib/import-utils";
 import { useImportSettings } from "@/hooks/useImportSettings";
+import { stripHtml } from "@/lib/print/htmlFormatter";
 
 interface PatientSystems {
   neuro: string;
@@ -496,11 +497,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
                               </p>
                             )}
                             <p className="text-sm mt-1 line-clamp-2">
-                              {patient.handoffSummary}
+                              {stripHtml(patient.handoffSummary)}
                             </p>
                             {patient.intervalEvents && (
                               <p className="text-xs mt-1 text-muted-foreground line-clamp-1">
-                                <span className="font-medium">Rounds:</span> {patient.intervalEvents}
+                                <span className="font-medium">Rounds:</span> {stripHtml(patient.intervalEvents)}
                               </p>
                             )}
                           </div>

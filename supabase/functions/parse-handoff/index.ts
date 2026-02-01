@@ -53,21 +53,21 @@ function deduplicateText(text: string): string {
 
   for (const line of lines) {
     const trimmedLine = line.trim();
-    
+
     // Preserve empty lines for paragraph spacing
     if (trimmedLine === '') {
       processedLines.push('');
       continue;
     }
-    
+
     const normalizedLine = trimmedLine.toLowerCase().replace(/\s+/g, ' ');
-    
+
     // Skip if we've seen this exact line
     if (normalizedLine.length > 15 && seenLines.has(normalizedLine)) {
       console.log("Removed duplicate line:", trimmedLine.substring(0, 50) + "...");
       continue;
     }
-    
+
     // Check for substantial substring matches (80%+ overlap)
     let isDuplicate = false;
     for (const existing of seenLines) {
@@ -80,7 +80,7 @@ function deduplicateText(text: string): string {
         }
       }
     }
-    
+
     if (!isDuplicate) {
       seenLines.add(normalizedLine);
       processedLines.push(line); // Keep original line with its formatting
@@ -102,33 +102,33 @@ function removeRepeatedPhrases(text: string): string {
   // Process line by line to preserve structure
   const lines = text.split(/\n/);
   const processedLines: string[] = [];
-  
+
   for (const line of lines) {
     if (line.trim() === '') {
       processedLines.push('');
       continue;
     }
-    
+
     // Pattern: detect repeated consecutive phrases of 3+ words within this line
     const words = line.split(/\s+/);
     const result: string[] = [];
     let i = 0;
-    
+
     while (i < words.length) {
       // Try to find repeating patterns of various lengths
       let foundRepeat = false;
-      
+
       for (let patternLen = 3; patternLen <= Math.min(10, Math.floor((words.length - i) / 2)); patternLen++) {
         const pattern = words.slice(i, i + patternLen).join(' ');
         const nextPattern = words.slice(i + patternLen, i + patternLen * 2).join(' ');
-        
+
         if (pattern.length > 10 && pattern === nextPattern) {
           // Found a repeat - add pattern once and skip the duplicate
           result.push(...words.slice(i, i + patternLen));
           i += patternLen * 2;
           foundRepeat = true;
           console.log("Removed repeated phrase:", pattern.substring(0, 50));
-          
+
           // Continue checking for more repeats of the same pattern
           while (i + patternLen <= words.length) {
             const checkPattern = words.slice(i, i + patternLen).join(' ');
@@ -142,16 +142,16 @@ function removeRepeatedPhrases(text: string): string {
           break;
         }
       }
-      
+
       if (!foundRepeat) {
         result.push(words[i]);
         i++;
       }
     }
-    
+
     processedLines.push(result.join(' '));
   }
-  
+
   return processedLines.join('\n');
 }
 
@@ -161,24 +161,24 @@ function removeRepeatedPhrases(text: string): string {
  */
 function cleanPatientText(text: string): string {
   if (!text) return '';
-  
+
   let cleaned = text;
-  
+
   // Step 1: Normalize escaped newlines to actual newlines
   cleaned = cleaned.replace(/\\n/g, '\n');
-  
+
   // Step 2: Remove repeated phrases (OCR stuttering)
   cleaned = removeRepeatedPhrases(cleaned);
-  
+
   // Step 3: Remove duplicate lines
   cleaned = deduplicateText(cleaned);
-  
+
   // Step 4: Clean up horizontal whitespace but PRESERVE newlines
   cleaned = cleaned.replace(/[ \t]+/g, ' ');
-  
+
   // Step 5: Normalize multiple consecutive blank lines to max 2
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
-  
+
   return cleaned.trim();
 }
 
@@ -206,31 +206,31 @@ function mergeMedications(
  */
 function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
   const bedMap = new Map<string, ParsedPatient>();
-  
+
   for (const patient of patients) {
     const normalizedBed = patient.bed.trim().toLowerCase();
-    
+
     if (!normalizedBed) {
       console.log("Skipping patient with empty bed:", patient.name);
       continue;
     }
-    
+
     const existing = bedMap.get(normalizedBed);
-    
+
     if (!existing) {
       bedMap.set(normalizedBed, patient);
     } else {
       // Merge: keep the version with more content, combine if needed
       console.log(`Merging duplicate bed ${patient.bed}: existing vs new`);
-      
+
       const merged: ParsedPatient = {
         bed: patient.bed || existing.bed,
         name: patient.name || existing.name,
         mrn: patient.mrn || existing.mrn,
         age: patient.age || existing.age,
         sex: patient.sex || existing.sex,
-        handoffSummary: (patient.handoffSummary?.length || 0) > (existing.handoffSummary?.length || 0) 
-          ? patient.handoffSummary 
+        handoffSummary: (patient.handoffSummary?.length || 0) > (existing.handoffSummary?.length || 0)
+          ? patient.handoffSummary
           : existing.handoffSummary,
         intervalEvents: (patient.intervalEvents?.length || 0) > (existing.intervalEvents?.length || 0)
           ? patient.intervalEvents
@@ -250,14 +250,14 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
           dispo: patient.systems?.dispo || existing.systems?.dispo || '',
         },
       };
-      
+
       bedMap.set(normalizedBed, merged);
     }
   }
-  
+
   const result = Array.from(bedMap.values());
   console.log(`Deduplication: ${patients.length} patients -> ${result.length} unique beds`);
-  
+
   return result;
 }
 
@@ -356,11 +356,18 @@ FORMATTING PRESERVATION (CRITICAL):
 - Preserve paragraph structure - if there are blank lines between sections, keep them as \\n\\n
 - Do NOT collapse multiple lines into a single sentence or paragraph
 - Do NOT rewrite or rephrase content - copy it exactly as written
-- Preserve bullet points and lists with their original line breaks
-- Use <b>text</b> for bold/emphasized text (section headers, important findings)
-- Use <u>text</u> for underlined text (diagnoses, key terms)
-- Preserve numbered lists (1. 2. 3.) and bullet points (- or •) on their own lines
-
+- USE HTML TAGS to preserve structure and emphasis:
+  - Use <b>TEXT</b> for all section headers (e.g., <b>Assessment:</b>, <b>Plan:</b>, <b>Neuro:</b>)
+  - Use <b>TEXT</b> for any bold/emphasized text found in the source
+  - Use <u>TEXT</u> for underlined text
+  - Convert bulleted lists to HTML lists:
+    <ul>
+      <li>First item</li>
+      <li>Second item</li>
+    </ul>
+  - Use <br> for line breaks within a list item if needed
+- If the source has visual structure (headers, lists), REPLICATE it using these HTML tags.
+- Do NOT use markdown (**bold**), use HTML (<b>bold</b>).
 Return ONLY valid JSON in this exact format:
 {
   "patients": [
@@ -478,45 +485,45 @@ SYSTEM MAPPING GUIDANCE:
     let parsedData: { patients: ParsedPatient[] };
     try {
       let jsonStr = content;
-      
+
       // Remove markdown code blocks if present
       jsonStr = jsonStr.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-      
+
       // Find the JSON object
       const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error("No JSON found in response");
       }
-      
+
       jsonStr = jsonMatch[0];
-      
+
       // Try to parse as-is first
       try {
         parsedData = JSON.parse(jsonStr);
       } catch (initialError) {
         console.log("Initial parse failed, attempting repair...");
-        
+
         // Attempt to repair truncated JSON
         const openBraces = (jsonStr.match(/\{/g) || []).length;
         const closeBraces = (jsonStr.match(/\}/g) || []).length;
         const openBrackets = (jsonStr.match(/\[/g) || []).length;
         const closeBrackets = (jsonStr.match(/\]/g) || []).length;
-        
+
         console.log(`Braces: ${openBraces} open, ${closeBraces} close. Brackets: ${openBrackets} open, ${closeBrackets} close`);
-        
+
         // Try a simpler fix: just close the truncated JSON
         let repaired = jsonStr;
-        
+
         // Remove any trailing incomplete property
         repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, '');
         repaired = repaired.replace(/,\s*\{[^}]*$/, '');
-        
+
         const missingBrackets = openBrackets - closeBrackets;
         const missingBraces = openBraces - closeBraces;
-        
+
         repaired += ']'.repeat(Math.max(0, missingBrackets));
         repaired += '}'.repeat(Math.max(0, missingBraces));
-        
+
         console.log("Attempting simple bracket repair...");
         parsedData = JSON.parse(repaired);
       }

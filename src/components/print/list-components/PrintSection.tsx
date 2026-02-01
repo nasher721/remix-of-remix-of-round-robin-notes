@@ -59,7 +59,7 @@ export const PrintSection = ({
             </div>
             {content ? (
                 <div
-                    className={cn("p-3", style.content)}
+                    className={cn("p-3 whitespace-pre-wrap", style.content)}
                     style={{ fontSize: `${fontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(content) || '<span class="text-muted-foreground italic">None documented</span>' }}
                 />

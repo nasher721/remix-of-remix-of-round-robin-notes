@@ -36,7 +36,7 @@ export const PrintSystemsReview = ({ systems, enabledSystemKeys, fontSize }: Pri
                                 {systemLabels[key]}
                             </div>
                             <div
-                                className="p-2 bg-muted/10 min-h-[40px]"
+                                className="p-2 bg-muted/10 min-h-[40px] whitespace-pre-wrap"
                                 style={{ fontSize: `${fontSize - 1}px` }}
                                 dangerouslySetInnerHTML={{ __html: cleanInlineStyles(value) || '<span class="text-muted-foreground">-</span>' }}
                             />

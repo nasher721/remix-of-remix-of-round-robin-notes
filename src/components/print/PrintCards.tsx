@@ -45,42 +45,42 @@ export const PrintCards = ({
               </span>
             )}
           </div>
-          
+
           <div className="p-4 space-y-4">
             {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
               <div className="border-2 border-primary/30 rounded-lg overflow-hidden">
                 <div className="bg-primary text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
                   Clinical Summary
                 </div>
-                <div 
-                  className="bg-muted/30 p-3"
+                <div
+                  className="bg-muted/30 p-3 whitespace-pre-wrap"
                   style={{ fontSize: `${printFontSize}px` }}
                   dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.clinicalSummary) }}
                 />
               </div>
             )}
-            
+
             {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
               <div className="border-2 border-primary/30 rounded-lg overflow-hidden">
                 <div className="bg-primary text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
                   Interval Events
                 </div>
-                <div 
-                  className="bg-muted/30 p-3"
+                <div
+                  className="bg-muted/30 p-3 whitespace-pre-wrap"
                   style={{ fontSize: `${printFontSize}px` }}
                   dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.intervalEvents) }}
                 />
               </div>
             )}
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {isColumnEnabled("imaging") && patient.imaging && (
                 <div className="border-2 border-blue-400 rounded-lg overflow-hidden">
                   <div className="bg-blue-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
                     Imaging
                   </div>
-                  <div 
-                    className="bg-blue-50 p-3"
+                  <div
+                    className="bg-blue-50 p-3 whitespace-pre-wrap"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.imaging) }}
                   />
@@ -91,15 +91,15 @@ export const PrintCards = ({
                   <div className="bg-green-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
                     Labs
                   </div>
-                  <div 
-                    className="bg-green-50 p-3"
+                  <div
+                    className="bg-green-50 p-3 whitespace-pre-wrap"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.labs) }}
                   />
                 </div>
               )}
             </div>
-            
+
             {enabledSystemKeys.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {enabledSystemKeys.map(key => {
@@ -107,19 +107,19 @@ export const PrintCards = ({
                   if (!value) return null;
                   return (
                     <div key={key} className="border-2 border-primary rounded-lg overflow-hidden">
-                      <div 
-                        className="bg-primary text-white font-bold uppercase px-2 py-1.5 text-center" 
+                      <div
+                        className="bg-primary text-white font-bold uppercase px-2 py-1.5 text-center"
                         style={{ fontSize: `${printFontSize}px`, letterSpacing: '0.5px' }}
                       >
                         {systemLabels[key]}
                       </div>
-                      <div className="p-2 bg-muted/20" style={{ fontSize: `${printFontSize - 1}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(value) }} />
+                      <div className="p-2 bg-muted/20 whitespace-pre-wrap" style={{ fontSize: `${printFontSize - 1}px` }} dangerouslySetInnerHTML={{ __html: cleanInlineStyles(value) }} />
                     </div>
                   );
                 })}
               </div>
             )}
-            
+
             {showTodosColumn && getPatientTodos(patient.id).length > 0 && (
               <div className="border-2 border-violet-400 rounded-lg overflow-hidden">
                 <div className="bg-violet-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
@@ -137,7 +137,7 @@ export const PrintCards = ({
                 </div>
               </div>
             )}
-            
+
             {showNotesColumn && (
               <div className="border-2 border-amber-400 rounded-lg overflow-hidden">
                 <div className="bg-amber-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>

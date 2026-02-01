@@ -163,11 +163,11 @@ export function PrintPreview({
             const sysKey = colKey.replace('systems.', '') as keyof typeof patient.systems;
             const val = patient.systems[sysKey];
             if (!val) return null;
-            return <div dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
+            return <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
         } else {
             const val = patient[colKey as keyof typeof patient] as string;
             if (!val) return null;
-            return <div dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
+            return <div className="whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
         }
     };
 
