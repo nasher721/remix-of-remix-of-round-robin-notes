@@ -236,37 +236,40 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const handleExportPDF = async () => {
     setIsGenerating(true);
     try {
-      const doc = new jsPDF({
-        orientation: settings.printOrientation,
-        unit: 'mm',
-        format: 'a4'
-      });
+      // Dynamically import html2pdf.js
+      const html2pdf = (await import('html2pdf.js')).default;
 
-      // Basic PDF Generation Logic (Ported minimal version for now)
-      doc.setFontSize(16);
-      doc.text("Patient Rounding Report", 14, 15);
-      doc.setFontSize(10);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+      // Get the preview element to convert to PDF
+      const previewElement = document.querySelector('[data-print-preview]') as HTMLElement;
 
-      // Very basic table for now to prove structure
-      const headers = settings.columns.filter(c => c.enabled).map(c => c.label);
-      const data = patients.map(p => settings.columns.filter(c => c.enabled).map(c => {
-        if (c.key === 'patient') return p.name || 'Unnamed';
-        if (c.key.startsWith('systems.')) {
-          const key = c.key.replace('systems.', '') as keyof typeof p.systems;
-          return stripHtml(p.systems[key] || '');
+      if (!previewElement) {
+        throw new Error('Print preview element not found');
+      }
+
+      // Configure html2pdf options
+      const opt = {
+        margin: settings.printOrientation === 'landscape' ? [10, 10, 10, 10] as [number, number, number, number] : [15, 10, 15, 10] as [number, number, number, number],
+        filename: `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          letterRendering: true
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: settings.printOrientation
+        },
+        pagebreak: {
+          mode: settings.onePatientPerPage ? 'avoid-all' : ['css', 'legacy'],
+          before: settings.onePatientPerPage ? '.patient-card' : undefined
         }
-        return stripHtml((p as any)[c.key] || '');
-      }));
+      };
 
-      autoTable(doc, {
-        head: [headers],
-        body: data,
-        startY: 30,
-        styles: { fontSize: 8 }
-      });
+      // Generate PDF from HTML
+      await html2pdf().set(opt).from(previewElement).save();
 
-      doc.save(`patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`);
       toast({ title: "PDF Export Complete" });
     } catch (e) {
       console.error(e);
@@ -295,31 +298,30 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-7xl w-full h-[85vh] flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b">
-          <DialogTitle className="flex items-center gap-2">
-            <Printer className="h-5 w-5" />
-            Print & Export
-          </DialogTitle>
+          <div className="flex items-center justify-between w-full">
+            <DialogTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" />
+              Print & Export
+            </DialogTitle>
+            <PrintControls
+              onPrint={handlePrint}
+              onExportPDF={handleExportPDF}
+              onExportExcel={handleExportExcel}
+              onExportWord={handleExportWord}
+              onExportTXT={handleExportTXT}
+              onExportRTF={handleExportRTF}
+              isGenerating={isGenerating}
+            />
+          </div>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
           {/* Left Sidebar - Settings */}
           <div className="w-80 border-r bg-muted/10 flex flex-col">
-            <div className="p-4 border-b">
-              <PrintControls
-                onPrint={handlePrint}
-                onExportPDF={handleExportPDF}
-                onExportExcel={handleExportExcel}
-                onExportWord={handleExportWord}
-                onExportTXT={handleExportTXT}
-                onExportRTF={handleExportRTF}
-                isGenerating={isGenerating}
-              />
-            </div>
-
             <Tabs defaultValue="settings" className="flex-1 flex flex-col">
-              <div className="px-4 pt-2">
+              <div className="px-4 pt-4">
                 <TabsList className="w-full">
                   <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
                   <TabsTrigger value="templates" className="flex-1">Templates</TabsTrigger>

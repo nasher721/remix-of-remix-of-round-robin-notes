@@ -17,6 +17,42 @@ export function PrintPreview({
     settings
 }: PrintPreviewProps) {
 
+    // Add print-specific styles to preserve formatting
+    React.useEffect(() => {
+        const styleId = 'print-formatting-styles';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.textContent = `
+                @media print {
+                    /* Preserve basic text formatting */
+                    b, strong { font-weight: bold !important; }
+                    i, em { font-style: italic !important; }
+                    u { text-decoration: underline !important; }
+                    
+                    /* Preserve lists */
+                    ul { list-style-type: disc !important; margin-left: 1.5em !important; }
+                    ol { list-style-type: decimal !important; margin-left: 1.5em !important; }
+                    li { display: list-item !important; }
+                    
+                    /* Preserve paragraphs and line breaks */
+                    p { margin-bottom: 0.5em !important; }
+                    br { display: block !important; content: "" !important; margin-top: 0.25em !important; }
+                    
+                    /* Ensure content is visible */
+                    * { color: black !important; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        return () => {
+            const existingStyle = document.getElementById(styleId);
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+        };
+    }, []);
+
     // -- Helpers --
 
     const getFontSizeClass = () => {
@@ -168,6 +204,7 @@ export function PrintPreview({
 
             <ScrollArea className="flex-1 p-4">
                 <div
+                    data-print-preview
                     className={cn(
                         "bg-white shadow-sm min-h-[500px] p-8 mx-auto origin-top transition-all duration-300",
                         settings.printOrientation === 'landscape' ? "w-[297mm]" : "w-[210mm]"

@@ -2,7 +2,8 @@ import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
-import { stripHtml, formatTodosForDisplay, escapeRTF, cleanInlineStyles, isColumnCombined, getCombinedContent } from './utils';
+import { stripHtml, formatTodosForDisplay, cleanInlineStyles, isColumnCombined, getCombinedContent } from './utils';
+import { htmlToRTF, escapeRTF as escapeRTFNew } from '@/lib/print/htmlFormatter';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -25,15 +26,15 @@ interface ExportContext {
   totalPatientCount?: number;
 }
 
-const getEnabledSystemKeys = (isColumnEnabled: (key: string) => boolean) => 
+const getEnabledSystemKeys = (isColumnEnabled: (key: string) => boolean) =>
   systemKeys.filter(key => isColumnEnabled(`systems.${key}`));
 
 export const handleExportExcel = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
-  
+
   const data = patients.map(patient => {
     const row: Record<string, string> = {};
-    
+
     if (isColumnEnabled("patient")) {
       row["Patient Name"] = patient.name || "Unnamed";
       row["Bed/Room"] = patient.bed;
@@ -50,25 +51,25 @@ export const handleExportExcel = (ctx: ExportContext) => {
     if (isColumnEnabled("labs")) {
       row["Labs"] = stripHtml(patient.labs);
     }
-    
+
     systemKeys.forEach(key => {
       if (isColumnEnabled(`systems.${key}`)) {
         row[systemLabels[key]] = stripHtml(patient.systems[key as keyof typeof patient.systems]);
       }
     });
-    
+
     if (showTodosColumn) {
       const todos = getPatientTodos(patient.id);
       row["Todos"] = formatTodosForDisplay(todos);
     }
-    
+
     if (isColumnEnabled("notes")) {
       row["Notes"] = patientNotes[patient.id] || "";
     }
-    
+
     row["Created"] = new Date(patient.createdAt).toLocaleString();
     row["Last Modified"] = new Date(patient.lastModified).toLocaleString();
-    
+
     return row;
   });
 
@@ -78,17 +79,17 @@ export const handleExportExcel = (ctx: ExportContext) => {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Patient Rounding");
-  
+
   const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.xlsx`;
   XLSX.writeFile(wb, fileName);
-  
+
   return fileName;
 };
 
 export const handleExportPDF = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
   const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
-  
+
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -98,7 +99,7 @@ export const handleExportPDF = (ctx: ExportContext) => {
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.text("Patient Rounding Report", 14, 15);
-  
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
@@ -118,7 +119,7 @@ export const handleExportPDF = (ctx: ExportContext) => {
 
   const tableData = patients.map(patient => {
     const row: string[] = [];
-    
+
     if (isColumnEnabled("patient")) {
       row.push(patient.name || "Unnamed");
       row.push(patient.bed || "-");
@@ -145,7 +146,7 @@ export const handleExportPDF = (ctx: ExportContext) => {
     if (isColumnEnabled("notes")) {
       row.push(patientNotes[patient.id] || "");
     }
-    
+
     return row;
   });
 
@@ -177,14 +178,14 @@ export const handleExportPDF = (ctx: ExportContext) => {
 
   const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);
-  
+
   return fileName;
 };
 
 export const handleExportTXT = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
   const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
-  
+
   let content = `PATIENT ROUNDING REPORT\n`;
   content += `Generated: ${new Date().toLocaleString()}\n`;
   content += `Total Patients: ${patients.length}\n`;
@@ -255,7 +256,7 @@ export const handleExportTXT = (ctx: ExportContext) => {
 export const handleExportRTF = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
   const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
-  
+
   let rtf = `{\\rtf1\\ansi\\deff0\n`;
   rtf += `{\\fonttbl{\\f0\\fswiss Arial;}{\\f1\\fmodern Courier New;}}\n`;
   rtf += `{\\colortbl;\\red0\\green0\\blue0;\\red59\\green130\\blue246;\\red100\\green100\\blue100;}\n\n`;
@@ -267,25 +268,25 @@ export const handleExportRTF = (ctx: ExportContext) => {
 
   patients.forEach((patient, index) => {
     rtf += `\\pard\\sb200\\sa100\\brdrb\\brdrs\\brdrw10\\brsp20\n`;
-    rtf += `\\fs28\\b\\cf2 Patient ${index + 1}: ${escapeRTF(patient.name || 'Unnamed')}\\cf1\\b0\\par\n`;
-    rtf += `\\fs20 Bed/Room: ${escapeRTF(patient.bed || 'N/A')}\\par\n`;
+    rtf += `\\fs28\\b\\cf2 Patient ${index + 1}: ${escapeRTFNew(patient.name || 'Unnamed')}\\cf1\\b0\\par\n`;
+    rtf += `\\fs20 Bed/Room: ${escapeRTFNew(patient.bed || 'N/A')}\\par\n`;
     rtf += `\\pard\\sa100\n`;
 
     if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
       rtf += `\\fs22\\b Clinical Summary:\\b0\\par\n`;
-      rtf += `\\fs20 ${escapeRTF(stripHtml(patient.clinicalSummary))}\\par\\par\n`;
+      rtf += `\\fs20 ${htmlToRTF(patient.clinicalSummary)}\\par\\par\n`;
     }
     if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
       rtf += `\\fs22\\b Interval Events:\\b0\\par\n`;
-      rtf += `\\fs20 ${escapeRTF(stripHtml(patient.intervalEvents))}\\par\\par\n`;
+      rtf += `\\fs20 ${htmlToRTF(patient.intervalEvents)}\\par\\par\n`;
     }
     if (isColumnEnabled("imaging") && patient.imaging) {
       rtf += `\\fs22\\b Imaging:\\b0\\par\n`;
-      rtf += `\\fs20 ${escapeRTF(stripHtml(patient.imaging))}\\par\\par\n`;
+      rtf += `\\fs20 ${htmlToRTF(patient.imaging)}\\par\\par\n`;
     }
     if (isColumnEnabled("labs") && patient.labs) {
       rtf += `\\fs22\\b Labs:\\b0\\par\n`;
-      rtf += `\\fs20 ${escapeRTF(stripHtml(patient.labs))}\\par\\par\n`;
+      rtf += `\\fs20 ${htmlToRTF(patient.labs)}\\par\\par\n`;
     }
 
     if (enabledSystemKeys.length > 0) {
@@ -293,7 +294,7 @@ export const handleExportRTF = (ctx: ExportContext) => {
       enabledSystemKeys.forEach(key => {
         const value = patient.systems[key as keyof typeof patient.systems];
         if (value) {
-          rtf += `\\fs20\\b ${escapeRTF(systemLabels[key])}:\\b0  ${escapeRTF(stripHtml(value))}\\par\n`;
+          rtf += `\\fs20\\b ${escapeRTFNew(systemLabels[key])}:\\b0  ${htmlToRTF(value)}\\par\n`;
         }
       });
       rtf += `\\par\n`;
@@ -304,7 +305,7 @@ export const handleExportRTF = (ctx: ExportContext) => {
       if (todos.length > 0) {
         rtf += `\\fs22\\b Todos:\\b0\\par\n`;
         todos.forEach(todo => {
-          rtf += `\\fs20 ${todo.completed ? '[X]' : '[ ]'} ${escapeRTF(todo.content)}\\par\n`;
+          rtf += `\\fs20 ${todo.completed ? '[X]' : '[ ]'} ${escapeRTFNew(todo.content)}\\par\n`;
         });
         rtf += `\\par\n`;
       }
@@ -312,7 +313,7 @@ export const handleExportRTF = (ctx: ExportContext) => {
 
     if (isColumnEnabled("notes") && patientNotes[patient.id]) {
       rtf += `\\fs22\\b Notes:\\b0\\par\n`;
-      rtf += `\\fs20 ${escapeRTF(patientNotes[patient.id])}\\par\\par\n`;
+      rtf += `\\fs20 ${escapeRTFNew(patientNotes[patient.id])}\\par\\par\n`;
     }
 
     rtf += `\\par\n`;
@@ -337,7 +338,7 @@ export const handleExportRTF = (ctx: ExportContext) => {
 export const handleExportDOC = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
   const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
-  
+
   let html = `
 <!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" 
@@ -473,17 +474,17 @@ export const handleExportDOC = (ctx: ExportContext) => {
 };
 
 export const handleExportJSON = (ctx: ExportContext) => {
-  const { 
-    patients, 
-    columns, 
-    combinedColumns, 
-    isColumnEnabled, 
-    showTodosColumn, 
+  const {
+    patients,
+    columns,
+    combinedColumns,
+    isColumnEnabled,
+    showTodosColumn,
     getPatientTodos,
     isFiltered,
     totalPatientCount
   } = ctx;
-  
+
   const exportData = {
     exportedAt: new Date().toISOString(),
     patientCount: patients.length,
@@ -493,7 +494,7 @@ export const handleExportJSON = (ctx: ExportContext) => {
     totalPatients: totalPatientCount || patients.length,
     data: patients.map(patient => {
       const row: Record<string, unknown> = {};
-      
+
       if (isColumnEnabled("patient")) {
         row.patientName = patient.name || "Unnamed";
         row.bed = patient.bed;
@@ -510,7 +511,7 @@ export const handleExportJSON = (ctx: ExportContext) => {
       if (isColumnEnabled("labs")) {
         row.labs = stripHtml(patient.labs);
       }
-      
+
       const systems: Record<string, string> = {};
       systemKeys.forEach(key => {
         if (isColumnEnabled(`systems.${key}`)) {
@@ -520,14 +521,14 @@ export const handleExportJSON = (ctx: ExportContext) => {
       if (Object.keys(systems).length > 0) {
         row.systems = systems;
       }
-      
+
       if (showTodosColumn) {
         row.todos = getPatientTodos(patient.id).map(t => ({
           content: t.content,
           completed: t.completed
         }));
       }
-      
+
       return row;
     })
   };
