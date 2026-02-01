@@ -352,21 +352,31 @@ IMPORTANT: Do NOT create separate imaging or labs fields. Instead, include all i
 - Troponin and echo go in "cv"
 
 FORMATTING PRESERVATION (CRITICAL):
-- Preserve ALL original line breaks exactly as they appear in the source document using \\n
-- Preserve paragraph structure - if there are blank lines between sections, keep them as \\n\\n
-- Do NOT collapse multiple lines into a single sentence or paragraph
-- Do NOT rewrite or rephrase content - copy it exactly as written
-- USE HTML TAGS to preserve structure and emphasis:
-  - Use <b>TEXT</b> for all section headers (e.g., <b>Assessment:</b>, <b>Plan:</b>, <b>Neuro:</b>)
-  - Use <b>TEXT</b> for any bold/emphasized text found in the source
-  - Use <u>TEXT</u> for underlined text
-  - Convert bulleted lists to HTML lists:
+- STRICT RULE: Do NOT collapse multiple lines into a single sentence or paragraph.
+- STRICT RULE: Do NOT convert list items into prose (e.g., "Item 1, Item 2") - keep them vertical.
+- Preserve ALL original line breaks exactly as they appear in the source.
+- USE HTML TAGS to preserve structure:
+  - Use <b>TEXT</b> for section headers (e.g., <b>Assessment:</b>) and bold text.
+  - Use <u>TEXT</u> for underlined text.
+  - WHENEVER you see a list (bulleted, numbered, or implicit), YOU MUST use <ul> and <li> tags:
     <ul>
-      <li>First item</li>
-      <li>Second item</li>
+      <li>First issue</li>
+      <li>Second issue</li>
     </ul>
-  - Use <br> for line breaks within a list item if needed
-- If the source has visual structure (headers, lists), REPLICATE it using these HTML tags.
+  - If a section contains multiple distinct points on separate lines, treat it as a list.
+  - Use <br> only for line breaks within a single list item if absolutely needed.
+
+ANTI-PROSE EXAMPLES:
+BAD (Do NOT do this):
+"Neuro is alert and oriented. CV is RRR. Resp is clear on room air."
+
+GOOD (Do this):
+<ul>
+  <li>Neuro is alert and oriented</li>
+  <li>CV is RRR</li>
+  <li>Resp is clear on room air</li>
+</ul>
+
 - Do NOT use markdown (**bold**), use HTML (<b>bold</b>).
 Return ONLY valid JSON in this exact format:
 {
@@ -404,9 +414,9 @@ Return ONLY valid JSON in this exact format:
 CRITICAL DEDUPLICATION RULES:
 - If the same patient/bed appears on multiple pages, MERGE them into ONE entry
 - NEVER output the same bed number twice
-- NEVER repeat text within a field - each sentence should appear only ONCE
-- If you see repeated/duplicated content in the source (OCR artifacts), include it only ONCE
-- Remove any stuttering, echoing, or repeated phrases
+- Avoid redundant repetition (stuttering/echoing), BUT:
+- PRESERVE distinctive list items even if they look similar.
+- Do NOT automatically dedup sentences if they are part of a structured list.
 - Clean up any OCR artifacts or formatting issues
 - If a field is missing, use an empty string (for strings) or empty array (for medications)
 
