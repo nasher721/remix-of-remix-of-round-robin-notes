@@ -40,6 +40,7 @@ export type ColumnWidthsType = {
   imaging: number;
   labs: number;
   notes: number;
+  todos: number;
   'systems.neuro': number;
   'systems.cv': number;
   'systems.resp': number;

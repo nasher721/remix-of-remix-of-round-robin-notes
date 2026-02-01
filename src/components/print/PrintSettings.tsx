@@ -20,6 +20,30 @@ import type { PrintSettings as SettingsType, ColumnConfig, CustomCombination } f
 import { columnCombinations } from "./constants";
 import { CustomCombinationDialog } from "./CustomCombinationDialog";
 
+interface WidthControlProps {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+}
+
+const WidthControl = ({ label, value, onChange, min = 50, max = 500, step = 5 }: WidthControlProps) => (
+  <div className="space-y-2">
+    <div className="flex items-center justify-between">
+      <Label>{label}: {value}px</Label>
+    </div>
+    <Slider
+      value={[value]}
+      min={min}
+      max={max}
+      step={step}
+      onValueChange={(val) => onChange(val[0])}
+    />
+  </div>
+);
+
 interface PrintSettingsProps {
   settings: SettingsType;
   onUpdateSettings: (settings: Partial<SettingsType>) => void;
@@ -377,120 +401,67 @@ export function PrintSettings({
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Column Widths</h3>
 
         <div className="grid gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Patient Column: {settings.columnWidths.patient}px</Label>
-            </div>
-            <Slider
-              value={[settings.columnWidths.patient]}
-              min={50}
-              max={300}
-              step={5}
-              onValueChange={(val) => onUpdateSettings({
-                columnWidths: { ...settings.columnWidths, patient: val[0] }
-              })}
-            />
-          </div>
+          <WidthControl
+            label="Patient Column"
+            value={settings.columnWidths.patient}
+            onChange={(v) => onUpdateSettings({ columnWidths: { ...settings.columnWidths, patient: v } })}
+            max={300}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Summary Column: {settings.columnWidths.summary}px</Label>
-            </div>
-            <Slider
-              value={[settings.columnWidths.summary]}
-              min={100}
-              max={500}
-              step={5}
-              onValueChange={(val) => onUpdateSettings({
-                columnWidths: { ...settings.columnWidths, summary: val[0] }
-              })}
-            />
-          </div>
+          <WidthControl
+            label="Summary Column"
+            value={settings.columnWidths.summary}
+            onChange={(v) => onUpdateSettings({ columnWidths: { ...settings.columnWidths, summary: v } })}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Events Column: {settings.columnWidths.events}px</Label>
-            </div>
-            <Slider
-              value={[settings.columnWidths.events]}
-              min={100}
-              max={500}
-              step={5}
-              onValueChange={(val) => onUpdateSettings({
-                columnWidths: { ...settings.columnWidths, events: val[0] }
-              })}
-            />
-          </div>
+          <WidthControl
+            label="Events Column"
+            value={settings.columnWidths.events}
+            onChange={(v) => onUpdateSettings({ columnWidths: { ...settings.columnWidths, events: v } })}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Imaging: {settings.columnWidths.imaging}px</Label>
-            </div>
-            <Slider
-              value={[settings.columnWidths.imaging]}
-              min={50}
-              max={300}
-              step={5}
-              onValueChange={(val) => onUpdateSettings({
-                columnWidths: { ...settings.columnWidths, imaging: val[0] }
-              })}
-            />
-          </div>
+          <WidthControl
+            label="Imaging"
+            value={settings.columnWidths.imaging}
+            onChange={(v) => onUpdateSettings({ columnWidths: { ...settings.columnWidths, imaging: v } })}
+            max={300}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Labs: {settings.columnWidths.labs}px</Label>
-            </div>
-            <Slider
-              value={[settings.columnWidths.labs]}
-              min={50}
-              max={300}
-              step={5}
-              onValueChange={(val) => onUpdateSettings({
-                columnWidths: { ...settings.columnWidths, labs: val[0] }
-              })}
-            />
-          </div>
+          <WidthControl
+            label="Labs"
+            value={settings.columnWidths.labs}
+            onChange={(v) => onUpdateSettings({ columnWidths: { ...settings.columnWidths, labs: v } })}
+            max={300}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Notes: {settings.columnWidths.notes}px</Label>
-            </div>
-            <Slider
-              value={[settings.columnWidths.notes]}
-              min={50}
-              max={300}
-              step={5}
-              onValueChange={(val) => onUpdateSettings({
-                columnWidths: { ...settings.columnWidths, notes: val[0] }
-              })}
-            />
-          </div>
+          <WidthControl
+            label="Todos"
+            value={settings.columnWidths.todos || 140}
+            onChange={(v) => onUpdateSettings({ columnWidths: { ...settings.columnWidths, todos: v } })}
+            max={300}
+          />
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>System Columns: {settings.columnWidths['systems.neuro']}px</Label>
-            </div>
-            <Slider
-              value={[settings.columnWidths['systems.neuro']]}
-              min={50}
-              max={200}
-              step={5}
-              onValueChange={(val) => {
-                const newWidth = val[0];
-                const updatedSystems = Object.keys(settings.columnWidths).reduce((acc, key) => {
-                  if (key.startsWith('systems.')) {
-                    acc[key as keyof typeof settings.columnWidths] = newWidth;
-                  }
-                  return acc;
-                }, {} as Partial<typeof settings.columnWidths>);
+          <WidthControl
+            label="Notes"
+            value={settings.columnWidths.notes}
+            onChange={(v) => onUpdateSettings({ columnWidths: { ...settings.columnWidths, notes: v } })}
+            max={300}
+          />
 
-                onUpdateSettings({
-                  columnWidths: { ...settings.columnWidths, ...updatedSystems }
-                });
-              }}
-            />
-          </div>
+          <WidthControl
+            label="System Columns"
+            value={settings.columnWidths['systems.neuro']}
+            onChange={(v) => {
+              const updatedSystems = Object.keys(settings.columnWidths).reduce((acc, key) => {
+                if (key.startsWith('systems.')) {
+                  acc[key as keyof typeof settings.columnWidths] = v;
+                }
+                return acc;
+              }, {} as Partial<typeof settings.columnWidths>);
+              onUpdateSettings({ columnWidths: { ...settings.columnWidths, ...updatedSystems } });
+            }}
+            max={200}
+          />
         </div>
       </div>
     </div>

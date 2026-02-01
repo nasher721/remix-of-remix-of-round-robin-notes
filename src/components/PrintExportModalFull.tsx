@@ -38,35 +38,10 @@ interface PrintExportModalProps {
 const systemLabels = SYSTEM_LABELS_SHORT;
 const systemKeys = SYSTEM_KEYS;
 
-const defaultColumns: ColumnConfig[] = [
-  { key: "patient", label: "Patient/Bed", enabled: true },
-  { key: "clinicalSummary", label: "Clinical Summary", enabled: true },
-  { key: "intervalEvents", label: "Interval Events", enabled: true },
-  { key: "imaging", label: "Imaging", enabled: true },
-  { key: "labs", label: "Labs", enabled: true },
-  ...systemKeys.map(key => ({ key: `systems.${key}`, label: systemLabels[key], enabled: true })),
-  { key: "todos", label: "Todos", enabled: true },
-  { key: "notes", label: "Notes (blank for rounding)", enabled: false },
-];
+import { defaultColumnWidths, defaultColumns } from "./print/constants";
+// Use exported defaults if possible, but keep local overrides if needed.
+// Actually, let's just use the imported one.
 
-const defaultColumnWidths: ColumnWidthsType = {
-  patient: 100,
-  summary: 150,
-  events: 150,
-  imaging: 120,
-  labs: 120,
-  notes: 140,
-  'systems.neuro': 90,
-  'systems.cv': 90,
-  'systems.resp': 90,
-  'systems.renalGU': 90,
-  'systems.gi': 90,
-  'systems.endo': 90,
-  'systems.heme': 90,
-  'systems.infectious': 90,
-  'systems.skinLines': 90,
-  'systems.dispo': 90,
-};
 
 // Strip HTML tags for exports
 const stripHtml = (html: string): string => {

@@ -32,6 +32,7 @@ export const defaultColumnWidths: ColumnWidthsType = {
   imaging: 120,
   labs: 120,
   notes: 140,
+  todos: 140,
   'systems.neuro': 90,
   'systems.cv': 90,
   'systems.resp': 90,

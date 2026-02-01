@@ -60,8 +60,8 @@ export const PrintTable = ({
               </th>
             )}
             {enabledSystemKeys.map(key => (
-              <th 
-                key={key} 
+              <th
+                key={key}
                 className="border border-border p-3 text-left font-bold uppercase"
                 style={{ width: columnWidths[`systems.${key}` as keyof ColumnWidthsType] || 90, fontSize: `${printFontSize}px` }}
               >
@@ -69,15 +69,15 @@ export const PrintTable = ({
               </th>
             ))}
             {showTodosColumn && (
-              <th 
+              <th
                 className="border border-border p-3 text-left font-bold bg-violet-500 text-white uppercase"
-                style={{ width: columnWidths.notes, fontSize: `${printFontSize + 1}px` }}
+                style={{ width: columnWidths.todos, fontSize: `${printFontSize + 1}px` }}
               >
                 Todos
               </th>
             )}
             {showNotesColumn && (
-              <th 
+              <th
                 className="border border-border p-3 text-left font-bold bg-amber-500 text-white uppercase"
                 style={{ width: columnWidths.notes, fontSize: `${printFontSize + 1}px` }}
               >
@@ -97,7 +97,7 @@ export const PrintTable = ({
               )}
               {isColumnEnabled("clinicalSummary") && (
                 <td className="border border-border p-3 align-top">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.clinicalSummary) }}
@@ -106,7 +106,7 @@ export const PrintTable = ({
               )}
               {isColumnEnabled("intervalEvents") && (
                 <td className="border border-border p-3 align-top">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.intervalEvents) }}
@@ -115,7 +115,7 @@ export const PrintTable = ({
               )}
               {isColumnEnabled("imaging") && (
                 <td className="border border-border p-3 align-top">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.imaging) }}
@@ -124,7 +124,7 @@ export const PrintTable = ({
               )}
               {isColumnEnabled("labs") && (
                 <td className="border border-border p-3 align-top">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.labs) }}
@@ -133,7 +133,7 @@ export const PrintTable = ({
               )}
               {enabledSystemKeys.map(key => (
                 <td key={key} className="border border-border p-2 align-top">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: `${printFontSize - 1}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) }}
@@ -142,7 +142,7 @@ export const PrintTable = ({
               ))}
               {showTodosColumn && (
                 <td className="border border-border p-2 align-top bg-violet-50/50">
-                  <div 
+                  <div
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: formatTodosHtml(getPatientTodos(patient.id)) }}
