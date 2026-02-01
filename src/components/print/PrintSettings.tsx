@@ -177,7 +177,7 @@ export function PrintSettings({
           <p className="text-xs text-muted-foreground">
             Merge multiple sections into a single column for a more compact print layout.
           </p>
-          
+
           {/* Preset Combinations */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold text-muted-foreground">PRESETS</Label>
@@ -372,6 +372,126 @@ export function PrintSettings({
             ))}
           </div>
         </ScrollArea>
+      </div>
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Column Widths</h3>
+
+        <div className="grid gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Patient Column: {settings.columnWidths.patient}px</Label>
+            </div>
+            <Slider
+              value={[settings.columnWidths.patient]}
+              min={50}
+              max={300}
+              step={5}
+              onValueChange={(val) => onUpdateSettings({
+                columnWidths: { ...settings.columnWidths, patient: val[0] }
+              })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Summary Column: {settings.columnWidths.summary}px</Label>
+            </div>
+            <Slider
+              value={[settings.columnWidths.summary]}
+              min={100}
+              max={500}
+              step={5}
+              onValueChange={(val) => onUpdateSettings({
+                columnWidths: { ...settings.columnWidths, summary: val[0] }
+              })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Events Column: {settings.columnWidths.events}px</Label>
+            </div>
+            <Slider
+              value={[settings.columnWidths.events]}
+              min={100}
+              max={500}
+              step={5}
+              onValueChange={(val) => onUpdateSettings({
+                columnWidths: { ...settings.columnWidths, events: val[0] }
+              })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Imaging: {settings.columnWidths.imaging}px</Label>
+            </div>
+            <Slider
+              value={[settings.columnWidths.imaging]}
+              min={50}
+              max={300}
+              step={5}
+              onValueChange={(val) => onUpdateSettings({
+                columnWidths: { ...settings.columnWidths, imaging: val[0] }
+              })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Labs: {settings.columnWidths.labs}px</Label>
+            </div>
+            <Slider
+              value={[settings.columnWidths.labs]}
+              min={50}
+              max={300}
+              step={5}
+              onValueChange={(val) => onUpdateSettings({
+                columnWidths: { ...settings.columnWidths, labs: val[0] }
+              })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Notes: {settings.columnWidths.notes}px</Label>
+            </div>
+            <Slider
+              value={[settings.columnWidths.notes]}
+              min={50}
+              max={300}
+              step={5}
+              onValueChange={(val) => onUpdateSettings({
+                columnWidths: { ...settings.columnWidths, notes: val[0] }
+              })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>System Columns: {settings.columnWidths['systems.neuro']}px</Label>
+            </div>
+            <Slider
+              value={[settings.columnWidths['systems.neuro']]}
+              min={50}
+              max={200}
+              step={5}
+              onValueChange={(val) => {
+                const newWidth = val[0];
+                const updatedSystems = Object.keys(settings.columnWidths).reduce((acc, key) => {
+                  if (key.startsWith('systems.')) {
+                    acc[key as keyof typeof settings.columnWidths] = newWidth;
+                  }
+                  return acc;
+                }, {} as Partial<typeof settings.columnWidths>);
+
+                onUpdateSettings({
+                  columnWidths: { ...settings.columnWidths, ...updatedSystems }
+                });
+              }}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
