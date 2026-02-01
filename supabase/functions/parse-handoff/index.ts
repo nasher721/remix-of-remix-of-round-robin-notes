@@ -179,6 +179,13 @@ function cleanPatientText(text: string): string {
   // Step 5: Normalize multiple consecutive blank lines to max 2
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
+  // Step 6: Convert newlines to <br> for HTML compatibility but respect block tags
+  // First convert all newlines to <br>
+  cleaned = cleaned.replace(/\n/g, '<br>');
+  // Remove <br> immediately surrounding block elements to prevent double spacing
+  cleaned = cleaned.replace(/<br>\s*(<(?:ul|ol|li|p|div|h[1-6]))/gi, '$1');
+  cleaned = cleaned.replace(/(<\/(?:ul|ol|li|p|div|h[1-6])>)\s*<br>/gi, '$1');
+
   return cleaned.trim();
 }
 

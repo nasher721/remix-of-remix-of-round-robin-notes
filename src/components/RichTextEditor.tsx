@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter, HighlighterIcon,
   Indent, Outdent, Palette, Undo2, Redo2, FileText
 } from "lucide-react";
@@ -50,10 +50,10 @@ interface RichTextEditorProps {
   section?: string;
 }
 
-export const RichTextEditor = ({ 
-  value, 
-  onChange, 
-  placeholder = "Enter text...", 
+export const RichTextEditor = ({
+  value,
+  onChange,
+  placeholder = "Enter text...",
   className,
   minHeight = "80px",
   autotexts = defaultAutotexts,
@@ -65,34 +65,34 @@ export const RichTextEditor = ({
   const editorRef = React.useRef<HTMLDivElement>(null);
   const fontSizeRef = React.useRef(fontSize);
   const [showAutocomplete, setShowAutocomplete] = React.useState(false);
-  const [autocompleteOptions, setAutocompleteOptions] = React.useState<{shortcut: string; expansion: string}[]>([]);
+  const [autocompleteOptions, setAutocompleteOptions] = React.useState<{ shortcut: string; expansion: string }[]>([]);
   const [autocompletePosition, setAutocompletePosition] = React.useState({ top: 0, left: 0 });
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const lastWordRef = React.useRef("");
   const isInternalUpdate = React.useRef(false);
   // Per-editor toggle: null means follow global setting, false means disabled for this editor
   const [localMarkingDisabled, setLocalMarkingDisabled] = React.useState(false);
-  
+
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
-  
+
   // Clinical phrase system
   const { folders } = useClinicalPhrases();
-  
+
   // Insert phrase content handler
   const insertPhraseContent = React.useCallback((content: string) => {
     if (!editorRef.current) return;
-    
+
     const selection = window.getSelection();
-    const range = selection && selection.rangeCount > 0 
-      ? selection.getRangeAt(0) 
+    const range = selection && selection.rangeCount > 0
+      ? selection.getRangeAt(0)
       : null;
-    
+
     let contentHtml = content;
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(content);
     }
-    
+
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
       const temp = document.createElement('div');
@@ -108,12 +108,12 @@ export const RichTextEditor = ({
     } else {
       editorRef.current.innerHTML += contentHtml;
     }
-    
+
     isInternalUpdate.current = true;
     onChange(editorRef.current.innerHTML);
     editorRef.current.focus();
   }, [onChange, effectiveChangeTracking]);
-  
+
   // Use phrase expansion hook
   const {
     phrases,
@@ -133,18 +133,18 @@ export const RichTextEditor = ({
   // Handle dictation transcript insertion
   const handleDictationTranscript = React.useCallback((text: string) => {
     if (!editorRef.current) return;
-    
+
     const selection = window.getSelection();
-    const range = selection && selection.rangeCount > 0 
-      ? selection.getRangeAt(0) 
+    const range = selection && selection.rangeCount > 0
+      ? selection.getRangeAt(0)
       : null;
-    
+
     // Create content with optional change tracking
     let contentHtml = text;
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
     }
-    
+
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
       const temp = document.createElement('div');
@@ -161,7 +161,7 @@ export const RichTextEditor = ({
       // Insert at end if no selection
       editorRef.current.innerHTML += ' ' + contentHtml + ' ';
     }
-    
+
     isInternalUpdate.current = true;
     onChange(editorRef.current.innerHTML);
     editorRef.current.focus();
@@ -183,18 +183,18 @@ export const RichTextEditor = ({
 
     const handleBeforeInput = (e: InputEvent) => {
       if (!effectiveChangeTracking?.enabled || !e.data) return;
-      
+
       // Handle both insertText and insertFromPaste
       if (e.inputType === 'insertText' || e.inputType === 'insertFromPaste') {
         e.preventDefault();
-        
+
         const markedHtml = effectiveChangeTracking.wrapWithMarkup(e.data);
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
-        
+
         const range = selection.getRangeAt(0);
         range.deleteContents();
-        
+
         const temp = document.createElement('div');
         temp.innerHTML = markedHtml;
         const fragment = document.createDocumentFragment();
@@ -202,12 +202,12 @@ export const RichTextEditor = ({
           fragment.appendChild(temp.firstChild);
         }
         range.insertNode(fragment);
-        
+
         // Move cursor after inserted content
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
-        
+
         isInternalUpdate.current = true;
         onChange(editor.innerHTML);
       }
@@ -220,19 +220,19 @@ export const RichTextEditor = ({
   // Handle paste separately for text content
   const handlePaste = React.useCallback((e: React.ClipboardEvent) => {
     if (!effectiveChangeTracking?.enabled) return;
-    
+
     const text = e.clipboardData?.getData('text/plain');
     if (!text) return;
-    
+
     e.preventDefault();
-    
+
     const markedHtml = effectiveChangeTracking.wrapWithMarkup(text);
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
-    
+
     const range = selection.getRangeAt(0);
     range.deleteContents();
-    
+
     const temp = document.createElement('div');
     temp.innerHTML = markedHtml;
     const fragment = document.createDocumentFragment();
@@ -240,11 +240,11 @@ export const RichTextEditor = ({
       fragment.appendChild(temp.firstChild);
     }
     range.insertNode(fragment);
-    
+
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
-    
+
     if (editorRef.current) {
       isInternalUpdate.current = true;
       onChange(editorRef.current.innerHTML);
@@ -283,37 +283,37 @@ export const RichTextEditor = ({
   const getCurrentWord = (): { word: string; range: Range | null } => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return { word: "", range: null };
-    
+
     const range = selection.getRangeAt(0);
     if (!range.collapsed) return { word: "", range: null };
-    
+
     const node = range.startContainer;
     if (node.nodeType !== Node.TEXT_NODE) return { word: "", range: null };
-    
+
     const text = node.textContent || "";
     const offset = range.startOffset;
-    
+
     // Find word boundaries
     let start = offset;
-    
+
     while (start > 0 && /\S/.test(text[start - 1])) start--;
-    
+
     const word = text.substring(start, offset);
-    
+
     // Create range for the word
     const wordRange = document.createRange();
     wordRange.setStart(node, start);
     wordRange.setEnd(node, offset);
-    
+
     return { word, range: wordRange };
   };
 
   const replaceCurrentWord = (replacement: string) => {
     const { range } = getCurrentWord();
     if (!range) return;
-    
+
     range.deleteContents();
-    
+
     // Apply change tracking markup if enabled
     let content: Node;
     if (effectiveChangeTracking?.enabled) {
@@ -327,9 +327,9 @@ export const RichTextEditor = ({
     } else {
       content = document.createTextNode(replacement + " ");
     }
-    
+
     range.insertNode(content);
-    
+
     // Move cursor after inserted text
     const selection = window.getSelection();
     if (selection) {
@@ -339,12 +339,12 @@ export const RichTextEditor = ({
       selection.removeAllRanges();
       selection.addRange(newRange);
     }
-    
+
     if (editorRef.current) {
       isInternalUpdate.current = true;
       onChange(editorRef.current.innerHTML);
     }
-    
+
     setShowAutocomplete(false);
   };
 
@@ -382,7 +382,7 @@ export const RichTextEditor = ({
           replaceCurrentWord(autotext.expansion);
           return;
         }
-        
+
         // Autocorrect on space
         if (e.key === " ") {
           const corrected = medicalDictionary[word.toLowerCase()];
@@ -406,7 +406,7 @@ export const RichTextEditor = ({
     lastWordRef.current = word;
 
     if (word.length >= 2) {
-      const matches = autotexts.filter(a => 
+      const matches = autotexts.filter(a =>
         a.shortcut.toLowerCase().startsWith(word.toLowerCase())
       ).slice(0, 5);
 
@@ -417,7 +417,7 @@ export const RichTextEditor = ({
           const range = selection.getRangeAt(0);
           const rect = range.getBoundingClientRect();
           const editorRect = editorRef.current?.getBoundingClientRect();
-          
+
           if (editorRect) {
             setAutocompletePosition({
               top: rect.bottom - editorRect.top + 4,
@@ -425,7 +425,7 @@ export const RichTextEditor = ({
             });
           }
         }
-        
+
         setAutocompleteOptions(matches);
         setSelectedIndex(0);
         setShowAutocomplete(true);
@@ -451,14 +451,14 @@ export const RichTextEditor = ({
       isInternalUpdate.current = false;
       return;
     }
-    
+
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       // Save cursor position
       const selection = window.getSelection();
       const hadFocus = document.activeElement === editorRef.current;
-      
+
       editorRef.current.innerHTML = value;
-      
+
       // Restore cursor to end if we had focus
       if (hadFocus && selection && editorRef.current.childNodes.length > 0) {
         const range = document.createRange();
@@ -661,7 +661,7 @@ export const RichTextEditor = ({
               }
               const range = selection.getRangeAt(0);
               range.deleteContents();
-              
+
               let content: Node;
               if (effectiveChangeTracking?.enabled) {
                 const markedHtml = effectiveChangeTracking.wrapWithMarkup(newText);
@@ -674,17 +674,17 @@ export const RichTextEditor = ({
               } else {
                 content = document.createTextNode(newText);
               }
-              
+
               range.insertNode(content);
               range.collapse(false);
               selection.removeAllRanges();
               selection.addRange(range);
-              
+
               isInternalUpdate.current = true;
               onChange(editorRef.current!.innerHTML);
             }}
           />
-          <DictationButton 
+          <DictationButton
             onTranscript={handleDictationTranscript}
             size="sm"
           />
@@ -732,13 +732,13 @@ export const RichTextEditor = ({
           </div>
         </div>
       </div>
-      
+
       {/* Editor with scroll container - relative positioning ensures proper document flow */}
       <div className="max-h-[300px] editor-scroll-container relative">
         <div
           ref={editorRef}
           contentEditable
-          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative"
+          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative whitespace-pre-wrap"
           style={{ fontSize: `${fontSizeRef.current}px` }}
           onInput={handleInput}
           onPaste={handlePaste}
@@ -760,7 +760,7 @@ export const RichTextEditor = ({
 
       {/* Autocomplete dropdown */}
       {showAutocomplete && autocompleteOptions.length > 0 && (
-        <div 
+        <div
           className="absolute z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden"
           style={{ top: autocompletePosition.top, left: autocompletePosition.left, minWidth: 200 }}
         >
