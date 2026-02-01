@@ -17,7 +17,9 @@ import autoTable from "jspdf-autotable";
 import { PrintSettings } from "./print/PrintSettings";
 import { PrintControls } from "./print/PrintControls";
 import { PrintPreview } from "./print/PrintPreview";
+import { PrintTemplateSelector } from "./print/PrintTemplateSelector";
 import type { PrintSettings as PrintSettingsType, ColumnConfig, ColumnWidthsType, CustomCombination } from "@/lib/print/types";
+import { getTemplateById, PrintTemplateType } from "@/types/printTemplates";
 
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
@@ -76,6 +78,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [customCombinations, setCustomCombinations] = React.useState<CustomCombination[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState<PrintTemplateType>('standard');
 
   // Settings State
   const [settings, setSettings] = React.useState<PrintSettingsType>({
@@ -138,6 +141,41 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const handleUpdateColumns = (newColumns: ColumnConfig[]) => {
     setSettings(prev => ({ ...prev, columns: newColumns }));
     localStorage.setItem('printColumnPrefs', JSON.stringify(newColumns));
+  };
+
+  const handleApplyTemplate = (templateId: PrintTemplateType) => {
+    const template = getTemplateById(templateId);
+    if (!template) return;
+
+    setSelectedTemplateId(templateId);
+
+    // Map template sections to columns
+    const newColumns = settings.columns.map(col => {
+      // Find matching section in template
+
+      const templateSection = template.sections.find(s => s.key === col.key);
+      if (templateSection) {
+        return { ...col, enabled: templateSection.enabled };
+      }
+
+      // If column exists in settings but not in template explicitly, disable it by default for cleaner view
+      return { ...col, enabled: false };
+    });
+
+    handleUpdateColumns(newColumns);
+
+    // Update other settings
+    setSettings(prev => ({
+      ...prev,
+      printOrientation: template.layout.orientation,
+      printFontSize: template.styling.fontSize,
+      printFontFamily: template.styling.fontFamily,
+      onePatientPerPage: template.layout.patientsPerPage === 1,
+      // Map viewType to activeTab
+      activeTab: template.layout.viewType,
+    }));
+
+    toast({ title: `Applied ${template.name} template` });
   };
 
   const handleResetColumns = () => {
@@ -302,10 +340,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                 />
               </TabsContent>
 
-              <TabsContent value="templates" className="p-4">
-                <div className="text-sm text-muted-foreground text-center py-8">
-                  No templates saved yet.
-                </div>
+              <TabsContent value="templates" className="p-4 flex-1 overflow-y-auto">
+                <PrintTemplateSelector
+                  selectedTemplate={selectedTemplateId}
+                  onSelectTemplate={handleApplyTemplate}
+                />
               </TabsContent>
             </Tabs>
           </div>

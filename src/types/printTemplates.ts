@@ -41,6 +41,7 @@ export interface PrintLayout {
   showPageNumbers: boolean;
   showTimestamp: boolean;
   groupBy?: 'none' | 'location' | 'acuity' | 'team';
+  viewType: 'table' | 'list' | 'cards';
 }
 
 export interface PrintStyling {
@@ -89,6 +90,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'standard',
       showPageNumbers: true,
       showTimestamp: true,
+      viewType: 'cards',
     },
     styling: {
       fontSize: 10,
@@ -119,6 +121,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'minimal',
       showPageNumbers: true,
       showTimestamp: false,
+      viewType: 'list',
     },
     styling: {
       fontSize: 8,
@@ -163,6 +166,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'detailed',
       showPageNumbers: true,
       showTimestamp: true,
+      viewType: 'table',
     },
     styling: {
       fontSize: 9,
@@ -194,6 +198,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'standard',
       showPageNumbers: true,
       showTimestamp: true,
+      viewType: 'cards',
     },
     styling: {
       fontSize: 11,
@@ -227,6 +232,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'standard',
       showPageNumbers: true,
       showTimestamp: true,
+      viewType: 'cards',
     },
     styling: {
       fontSize: 10,
@@ -259,6 +265,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'minimal',
       showPageNumbers: true,
       showTimestamp: true,
+      viewType: 'list',
     },
     styling: {
       fontSize: 9,
@@ -295,6 +302,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'standard',
       showPageNumbers: true,
       showTimestamp: true,
+      viewType: 'cards',
     },
     styling: {
       fontSize: 10,
@@ -338,6 +346,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'detailed',
       showPageNumbers: true,
       showTimestamp: true,
+      viewType: 'cards',
     },
     styling: {
       fontSize: 9,
@@ -367,6 +376,7 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       headerStyle: 'minimal',
       showPageNumbers: false,
       showTimestamp: false,
+      viewType: 'list',
     },
     styling: {
       fontSize: 7,
