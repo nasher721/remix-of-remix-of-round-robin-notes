@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useNotifications } from "./use-notifications";
@@ -29,14 +29,14 @@ const defaultMedicationsValue: PatientMedications = {
 export type { Patient, PatientSystems, PatientMedications };
 
 export const usePatients = () => {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [patientCounter, setPatientCounter] = useState(1);
+  const [patients, setPatients] = React.useState<Patient[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [patientCounter, setPatientCounter] = React.useState(1);
   const { user } = useAuth();
   const notifications = useNotifications();
 
   // Fetch patients from database
-  const fetchPatients = useCallback(async () => {
+  const fetchPatients = React.useCallback(async () => {
     if (!user) {
       setPatients([]);
       setLoading(false);
@@ -84,11 +84,11 @@ export const usePatients = () => {
     }
   }, [user, notifications]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchPatients();
   }, [fetchPatients]);
 
-  const addPatient = useCallback(async () => {
+  const addPatient = React.useCallback(async () => {
     if (!user) return;
 
     try {
@@ -145,7 +145,7 @@ export const usePatients = () => {
     }
   }, [user, patientCounter, notifications]);
 
-  const updatePatient = useCallback(async (id: string, field: string, value: unknown) => {
+  const updatePatient = React.useCallback(async (id: string, field: string, value: unknown) => {
     if (!user) return;
 
     const now = new Date().toISOString();
@@ -241,7 +241,7 @@ export const usePatients = () => {
     }
   }, [user, patients, fetchPatients]);
 
-  const removePatient = useCallback(async (id: string) => {
+  const removePatient = React.useCallback(async (id: string) => {
     if (!user) return;
 
     try {
@@ -267,7 +267,7 @@ export const usePatients = () => {
     }
   }, [user, notifications]);
 
-  const duplicatePatient = useCallback(async (id: string) => {
+  const duplicatePatient = React.useCallback(async (id: string) => {
     if (!user) return;
 
     const patient = patients.find((p) => p.id === id);
@@ -327,14 +327,14 @@ export const usePatients = () => {
     }
   }, [user, patients, patientCounter, notifications]);
 
-  const toggleCollapse = useCallback(async (id: string) => {
+  const toggleCollapse = React.useCallback(async (id: string) => {
     const patient = patients.find((p) => p.id === id);
     if (!patient) return;
 
     await updatePatient(id, "collapsed", !patient.collapsed);
   }, [patients, updatePatient]);
 
-  const collapseAll = useCallback(async () => {
+  const collapseAll = React.useCallback(async () => {
     if (!user || patients.length === 0) return;
 
     // Check if all are already collapsed
@@ -357,7 +357,7 @@ export const usePatients = () => {
     }
   }, [user, patients, fetchPatients]);
 
-  const importPatients = useCallback(async (patientsToImport: Array<{
+  const importPatients = React.useCallback(async (patientsToImport: Array<{
     name: string;
     bed: string;
     clinicalSummary: string;
@@ -433,7 +433,7 @@ export const usePatients = () => {
   }, [user, patientCounter, notifications]);
 
   // Add a patient with pre-populated data (for smart import)
-  const addPatientWithData = useCallback(async (patientData: {
+  const addPatientWithData = React.useCallback(async (patientData: {
     name: string;
     bed: string;
     clinicalSummary: string;
@@ -500,7 +500,7 @@ export const usePatients = () => {
     }
   }, [user, patientCounter, notifications]);
 
-  const clearAll = useCallback(async () => {
+  const clearAll = React.useCallback(async () => {
     if (!user) return;
 
     try {
