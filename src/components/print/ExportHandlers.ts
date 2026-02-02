@@ -3,7 +3,7 @@ import type { PatientTodo } from '@/types/todo';
 import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
 import { stripHtml, formatTodosForDisplay, cleanInlineStyles, isColumnCombined, getCombinedContent } from './utils';
-import { htmlToRTF, escapeRTF as escapeRTFNew } from '@/lib/print/htmlFormatter';
+import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, htmlToPDFSegments } from '@/lib/print/htmlFormatter';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -257,67 +257,79 @@ export const handleExportRTF = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
   const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
 
+  // Initialize RTF color table for this export
+  initRTFColorTable();
+
+  // Build RTF content first to collect all colors
+  const patientContent: string[] = [];
+  
+  patients.forEach((patient, index) => {
+    let content = '';
+    content += `\\pard\\sb200\\sa100\\brdrb\\brdrs\\brdrw10\\brsp20\n`;
+    content += `\\fs28\\b\\cf2 Patient ${index + 1}: ${escapeRTFNew(patient.name || 'Unnamed')}\\cf1\\b0\\par\n`;
+    content += `\\fs20 Bed/Room: ${escapeRTFNew(patient.bed || 'N/A')}\\par\n`;
+    content += `\\pard\\sa100\n`;
+
+    if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
+      content += `\\fs22\\b Clinical Summary:\\b0\\par\n`;
+      content += `\\fs20 ${htmlToRTF(patient.clinicalSummary)}\\par\\par\n`;
+    }
+    if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
+      content += `\\fs22\\b Interval Events:\\b0\\par\n`;
+      content += `\\fs20 ${htmlToRTF(patient.intervalEvents)}\\par\\par\n`;
+    }
+    if (isColumnEnabled("imaging") && patient.imaging) {
+      content += `\\fs22\\b Imaging:\\b0\\par\n`;
+      content += `\\fs20 ${htmlToRTF(patient.imaging)}\\par\\par\n`;
+    }
+    if (isColumnEnabled("labs") && patient.labs) {
+      content += `\\fs22\\b Labs:\\b0\\par\n`;
+      content += `\\fs20 ${htmlToRTF(patient.labs)}\\par\\par\n`;
+    }
+
+    if (enabledSystemKeys.length > 0) {
+      content += `\\fs22\\b Systems Review:\\b0\\par\n`;
+      enabledSystemKeys.forEach(key => {
+        const value = patient.systems[key as keyof typeof patient.systems];
+        if (value) {
+          content += `\\fs20\\b ${escapeRTFNew(systemLabels[key])}:\\b0  ${htmlToRTF(value)}\\par\n`;
+        }
+      });
+      content += `\\par\n`;
+    }
+
+    if (showTodosColumn) {
+      const todos = getPatientTodos(patient.id);
+      if (todos.length > 0) {
+        content += `\\fs22\\b Todos:\\b0\\par\n`;
+        todos.forEach(todo => {
+          content += `\\fs20 ${todo.completed ? '[X]' : '[ ]'} ${escapeRTFNew(todo.content)}\\par\n`;
+        });
+        content += `\\par\n`;
+      }
+    }
+
+    if (isColumnEnabled("notes") && patientNotes[patient.id]) {
+      content += `\\fs22\\b Notes:\\b0\\par\n`;
+      content += `\\fs20 ${escapeRTFNew(patientNotes[patient.id])}\\par\\par\n`;
+    }
+
+    content += `\\par\n`;
+    patientContent.push(content);
+  });
+
+  // Now build complete RTF with the dynamically generated color table
   let rtf = `{\\rtf1\\ansi\\deff0\n`;
   rtf += `{\\fonttbl{\\f0\\fswiss Arial;}{\\f1\\fmodern Courier New;}}\n`;
-  rtf += `{\\colortbl;\\red0\\green0\\blue0;\\red59\\green130\\blue246;\\red100\\green100\\blue100;}\n\n`;
+  rtf += `${getRTFColorTable()}\n\n`;
 
   rtf += `\\f0\\fs32\\b PATIENT ROUNDING REPORT\\b0\\par\n`;
   rtf += `\\fs20\\cf3 Generated: ${new Date().toLocaleString()}\\par\n`;
   rtf += `Total Patients: ${patients.length}\\cf1\\par\n`;
   rtf += `\\line\n`;
 
-  patients.forEach((patient, index) => {
-    rtf += `\\pard\\sb200\\sa100\\brdrb\\brdrs\\brdrw10\\brsp20\n`;
-    rtf += `\\fs28\\b\\cf2 Patient ${index + 1}: ${escapeRTFNew(patient.name || 'Unnamed')}\\cf1\\b0\\par\n`;
-    rtf += `\\fs20 Bed/Room: ${escapeRTFNew(patient.bed || 'N/A')}\\par\n`;
-    rtf += `\\pard\\sa100\n`;
-
-    if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
-      rtf += `\\fs22\\b Clinical Summary:\\b0\\par\n`;
-      rtf += `\\fs20 ${htmlToRTF(patient.clinicalSummary)}\\par\\par\n`;
-    }
-    if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
-      rtf += `\\fs22\\b Interval Events:\\b0\\par\n`;
-      rtf += `\\fs20 ${htmlToRTF(patient.intervalEvents)}\\par\\par\n`;
-    }
-    if (isColumnEnabled("imaging") && patient.imaging) {
-      rtf += `\\fs22\\b Imaging:\\b0\\par\n`;
-      rtf += `\\fs20 ${htmlToRTF(patient.imaging)}\\par\\par\n`;
-    }
-    if (isColumnEnabled("labs") && patient.labs) {
-      rtf += `\\fs22\\b Labs:\\b0\\par\n`;
-      rtf += `\\fs20 ${htmlToRTF(patient.labs)}\\par\\par\n`;
-    }
-
-    if (enabledSystemKeys.length > 0) {
-      rtf += `\\fs22\\b Systems Review:\\b0\\par\n`;
-      enabledSystemKeys.forEach(key => {
-        const value = patient.systems[key as keyof typeof patient.systems];
-        if (value) {
-          rtf += `\\fs20\\b ${escapeRTFNew(systemLabels[key])}:\\b0  ${htmlToRTF(value)}\\par\n`;
-        }
-      });
-      rtf += `\\par\n`;
-    }
-
-    if (showTodosColumn) {
-      const todos = getPatientTodos(patient.id);
-      if (todos.length > 0) {
-        rtf += `\\fs22\\b Todos:\\b0\\par\n`;
-        todos.forEach(todo => {
-          rtf += `\\fs20 ${todo.completed ? '[X]' : '[ ]'} ${escapeRTFNew(todo.content)}\\par\n`;
-        });
-        rtf += `\\par\n`;
-      }
-    }
-
-    if (isColumnEnabled("notes") && patientNotes[patient.id]) {
-      rtf += `\\fs22\\b Notes:\\b0\\par\n`;
-      rtf += `\\fs20 ${escapeRTFNew(patientNotes[patient.id])}\\par\\par\n`;
-    }
-
-    rtf += `\\par\n`;
-  });
+  // Add all patient content
+  rtf += patientContent.join('');
 
   rtf += `}`;
 
