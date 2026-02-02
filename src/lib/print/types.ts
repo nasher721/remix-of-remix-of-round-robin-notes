@@ -27,7 +27,18 @@ export type ColumnWidthsType = {
     imaging: number;
     labs: number;
     notes: number;
-    [key: string]: number; // Allow system keys
+    todos: number;
+    'systems.neuro': number;
+    'systems.cv': number;
+    'systems.resp': number;
+    'systems.renalGU': number;
+    'systems.gi': number;
+    'systems.endo': number;
+    'systems.heme': number;
+    'systems.infectious': number;
+    'systems.skinLines': number;
+    'systems.dispo': number;
+    [key: string]: number; // Allow additional system keys
 };
 
 export interface PrintPreset {
