@@ -1,7 +1,6 @@
 import * as React from "react";
 import type { Patient } from "@/types/patient";
 import type { PatientTodo } from "@/types/todo";
-import { SYSTEM_LABELS_SHORT, SYSTEM_KEYS } from "@/constants/systems";
 import {
   Dialog,
   DialogContent,
@@ -11,15 +10,20 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { PrintSettings } from "./print/PrintSettings";
 import { PrintControls } from "./print/PrintControls";
 import { PrintPreview } from "./print/PrintPreview";
 import { PrintTemplateSelector } from "./print/PrintTemplateSelector";
-import type { PrintSettings as PrintSettingsType, ColumnConfig, ColumnWidthsType, CustomCombination } from "@/lib/print/types";
+import type { PrintSettings as PrintSettingsType, ColumnConfig, CustomCombination } from "@/lib/print/types";
 import { getTemplateById, PrintTemplateType } from "@/types/printTemplates";
+import { defaultColumnWidths, defaultColumns } from "./print/constants";
+import {
+  handleExportExcel,
+  handleExportPDF,
+  handleExportTXT,
+  handleExportRTF,
+  handleExportDOC,
+} from "./print/ExportHandlers";
 
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
@@ -34,20 +38,6 @@ interface PrintExportModalProps {
   totalPatientCount?: number;
   isFiltered?: boolean;
 }
-
-const systemLabels = SYSTEM_LABELS_SHORT;
-const systemKeys = SYSTEM_KEYS;
-
-import { defaultColumnWidths, defaultColumns } from "./print/constants";
-// Use exported defaults if possible, but keep local overrides if needed.
-// Actually, let's just use the imported one.
-
-
-// Strip HTML tags for exports
-const stripHtml = (html: string): string => {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || "";
-};
 
 export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = {}, onUpdatePatient, totalPatientCount, isFiltered = false }: PrintExportModalProps) => {
   const { toast } = useToast();
@@ -201,51 +191,42 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     toast({ title: "Custom combination deleted" });
   };
 
-  // --- Export Handlers (Legacy Logic Wrapper) ---
-  // In a real refactor, these would move to src/lib/print/generators
+  // --- Export Handlers ---
+  const isColumnEnabled = React.useCallback((key: string): boolean => {
+    return settings.columns.find(c => c.key === key)?.enabled ?? false;
+  }, [settings.columns]);
+
+  const getPatientTodos = React.useCallback((patientId: string): PatientTodo[] => {
+    return patientTodos[patientId] || [];
+  }, [patientTodos]);
+
+  const getExportContext = React.useCallback(() => ({
+    patients,
+    patientTodos,
+    columns: settings.columns,
+    combinedColumns: settings.combinedColumns,
+    columnWidths: settings.columnWidths,
+    printFontSize: settings.printFontSize,
+    printOrientation: settings.printOrientation,
+    onePatientPerPage: settings.onePatientPerPage,
+    isColumnEnabled,
+    getPatientTodos,
+    showNotesColumn: settings.showNotesColumn,
+    showTodosColumn: settings.showTodosColumn,
+    patientNotes,
+    isFiltered,
+    totalPatientCount,
+  }), [patients, patientTodos, settings, isColumnEnabled, getPatientTodos, patientNotes, isFiltered, totalPatientCount]);
 
   const handlePrint = () => {
     window.print();
   };
 
-  const handleExportPDF = async () => {
+  const onExportPDF = async () => {
     setIsGenerating(true);
     try {
-      // Dynamically import html2pdf.js
-      const html2pdf = (await import('html2pdf.js')).default;
-
-      // Get the preview element to convert to PDF
-      const previewElement = document.querySelector('[data-print-preview]') as HTMLElement;
-
-      if (!previewElement) {
-        throw new Error('Print preview element not found');
-      }
-
-      // Configure html2pdf options
-      const opt = {
-        margin: settings.printOrientation === 'landscape' ? [10, 10, 10, 10] as [number, number, number, number] : [15, 10, 15, 10] as [number, number, number, number],
-        filename: `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true
-        },
-        jsPDF: {
-          unit: 'mm',
-          format: 'a4',
-          orientation: settings.printOrientation
-        },
-        pagebreak: {
-          mode: settings.onePatientPerPage ? 'avoid-all' : ['css', 'legacy'],
-          before: settings.onePatientPerPage ? '.patient-card' : undefined
-        }
-      };
-
-      // Generate PDF from HTML
-      await html2pdf().set(opt).from(previewElement).save();
-
-      toast({ title: "PDF Export Complete" });
+      const fileName = handleExportPDF(getExportContext());
+      toast({ title: "PDF Export Complete", description: fileName });
     } catch (e) {
       console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
@@ -254,21 +235,44 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }
   };
 
-  const handleExportExcel = () => {
-    // Placeholder for Excel logic
-    toast({ title: "Excel Export Started" });
+  const onExportExcel = () => {
+    try {
+      const fileName = handleExportExcel(getExportContext());
+      toast({ title: "Excel Export Complete", description: fileName });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Export Failed", variant: "destructive" });
+    }
   };
 
-  const handleExportWord = () => {
-    toast({ title: "Word Export Started" });
+  const onExportWord = () => {
+    try {
+      const fileName = handleExportDOC(getExportContext());
+      toast({ title: "Word Export Complete", description: fileName });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Export Failed", variant: "destructive" });
+    }
   };
 
-  const handleExportTXT = () => {
-    toast({ title: "TXT Export Started" });
+  const onExportTXT = () => {
+    try {
+      const fileName = handleExportTXT(getExportContext());
+      toast({ title: "Text Export Complete", description: fileName });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Export Failed", variant: "destructive" });
+    }
   };
 
-  const handleExportRTF = () => {
-    toast({ title: "RTF Export Started" });
+  const onExportRTF = () => {
+    try {
+      const fileName = handleExportRTF(getExportContext());
+      toast({ title: "RTF Export Complete", description: fileName });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Export Failed", variant: "destructive" });
+    }
   };
 
   return (
@@ -282,11 +286,11 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             </DialogTitle>
             <PrintControls
               onPrint={handlePrint}
-              onExportPDF={handleExportPDF}
-              onExportExcel={handleExportExcel}
-              onExportWord={handleExportWord}
-              onExportTXT={handleExportTXT}
-              onExportRTF={handleExportRTF}
+              onExportPDF={onExportPDF}
+              onExportExcel={onExportExcel}
+              onExportWord={onExportWord}
+              onExportTXT={onExportTXT}
+              onExportRTF={onExportRTF}
               isGenerating={isGenerating}
             />
           </div>
