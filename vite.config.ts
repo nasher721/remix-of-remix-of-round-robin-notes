@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    // Dedupe React to prevent multiple instances during HMR
-    dedupe: ["react", "react-dom"],
+    // Dedupe React and related packages to prevent multiple instances during HMR
+    dedupe: ["react", "react-dom", "@tanstack/react-query"],
   },
   optimizeDeps: {
     // Force pre-bundle React and related packages to avoid HMR issues
