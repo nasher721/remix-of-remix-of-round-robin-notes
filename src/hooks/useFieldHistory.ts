@@ -1,7 +1,6 @@
-import { useState, useCallback } from "react";
+import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
-
 export interface FieldHistoryEntry {
   id: string;
   patientId: string;
@@ -12,11 +11,11 @@ export interface FieldHistoryEntry {
 }
 
 export const useFieldHistory = (patientId: string) => {
-  const [history, setHistory] = useState<FieldHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = React.useState<FieldHistoryEntry[]>([]);
+  const [loading, setLoading] = React.useState(false);
   const { user } = useAuth();
 
-  const fetchHistory = useCallback(async (fieldName?: string) => {
+  const fetchHistory = React.useCallback(async (fieldName?: string) => {
     if (!user || !patientId) return;
 
     setLoading(true);
@@ -53,7 +52,7 @@ export const useFieldHistory = (patientId: string) => {
     }
   }, [user, patientId]);
 
-  const addHistoryEntry = useCallback(async (
+  const addHistoryEntry = React.useCallback(async (
     fieldName: string,
     oldValue: string | null,
     newValue: string | null
@@ -76,7 +75,7 @@ export const useFieldHistory = (patientId: string) => {
     }
   }, [user, patientId]);
 
-  const clearHistory = useCallback(async (fieldName?: string) => {
+  const clearHistory = React.useCallback(async (fieldName?: string) => {
     if (!user || !patientId) return;
 
     try {

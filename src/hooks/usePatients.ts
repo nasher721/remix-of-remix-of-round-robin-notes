@@ -34,6 +34,12 @@ export const usePatients = () => {
   const [patientCounter, setPatientCounter] = React.useState(1);
   const { user } = useAuth();
   const notifications = useNotifications();
+  
+  // Ref to track latest patients for use in callbacks without stale closures
+  const patientsRef = React.useRef<Patient[]>([]);
+  React.useEffect(() => {
+    patientsRef.current = patients;
+  }, [patients]);
 
   // Fetch patients from database
   const fetchPatients = React.useCallback(async () => {
@@ -156,8 +162,8 @@ export const usePatients = () => {
     const isMedicationsField = field === 'medications';
     const shouldTrackTimestamp = trackableFields.includes(field) || isSystemField;
 
-    // Get old value for history tracking
-    const patient = patients.find((p) => p.id === id);
+    // Get old value for history tracking - use ref to avoid stale closure
+    const patient = patientsRef.current.find((p) => p.id === id);
     let oldValue: string | null = null;
 
     if (shouldTrackTimestamp && patient && !isMedicationsField) {
@@ -169,7 +175,7 @@ export const usePatients = () => {
       }
     }
 
-    // Optimistic update
+    // Optimistic update - using functional update to avoid stale state
     setPatients((prev) =>
       prev.map((p) => {
         if (p.id === id) {
@@ -201,13 +207,14 @@ export const usePatients = () => {
       })
     );
 
-    // Prepare update object
-    const updateData = prepareUpdateData(field, value, patient?.systems, patient?.medications);
+    // Prepare update object - use ref for current patient data
+    const currentPatient = patientsRef.current.find((p) => p.id === id);
+    const updateData = prepareUpdateData(field, value, currentPatient?.systems, currentPatient?.medications);
 
     // Add field timestamp update if trackable
-    if (shouldTrackTimestamp && patient) {
+    if (shouldTrackTimestamp && currentPatient) {
       updateData.field_timestamps = {
-        ...patient.fieldTimestamps,
+        ...currentPatient.fieldTimestamps,
         [field]: now,
       };
     }
@@ -220,26 +227,29 @@ export const usePatients = () => {
 
       if (error) throw error;
 
-      // Record history entry for trackable fields (non-blocking)
+      // Record history entry for trackable fields (non-blocking, ignore errors)
       if (shouldTrackTimestamp && oldValue !== (value as string)) {
-        supabase.from("patient_field_history").insert({
-          patient_id: id,
-          user_id: user.id,
-          field_name: field,
-          old_value: oldValue,
-          new_value: value as string,
-        }).then(({ error: historyError }) => {
-          if (historyError) {
-            console.error("Error recording field history:", historyError);
+        // Fire and forget - don't await, ignore all errors
+        void (async () => {
+          try {
+            await supabase.from("patient_field_history").insert({
+              patient_id: id,
+              user_id: user.id,
+              field_name: field,
+              old_value: oldValue,
+              new_value: value as string,
+            });
+          } catch {
+            // Silently ignore history recording errors
           }
-        });
+        })();
       }
     } catch (error) {
       console.error("Error updating patient:", error);
       // Revert on error
       fetchPatients();
     }
-  }, [user, patients, fetchPatients]);
+  }, [user, fetchPatients]);
 
   const removePatient = React.useCallback(async (id: string) => {
     if (!user) return;
@@ -270,7 +280,7 @@ export const usePatients = () => {
   const duplicatePatient = React.useCallback(async (id: string) => {
     if (!user) return;
 
-    const patient = patients.find((p) => p.id === id);
+    const patient = patientsRef.current.find((p) => p.id === id);
     if (!patient) return;
 
     try {
@@ -325,20 +335,21 @@ export const usePatients = () => {
         description: "Failed to duplicate patient.",
       });
     }
-  }, [user, patients, patientCounter, notifications]);
+  }, [user, patientCounter, notifications]);
 
   const toggleCollapse = React.useCallback(async (id: string) => {
-    const patient = patients.find((p) => p.id === id);
+    const patient = patientsRef.current.find((p) => p.id === id);
     if (!patient) return;
 
     await updatePatient(id, "collapsed", !patient.collapsed);
-  }, [patients, updatePatient]);
+  }, [updatePatient]);
 
   const collapseAll = React.useCallback(async () => {
-    if (!user || patients.length === 0) return;
+    const currentPatients = patientsRef.current;
+    if (!user || currentPatients.length === 0) return;
 
     // Check if all are already collapsed
-    const allCollapsed = patients.every(p => p.collapsed);
+    const allCollapsed = currentPatients.every(p => p.collapsed);
     const newCollapseState = !allCollapsed;
 
     // Optimistic update
@@ -355,7 +366,7 @@ export const usePatients = () => {
       console.error("Error collapsing all patients:", error);
       fetchPatients(); // Revert on error
     }
-  }, [user, patients, fetchPatients]);
+  }, [user, fetchPatients]);
 
   const importPatients = React.useCallback(async (patientsToImport: Array<{
     name: string;
