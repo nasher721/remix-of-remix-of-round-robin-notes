@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
@@ -6,14 +6,14 @@ import { defaultAutotexts, defaultTemplates } from "@/data/autotexts";
 import type { AutoText, Template } from "@/types/autotext";
 
 export const useCloudAutotexts = () => {
-  const [autotexts, setAutotexts] = useState<AutoText[]>(defaultAutotexts);
-  const [templates, setTemplates] = useState<Template[]>(defaultTemplates);
-  const [loading, setLoading] = useState(true);
+  const [autotexts, setAutotexts] = React.useState<AutoText[]>(defaultAutotexts);
+  const [templates, setTemplates] = React.useState<Template[]>(defaultTemplates);
+  const [loading, setLoading] = React.useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
 
   // Fetch custom autotexts and templates from database
-  const fetchData = useCallback(async () => {
+  const fetchData = React.useCallback(async () => {
     if (!user) {
       setAutotexts(defaultAutotexts);
       setTemplates(defaultTemplates);
@@ -61,11 +61,11 @@ export const useCloudAutotexts = () => {
     }
   }, [user]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const addAutotext = useCallback(async (shortcut: string, expansion: string, category: string) => {
+  const addAutotext = React.useCallback(async (shortcut: string, expansion: string, category: string) => {
     if (!user) return false;
 
     // Check if exists
@@ -103,7 +103,7 @@ export const useCloudAutotexts = () => {
     }
   }, [user, autotexts, toast]);
 
-  const removeAutotext = useCallback(async (shortcut: string) => {
+  const removeAutotext = React.useCallback(async (shortcut: string) => {
     if (!user) return;
 
     try {
@@ -134,7 +134,7 @@ export const useCloudAutotexts = () => {
     }
   }, [user, toast]);
 
-  const addTemplate = useCallback(async (name: string, content: string, category: string) => {
+  const addTemplate = React.useCallback(async (name: string, content: string, category: string) => {
     if (!user) return false;
 
     try {
@@ -165,7 +165,7 @@ export const useCloudAutotexts = () => {
     }
   }, [user, toast]);
 
-  const removeTemplate = useCallback(async (id: string) => {
+  const removeTemplate = React.useCallback(async (id: string) => {
     if (!user) return;
 
     // Check if it's a default template
@@ -194,7 +194,7 @@ export const useCloudAutotexts = () => {
     }
   }, [user, toast]);
 
-  const getExpansion = useCallback((shortcut: string): string | null => {
+  const getExpansion = React.useCallback((shortcut: string): string | null => {
     const autotext = autotexts.find((a) => a.shortcut.toLowerCase() === shortcut.toLowerCase());
     return autotext?.expansion || null;
   }, [autotexts]);
