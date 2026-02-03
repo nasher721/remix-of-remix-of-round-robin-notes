@@ -62,6 +62,7 @@ interface ShiftHandoffProps {
   patients: Patient[];
   onSaveHandoff: (handoff: HandoffData) => void;
   onCompleteHandoff: (handoffs: HandoffData[]) => void;
+  onUpdatePatient?: (id: string, field: string, value: unknown) => void;
   existingHandoffs?: HandoffData[];
   currentUser?: string;
   className?: string;
@@ -71,6 +72,7 @@ export function ShiftHandoff({
   patients,
   onSaveHandoff,
   onCompleteHandoff,
+  onUpdatePatient,
   existingHandoffs = [],
   currentUser = "Provider",
   className,
