@@ -10,6 +10,7 @@ import { SettingsProvider } from "@/contexts/SettingsContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import PrintExportTest from "./pages/PrintExportTest";
 
 // Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({
@@ -41,6 +42,9 @@ function App(): React.ReactElement {
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
+                  {import.meta.env.DEV && (
+                    <Route path="/__print-export-test" element={<PrintExportTest />} />
+                  )}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </BrowserRouter>

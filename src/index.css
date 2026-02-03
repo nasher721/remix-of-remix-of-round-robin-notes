@@ -195,6 +195,22 @@
       color: #000;
     }
 
+    body * {
+      visibility: hidden;
+    }
+
+    .print-export-sandbox,
+    .print-export-sandbox * {
+      visibility: visible;
+    }
+
+    .print-export-sandbox {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+    }
+
     .no-print {
       display: none !important;
     }
@@ -226,9 +242,52 @@
     }
 
     @page {
-      size: landscape;
-      margin: 0.5in;
+      margin: 0;
     }
+  }
+
+  .print-export-sandbox {
+    position: fixed;
+    left: -10000px;
+    top: 0;
+    pointer-events: none;
+  }
+
+  .print-document,
+  .print-document * {
+    box-sizing: border-box;
+  }
+
+  .print-document {
+    width: var(--print-page-width, 210mm);
+    min-height: var(--print-page-height, 297mm);
+    padding: var(--print-page-margin, 15mm);
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .print-document table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    max-width: 100%;
+  }
+
+  .print-document th,
+  .print-document td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .print-document img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .print-document pre,
+  .print-document code {
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   /* Change tracking tooltip on hover */
