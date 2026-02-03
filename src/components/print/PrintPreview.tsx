@@ -29,18 +29,31 @@ export function PrintPreview({
                     b, strong { font-weight: bold !important; }
                     i, em { font-style: italic !important; }
                     u { text-decoration: underline !important; }
-                    
+
                     /* Preserve lists */
                     ul { list-style-type: disc !important; margin-left: 1.5em !important; }
                     ol { list-style-type: decimal !important; margin-left: 1.5em !important; }
                     li { display: list-item !important; }
-                    
+
                     /* Preserve paragraphs and line breaks */
                     p { margin-bottom: 0.5em !important; }
                     br { display: block !important; content: "" !important; margin-top: 0.25em !important; }
-                    
-                    /* Ensure content is visible */
-                    * { color: black !important; }
+
+                    /* Preserve text colors - elements with inline color styles keep their colors */
+                    [style*="color"] {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    /* Preserve background colors */
+                    [style*="background"] {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    /* Default text color for elements without explicit color */
+                    [data-print-preview] { color: black; }
+                    [data-print-preview] *:not([style*="color"]) { color: inherit; }
                 }
             `;
             document.head.appendChild(style);
@@ -68,7 +81,26 @@ export function PrintPreview({
         temp.innerHTML = html;
         const elements = temp.querySelectorAll("*");
         elements.forEach((el) => {
-            el.removeAttribute("style");
+            const style = el.getAttribute("style");
+            if (style) {
+                // Preserve color and background-color styles, remove others (font-size, font-family, etc.)
+                const colorMatch = style.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i);
+                const bgColorMatch = style.match(/background-color\s*:\s*([^;]+)/i);
+
+                const preservedStyles: string[] = [];
+                if (colorMatch) {
+                    preservedStyles.push(`color: ${colorMatch[1].trim()}`);
+                }
+                if (bgColorMatch) {
+                    preservedStyles.push(`background-color: ${bgColorMatch[1].trim()}`);
+                }
+
+                if (preservedStyles.length > 0) {
+                    el.setAttribute("style", preservedStyles.join("; "));
+                } else {
+                    el.removeAttribute("style");
+                }
+            }
         });
         return temp.innerHTML;
     };
