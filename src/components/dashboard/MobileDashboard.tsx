@@ -25,6 +25,7 @@ import {
   MobileAddPanel,
   MobileSettingsPanel,
   MobileReferencePanel,
+  MobileBatchCourseGenerator,
 } from "@/components/mobile";
 
 export const MobileDashboard = () => {
@@ -68,6 +69,7 @@ export const MobileDashboard = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAutotextModal, setShowAutotextModal] = useState(false);
   const [showPhraseManager, setShowPhraseManager] = useState(false);
+  const [showBatchCourse, setShowBatchCourse] = useState(false);
 
   const handlePrint = useCallback(() => {
     setShowPrintModal(true);
@@ -237,7 +239,7 @@ export const MobileDashboard = () => {
             <>
               <MobileHeader title="Settings" showSearch={false} />
               <div className="pb-mobile-nav">
-                <MobileSettingsPanel
+              <MobileSettingsPanel
                   globalFontSize={globalFontSize}
                   onFontSizeChange={setGlobalFontSize}
                   sortBy={sortBy}
@@ -248,11 +250,13 @@ export const MobileDashboard = () => {
                   onClearAll={handleClearAll}
                   onOpenAutotexts={() => setShowAutotextModal(true)}
                   onOpenPhrases={() => setShowPhraseManager(true)}
+                  onOpenBatchCourse={() => setShowBatchCourse(true)}
                   userEmail={user.email}
                   todosAlwaysVisible={todosAlwaysVisible}
                   onTodosAlwaysVisibleChange={setTodosAlwaysVisible}
                   showLabFishbones={showLabFishbones}
                   onShowLabFishbonesChange={setShowLabFishbones}
+                  patientCount={patients.length}
                 />
               </div>
             </>
@@ -307,6 +311,13 @@ export const MobileDashboard = () => {
       <PhraseManager
         open={showPhraseManager}
         onOpenChange={setShowPhraseManager}
+      />
+
+      <MobileBatchCourseGenerator
+        patients={patients}
+        onUpdatePatient={onUpdatePatient}
+        open={showBatchCourse}
+        onOpenChange={setShowBatchCourse}
       />
 
       <IBCCPanel />
