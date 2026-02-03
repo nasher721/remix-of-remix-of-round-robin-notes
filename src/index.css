@@ -191,7 +191,8 @@
     }
 
     body {
-      @apply bg-white text-black;
+      @apply bg-white;
+      color: #000;
     }
 
     .no-print {
@@ -208,6 +209,18 @@
 
     /* Preserve change tracking markup colors in print */
     [data-marked="true"] {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* Preserve inline text colors in print */
+    [style*="color"] {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* Preserve background colors */
+    [style*="background"] {
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
     }

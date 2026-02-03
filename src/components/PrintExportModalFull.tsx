@@ -277,9 +277,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl w-full h-[85vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="px-6 py-4 border-b">
-          <div className="flex items-center justify-between w-full">
+      <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
+        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2">
             <DialogTitle className="flex items-center gap-2">
               <Printer className="h-5 w-5" />
               Print & Export
@@ -296,18 +296,18 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           </div>
         </DialogHeader>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Left Sidebar - Settings */}
-          <div className="w-80 border-r bg-muted/10 flex flex-col">
-            <Tabs defaultValue="settings" className="flex-1 flex flex-col">
-              <div className="px-4 pt-4">
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
+          {/* Left Sidebar - Settings (collapsible on mobile) */}
+          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/10 flex flex-col max-h-[40vh] md:max-h-none overflow-hidden flex-shrink-0">
+            <Tabs defaultValue="settings" className="flex-1 flex flex-col min-h-0">
+              <div className="px-4 pt-3 md:pt-4 flex-shrink-0">
                 <TabsList className="w-full">
                   <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
                   <TabsTrigger value="templates" className="flex-1">Templates</TabsTrigger>
                 </TabsList>
               </div>
 
-              <TabsContent value="settings" className="flex-1 overflow-y-auto p-4">
+              <TabsContent value="settings" className="flex-1 overflow-y-auto p-4 min-h-0">
                 <PrintSettings
                   settings={settings}
                   onUpdateSettings={handleUpdateSettings}
@@ -321,7 +321,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                 />
               </TabsContent>
 
-              <TabsContent value="templates" className="p-4 flex-1 overflow-y-auto">
+              <TabsContent value="templates" className="p-4 flex-1 overflow-y-auto min-h-0">
                 <PrintTemplateSelector
                   selectedTemplate={selectedTemplateId}
                   onSelectTemplate={handleApplyTemplate}
@@ -331,7 +331,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           </div>
 
           {/* Main Content - Preview */}
-          <div className="flex-1 bg-slate-100/50 p-6 overflow-hidden flex flex-col">
+          <div className="flex-1 bg-slate-100/50 p-3 md:p-6 min-h-0 overflow-hidden flex flex-col">
             <PrintPreview
               patients={patients}
               patientTodos={patientTodos}

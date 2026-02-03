@@ -3,10 +3,59 @@ import type { PatientTodo } from '@/types/todo';
 import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
 import { stripHtml, formatTodosForDisplay, cleanInlineStyles, isColumnCombined, getCombinedContent } from './utils';
-import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, htmlToPDFSegments } from '@/lib/print/htmlFormatter';
+import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, htmlToPDFSegments, parseColor } from '@/lib/print/htmlFormatter';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+// Extract dominant color from HTML string for PDF export
+const extractDominantColor = (html: string): { r: number; g: number; b: number } | null => {
+  if (!html) return null;
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+
+  // Find first element with a color style
+  const elementsWithColor = temp.querySelectorAll('[style*="color"]');
+  for (const el of elementsWithColor) {
+    const style = el.getAttribute('style') || '';
+    const colorMatch = style.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i);
+    if (colorMatch) {
+      const color = parseColor(colorMatch[1].trim());
+      if (color) return color;
+    }
+  }
+  return null;
+};
+
+// Convert HTML to text while preserving structure indicators
+const htmlToStructuredText = (html: string): string => {
+  if (!html) return '';
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+
+  const processNode = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent || '';
+    }
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      const tag = el.tagName.toLowerCase();
+      const children = Array.from(el.childNodes).map(processNode).join('');
+
+      switch (tag) {
+        case 'br': return '\n';
+        case 'p': return children + '\n';
+        case 'li': return '• ' + children + '\n';
+        case 'ul':
+        case 'ol': return children;
+        default: return children;
+      }
+    }
+    return '';
+  };
+
+  return Array.from(temp.childNodes).map(processNode).join('').trim();
+};
 
 interface ExportContext {
   patients: Patient[];
@@ -117,38 +166,59 @@ export const handleExportPDF = (ctx: ExportContext) => {
   if (showTodosColumn) headers.push("Todos");
   if (isColumnEnabled("notes")) headers.push("Notes");
 
-  const tableData = patients.map(patient => {
-    const row: string[] = [];
+  // Build table data with color information for each cell
+  type CellData = { text: string; color: { r: number; g: number; b: number } | null };
+  const tableDataWithColors: CellData[][] = patients.map(patient => {
+    const row: CellData[] = [];
 
     if (isColumnEnabled("patient")) {
-      row.push(patient.name || "Unnamed");
-      row.push(patient.bed || "-");
+      row.push({ text: patient.name || "Unnamed", color: null });
+      row.push({ text: patient.bed || "-", color: null });
     }
     if (isColumnEnabled("clinicalSummary")) {
-      row.push(stripHtml(patient.clinicalSummary));
+      row.push({
+        text: htmlToStructuredText(patient.clinicalSummary),
+        color: extractDominantColor(patient.clinicalSummary)
+      });
     }
     if (isColumnEnabled("intervalEvents")) {
-      row.push(stripHtml(patient.intervalEvents));
+      row.push({
+        text: htmlToStructuredText(patient.intervalEvents),
+        color: extractDominantColor(patient.intervalEvents)
+      });
     }
     if (isColumnEnabled("imaging")) {
-      row.push(stripHtml(patient.imaging));
+      row.push({
+        text: htmlToStructuredText(patient.imaging),
+        color: extractDominantColor(patient.imaging)
+      });
     }
     if (isColumnEnabled("labs")) {
-      row.push(stripHtml(patient.labs));
+      row.push({
+        text: htmlToStructuredText(patient.labs),
+        color: extractDominantColor(patient.labs)
+      });
     }
     enabledSystemKeys.forEach(key => {
-      row.push(stripHtml(patient.systems[key as keyof typeof patient.systems]));
+      const value = patient.systems[key as keyof typeof patient.systems];
+      row.push({
+        text: htmlToStructuredText(value),
+        color: extractDominantColor(value)
+      });
     });
     if (showTodosColumn) {
       const todos = getPatientTodos(patient.id);
-      row.push(formatTodosForDisplay(todos));
+      row.push({ text: formatTodosForDisplay(todos), color: null });
     }
     if (isColumnEnabled("notes")) {
-      row.push(patientNotes[patient.id] || "");
+      row.push({ text: patientNotes[patient.id] || "", color: null });
     }
 
     return row;
   });
+
+  // Extract just the text for the table body
+  const tableData = tableDataWithColors.map(row => row.map(cell => cell.text));
 
   autoTable(doc, {
     head: [headers],
@@ -174,6 +244,15 @@ export const handleExportPDF = (ctx: ExportContext) => {
     tableWidth: 'auto',
     showHead: 'everyPage',
     rowPageBreak: 'auto',
+    // Apply colors to cells that have them
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index !== undefined && data.column.index !== undefined) {
+        const cellData = tableDataWithColors[data.row.index]?.[data.column.index];
+        if (cellData?.color) {
+          data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
+        }
+      }
+    }
   });
 
   const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -353,12 +432,21 @@ export const handleExportDOC = (ctx: ExportContext) => {
 
   let html = `
 <!DOCTYPE html>
-<html xmlns:o="urn:schemas-microsoft-com:office:office" 
-      xmlns:w="urn:schemas-microsoft-com:office:word" 
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
       xmlns="http://www.w3.org/TR/REC-html40">
 <head>
   <meta charset="utf-8">
   <title>Patient Rounding Report</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
   <style>
     @page { margin: 1in; }
     body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; }
@@ -370,11 +458,14 @@ export const handleExportDOC = (ctx: ExportContext) => {
     .patient-header { background: #3b82f6; color: white; padding: 8pt; margin: -10pt -10pt 10pt -10pt; }
     .section { margin: 10pt 0; }
     .section-title { font-weight: bold; color: #333; }
+    .section-content { margin-top: 3pt; }
     .todo-item { margin: 3pt 0; }
     .completed { text-decoration: line-through; color: #888; }
     table { width: 100%; border-collapse: collapse; margin: 10pt 0; }
     th, td { border: 1px solid #ddd; padding: 5pt; text-align: left; vertical-align: top; }
     th { background: #f5f5f5; font-weight: bold; }
+    /* Preserve inline colors - Word respects inline styles */
+    span[style], div[style], p[style] { mso-style-textfill-type: solid; }
   </style>
 </head>
 <body>
@@ -395,28 +486,28 @@ export const handleExportDOC = (ctx: ExportContext) => {
       html += `
     <div class="section">
       <div class="section-title">Clinical Summary</div>
-      <div>${patient.clinicalSummary}</div>
+      <div class="section-content">${patient.clinicalSummary}</div>
     </div>`;
     }
     if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
       html += `
     <div class="section">
       <div class="section-title">Interval Events</div>
-      <div>${patient.intervalEvents}</div>
+      <div class="section-content">${patient.intervalEvents}</div>
     </div>`;
     }
     if (isColumnEnabled("imaging") && patient.imaging) {
       html += `
     <div class="section">
       <div class="section-title">Imaging</div>
-      <div>${patient.imaging}</div>
+      <div class="section-content">${patient.imaging}</div>
     </div>`;
     }
     if (isColumnEnabled("labs") && patient.labs) {
       html += `
     <div class="section">
       <div class="section-title">Labs</div>
-      <div>${patient.labs}</div>
+      <div class="section-content">${patient.labs}</div>
     </div>`;
     }
 
@@ -432,6 +523,7 @@ export const handleExportDOC = (ctx: ExportContext) => {
       html += `</tr><tr>`;
       enabledSystemKeys.forEach(key => {
         const value = patient.systems[key as keyof typeof patient.systems];
+        // Preserve inline styles with colors in table cells
         html += `<td>${value || '-'}</td>`;
       });
       html += `</tr></table>
@@ -459,7 +551,7 @@ export const handleExportDOC = (ctx: ExportContext) => {
       html += `
     <div class="section">
       <div class="section-title">Notes</div>
-      <div>${patientNotes[patient.id]}</div>
+      <div class="section-content">${patientNotes[patient.id]}</div>
     </div>`;
     }
 
@@ -471,7 +563,7 @@ export const handleExportDOC = (ctx: ExportContext) => {
 </body>
 </html>`;
 
-  const blob = new Blob([html], { type: 'application/msword' });
+  const blob = new Blob(['\ufeff' + html], { type: 'application/msword;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
