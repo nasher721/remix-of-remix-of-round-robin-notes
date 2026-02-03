@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sparkles,
   Check,
@@ -24,8 +25,11 @@ import {
   Copy,
   AlertCircle,
   ChevronRight,
+  Calendar,
+  FileText,
+  ClipboardList,
 } from 'lucide-react';
-import { useBatchCourseGenerator, BatchResult } from '@/hooks/useBatchCourseGenerator';
+import { useBatchCourseGenerator, BatchResult, BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
 import type { Patient } from '@/types/patient';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -44,7 +48,7 @@ export const MobileBatchCourseGenerator = ({
   onOpenChange,
 }: MobileBatchCourseGeneratorProps) => {
   const {
-    generateBatchCourses,
+    generateBatch,
     isGenerating,
     progress,
     cancelGeneration,
@@ -52,30 +56,35 @@ export const MobileBatchCourseGenerator = ({
     canUndo,
   } = useBatchCourseGenerator();
 
+  const [generationType, setGenerationType] = React.useState<BatchGenerationType>('course');
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [autoInsert, setAutoInsert] = React.useState(true);
   const [results, setResults] = React.useState<BatchResult[]>([]);
   const [showResults, setShowResults] = React.useState(false);
 
-  // Filter patients that have content
+  // Filter patients based on generation type
   const patientsWithContent = React.useMemo(() => {
     return patients.filter(patient => {
-      const hasContent = 
-        patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
-        patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
-        patient.imaging?.replace(/<[^>]*>/g, '').trim() ||
-        patient.labs?.replace(/<[^>]*>/g, '').trim() ||
-        Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
-      return hasContent;
+      if (generationType === 'intervalEvents') {
+        return Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
+      } else {
+        const hasContent = 
+          patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
+          patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
+          patient.imaging?.replace(/<[^>]*>/g, '').trim() ||
+          patient.labs?.replace(/<[^>]*>/g, '').trim() ||
+          Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
+        return hasContent;
+      }
     });
-  }, [patients]);
+  }, [patients, generationType]);
 
-  // Initialize selection with all patients that have content
+  // Reset selection when type changes or drawer opens
   React.useEffect(() => {
-    if (open && selectedIds.size === 0 && patientsWithContent.length > 0) {
+    if (open && patientsWithContent.length > 0) {
       setSelectedIds(new Set(patientsWithContent.map(p => p.id)));
     }
-  }, [open, patientsWithContent, selectedIds.size]);
+  }, [open, patientsWithContent]);
 
   // Reset state when drawer closes
   React.useEffect(() => {
@@ -111,8 +120,9 @@ export const MobileBatchCourseGenerator = ({
     if (selectedPatients.length === 0) return;
 
     setShowResults(false);
-    const batchResults = await generateBatchCourses(
+    const batchResults = await generateBatch(
       selectedPatients,
+      generationType,
       autoInsert ? onUpdatePatient : undefined
     );
     
@@ -152,19 +162,49 @@ export const MobileBatchCourseGenerator = ({
   const successCount = results.filter(r => r.content).length;
   const failCount = results.filter(r => !r.content).length;
 
+  const typeLabelMap: Record<BatchGenerationType, { plural: string; singular: string; autoInsertField: string }> = {
+    course: { plural: 'Courses', singular: 'Course', autoInsertField: 'Clinical Summary' },
+    intervalEvents: { plural: 'Events', singular: 'Event', autoInsertField: 'Interval Events' },
+    dailySummary: { plural: 'Summaries', singular: 'Summary', autoInsertField: 'Interval Events' },
+  };
+  const typeLabel = typeLabelMap[generationType].plural;
+  const autoInsertFieldLabel = typeLabelMap[generationType].autoInsertField;
+
   return (
     <Drawer open={open} onOpenChange={handleClose}>
       <DrawerContent className="max-h-[90vh]">
         <DrawerHeader className="border-b">
           <DrawerTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Batch Course Generation
+            Batch AI Generation
           </DrawerTitle>
         </DrawerHeader>
 
         <div className="flex-1 overflow-hidden">
           {!showResults ? (
             <div className="p-4 space-y-4">
+              {/* Generation Type Tabs */}
+              <Tabs 
+                value={generationType} 
+                onValueChange={(v) => setGenerationType(v as BatchGenerationType)}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+                  <TabsTrigger value="course" className="gap-1 py-2 text-xs flex-col h-auto">
+                    <Calendar className="h-4 w-4" />
+                    Course
+                  </TabsTrigger>
+                  <TabsTrigger value="intervalEvents" className="gap-1 py-2 text-xs flex-col h-auto">
+                    <FileText className="h-4 w-4" />
+                    Events
+                  </TabsTrigger>
+                  <TabsTrigger value="dailySummary" className="gap-1 py-2 text-xs flex-col h-auto">
+                    <ClipboardList className="h-4 w-4" />
+                    Summary
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               {/* Selection Header */}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">
@@ -176,12 +216,16 @@ export const MobileBatchCourseGenerator = ({
               </div>
 
               {/* Patient List */}
-              <ScrollArea className="h-[300px]">
+              <ScrollArea className="h-[250px]">
                 {patientsWithContent.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
                     <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-40" />
                     <p className="font-medium">No patients with data</p>
-                    <p className="text-xs mt-1">Add clinical notes to patients first</p>
+                    <p className="text-xs mt-1">
+                      {generationType === 'intervalEvents' 
+                        ? 'Add system notes to patients first'
+                        : 'Add clinical data to patients first'}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -220,7 +264,7 @@ export const MobileBatchCourseGenerator = ({
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="mobile-auto-insert" className="text-sm cursor-pointer">
-                      Auto-insert into Clinical Summary
+                      Auto-insert into {autoInsertFieldLabel}
                     </Label>
                     <Switch
                       id="mobile-auto-insert"
@@ -280,7 +324,7 @@ export const MobileBatchCourseGenerator = ({
               </div>
 
               {/* Results List */}
-              <ScrollArea className="h-[320px]">
+              <ScrollArea className="h-[280px]">
                 <div className="space-y-3">
                   {results.map(result => (
                     <Card
@@ -334,7 +378,7 @@ export const MobileBatchCourseGenerator = ({
                     onClick={handleCopyAll}
                   >
                     <Copy className="h-4 w-4 mr-2" />
-                    Copy All Courses
+                    Copy All {typeLabel}
                   </Button>
                 )}
                 {canUndo && autoInsert && (
@@ -414,11 +458,11 @@ export const MobileBatchCourseButton = ({ onClick, disabled }: MobileBatchCourse
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold">Batch Course Generator</h3>
+              <h3 className="font-semibold">Batch AI Generator</h3>
               <Badge variant="outline" className="text-xs">AI</Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Generate courses for multiple patients
+              Generate for multiple patients
             </p>
           </div>
           <ChevronRight className="h-5 w-5 text-muted-foreground" />
