@@ -66,6 +66,7 @@ export const BatchCourseGenerator = ({
       if (generationType === 'intervalEvents') {
         return Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
       } else {
+        // For course and dailySummary, need any clinical data
         const hasContent = 
           patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
           patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
@@ -152,8 +153,14 @@ export const BatchCourseGenerator = ({
   const successCount = results.filter(r => r.content).length;
   const failCount = results.filter(r => !r.content).length;
 
-  const typeLabel = generationType === 'intervalEvents' ? 'Interval Events' : 'Courses';
-  const typeLabelSingular = generationType === 'intervalEvents' ? 'Interval Event' : 'Course';
+  const typeLabelMap: Record<BatchGenerationType, { plural: string; singular: string; autoInsertField: string }> = {
+    course: { plural: 'Courses', singular: 'Course', autoInsertField: 'Clinical Summary' },
+    intervalEvents: { plural: 'Interval Events', singular: 'Interval Event', autoInsertField: 'Interval Events' },
+    dailySummary: { plural: 'Daily Summaries', singular: 'Daily Summary', autoInsertField: 'Interval Events' },
+  };
+  const typeLabel = typeLabelMap[generationType].plural;
+  const typeLabelSingular = typeLabelMap[generationType].singular;
+  const autoInsertFieldLabel = typeLabelMap[generationType].autoInsertField;
 
   return (
     <div className={className}>
@@ -181,7 +188,7 @@ export const BatchCourseGenerator = ({
             </DialogDescription>
           </DialogHeader>
 
-          {!showResults ? (
+            {!showResults ? (
             <>
               {/* Generation Type Tabs */}
               <Tabs 
@@ -189,14 +196,18 @@ export const BatchCourseGenerator = ({
                 onValueChange={(v) => setGenerationType(v as BatchGenerationType)}
                 className="w-full"
               >
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="course" className="gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Hospital Course
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="course" className="gap-1 text-xs sm:text-sm">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Hospital</span> Course
                   </TabsTrigger>
-                  <TabsTrigger value="intervalEvents" className="gap-2">
-                    <ClipboardList className="h-4 w-4" />
-                    Interval Events
+                  <TabsTrigger value="intervalEvents" className="gap-1 text-xs sm:text-sm">
+                    <FileText className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Interval</span> Events
+                  </TabsTrigger>
+                  <TabsTrigger value="dailySummary" className="gap-1 text-xs sm:text-sm">
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Daily</span> Summary
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -221,7 +232,7 @@ export const BatchCourseGenerator = ({
                         <p className="text-xs mt-1">
                           {generationType === 'intervalEvents' 
                             ? 'Add system review notes to patients first.'
-                            : 'Add clinical notes to patients first.'}
+                            : 'Add clinical data to patients first.'}
                         </p>
                       </div>
                     ) : (
@@ -260,7 +271,7 @@ export const BatchCourseGenerator = ({
                       onCheckedChange={setAutoInsert}
                     />
                     <Label htmlFor="auto-insert" className="text-sm cursor-pointer">
-                      Auto-insert into {generationType === 'intervalEvents' ? 'Interval Events' : 'Clinical Summary'}
+                      Auto-insert into {autoInsertFieldLabel}
                     </Label>
                   </div>
                   {canUndo && (

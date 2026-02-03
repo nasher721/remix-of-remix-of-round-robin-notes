@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 
-export type BatchGenerationType = 'course' | 'intervalEvents';
+export type BatchGenerationType = 'course' | 'intervalEvents' | 'dailySummary';
 
 export type BatchResult = {
   patientId: string;
@@ -47,7 +47,7 @@ export const useBatchCourseGenerator = () => {
         // For interval events, need system notes
         return Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
       } else {
-        // For course, need any clinical data
+        // For course and dailySummary, need any clinical data
         const hasContent = 
           patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
           patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
@@ -61,7 +61,7 @@ export const useBatchCourseGenerator = () => {
     if (patientsWithContent.length === 0) {
       const message = type === 'intervalEvents' 
         ? 'No patients with system notes to generate interval events from.'
-        : 'No patients with clinical data to generate courses from.';
+        : 'No patients with clinical data to generate from.';
       toast.error(message);
       return [];
     }
@@ -76,7 +76,8 @@ export const useBatchCourseGenerator = () => {
     
     const results: BatchResult[] = [];
     const undoEntries: UndoEntry[] = [];
-    const targetField = type === 'intervalEvents' ? 'intervalEvents' : 'clinicalSummary';
+    // Daily summary and interval events go to intervalEvents field
+    const targetField = type === 'course' ? 'clinicalSummary' : 'intervalEvents';
 
     setProgress({
       total: patientsWithContent.length,
@@ -111,6 +112,28 @@ export const useBatchCourseGenerator = () => {
           });
           data = response.data;
           error = response.error;
+        } else if (type === 'dailySummary') {
+          // Fetch todos for this patient
+          const { data: todos } = await supabase
+            .from('patient_todos')
+            .select('content, completed, section, created_at')
+            .eq('patient_id', patient.id);
+
+          const response = await supabase.functions.invoke('generate-daily-summary', {
+            body: { 
+              patientName: patient.name,
+              clinicalSummary: patient.clinicalSummary,
+              intervalEvents: patient.intervalEvents,
+              imaging: patient.imaging,
+              labs: patient.labs,
+              systems: patient.systems,
+              medications: patient.medications,
+              todos: todos || [],
+              existingIntervalEvents: patient.intervalEvents,
+            },
+          });
+          data = response.data;
+          error = response.error;
         } else {
           const response = await supabase.functions.invoke('generate-patient-course', {
             body: { 
@@ -140,7 +163,16 @@ export const useBatchCourseGenerator = () => {
             error: error?.message || data?.error || 'Generation failed',
           });
         } else {
-          const content = type === 'intervalEvents' ? data.intervalEvents : data.course;
+          // Get the content based on type
+          let content: string;
+          if (type === 'intervalEvents') {
+            content = data.intervalEvents;
+          } else if (type === 'dailySummary') {
+            content = data.summaryOnly || data.summary;
+          } else {
+            content = data.course;
+          }
+          
           results.push({
             patientId: patient.id,
             patientName: patient.name,
@@ -149,9 +181,9 @@ export const useBatchCourseGenerator = () => {
 
           // If auto-insert is enabled, save for undo and update patient
           if (onUpdatePatient && content) {
-            const previousValue = type === 'intervalEvents' 
-              ? patient.intervalEvents 
-              : patient.clinicalSummary;
+            const previousValue = type === 'course' 
+              ? patient.clinicalSummary 
+              : patient.intervalEvents;
             
             undoEntries.push({
               patientId: patient.id,
@@ -160,14 +192,15 @@ export const useBatchCourseGenerator = () => {
             });
 
             let newValue: string;
-            if (type === 'intervalEvents') {
-              newValue = previousValue
-                ? `${previousValue}\n\n${content}`
-                : content;
-            } else {
+            if (type === 'course') {
               newValue = previousValue
                 ? `${previousValue}\n\n---\n**Hospital Course:**\n${content}`
                 : `**Hospital Course:**\n${content}`;
+            } else {
+              // For both intervalEvents and dailySummary, append to intervalEvents
+              newValue = previousValue
+                ? `${previousValue}\n\n${content}`
+                : content;
             }
             
             onUpdatePatient(patient.id, targetField, newValue);
@@ -202,13 +235,18 @@ export const useBatchCourseGenerator = () => {
 
     const successCount = results.filter(r => r.content).length;
     const failCount = results.filter(r => !r.content).length;
-    const label = type === 'intervalEvents' ? 'interval event' : 'course';
+    const labelMap: Record<BatchGenerationType, string> = {
+      course: 'course',
+      intervalEvents: 'interval event',
+      dailySummary: 'summary',
+    };
+    const label = labelMap[type];
     
     if (successCount > 0) {
-      toast.success(`Generated ${successCount} ${label}${successCount > 1 ? 's' : ''}`);
+      toast.success(`Generated ${successCount} ${label}${successCount > 1 ? (type === 'dailySummary' ? 'ies' : 's') : ''}`);
     }
     if (failCount > 0) {
-      toast.error(`Failed to generate ${failCount} ${label}${failCount > 1 ? 's' : ''}`);
+      toast.error(`Failed to generate ${failCount} ${label}${failCount > 1 ? (type === 'dailySummary' ? 'ies' : 's') : ''}`);
     }
 
     return results;
