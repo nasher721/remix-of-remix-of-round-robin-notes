@@ -20,6 +20,7 @@ import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
+import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 
