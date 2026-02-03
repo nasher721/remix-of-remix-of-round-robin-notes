@@ -8,17 +8,31 @@ const corsHeaders = {
 
 const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
-interface FieldChange {
-  field_name: string;
-  old_value: string | null;
-  new_value: string | null;
-  changed_at: string;
-}
-
 interface Todo {
   content: string;
   completed: boolean;
   section?: string;
+  created_at?: string;
+}
+
+interface PatientSystems {
+  neuro?: string;
+  cv?: string;
+  resp?: string;
+  renalGU?: string;
+  gi?: string;
+  endo?: string;
+  heme?: string;
+  infectious?: string;
+  skinLines?: string;
+  dispo?: string;
+}
+
+interface PatientMedications {
+  infusions?: string[];
+  scheduled?: string[];
+  prn?: string[];
+  rawText?: string;
 }
 
 serve(async (req) => {
@@ -27,29 +41,20 @@ serve(async (req) => {
   }
 
   try {
-    const { patientName, fieldChanges, todos, existingIntervalEvents } = await req.json();
+    const { 
+      patientName, 
+      clinicalSummary,
+      intervalEvents,
+      imaging,
+      labs,
+      systems,
+      medications,
+      todos,
+      existingIntervalEvents 
+    } = await req.json();
 
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
-    }
-
-    // Filter to today's changes only
-    const today = new Date().toISOString().split('T')[0];
-    const todayChanges = (fieldChanges as FieldChange[])?.filter(change => {
-      const changeDate = new Date(change.changed_at).toISOString().split('T')[0];
-      return changeDate === today;
-    }) || [];
-
-    // Get pending (incomplete) todos
-    const pendingTodos = (todos as Todo[])?.filter(t => !t.completed) || [];
-    const completedTodayTodos = (todos as Todo[])?.filter(t => t.completed) || [];
-
-    // Check if there's anything to summarize
-    if (todayChanges.length === 0 && pendingTodos.length === 0 && completedTodayTodos.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No changes or todos to summarize for today.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     const todayFormatted = new Date().toLocaleDateString('en-US', { 
@@ -58,62 +63,150 @@ serve(async (req) => {
       day: 'numeric' 
     });
 
-    // Build context for AI
-    const changesText = todayChanges.length > 0 
-      ? todayChanges.map(c => {
-          const fieldLabel = formatFieldName(c.field_name);
-          const oldVal = c.old_value ? stripHtml(c.old_value).substring(0, 200) : '(empty)';
-          const newVal = c.new_value ? stripHtml(c.new_value).substring(0, 200) : '(empty)';
-          return `${fieldLabel}: Changed from "${oldVal}" to "${newVal}"`;
-        }).join('\n')
-      : 'No field changes today.';
+    const tomorrowFormatted = new Date(Date.now() + 86400000).toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
 
-    const pendingTodosText = pendingTodos.length > 0
-      ? pendingTodos.map(t => `- [ ] ${t.content}${t.section ? ` (${t.section})` : ''}`).join('\n')
-      : 'No pending todos.';
+    // Build comprehensive patient context
+    const patientContext: string[] = [];
 
-    const completedTodosText = completedTodayTodos.length > 0
-      ? completedTodayTodos.map(t => `- [x] ${t.content}`).join('\n')
-      : '';
+    // Clinical Summary
+    if (clinicalSummary && stripHtml(clinicalSummary).trim()) {
+      patientContext.push(`CLINICAL SUMMARY:\n${stripHtml(clinicalSummary)}`);
+    }
 
-    const systemPrompt = `You are a medical documentation expert. Generate a brief daily summary in standard ICU/hospital medical shorthand.
+    // Systems review
+    const systemsData = systems as PatientSystems;
+    if (systemsData) {
+      const systemLabels: Record<string, string> = {
+        neuro: "Neuro", cv: "CV", resp: "Resp", renalGU: "Renal/GU",
+        gi: "GI", endo: "Endo", heme: "Heme", infectious: "ID",
+        skinLines: "Skin/Lines", dispo: "Dispo"
+      };
+      const systemNotes: string[] = [];
+      for (const [key, label] of Object.entries(systemLabels)) {
+        const content = systemsData[key as keyof PatientSystems];
+        if (content && stripHtml(content).trim()) {
+          systemNotes.push(`${label}: ${stripHtml(content)}`);
+        }
+      }
+      if (systemNotes.length > 0) {
+        patientContext.push(`SYSTEMS REVIEW:\n${systemNotes.join('\n')}`);
+      }
+    }
+
+    // Labs
+    if (labs && stripHtml(labs).trim()) {
+      patientContext.push(`LABS:\n${stripHtml(labs)}`);
+    }
+
+    // Imaging
+    if (imaging && stripHtml(imaging).trim()) {
+      patientContext.push(`IMAGING:\n${stripHtml(imaging)}`);
+    }
+
+    // Medications
+    const medsData = medications as PatientMedications;
+    if (medsData) {
+      const medNotes: string[] = [];
+      if (medsData.infusions?.length) {
+        medNotes.push(`Infusions: ${medsData.infusions.join(', ')}`);
+      }
+      if (medsData.scheduled?.length) {
+        medNotes.push(`Scheduled: ${medsData.scheduled.join(', ')}`);
+      }
+      if (medsData.prn?.length) {
+        medNotes.push(`PRN: ${medsData.prn.join(', ')}`);
+      }
+      if (medsData.rawText && stripHtml(medsData.rawText).trim()) {
+        medNotes.push(stripHtml(medsData.rawText));
+      }
+      if (medNotes.length > 0) {
+        patientContext.push(`MEDICATIONS:\n${medNotes.join('\n')}`);
+      }
+    }
+
+    // Check if we have any content
+    if (patientContext.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No patient data to summarize. Add content to clinical fields first.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Process todos
+    const allTodos = (todos as Todo[]) || [];
+    const pendingTodos = allTodos.filter(t => !t.completed);
+    const completedTodos = allTodos.filter(t => t.completed);
+
+    // Categorize todos by urgency
+    const todayKeywords = ['today', 'now', 'asap', 'stat', 'urgent'];
+    const tomorrowKeywords = ['tomorrow', 'am', 'morning', 'f/u'];
+    
+    const todayTodos = pendingTodos.filter(t => 
+      todayKeywords.some(kw => t.content.toLowerCase().includes(kw))
+    );
+    const tomorrowTodos = pendingTodos.filter(t => 
+      tomorrowKeywords.some(kw => t.content.toLowerCase().includes(kw)) &&
+      !todayKeywords.some(kw => t.content.toLowerCase().includes(kw))
+    );
+    const otherTodos = pendingTodos.filter(t => 
+      !todayKeywords.some(kw => t.content.toLowerCase().includes(kw)) &&
+      !tomorrowKeywords.some(kw => t.content.toLowerCase().includes(kw))
+    );
+
+    const systemPrompt = `You are an ICU/hospital physician generating a concise daily summary in standard medical shorthand. This summary captures the patient's current status and outstanding tasks.
 
 OUTPUT FORMAT:
 ---
-📋 ${todayFormatted} Summary:
-• [2-4 bullet points summarizing key changes/updates]
-${pendingTodos.length > 0 ? '\n⏳ Pending:\n• [list pending action items in shorthand]' : ''}
-${completedTodayTodos.length > 0 ? '\n✓ Done:\n• [list completed items briefly]' : ''}
+📋 ${todayFormatted} Daily Summary
+
+▸ STATUS: [1-2 line overall status in shorthand]
+
+▸ KEY POINTS:
+• [3-5 bullets covering most important active issues across all systems]
+• [Focus on: hemodynamics, resp status, neuro, ID, major labs/imaging findings]
+• [Include current drips/key meds if relevant]
+
+${pendingTodos.length > 0 ? `▸ ACTION ITEMS:
+${todayTodos.length > 0 ? '🔴 TODAY:\n' + todayTodos.map(t => `• ${t.content}`).join('\n') : ''}
+${tomorrowTodos.length > 0 ? '🟡 TOMORROW:\n' + tomorrowTodos.map(t => `• ${t.content}`).join('\n') : ''}
+${otherTodos.length > 0 ? '⚪ PENDING:\n' + otherTodos.map(t => `• ${t.content}`).join('\n') : ''}` : ''}
+
+${completedTodos.length > 0 ? `✓ COMPLETED: ${completedTodos.length} task(s)` : ''}
 ---
 
 ABBREVIATION GUIDELINES:
-- pt = patient, w/ = with, w/o = without
-- ↑ = increased, ↓ = decreased, → = progressing to
+- pt = patient, y/o = year old, h/o = history of
+- w/ = with, w/o = without, s/p = status post
+- ↑ = increased/improving, ↓ = decreased/worsening, → = stable/progressing
 - dx = diagnosis, tx = treatment, rx = prescription
-- f/u = follow up, d/c = discharge, c/o = complains of
+- c/o = complains of, r/o = rule out
+- f/u = follow up, d/c = discharge/discontinue
 - nl = normal, abn = abnormal, wnl = within normal limits
-- prn = as needed, qd = daily, bid = twice daily
-- Use → for changes/transitions
+- prn = as needed, q = every, qd = daily, bid = twice daily
+- MAP = mean arterial pressure, CVP = central venous pressure
+- ABG = arterial blood gas, CBC = complete blood count
+- Cr = creatinine, BUN = blood urea nitrogen, Hgb = hemoglobin
+- WBC = white blood cells, plt = platelets
+- SOB = shortness of breath, RR = respiratory rate
+- ETT = endotracheal tube, vent = ventilator
+- PEEP = positive end-expiratory pressure, FiO2 = fraction inspired oxygen
+- I/O = intake/output, UOP = urine output
 
 RULES:
-1. Be extremely concise - max 4 bullet points for changes
-2. Group related changes together
-3. Prioritize clinical significance
-4. Use standard medical abbreviations
-5. Format todos as actionable items
-6. Output ONLY the formatted summary block, nothing else`;
+1. Be extremely concise - use abbreviations liberally
+2. Prioritize clinical significance
+3. Group related items (e.g., all resp findings together)
+4. Include specific values for critical parameters (MAP, vent settings, key labs)
+5. Highlight any changes from previous status
+6. Output ONLY the formatted summary block`;
 
-    const userPrompt = `Summarize today's activity for ${patientName || 'this patient'}:
+    const userPrompt = `Generate a comprehensive daily summary for ${patientName || 'this patient'}:\n\n${patientContext.join('\n\n')}`;
 
-FIELD CHANGES TODAY:
-${changesText}
-
-PENDING TODOS:
-${pendingTodosText}
-
-${completedTodosText ? `COMPLETED TODAY:\n${completedTodosText}` : ''}`;
-
-    console.log(`Generating daily summary for ${patientName}: ${todayChanges.length} changes, ${pendingTodos.length} pending todos`);
+    console.log(`Generating daily summary for ${patientName}: ${patientContext.length} sections, ${pendingTodos.length} pending todos`);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -157,11 +250,12 @@ ${completedTodosText ? `COMPLETED TODAY:\n${completedTodosText}` : ''}`;
       throw new Error('No response from AI');
     }
 
-    // Append to existing interval events if present
+    // Append to existing interval events
     let finalContent = summary;
     if (existingIntervalEvents && existingIntervalEvents.trim()) {
       // Check if today's summary already exists and replace it
-      const summaryMarkerRegex = new RegExp(`---\\s*\\n📋\\s*${todayFormatted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*?---`, 'g');
+      const datePattern = todayFormatted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const summaryMarkerRegex = new RegExp(`---\\s*\\n📋\\s*${datePattern}[\\s\\S]*?---`, 'g');
       if (summaryMarkerRegex.test(existingIntervalEvents)) {
         finalContent = existingIntervalEvents.replace(summaryMarkerRegex, summary);
       } else {
@@ -188,25 +282,4 @@ ${completedTodosText ? `COMPLETED TODAY:\n${completedTodosText}` : ''}`;
 
 function stripHtml(text: string): string {
   return text.replace(/<[^>]*>/g, '').trim();
-}
-
-function formatFieldName(fieldName: string): string {
-  const labels: Record<string, string> = {
-    'clinicalSummary': 'Clinical Summary',
-    'intervalEvents': 'Interval Events',
-    'imaging': 'Imaging',
-    'labs': 'Labs',
-    'medications': 'Medications',
-    'systems.neuro': 'Neuro',
-    'systems.cv': 'CV',
-    'systems.resp': 'Resp',
-    'systems.renalGU': 'Renal/GU',
-    'systems.gi': 'GI',
-    'systems.endo': 'Endo',
-    'systems.heme': 'Heme',
-    'systems.infectious': 'ID',
-    'systems.skinLines': 'Skin/Lines',
-    'systems.dispo': 'Dispo',
-  };
-  return labels[fieldName] || fieldName;
 }

@@ -3,19 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 
-interface FieldChange {
-  field_name: string;
-  old_value: string | null;
-  new_value: string | null;
-  changed_at: string;
-}
-
-interface Todo {
-  content: string;
-  completed: boolean;
-  section?: string;
-}
-
 export const useDailySummaryGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -33,36 +20,14 @@ export const useDailySummaryGenerator = () => {
     setIsGenerating(true);
 
     try {
-      // Fetch today's field changes for this patient
-      const today = new Date().toISOString().split('T')[0];
-      const { data: fieldChanges, error: changesError } = await supabase
-        .from('patient_field_history')
-        .select('field_name, old_value, new_value, changed_at')
-        .eq('patient_id', patient.id)
-        .gte('changed_at', `${today}T00:00:00.000Z`)
-        .order('changed_at', { ascending: true });
-
-      if (changesError) {
-        console.error('Error fetching field history:', changesError);
-      }
-
       // Fetch todos for this patient
       const { data: todos, error: todosError } = await supabase
         .from('patient_todos')
-        .select('content, completed, section')
+        .select('content, completed, section, created_at')
         .eq('patient_id', patient.id);
 
       if (todosError) {
         console.error('Error fetching todos:', todosError);
-      }
-
-      // Check if there's anything to summarize
-      const hasChanges = (fieldChanges?.length ?? 0) > 0;
-      const hasTodos = (todos?.length ?? 0) > 0;
-
-      if (!hasChanges && !hasTodos) {
-        toast.error('No changes or todos to summarize for today.');
-        return null;
       }
 
       // Check if aborted
@@ -70,10 +35,16 @@ export const useDailySummaryGenerator = () => {
         return null;
       }
 
+      // Send all patient data to the edge function
       const { data, error } = await supabase.functions.invoke('generate-daily-summary', {
         body: {
           patientName: patient.name || `Bed ${patient.bed}`,
-          fieldChanges: fieldChanges || [],
+          clinicalSummary: patient.clinicalSummary,
+          intervalEvents: patient.intervalEvents,
+          imaging: patient.imaging,
+          labs: patient.labs,
+          systems: patient.systems,
+          medications: patient.medications,
           todos: todos || [],
           existingIntervalEvents: patient.intervalEvents,
         },
