@@ -333,7 +333,7 @@ export const calculateNEWS2 = (inputs: NEWS2Inputs): RiskScoreResult => {
 // Calculate patient acuity from available data
 export const calculatePatientAcuity = (
   labText: string,
-  systemsData: Record<string, string>,
+  systemsData: Record<string, string> | { [K in keyof import('@/types/patient').PatientSystems]: string },
   clinicalSummary: string
 ): PatientAcuity => {
   const factors: string[] = [];

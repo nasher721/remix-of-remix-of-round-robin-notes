@@ -175,7 +175,7 @@ const TrendIndicator = ({ current, previous }: { current: number; previous?: num
   const percentChange = (change / previous) * 100;
 
   if (Math.abs(percentChange) < 1) {
-    return <Minus className="h-3 w-3 text-muted-foreground" title="Stable" />;
+    return <Minus className="h-3 w-3 text-muted-foreground" aria-label="Stable" />;
   }
 
   if (change > 0) {
