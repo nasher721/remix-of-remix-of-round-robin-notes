@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser } from "lucide-react";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
@@ -21,6 +21,7 @@ import type { Patient, PatientSystems, PatientMedications } from "@/types/patien
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
+import { useDailySummaryGenerator } from "@/hooks/useDailySummaryGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 
@@ -48,6 +49,7 @@ const PatientCardComponent = ({
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
   const { generateIntervalEvents, isGenerating: isGeneratingEvents, cancelGeneration } = useIntervalEventsGenerator();
+  const { generateDailySummary, isGenerating: isGeneratingSummary, cancelGeneration: cancelSummary } = useDailySummaryGenerator();
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
 
   const handleGenerateIntervalEvents = async () => {
@@ -63,6 +65,12 @@ const PatientCardComponent = ({
         : result;
       onUpdate(patient.id, 'intervalEvents', newValue);
     }
+  };
+
+  const handleGenerateDailySummary = async () => {
+    await generateDailySummary(patient, (newValue) => {
+      onUpdate(patient.id, 'intervalEvents', newValue);
+    });
   };
 
   const addTimestamp = (field: string) => {
@@ -273,11 +281,11 @@ const PatientCardComponent = ({
                   )}
                 </div>
                 <div className="flex gap-1 no-print">
-                  {isGeneratingEvents ? (
+                  {isGeneratingEvents || isGeneratingSummary ? (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={cancelGeneration}
+                      onClick={isGeneratingEvents ? cancelGeneration : cancelSummary}
                       className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
                       title="Cancel generation"
                     >
@@ -285,18 +293,30 @@ const PatientCardComponent = ({
                       <span className="ml-1 text-xs">Cancel</span>
                     </Button>
                   ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleGenerateIntervalEvents}
-                      className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                      title="Generate from Systems (AI)"
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      <span className="ml-1 text-xs">Generate</span>
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleGenerateIntervalEvents}
+                        className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                        title="Generate from Systems (AI)"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        <span className="ml-1 text-xs">Generate</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleGenerateDailySummary}
+                        className="h-7 px-2 text-amber-600 hover:text-amber-600 hover:bg-amber-100/50 dark:hover:bg-amber-900/20"
+                        title="Summarize today's changes & todos (AI)"
+                      >
+                        <ClipboardList className="h-3 w-3" />
+                        <span className="ml-1 text-xs">Summary</span>
+                      </Button>
+                    </>
                   )}
-                  {isGeneratingEvents && (
+                  {(isGeneratingEvents || isGeneratingSummary) && (
                     <div className="flex items-center h-7 px-2">
                       <Loader2 className="h-3 w-3 animate-spin text-primary" />
                     </div>
