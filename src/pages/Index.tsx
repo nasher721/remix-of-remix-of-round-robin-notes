@@ -124,6 +124,8 @@ function IndexContent(): React.ReactElement | null {
     filteredPatients,
     searchQuery,
     setSearchQuery,
+    filter,
+    setFilter,
     autotexts,
     templates,
     customDictionary,
@@ -146,6 +148,7 @@ function IndexContent(): React.ReactElement | null {
     selectedPatient,
     mobileTab,
     setMobileTab,
+    lastSaved,
   };
 
   // Mobile Layout

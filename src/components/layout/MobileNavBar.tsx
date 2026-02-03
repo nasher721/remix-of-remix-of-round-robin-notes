@@ -31,10 +31,22 @@ export const MobileNavBar = ({ activeTab, onTabChange, patientCount = 0 }: Mobil
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <div className={cn(
-              "relative px-4 py-1 rounded-full transition-all duration-300",
-              activeTab === id ? "bg-primary/10 dark:bg-primary/20" : "group-hover:bg-secondary/50"
-            )}>
+            <span
+              className={cn(
+                "absolute top-0 left-4 right-4 h-0.5 rounded-full transition-opacity",
+                activeTab === id ? "bg-primary" : "bg-transparent"
+              )}
+            />
+            <div
+              className={cn(
+                "relative px-4 py-1 rounded-full transition-all duration-300",
+                activeTab === id
+                  ? "bg-primary/10 dark:bg-primary/20"
+                  : id === "add"
+                    ? "bg-primary/5 group-hover:bg-primary/10"
+                    : "group-hover:bg-secondary/50"
+              )}
+            >
               <Icon className={cn("h-5 w-5 transition-transform", activeTab === id && "scale-105")} />
               {id === "patients" && patientCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-0.5 shadow-sm border border-background">

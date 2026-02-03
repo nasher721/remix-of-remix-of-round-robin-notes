@@ -1,5 +1,6 @@
 import { Patient } from "@/types/patient";
 import { SwipeablePatientCard } from "./SwipeablePatientCard";
+import { Button } from "@/components/ui/button";
 
 interface MobilePatientListProps {
   patients: Patient[];
@@ -7,6 +8,8 @@ interface MobilePatientListProps {
   onPatientDelete: (id: string) => void;
   onPatientDuplicate: (id: string) => void;
   searchQuery?: string;
+  onAddPatient?: () => void;
+  onOpenImport?: () => void;
 }
 
 export const MobilePatientList = ({
@@ -15,6 +18,8 @@ export const MobilePatientList = ({
   onPatientDelete,
   onPatientDuplicate,
   searchQuery,
+  onAddPatient,
+  onOpenImport,
 }: MobilePatientListProps) => {
   if (patients.length === 0) {
     return (
@@ -30,6 +35,16 @@ export const MobilePatientList = ({
             ? "Try adjusting your search."
             : "Tap the + button below to add your first patient."}
         </p>
+        {!searchQuery && (
+          <div className="flex flex-col gap-2 mt-6 w-full max-w-xs">
+            <Button onClick={onAddPatient} className="w-full" disabled={!onAddPatient}>
+              Add patient
+            </Button>
+            <Button variant="outline" onClick={onOpenImport} className="w-full" disabled={!onOpenImport}>
+              Import from Epic
+            </Button>
+          </div>
+        )}
       </div>
     );
   }

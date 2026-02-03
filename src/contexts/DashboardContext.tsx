@@ -3,6 +3,7 @@ import { Patient } from "@/types/patient";
 import { AutoText, Template } from "@/types/autotext";
 import { MobileTab } from "@/components/layout";
 import { PatientTodo } from "@/types/todo";
+import { PatientFilterType } from "@/constants/config";
 
 interface DashboardContextType {
     // Data
@@ -17,9 +18,12 @@ interface DashboardContextType {
     // State
     searchQuery: string;
     setSearchQuery: (query: string) => void;
+    filter: PatientFilterType;
+    setFilter: (filter: PatientFilterType) => void;
     selectedPatient: Patient | null;
     mobileTab: MobileTab;
     setMobileTab: (tab: MobileTab) => void;
+    lastSaved: Date;
 
     // Actions
     onAddPatient: () => void;

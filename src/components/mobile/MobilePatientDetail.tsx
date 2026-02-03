@@ -24,7 +24,8 @@ import {
   Sparkles,
   Loader2,
   History,
-  Eraser
+  Eraser,
+  Activity
 } from "lucide-react";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import {
@@ -81,6 +82,23 @@ export const MobilePatientDetail = ({
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
   const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
   const { enabledSystems } = useSystemsConfig();
+
+  const sectionChips = [
+    { id: "summary", label: "Summary", icon: FileText },
+    { id: "events", label: "Events", icon: Calendar },
+    { id: "imaging", label: "Imaging", icon: ImageIcon },
+    { id: "labs", label: "Labs", icon: TestTube },
+    { id: "medications", label: "Meds", icon: Pill },
+    { id: "systems", label: "Systems", icon: Activity },
+  ];
+
+  const handleJumpToSection = (sectionId: string) => {
+    setOpenSections((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
+    requestAnimationFrame(() => {
+      const target = document.getElementById(`section-${sectionId}`);
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
 
   const handleGenerateIntervalEvents = async () => {
     const result = await generateIntervalEvents(
@@ -225,22 +243,42 @@ export const MobilePatientDetail = ({
             />
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Room:</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 bg-card border border-border/60 rounded-full px-3 py-1">
+            <span className="text-[11px] text-muted-foreground">Room</span>
             <Input
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, "bed", e.target.value)}
-              className="w-24 h-8 text-sm bg-card border border-border"
+              className="w-24 h-7 text-sm bg-transparent border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               autoComplete="off"
               autoCorrect="off"
             />
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-card border border-border/60 rounded-full px-3 py-1">
             <Clock className="h-3 w-3" />
-            <span>Last updated {new Date(patient.lastModified).toLocaleTimeString()}</span>
+            <span>Updated {new Date(patient.lastModified).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-3 border-b border-border bg-background/95">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin">
+          {sectionChips.map((chip) => {
+            const Icon = chip.icon;
+            return (
+              <Button
+                key={chip.id}
+                variant={openSections.includes(chip.id) ? "default" : "outline"}
+                size="sm"
+                className="h-8 rounded-full px-3 text-xs shrink-0"
+                onClick={() => handleJumpToSection(chip.id)}
+              >
+                <Icon className="h-3.5 w-3.5 mr-1" />
+                {chip.label}
+              </Button>
+            );
+          })}
         </div>
       </div>
 
@@ -267,7 +305,7 @@ export const MobilePatientDetail = ({
         className="px-4"
       >
         {/* Clinical Summary */}
-        <AccordionItem value="summary" className="border-b">
+        <AccordionItem value="summary" className="border-b" id="section-summary">
           <AccordionTrigger className="py-4">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-primary" />
@@ -314,7 +352,7 @@ export const MobilePatientDetail = ({
         </AccordionItem>
 
         {/* Interval Events */}
-        <AccordionItem value="events" className="border-b">
+        <AccordionItem value="events" className="border-b" id="section-events">
           <AccordionTrigger className="py-4">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-primary" />
@@ -376,7 +414,7 @@ export const MobilePatientDetail = ({
         </AccordionItem>
 
         {/* Imaging */}
-        <AccordionItem value="imaging" className="border-b">
+        <AccordionItem value="imaging" className="border-b" id="section-imaging">
           <AccordionTrigger className="py-4">
             <div className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4 text-blue-500" />
@@ -414,7 +452,7 @@ export const MobilePatientDetail = ({
         </AccordionItem>
 
         {/* Labs */}
-        <AccordionItem value="labs" className="border-b">
+        <AccordionItem value="labs" className="border-b" id="section-labs">
           <AccordionTrigger className="py-4">
             <div className="flex items-center gap-2">
               <TestTube className="h-4 w-4 text-primary" />
@@ -452,7 +490,7 @@ export const MobilePatientDetail = ({
         </AccordionItem>
 
         {/* Medications */}
-        <AccordionItem value="medications" className="border-b">
+        <AccordionItem value="medications" className="border-b" id="section-medications">
           <AccordionTrigger className="py-4">
             <div className="flex items-center gap-2">
               <Pill className="h-4 w-4 text-success" />
@@ -470,7 +508,7 @@ export const MobilePatientDetail = ({
         </AccordionItem>
 
         {/* Systems Review */}
-        <AccordionItem value="systems" className="border-b">
+        <AccordionItem value="systems" className="border-b" id="section-systems">
           <AccordionTrigger className="py-4">
             <div className="flex items-center gap-2">
               <span className="text-primary text-sm">⚕️</span>

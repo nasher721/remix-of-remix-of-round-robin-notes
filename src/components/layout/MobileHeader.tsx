@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface MobileHeaderProps {
   title: string;
@@ -12,6 +14,8 @@ interface MobileHeaderProps {
   onSearchChange?: (query: string) => void;
   showSearch?: boolean;
   rightAction?: React.ReactNode;
+  statusText?: string;
+  statusTone?: "success" | "warning" | "info";
 }
 
 export const MobileHeader = ({
@@ -21,8 +25,15 @@ export const MobileHeader = ({
   onSearchChange,
   showSearch = true,
   rightAction,
+  statusText,
+  statusTone = "info",
 }: MobileHeaderProps) => {
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const statusClasses = {
+    success: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+    warning: "bg-amber-500/10 text-amber-700 border-amber-200",
+    info: "bg-blue-500/10 text-blue-700 border-blue-200",
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 safe-area-top shadow-sm">
@@ -57,8 +68,23 @@ export const MobileHeader = ({
               <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-8 w-auto" />
               <div className="min-w-0">
                 <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
-                {subtitle && (
-                  <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                {(subtitle || statusText) && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    {subtitle && (
+                      <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                    )}
+                    {statusText && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] px-2 py-0.5 rounded-full border",
+                          statusClasses[statusTone]
+                        )}
+                      >
+                        {statusText}
+                      </Badge>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
