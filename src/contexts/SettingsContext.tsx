@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, type SectionVisibility } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 
 export type SortBy = 'number' | 'room' | 'name';
@@ -29,6 +30,13 @@ interface SettingsContextType {
   
   // Sync status
   isSyncingSettings: boolean;
+}
+
+interface AppPreferences {
+  globalFontSize: number;
+  todosAlwaysVisible: boolean;
+  sortBy: SortBy;
+  showLabFishbones: boolean;
 }
 
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
@@ -74,29 +82,51 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return DEFAULT_SECTION_VISIBILITY;
   });
 
-  // Sync section visibility to database with debounce
-  const syncSectionVisibilityToDb = React.useCallback(async (visibility: SectionVisibility) => {
+  const buildAppPreferences = React.useCallback((): AppPreferences => ({
+    globalFontSize,
+    todosAlwaysVisible,
+    sortBy,
+    showLabFishbones,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones]);
+
+  const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
+    if (prefs.globalFontSize !== undefined) {
+      setGlobalFontSizeState(prefs.globalFontSize);
+      localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(prefs.globalFontSize));
+    }
+    if (prefs.todosAlwaysVisible !== undefined) {
+      setTodosAlwaysVisibleState(prefs.todosAlwaysVisible);
+      localStorage.setItem(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE, String(prefs.todosAlwaysVisible));
+    }
+    if (prefs.sortBy !== undefined) {
+      setSortByState(prefs.sortBy);
+      localStorage.setItem(STORAGE_KEYS.PATIENT_SORT_BY, prefs.sortBy);
+    }
+    if (prefs.showLabFishbones !== undefined) {
+      setShowLabFishbonesState(prefs.showLabFishbones);
+      localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(prefs.showLabFishbones));
+    }
+  }, []);
+
+  // Sync settings to database with debounce
+  const syncSettingsToDb = React.useCallback(async (visibility: SectionVisibility, appPreferences: AppPreferences) => {
     if (!user) return;
 
     try {
-      const { data: existing } = await supabase
+      const appPreferencesJson = JSON.parse(JSON.stringify(appPreferences)) as Json;
+      const sectionVisibilityJson = JSON.parse(JSON.stringify(visibility)) as Json;
+      await supabase
         .from('user_settings')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase
-          .from('user_settings')
-          .update({ section_visibility: visibility })
-          .eq('user_id', user.id);
-      } else {
-        await supabase
-          .from('user_settings')
-          .insert({ user_id: user.id, section_visibility: visibility });
-      }
+        .upsert(
+          {
+            user_id: user.id,
+            section_visibility: sectionVisibilityJson,
+            app_preferences: appPreferencesJson,
+          },
+          { onConflict: 'user_id' }
+        );
     } catch (err) {
-      console.error('Failed to sync section visibility:', err);
+      console.error('Failed to sync settings:', err);
     }
   }, [user]);
 
@@ -108,7 +138,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       try {
         const { data } = await supabase
           .from('user_settings')
-          .select('section_visibility')
+          .select('section_visibility, app_preferences')
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -116,18 +146,44 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
           const dbVisibility = data.section_visibility as unknown as SectionVisibility;
           setSectionVisibilityState(dbVisibility);
           localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(dbVisibility));
-        } else {
+        }
+
+        if (data?.app_preferences) {
+          const dbPreferences = data.app_preferences as unknown as AppPreferences;
+          applyAppPreferences(dbPreferences);
+        }
+
+        if (!data?.section_visibility || !data?.app_preferences) {
           // No DB settings, sync current local storage to DB
           const localVisibility = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
+          const localPreferences = buildAppPreferences();
           if (localVisibility) {
             try {
               const parsed = JSON.parse(localVisibility);
               await supabase
                 .from('user_settings')
-                .insert({ user_id: user.id, section_visibility: parsed });
+                .upsert(
+                  {
+                    user_id: user.id,
+                    section_visibility: parsed,
+                    app_preferences: localPreferences,
+                  },
+                  { onConflict: 'user_id' }
+                );
             } catch {
               // Ignore parse errors
             }
+          } else {
+            await supabase
+              .from('user_settings')
+              .upsert(
+                {
+                  user_id: user.id,
+                  section_visibility: DEFAULT_SECTION_VISIBILITY,
+                  app_preferences: localPreferences,
+                },
+                { onConflict: 'user_id' }
+              );
           }
         }
         initialSyncDone.current = true;
@@ -137,7 +193,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     };
 
     loadFromDb();
-  }, [user]);
+  }, [user, applyAppPreferences, buildAppPreferences]);
 
   // Reset sync flag on logout
   React.useEffect(() => {
@@ -186,12 +242,12 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       }
       setIsSyncingSettings(true);
       syncTimeoutRef.current = setTimeout(() => {
-        syncSectionVisibilityToDb(sectionVisibility).finally(() => {
+        syncSettingsToDb(sectionVisibility, buildAppPreferences()).finally(() => {
           setIsSyncingSettings(false);
         });
       }, 1000);
     }
-  }, [sectionVisibility, user, syncSectionVisibilityToDb]);
+  }, [sectionVisibility, user, buildAppPreferences, syncSettingsToDb]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(size);

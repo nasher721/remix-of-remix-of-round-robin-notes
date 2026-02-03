@@ -576,25 +576,31 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          app_preferences: Json | null
           created_at: string
           custom_prompts: Json | null
           id: string
+          print_settings: Json | null
           section_visibility: Json | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          app_preferences?: Json | null
           created_at?: string
           custom_prompts?: Json | null
           id?: string
+          print_settings?: Json | null
           section_visibility?: Json | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          app_preferences?: Json | null
           created_at?: string
           custom_prompts?: Json | null
           id?: string
+          print_settings?: Json | null
           section_visibility?: Json | null
           updated_at?: string
           user_id?: string

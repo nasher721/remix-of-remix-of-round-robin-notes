@@ -19,7 +19,9 @@ export const STORAGE_KEYS = {
   PRINT_SYSTEMS_REVIEW_COLUMN_COUNT: 'printSystemsReviewColumnCount',
   PRINT_ORIENTATION: 'printOrientation',
   PRINT_CUSTOM_PRESETS: 'printCustomPresets',
+  PRINT_CUSTOM_COMBINATIONS: 'printCustomCombinations',
   PRINT_TEMPLATE_PRESETS: 'printTemplatePresets',
+  PRINT_SELECTED_TEMPLATE_ID: 'printSelectedTemplateId',
 } as const;
 
 // Clinical section keys for visibility toggles
