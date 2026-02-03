@@ -59,7 +59,7 @@ const PatientRowComponent = ({
   );
 };
 
-export const VirtualizedMobilePatientList = memo(({
+export const VirtualizedMobilePatientList = React.memo(({
   patients,
   onPatientSelect,
   onPatientDelete,
@@ -68,13 +68,13 @@ export const VirtualizedMobilePatientList = memo(({
   onAddPatient,
   onOpenImport,
 }: VirtualizedMobilePatientListProps) => {
-  const listRef = useRef<ListImperativeAPI>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(400);
-  const [showScrollTop, setShowScrollTop] = useState(false);
+  const listRef = React.useRef<ListImperativeAPI>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = React.useState(400);
+  const [showScrollTop, setShowScrollTop] = React.useState(false);
 
   // Calculate container height based on viewport
-  useEffect(() => {
+  React.useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
@@ -90,16 +90,25 @@ export const VirtualizedMobilePatientList = memo(({
   }, []);
 
   // Memoize row props to prevent re-renders
-  const rowProps = useMemo<RowProps>(() => ({
+  const rowProps = React.useMemo<RowProps>(() => ({
     patients,
     onSelect: onPatientSelect,
     onDelete: onPatientDelete,
     onDuplicate: onPatientDuplicate,
   }), [patients, onPatientSelect, onPatientDelete, onPatientDuplicate]);
 
-  const handleScroll = useCallback(({ scrollOffset }: { scrollOffset: number }) => {
-    setShowScrollTop(scrollOffset > ROW_HEIGHT * 3);
-  }, []);
+  // Track scroll position via scroll event listener
+  React.useEffect(() => {
+    const element = listRef.current?.element;
+    if (!element) return;
+    
+    const handleScroll = () => {
+      setShowScrollTop(element.scrollTop > ROW_HEIGHT * 3);
+    };
+    
+    element.addEventListener('scroll', handleScroll);
+    return () => element.removeEventListener('scroll', handleScroll);
+  }, [patients.length]); // Re-attach when patient count changes
 
   if (patients.length === 0) {
     return (
