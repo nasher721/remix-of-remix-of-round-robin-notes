@@ -13,8 +13,10 @@ import {
   FileText,
   Send,
   Save,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -60,6 +62,7 @@ interface ShiftHandoffProps {
   patients: Patient[];
   onSaveHandoff: (handoff: HandoffData) => void;
   onCompleteHandoff: (handoffs: HandoffData[]) => void;
+  onUpdatePatient?: (id: string, field: string, value: unknown) => void;
   existingHandoffs?: HandoffData[];
   currentUser?: string;
   className?: string;
@@ -69,6 +72,7 @@ export function ShiftHandoff({
   patients,
   onSaveHandoff,
   onCompleteHandoff,
+  onUpdatePatient,
   existingHandoffs = [],
   currentUser = "Provider",
   className,
@@ -260,7 +264,14 @@ export function ShiftHandoff({
           </div>
         </ScrollArea>
 
-        <div className="p-3 border-t">
+        <div className="p-3 border-t space-y-2">
+          {onUpdatePatient && (
+            <BatchCourseGenerator
+              patients={patients}
+              onUpdatePatient={onUpdatePatient}
+              className="w-full [&>button]:w-full"
+            />
+          )}
           <Button
             className="w-full"
             onClick={() => onCompleteHandoff(Array.from(handoffs.values()))}

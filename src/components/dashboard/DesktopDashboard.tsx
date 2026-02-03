@@ -16,6 +16,7 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
 import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard, CensusBadge } from "@/components/UnitCensusDashboard";
+import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -225,6 +226,7 @@ export const DesktopDashboard = ({
               <UnitCensusDashboard patients={patients} />
               <LabTrendingPanel patients={patients} />
               <ClinicalRiskCalculator />
+              <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
             </div>
 
             {/* Tools Group */}
