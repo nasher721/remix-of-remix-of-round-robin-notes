@@ -1,5 +1,5 @@
 import * as React from "react";
-import { List, ListImperativeAPI } from "react-window";
+import { List, ListImperativeAPI, RowComponentProps } from "react-window";
 import { Patient } from "@/types/patient";
 import { SwipeablePatientCard } from "./SwipeablePatientCard";
 import { Button } from "@/components/ui/button";
@@ -33,15 +33,7 @@ const PatientRowComponent = ({
   onSelect,
   onDelete,
   onDuplicate,
-}: {
-  ariaAttributes: {
-    "aria-posinset": number;
-    "aria-setsize": number;
-    role: "listitem";
-  };
-  index: number;
-  style: CSSProperties;
-} & RowProps): ReactElement | null => {
+}: RowComponentProps<RowProps>): React.ReactElement | null => {
   const patient = patients[index];
 
   if (!patient) return null;
@@ -140,7 +132,7 @@ export const VirtualizedMobilePatientList = React.memo(({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <List
+      <List<RowProps>
         listRef={listRef}
         rowCount={patients.length}
         rowHeight={ROW_HEIGHT}
