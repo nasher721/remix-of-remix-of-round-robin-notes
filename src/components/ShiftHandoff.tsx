@@ -264,7 +264,14 @@ export function ShiftHandoff({
           </div>
         </ScrollArea>
 
-        <div className="p-3 border-t">
+        <div className="p-3 border-t space-y-2">
+          {onUpdatePatient && (
+            <BatchCourseGenerator
+              patients={patients}
+              onUpdatePatient={onUpdatePatient}
+              className="w-full [&>button]:w-full"
+            />
+          )}
           <Button
             className="w-full"
             onClick={() => onCompleteHandoff(Array.from(handoffs.values()))}
