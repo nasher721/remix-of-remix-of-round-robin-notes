@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { ColumnConfig, ColumnWidthsType, PrintPreset } from './types';
-import { defaultColumns, defaultColumnWidths, fontFamilies } from './constants';
+import { defaultColumns, defaultColumnWidths, defaultCombinedColumnWidths, fontFamilies } from './constants';
 import { useToast } from '@/hooks/use-toast';
 import { STORAGE_KEYS, DEFAULT_CONFIG } from '@/constants/config';
 
@@ -18,6 +18,19 @@ export const usePrintState = () => {
       }
     }
     return defaultColumnWidths;
+  });
+
+  const [combinedColumnWidths, setCombinedColumnWidths] = React.useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { ...defaultCombinedColumnWidths, ...parsed };
+      } catch {
+        return defaultCombinedColumnWidths;
+      }
+    }
+    return defaultCombinedColumnWidths;
   });
   
   const [columns, setColumns] = React.useState<ColumnConfig[]>(() => {
@@ -43,6 +56,38 @@ export const usePrintState = () => {
   
   const [printFontFamily, setPrintFontFamily] = React.useState(() => {
     return localStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || DEFAULT_CONFIG.PRINT_FONT_FAMILY;
+  });
+
+  const [margins, setMargins] = React.useState<'narrow' | 'normal' | 'wide'>(() => {
+    return (localStorage.getItem('printMargins') as 'narrow' | 'normal' | 'wide') || DEFAULT_CONFIG.PRINT_MARGINS;
+  });
+
+  const [headerStyle, setHeaderStyle] = React.useState<'minimal' | 'standard' | 'detailed'>(() => {
+    return (localStorage.getItem('printHeaderStyle') as 'minimal' | 'standard' | 'detailed') || DEFAULT_CONFIG.PRINT_HEADER_STYLE;
+  });
+
+  const [borderStyle, setBorderStyle] = React.useState<'none' | 'light' | 'medium' | 'heavy'>(() => {
+    return (localStorage.getItem('printBorderStyle') as 'none' | 'light' | 'medium' | 'heavy') || DEFAULT_CONFIG.PRINT_BORDER_STYLE;
+  });
+
+  const [showPageNumbers, setShowPageNumbers] = React.useState(() => {
+    const saved = localStorage.getItem('printShowPageNumbers');
+    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_SHOW_PAGE_NUMBERS;
+  });
+
+  const [showTimestamp, setShowTimestamp] = React.useState(() => {
+    const saved = localStorage.getItem('printShowTimestamp');
+    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP;
+  });
+
+  const [alternateRowColors, setAlternateRowColors] = React.useState(() => {
+    const saved = localStorage.getItem('printAlternateRowColors');
+    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS;
+  });
+
+  const [compactMode, setCompactMode] = React.useState(() => {
+    const saved = localStorage.getItem('printCompactMode');
+    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_COMPACT_MODE;
   });
   
   const [onePatientPerPage, setOnePatientPerPage] = React.useState(() => {
@@ -105,6 +150,20 @@ export const usePrintState = () => {
   React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(columnWidths));
   }, [columnWidths]);
+
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS, JSON.stringify(combinedColumnWidths));
+  }, [combinedColumnWidths]);
+
+  React.useEffect(() => {
+    localStorage.setItem('printMargins', margins);
+    localStorage.setItem('printHeaderStyle', headerStyle);
+    localStorage.setItem('printBorderStyle', borderStyle);
+    localStorage.setItem('printShowPageNumbers', showPageNumbers.toString());
+    localStorage.setItem('printShowTimestamp', showTimestamp.toString());
+    localStorage.setItem('printAlternateRowColors', alternateRowColors.toString());
+    localStorage.setItem('printCompactMode', compactMode.toString());
+  }, [margins, headerStyle, borderStyle, showPageNumbers, showTimestamp, alternateRowColors, compactMode]);
 
   const getFontFamilyCSS = React.useCallback(() => {
     return fontFamilies.find(f => f.value === printFontFamily)?.css || fontFamilies[0].css;
@@ -173,6 +232,14 @@ export const usePrintState = () => {
       onePatientPerPage: onePatientPerPage,
       autoFitFontSize: autoFitFontSize,
       columnWidths: columnWidths,
+      combinedColumnWidths: combinedColumnWidths,
+      margins: margins,
+      headerStyle: headerStyle,
+      borderStyle: borderStyle,
+      showPageNumbers: showPageNumbers,
+      showTimestamp: showTimestamp,
+      alternateRowColors: alternateRowColors,
+      compactMode: compactMode,
       createdAt: new Date().toISOString()
     };
     
@@ -183,7 +250,7 @@ export const usePrintState = () => {
       description: `"${preset.name}" has been saved for quick access.`
     });
     return true;
-  }, [columns, combinedColumns, printOrientation, printFontSize, printFontFamily, onePatientPerPage, autoFitFontSize, columnWidths, toast]);
+  }, [columns, combinedColumns, printOrientation, printFontSize, printFontFamily, onePatientPerPage, autoFitFontSize, columnWidths, combinedColumnWidths, margins, headerStyle, borderStyle, showPageNumbers, showTimestamp, alternateRowColors, compactMode, toast]);
 
   const loadPreset = React.useCallback((preset: PrintPreset) => {
     setColumns(preset.columns);
@@ -194,6 +261,14 @@ export const usePrintState = () => {
     setOnePatientPerPage(preset.onePatientPerPage);
     setAutoFitFontSize(preset.autoFitFontSize);
     setColumnWidths(preset.columnWidths);
+    setCombinedColumnWidths(preset.combinedColumnWidths);
+    setMargins(preset.margins);
+    setHeaderStyle(preset.headerStyle);
+    setBorderStyle(preset.borderStyle);
+    setShowPageNumbers(preset.showPageNumbers);
+    setShowTimestamp(preset.showTimestamp);
+    setAlternateRowColors(preset.alternateRowColors);
+    setCompactMode(preset.compactMode);
     
     toast({
       title: "Preset loaded",
@@ -250,6 +325,14 @@ export const usePrintState = () => {
           onePatientPerPage: data.onePatientPerPage || false,
           autoFitFontSize: data.autoFitFontSize || false,
           columnWidths: data.columnWidths || defaultColumnWidths,
+          combinedColumnWidths: data.combinedColumnWidths || defaultCombinedColumnWidths,
+          margins: data.margins || DEFAULT_CONFIG.PRINT_MARGINS,
+          headerStyle: data.headerStyle || DEFAULT_CONFIG.PRINT_HEADER_STYLE,
+          borderStyle: data.borderStyle || DEFAULT_CONFIG.PRINT_BORDER_STYLE,
+          showPageNumbers: data.showPageNumbers ?? DEFAULT_CONFIG.PRINT_SHOW_PAGE_NUMBERS,
+          showTimestamp: data.showTimestamp ?? DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP,
+          alternateRowColors: data.alternateRowColors ?? DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS,
+          compactMode: data.compactMode ?? DEFAULT_CONFIG.PRINT_COMPACT_MODE,
           createdAt: new Date().toISOString()
         };
         setCustomPresets(prev => [...prev, newPreset]);
@@ -271,12 +354,28 @@ export const usePrintState = () => {
   return {
     columnWidths,
     setColumnWidths,
+    combinedColumnWidths,
+    setCombinedColumnWidths,
     columns,
     setColumns,
     printFontSize,
     setPrintFontSize,
     printFontFamily,
     setPrintFontFamily,
+    margins,
+    setMargins,
+    headerStyle,
+    setHeaderStyle,
+    borderStyle,
+    setBorderStyle,
+    showPageNumbers,
+    setShowPageNumbers,
+    showTimestamp,
+    setShowTimestamp,
+    alternateRowColors,
+    setAlternateRowColors,
+    compactMode,
+    setCompactMode,
     onePatientPerPage,
     setOnePatientPerPage,
     autoFitFontSize,

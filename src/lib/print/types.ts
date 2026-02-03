@@ -41,6 +41,8 @@ export type ColumnWidthsType = {
     [key: string]: number; // Allow additional system keys
 };
 
+export type CombinedColumnWidths = Record<string, number>;
+
 export interface PrintPreset {
     id: string;
     name: string;
@@ -52,6 +54,14 @@ export interface PrintPreset {
     onePatientPerPage: boolean;
     autoFitFontSize: boolean;
     columnWidths: ColumnWidthsType;
+    combinedColumnWidths: CombinedColumnWidths;
+    margins: 'narrow' | 'normal' | 'wide';
+    headerStyle: 'minimal' | 'standard' | 'detailed';
+    borderStyle: 'none' | 'light' | 'medium' | 'heavy';
+    showPageNumbers: boolean;
+    showTimestamp: boolean;
+    alternateRowColors: boolean;
+    compactMode: boolean;
     createdAt: string;
 }
 
@@ -64,6 +74,14 @@ export interface PrintSettings {
     onePatientPerPage: boolean;
     autoFitFontSize: boolean;
     columnWidths: ColumnWidthsType;
+    combinedColumnWidths: CombinedColumnWidths;
+    margins: 'narrow' | 'normal' | 'wide';
+    headerStyle: 'minimal' | 'standard' | 'detailed';
+    borderStyle: 'none' | 'light' | 'medium' | 'heavy';
+    showPageNumbers: boolean;
+    showTimestamp: boolean;
+    alternateRowColors: boolean;
+    compactMode: boolean;
     activeTab: string;
     showNotesColumn: boolean;
     showTodosColumn: boolean;

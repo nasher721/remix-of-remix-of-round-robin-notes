@@ -1,5 +1,5 @@
 import { SYSTEM_LABELS_SHORT, SYSTEM_KEYS } from "@/constants/systems";
-import type { ColumnConfig, ColumnCombination, ColumnWidthsType, FontFamily } from "./types";
+import type { ColumnConfig, ColumnCombination, ColumnWidthsType, CombinedColumnWidths, FontFamily } from "./types";
 
 export const systemLabels = SYSTEM_LABELS_SHORT;
 export const systemKeys = SYSTEM_KEYS;
@@ -43,6 +43,13 @@ export const defaultColumnWidths: ColumnWidthsType = {
   'systems.infectious': 90,
   'systems.skinLines': 90,
   'systems.dispo': 90,
+};
+
+export const defaultCombinedColumnWidths: CombinedColumnWidths = {
+  summaryEvents: 300,
+  imagingLabs: 240,
+  allContent: 420,
+  systemsReview: 360,
 };
 
 export const fontFamilies: FontFamily[] = [
