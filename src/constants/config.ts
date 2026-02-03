@@ -15,9 +15,11 @@ export const STORAGE_KEYS = {
   PRINT_ONE_PATIENT_PER_PAGE: 'printOnePatientPerPage',
   PRINT_AUTO_FIT_FONT_SIZE: 'printAutoFitFontSize',
   PRINT_COMBINED_COLUMNS: 'printCombinedColumns',
+  PRINT_COMBINED_COLUMN_WIDTHS: 'printCombinedColumnWidths',
   PRINT_SYSTEMS_REVIEW_COLUMN_COUNT: 'printSystemsReviewColumnCount',
   PRINT_ORIENTATION: 'printOrientation',
   PRINT_CUSTOM_PRESETS: 'printCustomPresets',
+  PRINT_TEMPLATE_PRESETS: 'printTemplatePresets',
 } as const;
 
 // Clinical section keys for visibility toggles
@@ -52,6 +54,13 @@ export const DEFAULT_CONFIG = {
   SYSTEMS_REVIEW_COLUMN_COUNT: 2,
   DEFAULT_SORT_BY: 'room' as const,
   SHOW_LAB_FISHBONES: true,
+  PRINT_MARGINS: 'normal' as const,
+  PRINT_HEADER_STYLE: 'standard' as const,
+  PRINT_BORDER_STYLE: 'light' as const,
+  PRINT_SHOW_PAGE_NUMBERS: true,
+  PRINT_SHOW_TIMESTAMP: true,
+  PRINT_ALTERNATE_ROW_COLORS: true,
+  PRINT_COMPACT_MODE: false,
 } as const;
 
 // Patient filter state enum

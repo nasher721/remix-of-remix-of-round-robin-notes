@@ -99,6 +99,10 @@ export function PrintSettings({
 
   const systemKeys = SYSTEM_KEYS;
   const systemLabels = SYSTEM_LABELS_SHORT;
+  const combinedWidthOptions = [
+    ...columnCombinations,
+    ...customCombinations
+  ];
 
   return (
     <div className="space-y-6">
@@ -186,6 +190,112 @@ export function PrintSettings({
               step={1}
               disabled={settings.autoFitFontSize}
               onValueChange={(val) => onUpdateSettings({ printFontSize: val[0] })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Template Options</h3>
+
+        <div className="grid gap-4">
+          <div className="space-y-2">
+            <Label>Margins</Label>
+            <Select
+              value={settings.margins}
+              onValueChange={(value) => onUpdateSettings({ margins: value as SettingsType['margins'] })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select margins" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="narrow">Narrow</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="wide">Wide</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Header Style</Label>
+            <Select
+              value={settings.headerStyle}
+              onValueChange={(value) => onUpdateSettings({ headerStyle: value as SettingsType['headerStyle'] })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select header style" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="minimal">Minimal</SelectItem>
+                <SelectItem value="standard">Standard</SelectItem>
+                <SelectItem value="detailed">Detailed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Border Style</Label>
+            <Select
+              value={settings.borderStyle}
+              onValueChange={(value) => onUpdateSettings({ borderStyle: value as SettingsType['borderStyle'] })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select border style" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="light">Light</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="heavy">Heavy</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="show-page-numbers">Show Page Numbers</Label>
+              <p className="text-xs text-muted-foreground">Display page numbers in the header</p>
+            </div>
+            <Switch
+              id="show-page-numbers"
+              checked={settings.showPageNumbers}
+              onCheckedChange={(checked) => onUpdateSettings({ showPageNumbers: checked })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="show-timestamp">Show Timestamp</Label>
+              <p className="text-xs text-muted-foreground">Include the generated date</p>
+            </div>
+            <Switch
+              id="show-timestamp"
+              checked={settings.showTimestamp}
+              onCheckedChange={(checked) => onUpdateSettings({ showTimestamp: checked })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="alternate-rows">Alternate Row Colors</Label>
+              <p className="text-xs text-muted-foreground">Add striping to table rows</p>
+            </div>
+            <Switch
+              id="alternate-rows"
+              checked={settings.alternateRowColors}
+              onCheckedChange={(checked) => onUpdateSettings({ alternateRowColors: checked })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="compact-mode">Compact Mode</Label>
+              <p className="text-xs text-muted-foreground">Reduce spacing for dense layouts</p>
+            </div>
+            <Switch
+              id="compact-mode"
+              checked={settings.compactMode}
+              onCheckedChange={(checked) => onUpdateSettings({ compactMode: checked })}
             />
           </div>
         </div>
@@ -462,6 +572,30 @@ export function PrintSettings({
             }}
             max={200}
           />
+        </div>
+
+        <div className="pt-2 space-y-3">
+          <Label className="text-xs font-semibold text-muted-foreground">COMBINED COLUMN WIDTHS</Label>
+          {settings.combinedColumns.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic">Enable a combination to adjust its width.</p>
+          ) : (
+            combinedWidthOptions
+              .filter(option => settings.combinedColumns.includes(option.key))
+              .map(option => (
+                <WidthControl
+                  key={option.key}
+                  label={option.label}
+                  value={settings.combinedColumnWidths[option.key] || 240}
+                  onChange={(v) => onUpdateSettings({
+                    combinedColumnWidths: {
+                      ...settings.combinedColumnWidths,
+                      [option.key]: v
+                    }
+                  })}
+                  max={600}
+                />
+              ))
+          )}
         </div>
       </div>
     </div>

@@ -12,7 +12,11 @@ export type PrintTemplateType =
   | 'signout'
   | 'nursing'
   | 'icuRounds'
-  | 'brief';
+  | 'brief'
+  | 'progressNotes'
+  | 'consult'
+  | 'weeklyReview'
+  | 'custom';
 
 export interface PrintTemplate {
   id: PrintTemplateType;
@@ -386,6 +390,140 @@ export const PRINT_TEMPLATES: PrintTemplate[] = [
       borderStyle: 'light',
       alternateRowColors: true,
       compactMode: true,
+    },
+  },
+  {
+    id: 'progressNotes',
+    name: 'Progress Notes',
+    description: 'Structured narrative template for daily progress notes',
+    icon: 'FileText',
+    sections: [
+      { key: 'patient', label: 'Patient', enabled: true, order: 0, required: true },
+      { key: 'clinicalSummary', label: 'Clinical Summary', enabled: true, order: 1 },
+      { key: 'intervalEvents', label: 'Interval Events', enabled: true, order: 2 },
+      { key: 'labs', label: 'Labs', enabled: true, order: 3 },
+      { key: 'imaging', label: 'Imaging', enabled: true, order: 4 },
+      { key: 'todos', label: 'Plan', enabled: true, order: 5 },
+      { key: 'notes', label: 'Notes', enabled: true, order: 6 },
+    ],
+    layout: {
+      columns: 1,
+      patientsPerPage: 1,
+      orientation: 'portrait',
+      margins: 'normal',
+      headerStyle: 'detailed',
+      showPageNumbers: true,
+      showTimestamp: true,
+      viewType: 'table',
+    },
+    styling: {
+      fontSize: 10,
+      fontFamily: 'times',
+      headerColor: '#0f172a',
+      accentColor: '#64748b',
+      borderStyle: 'medium',
+      alternateRowColors: false,
+      compactMode: false,
+    },
+  },
+  {
+    id: 'consult',
+    name: 'Consult',
+    description: 'Focused consult summary for specialty input',
+    icon: 'MessageSquare',
+    sections: [
+      { key: 'patient', label: 'Patient', enabled: true, order: 0, required: true },
+      { key: 'clinicalSummary', label: 'Consult Question', enabled: true, order: 1 },
+      { key: 'intervalEvents', label: 'Key Events', enabled: true, order: 2 },
+      { key: 'labs', label: 'Pertinent Labs', enabled: true, order: 3 },
+      { key: 'imaging', label: 'Pertinent Imaging', enabled: true, order: 4 },
+      { key: 'todos', label: 'Recommendations', enabled: true, order: 5 },
+    ],
+    layout: {
+      columns: 1,
+      patientsPerPage: 2,
+      orientation: 'portrait',
+      margins: 'normal',
+      headerStyle: 'standard',
+      showPageNumbers: true,
+      showTimestamp: true,
+      viewType: 'cards',
+    },
+    styling: {
+      fontSize: 10,
+      fontFamily: 'arial',
+      headerColor: '#0ea5e9',
+      accentColor: '#38bdf8',
+      borderStyle: 'light',
+      alternateRowColors: true,
+      compactMode: false,
+    },
+  },
+  {
+    id: 'weeklyReview',
+    name: 'Weekly Review',
+    description: 'Summary layout for weekly review rounds',
+    icon: 'List',
+    sections: [
+      { key: 'patient', label: 'Patient', enabled: true, order: 0, required: true },
+      { key: 'clinicalSummary', label: 'Summary', enabled: true, order: 1 },
+      { key: 'intervalEvents', label: 'Major Events', enabled: true, order: 2 },
+      { key: 'labs', label: 'Trends', enabled: true, order: 3 },
+      { key: 'imaging', label: 'Imaging', enabled: true, order: 4 },
+      { key: 'todos', label: 'Weekly Goals', enabled: true, order: 5 },
+    ],
+    layout: {
+      columns: 2,
+      patientsPerPage: 4,
+      orientation: 'landscape',
+      margins: 'normal',
+      headerStyle: 'standard',
+      showPageNumbers: true,
+      showTimestamp: false,
+      viewType: 'list',
+    },
+    styling: {
+      fontSize: 9,
+      fontFamily: 'arial',
+      headerColor: '#6366f1',
+      accentColor: '#818cf8',
+      borderStyle: 'light',
+      alternateRowColors: true,
+      compactMode: true,
+    },
+  },
+  {
+    id: 'custom',
+    name: 'Custom',
+    description: 'Build your own layout from scratch',
+    icon: 'FileSpreadsheet',
+    sections: [
+      { key: 'patient', label: 'Patient', enabled: true, order: 0, required: true },
+      { key: 'clinicalSummary', label: 'Summary', enabled: true, order: 1 },
+      { key: 'intervalEvents', label: 'Events', enabled: true, order: 2 },
+      { key: 'imaging', label: 'Imaging', enabled: true, order: 3 },
+      { key: 'labs', label: 'Labs', enabled: true, order: 4 },
+      { key: 'todos', label: 'Todos', enabled: true, order: 5 },
+      { key: 'notes', label: 'Notes', enabled: true, order: 6 },
+    ],
+    layout: {
+      columns: 1,
+      patientsPerPage: 'auto',
+      orientation: 'portrait',
+      margins: 'normal',
+      headerStyle: 'standard',
+      showPageNumbers: true,
+      showTimestamp: true,
+      viewType: 'table',
+    },
+    styling: {
+      fontSize: 10,
+      fontFamily: 'system',
+      headerColor: '#111827',
+      accentColor: '#6b7280',
+      borderStyle: 'light',
+      alternateRowColors: true,
+      compactMode: false,
     },
   },
 ];

@@ -51,7 +51,10 @@ export type ColumnWidthsType = {
   'systems.infectious': number;
   'systems.skinLines': number;
   'systems.dispo': number;
+  [key: string]: number;
 };
+
+export type CombinedColumnWidths = Record<string, number>;
 
 export interface PrintPreset {
   id: string;
@@ -64,6 +67,14 @@ export interface PrintPreset {
   onePatientPerPage: boolean;
   autoFitFontSize: boolean;
   columnWidths: ColumnWidthsType;
+  combinedColumnWidths: CombinedColumnWidths;
+  margins: 'narrow' | 'normal' | 'wide';
+  headerStyle: 'minimal' | 'standard' | 'detailed';
+  borderStyle: 'none' | 'light' | 'medium' | 'heavy';
+  showPageNumbers: boolean;
+  showTimestamp: boolean;
+  alternateRowColors: boolean;
+  compactMode: boolean;
   createdAt: string;
 }
 

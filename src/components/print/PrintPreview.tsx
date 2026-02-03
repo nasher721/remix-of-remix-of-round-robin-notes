@@ -75,6 +75,32 @@ export function PrintPreview({
         return "text-base";
     };
 
+    const getPagePaddingClass = () => {
+        switch (settings.margins) {
+            case 'narrow':
+                return "p-4";
+            case 'wide':
+                return "p-12";
+            default:
+                return "p-8";
+        }
+    };
+
+    const getHeaderTitleClass = () => {
+        switch (settings.headerStyle) {
+            case 'minimal':
+                return "text-lg";
+            case 'detailed':
+                return "text-3xl";
+            default:
+                return "text-2xl";
+        }
+    };
+
+    const borderWidth = settings.borderStyle === 'none' ? 0 : settings.borderStyle === 'heavy' ? 3 : settings.borderStyle === 'medium' ? 2 : 1;
+    const tableBorderClass = settings.borderStyle === 'none' ? "" : "border border-slate-200";
+    const cellPaddingClass = settings.compactMode ? "p-1" : "p-2";
+
     const cleanInlineStyles = (html: string) => {
         if (!html) return '';
         const temp = document.createElement("div");
@@ -117,7 +143,8 @@ export function PrintPreview({
             id: string;
             label: string;
             type: 'single' | 'combined';
-            sourceKeys: string[]
+            sourceKeys: string[];
+            width?: number;
         }[] = [];
 
         const processedKeys = new Set<string>();
@@ -136,7 +163,8 @@ export function PrintPreview({
                         id: combo.key,
                         label: combo.label,
                         type: 'combined',
-                        sourceKeys: combo.columns
+                        sourceKeys: combo.columns,
+                        width: settings.combinedColumnWidths?.[combo.key]
                     });
                     combo.columns.forEach(k => processedKeys.add(k));
                 }
@@ -150,7 +178,8 @@ export function PrintPreview({
                     id: col.key,
                     label: col.key.startsWith('systems.') ? getSystemLabel(col.key) : col.label,
                     type: 'single',
-                    sourceKeys: [col.key]
+                    sourceKeys: [col.key],
+                    width: settings.columnWidths[col.key] || (col.key.startsWith('systems.') ? settings.columnWidths['systems.neuro'] : undefined)
                 });
             }
         });
@@ -164,7 +193,7 @@ export function PrintPreview({
             return 0;
         });
 
-    }, [settings.columns, settings.combinedColumns]);
+    }, [settings.columns, settings.combinedColumns, settings.columnWidths, settings.combinedColumnWidths]);
 
     const renderColumns = getRenderColumns();
 
@@ -238,7 +267,8 @@ export function PrintPreview({
                 <div
                     data-print-preview
                     className={cn(
-                        "bg-white shadow-sm min-h-[500px] p-8 mx-auto origin-top transition-all duration-300",
+                        "bg-white shadow-sm min-h-[500px] mx-auto origin-top transition-all duration-300",
+                        getPagePaddingClass(),
                         settings.printOrientation === 'landscape' ? "w-[297mm]" : "w-[210mm]"
                     )}
                     style={{
@@ -247,10 +277,15 @@ export function PrintPreview({
                 >
                     <div className="space-y-6">
                         <div className="border-b pb-4 mb-6">
-                            <h1 className="text-2xl font-bold text-slate-900">Patient Rounding Report</h1>
+                            <h1 className={cn("font-bold text-slate-900", getHeaderTitleClass())}>Patient Rounding Report</h1>
                             <div className="flex justify-between mt-2 text-sm text-slate-500">
-                                <span>Generated: {new Date().toLocaleDateString()}</span>
+                                {settings.showTimestamp ? (
+                                    <span>Generated: {new Date().toLocaleDateString()}</span>
+                                ) : (
+                                    <span />
+                                )}
                                 <span>Total Patients: {patients.length}</span>
+                                {settings.showPageNumbers && <span>Page 1</span>}
                             </div>
                         </div>
 
@@ -258,9 +293,13 @@ export function PrintPreview({
                             <div className="overflow-x-auto">
                                 <table className={cn("w-full border-collapse text-left", getFontSizeClass())}>
                                     <thead>
-                                        <tr className="bg-slate-50 border-b-2 border-slate-200">
+                                        <tr className={cn("bg-slate-50", tableBorderClass)}>
                                             {renderColumns.map(col => (
-                                                <th key={col.id} className="p-2 font-semibold text-slate-700 border border-slate-200 align-top">
+                                                <th
+                                                    key={col.id}
+                                                    className={cn(cellPaddingClass, "font-semibold text-slate-700 align-top", tableBorderClass)}
+                                                    style={{ borderWidth, width: col.width }}
+                                                >
                                                     {col.label}
                                                 </th>
                                             ))}
@@ -271,12 +310,17 @@ export function PrintPreview({
                                             <tr
                                                 key={patient.id}
                                                 className={cn(
-                                                    "border-b border-slate-200 align-top",
-                                                    idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"
+                                                    "align-top",
+                                                    tableBorderClass,
+                                                    settings.alternateRowColors ? (idx % 2 === 0 ? "bg-white" : "bg-slate-50/50") : "bg-white"
                                                 )}
                                             >
                                                 {renderColumns.map(col => (
-                                                    <td key={`${patient.id}-${col.id}`} className="p-2 border border-slate-200">
+                                                    <td
+                                                        key={`${patient.id}-${col.id}`}
+                                                        className={cn(cellPaddingClass, tableBorderClass)}
+                                                        style={{ borderWidth, width: col.width }}
+                                                    >
                                                         {col.type === 'combined'
                                                             ? renderCombinedCell(patient, col.sourceKeys)
                                                             : getCellValue(patient, col.sourceKeys[0])
@@ -299,9 +343,11 @@ export function PrintPreview({
                                     <div
                                         key={patient.id}
                                         className={cn(
-                                            "border rounded-lg bg-white shadow-sm break-inside-avoid",
-                                            settings.activeTab === 'list' ? "p-4" : "p-4 flex flex-col h-full"
+                                            settings.borderStyle === 'none' ? "" : "border",
+                                            "rounded-lg bg-white shadow-sm break-inside-avoid",
+                                            settings.activeTab === 'list' ? (settings.compactMode ? "p-2" : "p-4") : (settings.compactMode ? "p-2" : "p-4 flex flex-col h-full")
                                         )}
+                                        style={{ borderWidth }}
                                     >
                                         {/* Header */}
                                         <div className="border-b pb-2 mb-3 flex justify-between items-baseline">
