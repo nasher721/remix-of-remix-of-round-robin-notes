@@ -138,8 +138,10 @@ export const BatchCourseGenerator = ({
     undoLastBatch(onUpdatePatient);
   };
 
-  const handleClose = () => {
-    if (!isGenerating) {
+  const handleOpenChange = (newOpen: boolean) => {
+    if (newOpen) {
+      setOpen(true);
+    } else if (!isGenerating) {
       setOpen(false);
       setShowResults(false);
       setResults([]);
@@ -164,12 +166,11 @@ export const BatchCourseGenerator = ({
 
   return (
     <div className={className}>
-      <Dialog open={open} onOpenChange={handleClose}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setOpen(true)}
             disabled={patients.length === 0}
           >
             <Users className="h-4 w-4 mr-2" />
@@ -299,7 +300,7 @@ export const BatchCourseGenerator = ({
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={handleClose} disabled={isGenerating}>
+                <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isGenerating}>
                   Cancel
                 </Button>
                 {isGenerating ? (
@@ -393,7 +394,7 @@ export const BatchCourseGenerator = ({
                     Copy All
                   </Button>
                 )}
-                <Button onClick={handleClose}>
+                <Button onClick={() => handleOpenChange(false)}>
                   Done
                 </Button>
               </DialogFooter>
