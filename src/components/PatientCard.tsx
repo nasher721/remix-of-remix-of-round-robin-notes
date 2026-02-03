@@ -14,12 +14,12 @@ import { PatientAcuityBadge } from "./PatientAcuityBadge";
 import { QuickActionsPanel, QuickActionButtons } from "./QuickActionsPanel";
 import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
 import { LabTrendBadge } from "./LabTrendingPanel";
+import { AIGeneratorTools } from "./AIGeneratorTools";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
-import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 
