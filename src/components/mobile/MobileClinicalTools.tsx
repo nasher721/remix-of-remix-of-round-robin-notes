@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Users,
   Mic,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ interface MobileClinicalToolsProps {
   onOpenTimeline: () => void;
   onOpenAnalytics: () => void;
   onOpenVoice: () => void;
+  onOpenBatchCourse: () => void;
   className?: string;
 }
 
@@ -118,6 +120,7 @@ export function MobileClinicalTools({
   onOpenTimeline,
   onOpenAnalytics,
   onOpenVoice,
+  onOpenBatchCourse,
   className,
 }: MobileClinicalToolsProps) {
   const unacknowledgedAlerts = alerts.filter(a => !a.acknowledged);
@@ -226,6 +229,41 @@ export function MobileClinicalTools({
           onClick={onOpenAnalytics}
           color="#3b82f6"
         />
+      </div>
+
+      {/* AI Tools Section */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
+          AI Tools
+        </h2>
+        
+        <button
+          onClick={onOpenBatchCourse}
+          className="w-full text-left active:scale-[0.98] transition-transform"
+        >
+          <Card className="border-l-4 hover:bg-muted/50 transition-colors" style={{ borderLeftColor: '#8b5cf6' }}>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div
+                  className="p-3 rounded-xl"
+                  style={{ backgroundColor: '#8b5cf615' }}
+                >
+                  <Sparkles className="h-6 w-6" style={{ color: '#8b5cf6' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">Batch Course Generator</h3>
+                    <Badge variant="outline" className="text-xs">AI</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    Generate courses for multiple patients
+                  </p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </CardContent>
+          </Card>
+        </button>
       </div>
 
       {/* Voice Commands */}

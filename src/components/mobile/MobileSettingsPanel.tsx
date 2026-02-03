@@ -27,7 +27,9 @@ import {
   Pill,
   Activity,
   RotateCcw,
+  Users,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useSettings } from "@/contexts/SettingsContext";
 import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
 
@@ -58,11 +60,13 @@ interface MobileSettingsPanelProps {
   onClearAll: () => void;
   onOpenAutotexts: () => void;
   onOpenPhrases: () => void;
+  onOpenBatchCourse?: () => void;
   userEmail?: string;
   todosAlwaysVisible?: boolean;
   onTodosAlwaysVisibleChange?: (visible: boolean) => void;
   showLabFishbones?: boolean;
   onShowLabFishbonesChange?: (show: boolean) => void;
+  patientCount?: number;
 }
 
 const colorPresets = [
@@ -85,11 +89,13 @@ export const MobileSettingsPanel = ({
   onClearAll,
   onOpenAutotexts,
   onOpenPhrases,
+  onOpenBatchCourse,
   userEmail,
   todosAlwaysVisible = false,
   onTodosAlwaysVisibleChange,
   showLabFishbones = true,
   onShowLabFishbonesChange,
+  patientCount = 0,
 }: MobileSettingsPanelProps) => {
   const { sectionVisibility, setSectionVisibility, resetSectionVisibility } = useSettings();
 
@@ -307,6 +313,26 @@ export const MobileSettingsPanel = ({
           </div>
         )}
       </Card>
+
+      {/* AI Tools */}
+      {onOpenBatchCourse && patientCount > 0 && (
+        <Card className="p-4 space-y-1">
+          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            AI Tools
+          </h3>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start h-12"
+            onClick={onOpenBatchCourse}
+          >
+            <Users className="h-4 w-4 mr-3" />
+            <span className="flex-1 text-left">Batch Course Generator</span>
+            <Badge variant="outline" className="text-xs ml-2">AI</Badge>
+          </Button>
+        </Card>
+      )}
 
       {/* Quick Actions */}
       <Card className="p-4 space-y-1">
