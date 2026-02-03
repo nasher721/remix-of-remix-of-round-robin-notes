@@ -162,11 +162,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
               const parsed = JSON.parse(localVisibility);
               await supabase
                 .from('user_settings')
-                .upsert(
-                  {
+                .upsert({
                     user_id: user.id,
                     section_visibility: parsed,
-                    app_preferences: localPreferences,
+                    app_preferences: localPreferences as unknown as Json,
                   },
                   { onConflict: 'user_id' }
                 );
