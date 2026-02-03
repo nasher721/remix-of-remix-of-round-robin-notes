@@ -2,11 +2,12 @@ import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
-import { stripHtml, formatTodosForDisplay, cleanInlineStyles, isColumnCombined, getCombinedContent } from './utils';
-import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, htmlToPDFSegments, parseColor } from '@/lib/print/htmlFormatter';
+import { stripHtml, formatTodosForDisplay } from './utils';
+import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, parseColor } from '@/lib/print/htmlFormatter';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import html2pdf from 'html2pdf.js';
 
 // Extract dominant color from HTML string for PDF export
 const extractDominantColor = (html: string): { r: number; g: number; b: number } | null => {
@@ -64,8 +65,10 @@ interface ExportContext {
   combinedColumns: string[];
   columnWidths: ColumnWidthsType;
   printFontSize: number;
+  printFontFamily: string;
   printOrientation: 'portrait' | 'landscape';
   onePatientPerPage: boolean;
+  margins: 'narrow' | 'normal' | 'wide';
   isColumnEnabled: (key: string) => boolean;
   getPatientTodos: (patientId: string) => PatientTodo[];
   showNotesColumn: boolean;
@@ -135,12 +138,35 @@ export const handleExportExcel = (ctx: ExportContext) => {
   return fileName;
 };
 
-export const handleExportPDF = (ctx: ExportContext) => {
+export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement | null) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
   const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
 
+  if (element) {
+    const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
+    await html2pdf()
+      .set({
+        filename: fileName,
+        margin: 0,
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: ctx.printOrientation,
+        },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['.print-avoid-break'] },
+      })
+      .from(element)
+      .save();
+    return fileName;
+  }
+
   const doc = new jsPDF({
-    orientation: 'landscape',
+    orientation: ctx.printOrientation,
     unit: 'mm',
     format: 'a4'
   });
@@ -449,7 +475,8 @@ export const handleExportDOC = (ctx: ExportContext) => {
   <![endif]-->
   <style>
     @page { margin: 1in; }
-    body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; }
+    body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.4; word-break: break-word; overflow-wrap: anywhere; }
+    * { box-sizing: border-box; }
     h1 { color: #3b82f6; font-size: 18pt; margin-bottom: 5pt; }
     h2 { color: #3b82f6; font-size: 14pt; border-bottom: 2px solid #3b82f6; padding-bottom: 5pt; margin-top: 20pt; }
     h3 { font-size: 12pt; color: #333; margin-top: 10pt; margin-bottom: 5pt; }
@@ -461,9 +488,10 @@ export const handleExportDOC = (ctx: ExportContext) => {
     .section-content { margin-top: 3pt; }
     .todo-item { margin: 3pt 0; }
     .completed { text-decoration: line-through; color: #888; }
-    table { width: 100%; border-collapse: collapse; margin: 10pt 0; }
-    th, td { border: 1px solid #ddd; padding: 5pt; text-align: left; vertical-align: top; }
+    table { width: 100%; border-collapse: collapse; margin: 10pt 0; table-layout: fixed; }
+    th, td { border: 1px solid #ddd; padding: 5pt; text-align: left; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; }
     th { background: #f5f5f5; font-weight: bold; }
+    img { max-width: 100%; height: auto; }
     /* Preserve inline colors - Word respects inline styles */
     span[style], div[style], p[style] { mso-style-textfill-type: solid; }
   </style>

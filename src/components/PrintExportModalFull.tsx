@@ -14,11 +14,13 @@ import { PrintSettings } from "./print/PrintSettings";
 import { PrintControls } from "./print/PrintControls";
 import { PrintPreview } from "./print/PrintPreview";
 import { PrintTemplateSelector } from "./print/PrintTemplateSelector";
+import { PrintDocument } from "./print/PrintDocument";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import type { PrintSettings as PrintSettingsType, ColumnConfig, CustomCombination } from "@/lib/print/types";
 import { getTemplateById, mergeTemplateCustomizations, PrintTemplatePreset, PrintTemplateType } from "@/types/printTemplates";
 import { defaultColumnWidths, defaultColumns, defaultCombinedColumnWidths } from "./print/constants";
+import { getPageMetrics } from "@/lib/print/layout";
 import {
   handleExportExcel,
   handleExportPDF,
@@ -48,6 +50,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<PrintTemplateType>('standard');
   const [templatePresets, setTemplatePresets] = React.useState<PrintTemplatePreset[]>([]);
   const [templatePresetName, setTemplatePresetName] = React.useState("");
+  const exportRef = React.useRef<HTMLDivElement | null>(null);
 
   // Settings State
   const [settings, setSettings] = React.useState<PrintSettingsType>({
@@ -116,6 +119,19 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     };
     loadSettings();
   }, [open]);
+
+  React.useEffect(() => {
+    const { marginMm } = getPageMetrics(settings);
+    const styleId = "print-page-style";
+    let style = document.getElementById(styleId) as HTMLStyleElement | null;
+    if (!style) {
+      style = document.createElement("style");
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    style.textContent = `@page { size: A4 ${settings.printOrientation}; margin: 0; }`;
+    document.documentElement.style.setProperty("--print-page-margin", `${marginMm}mm`);
+  }, [settings]);
 
   const handleUpdateSettings = (newSettings: Partial<PrintSettingsType>) => {
     setSettings(prev => {
@@ -318,8 +334,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     combinedColumns: settings.combinedColumns,
     columnWidths: settings.columnWidths,
     printFontSize: settings.printFontSize,
+    printFontFamily: settings.printFontFamily,
     printOrientation: settings.printOrientation,
     onePatientPerPage: settings.onePatientPerPage,
+    margins: settings.margins,
     isColumnEnabled,
     getPatientTodos,
     showNotesColumn: settings.showNotesColumn,
@@ -336,7 +354,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const onExportPDF = async () => {
     setIsGenerating(true);
     try {
-      const fileName = handleExportPDF(getExportContext());
+      const fileName = await handleExportPDF(getExportContext(), exportRef.current);
       toast({ title: "PDF Export Complete", description: fileName });
     } catch (e) {
       console.error(e);
@@ -490,6 +508,16 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               settings={settings}
             />
           </div>
+        </div>
+        <div className="print-export-sandbox" aria-hidden="true">
+          <PrintDocument
+            ref={exportRef}
+            patients={patients}
+            patientTodos={patientTodos}
+            patientNotes={patientNotes}
+            settings={settings}
+            documentId="export"
+          />
         </div>
       </DialogContent>
     </Dialog>
