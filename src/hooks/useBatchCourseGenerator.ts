@@ -3,10 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 
+export type BatchGenerationType = 'course' | 'intervalEvents';
+
 export type BatchResult = {
   patientId: string;
   patientName: string;
-  course: string | null;
+  content: string | null;
   error?: string;
 };
 
@@ -34,23 +36,33 @@ export const useBatchCourseGenerator = () => {
   const [undoStack, setUndoStack] = React.useState<UndoEntry[][]>([]);
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
-  const generateBatchCourses = React.useCallback(async (
+  const generateBatch = React.useCallback(async (
     patients: Patient[],
+    type: BatchGenerationType,
     onUpdatePatient?: (id: string, field: string, value: unknown) => void
   ): Promise<BatchResult[]> => {
-    // Filter patients with content
+    // Filter patients with content based on generation type
     const patientsWithContent = patients.filter(patient => {
-      const hasContent = 
-        patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
-        patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
-        patient.imaging?.replace(/<[^>]*>/g, '').trim() ||
-        patient.labs?.replace(/<[^>]*>/g, '').trim() ||
-        Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
-      return hasContent;
+      if (type === 'intervalEvents') {
+        // For interval events, need system notes
+        return Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
+      } else {
+        // For course, need any clinical data
+        const hasContent = 
+          patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
+          patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
+          patient.imaging?.replace(/<[^>]*>/g, '').trim() ||
+          patient.labs?.replace(/<[^>]*>/g, '').trim() ||
+          Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
+        return hasContent;
+      }
     });
 
     if (patientsWithContent.length === 0) {
-      toast.error('No patients with clinical data to generate courses from.');
+      const message = type === 'intervalEvents' 
+        ? 'No patients with system notes to generate interval events from.'
+        : 'No patients with clinical data to generate courses from.';
+      toast.error(message);
       return [];
     }
 
@@ -64,6 +76,7 @@ export const useBatchCourseGenerator = () => {
     
     const results: BatchResult[] = [];
     const undoEntries: UndoEntry[] = [];
+    const targetField = type === 'intervalEvents' ? 'intervalEvents' : 'clinicalSummary';
 
     setProgress({
       total: patientsWithContent.length,
@@ -86,18 +99,34 @@ export const useBatchCourseGenerator = () => {
       }));
 
       try {
-        const { data, error } = await supabase.functions.invoke('generate-patient-course', {
-          body: { 
-            patientData: {
-              name: patient.name,
-              clinicalSummary: patient.clinicalSummary,
-              intervalEvents: patient.intervalEvents,
-              imaging: patient.imaging,
-              labs: patient.labs,
+        let data, error;
+
+        if (type === 'intervalEvents') {
+          const response = await supabase.functions.invoke('generate-interval-events', {
+            body: { 
               systems: patient.systems,
+              existingIntervalEvents: patient.intervalEvents,
+              patientName: patient.name,
             },
-          },
-        });
+          });
+          data = response.data;
+          error = response.error;
+        } else {
+          const response = await supabase.functions.invoke('generate-patient-course', {
+            body: { 
+              patientData: {
+                name: patient.name,
+                clinicalSummary: patient.clinicalSummary,
+                intervalEvents: patient.intervalEvents,
+                imaging: patient.imaging,
+                labs: patient.labs,
+                systems: patient.systems,
+              },
+            },
+          });
+          data = response.data;
+          error = response.error;
+        }
 
         if (abortControllerRef.current?.signal.aborted) {
           break;
@@ -107,30 +136,41 @@ export const useBatchCourseGenerator = () => {
           results.push({
             patientId: patient.id,
             patientName: patient.name,
-            course: null,
+            content: null,
             error: error?.message || data?.error || 'Generation failed',
           });
         } else {
-          const course = data.course;
+          const content = type === 'intervalEvents' ? data.intervalEvents : data.course;
           results.push({
             patientId: patient.id,
             patientName: patient.name,
-            course,
+            content,
           });
 
           // If auto-insert is enabled, save for undo and update patient
-          if (onUpdatePatient && course) {
+          if (onUpdatePatient && content) {
+            const previousValue = type === 'intervalEvents' 
+              ? patient.intervalEvents 
+              : patient.clinicalSummary;
+            
             undoEntries.push({
               patientId: patient.id,
-              field: 'clinicalSummary',
-              previousValue: patient.clinicalSummary,
+              field: targetField,
+              previousValue,
             });
 
-            const newValue = patient.clinicalSummary
-              ? `${patient.clinicalSummary}\n\n---\n**Hospital Course:**\n${course}`
-              : `**Hospital Course:**\n${course}`;
+            let newValue: string;
+            if (type === 'intervalEvents') {
+              newValue = previousValue
+                ? `${previousValue}\n\n${content}`
+                : content;
+            } else {
+              newValue = previousValue
+                ? `${previousValue}\n\n---\n**Hospital Course:**\n${content}`
+                : `**Hospital Course:**\n${content}`;
+            }
             
-            onUpdatePatient(patient.id, 'clinicalSummary', newValue);
+            onUpdatePatient(patient.id, targetField, newValue);
           }
         }
       } catch (err) {
@@ -140,7 +180,7 @@ export const useBatchCourseGenerator = () => {
         results.push({
           patientId: patient.id,
           patientName: patient.name,
-          course: null,
+          content: null,
           error: err instanceof Error ? err.message : 'Unknown error',
         });
       }
@@ -160,18 +200,35 @@ export const useBatchCourseGenerator = () => {
     setIsGenerating(false);
     abortControllerRef.current = null;
 
-    const successCount = results.filter(r => r.course).length;
-    const failCount = results.filter(r => !r.course).length;
+    const successCount = results.filter(r => r.content).length;
+    const failCount = results.filter(r => !r.content).length;
+    const label = type === 'intervalEvents' ? 'interval event' : 'course';
     
     if (successCount > 0) {
-      toast.success(`Generated ${successCount} patient course${successCount > 1 ? 's' : ''}`);
+      toast.success(`Generated ${successCount} ${label}${successCount > 1 ? 's' : ''}`);
     }
     if (failCount > 0) {
-      toast.error(`Failed to generate ${failCount} course${failCount > 1 ? 's' : ''}`);
+      toast.error(`Failed to generate ${failCount} ${label}${failCount > 1 ? 's' : ''}`);
     }
 
     return results;
   }, []);
+
+  // Backwards compatible wrapper for course generation
+  const generateBatchCourses = React.useCallback(async (
+    patients: Patient[],
+    onUpdatePatient?: (id: string, field: string, value: unknown) => void
+  ): Promise<BatchResult[]> => {
+    return generateBatch(patients, 'course', onUpdatePatient);
+  }, [generateBatch]);
+
+  // New method for interval events
+  const generateBatchIntervalEvents = React.useCallback(async (
+    patients: Patient[],
+    onUpdatePatient?: (id: string, field: string, value: unknown) => void
+  ): Promise<BatchResult[]> => {
+    return generateBatch(patients, 'intervalEvents', onUpdatePatient);
+  }, [generateBatch]);
 
   const undoLastBatch = React.useCallback((
     onUpdatePatient: (id: string, field: string, value: unknown) => void
@@ -186,7 +243,7 @@ export const useBatchCourseGenerator = () => {
     });
 
     setUndoStack(rest);
-    toast.success(`Undone ${lastBatch.length} patient course${lastBatch.length > 1 ? 's' : ''}`);
+    toast.success(`Undone ${lastBatch.length} change${lastBatch.length > 1 ? 's' : ''}`);
   }, [undoStack]);
 
   const cancelGeneration = React.useCallback(() => {
@@ -201,7 +258,9 @@ export const useBatchCourseGenerator = () => {
   const canUndo = undoStack.length > 0;
 
   return {
+    generateBatch,
     generateBatchCourses,
+    generateBatchIntervalEvents,
     isGenerating,
     progress,
     cancelGeneration,

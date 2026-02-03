@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sparkles,
   Loader2,
@@ -25,8 +26,10 @@ import {
   FileText,
   Copy,
   AlertCircle,
+  Calendar,
+  ClipboardList,
 } from 'lucide-react';
-import { useBatchCourseGenerator, BatchResult } from '@/hooks/useBatchCourseGenerator';
+import { useBatchCourseGenerator, BatchResult, BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
 import type { Patient } from '@/types/patient';
 import { cn } from '@/lib/utils';
 
@@ -42,7 +45,7 @@ export const BatchCourseGenerator = ({
   className = '',
 }: BatchCourseGeneratorProps) => {
   const {
-    generateBatchCourses,
+    generateBatch,
     isGenerating,
     progress,
     cancelGeneration,
@@ -51,30 +54,35 @@ export const BatchCourseGenerator = ({
   } = useBatchCourseGenerator();
 
   const [open, setOpen] = React.useState(false);
+  const [generationType, setGenerationType] = React.useState<BatchGenerationType>('course');
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [autoInsert, setAutoInsert] = React.useState(true);
   const [results, setResults] = React.useState<BatchResult[]>([]);
   const [showResults, setShowResults] = React.useState(false);
 
-  // Filter patients that have content
+  // Filter patients based on generation type
   const patientsWithContent = React.useMemo(() => {
     return patients.filter(patient => {
-      const hasContent = 
-        patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
-        patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
-        patient.imaging?.replace(/<[^>]*>/g, '').trim() ||
-        patient.labs?.replace(/<[^>]*>/g, '').trim() ||
-        Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
-      return hasContent;
+      if (generationType === 'intervalEvents') {
+        return Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
+      } else {
+        const hasContent = 
+          patient.clinicalSummary?.replace(/<[^>]*>/g, '').trim() ||
+          patient.intervalEvents?.replace(/<[^>]*>/g, '').trim() ||
+          patient.imaging?.replace(/<[^>]*>/g, '').trim() ||
+          patient.labs?.replace(/<[^>]*>/g, '').trim() ||
+          Object.values(patient.systems).some(val => val?.replace(/<[^>]*>/g, '').trim());
+        return hasContent;
+      }
     });
-  }, [patients]);
+  }, [patients, generationType]);
 
-  // Initialize selection with all patients that have content
+  // Reset selection when type changes
   React.useEffect(() => {
-    if (open && selectedIds.size === 0 && patientsWithContent.length > 0) {
+    if (open && patientsWithContent.length > 0) {
       setSelectedIds(new Set(patientsWithContent.map(p => p.id)));
     }
-  }, [open, patientsWithContent, selectedIds.size]);
+  }, [open, patientsWithContent]);
 
   const togglePatient = (id: string) => {
     setSelectedIds(prev => {
@@ -102,8 +110,9 @@ export const BatchCourseGenerator = ({
     if (selectedPatients.length === 0) return;
 
     setShowResults(false);
-    const batchResults = await generateBatchCourses(
+    const batchResults = await generateBatch(
       selectedPatients,
+      generationType,
       autoInsert ? onUpdatePatient : undefined
     );
     
@@ -112,16 +121,16 @@ export const BatchCourseGenerator = ({
   };
 
   const handleCopyAll = () => {
-    const successResults = results.filter(r => r.course);
+    const successResults = results.filter(r => r.content);
     const text = successResults
-      .map(r => `## ${r.patientName}\n\n${r.course}`)
+      .map(r => `## ${r.patientName}\n\n${r.content}`)
       .join('\n\n---\n\n');
     
     navigator.clipboard.writeText(text);
   };
 
-  const handleCopySingle = (course: string) => {
-    navigator.clipboard.writeText(course);
+  const handleCopySingle = (content: string) => {
+    navigator.clipboard.writeText(content);
   };
 
   const handleUndo = () => {
@@ -140,8 +149,11 @@ export const BatchCourseGenerator = ({
     ? (progress.completed / progress.total) * 100 
     : 0;
 
-  const successCount = results.filter(r => r.course).length;
-  const failCount = results.filter(r => !r.course).length;
+  const successCount = results.filter(r => r.content).length;
+  const failCount = results.filter(r => !r.content).length;
+
+  const typeLabel = generationType === 'intervalEvents' ? 'Interval Events' : 'Courses';
+  const typeLabelSingular = generationType === 'intervalEvents' ? 'Interval Event' : 'Course';
 
   return (
     <div className={className}>
@@ -151,10 +163,10 @@ export const BatchCourseGenerator = ({
             variant="outline"
             size="sm"
             onClick={() => setOpen(true)}
-            disabled={patientsWithContent.length === 0}
+            disabled={patients.length === 0}
           >
             <Users className="h-4 w-4 mr-2" />
-            Batch Generate Courses
+            Batch AI Generate
           </Button>
         </DialogTrigger>
 
@@ -162,15 +174,33 @@ export const BatchCourseGenerator = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Batch Course Generation
+              Batch AI Generation
             </DialogTitle>
             <DialogDescription>
-              Generate hospital courses for multiple patients at once using AI.
+              Generate content for multiple patients at once using AI.
             </DialogDescription>
           </DialogHeader>
 
           {!showResults ? (
             <>
+              {/* Generation Type Tabs */}
+              <Tabs 
+                value={generationType} 
+                onValueChange={(v) => setGenerationType(v as BatchGenerationType)}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="course" className="gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Hospital Course
+                  </TabsTrigger>
+                  <TabsTrigger value="intervalEvents" className="gap-2">
+                    <ClipboardList className="h-4 w-4" />
+                    Interval Events
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               {/* Patient Selection */}
               <div className="flex-1 overflow-hidden flex flex-col gap-4">
                 <div className="flex items-center justify-between">
@@ -182,13 +212,17 @@ export const BatchCourseGenerator = ({
                   </Button>
                 </div>
 
-                <ScrollArea className="flex-1 max-h-[300px] border rounded-lg">
+                <ScrollArea className="flex-1 max-h-[250px] border rounded-lg">
                   <div className="p-2 space-y-1">
                     {patientsWithContent.length === 0 ? (
                       <div className="p-8 text-center text-muted-foreground">
                         <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No patients with clinical data found.</p>
-                        <p className="text-xs mt-1">Add clinical notes to patients first.</p>
+                        <p>No patients with {generationType === 'intervalEvents' ? 'system notes' : 'clinical data'} found.</p>
+                        <p className="text-xs mt-1">
+                          {generationType === 'intervalEvents' 
+                            ? 'Add system review notes to patients first.'
+                            : 'Add clinical notes to patients first.'}
+                        </p>
                       </div>
                     ) : (
                       patientsWithContent.map(patient => (
@@ -226,13 +260,13 @@ export const BatchCourseGenerator = ({
                       onCheckedChange={setAutoInsert}
                     />
                     <Label htmlFor="auto-insert" className="text-sm cursor-pointer">
-                      Auto-insert into Clinical Summary
+                      Auto-insert into {generationType === 'intervalEvents' ? 'Interval Events' : 'Clinical Summary'}
                     </Label>
                   </div>
                   {canUndo && (
                     <Button variant="ghost" size="sm" onClick={handleUndo}>
                       <Undo2 className="h-4 w-4 mr-1" />
-                      Undo Last Batch
+                      Undo Last
                     </Button>
                   )}
                 </div>
@@ -268,7 +302,7 @@ export const BatchCourseGenerator = ({
                     disabled={selectedIds.size === 0}
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Generate {selectedIds.size} Course{selectedIds.size !== 1 ? 's' : ''}
+                    Generate {selectedIds.size} {selectedIds.size !== 1 ? typeLabel : typeLabelSingular}
                   </Button>
                 )}
               </DialogFooter>
@@ -300,31 +334,31 @@ export const BatchCourseGenerator = ({
                         key={result.patientId}
                         className={cn(
                           "p-3 rounded-lg border",
-                          result.course ? "bg-muted/30" : "bg-destructive/10 border-destructive/30"
+                          result.content ? "bg-muted/30" : "bg-destructive/10 border-destructive/30"
                         )}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            {result.course ? (
+                            {result.content ? (
                               <Check className="h-4 w-4 text-green-500" />
                             ) : (
                               <X className="h-4 w-4 text-destructive" />
                             )}
                             <span className="font-medium">{result.patientName}</span>
                           </div>
-                          {result.course && (
+                          {result.content && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleCopySingle(result.course!)}
+                              onClick={() => handleCopySingle(result.content!)}
                             >
                               <Copy className="h-3 w-3" />
                             </Button>
                           )}
                         </div>
-                        {result.course ? (
+                        {result.content ? (
                           <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[150px] overflow-y-auto">
-                            {result.course}
+                            {result.content}
                           </pre>
                         ) : (
                           <p className="text-xs text-destructive">{result.error}</p>
