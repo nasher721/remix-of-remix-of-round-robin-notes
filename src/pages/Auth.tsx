@@ -170,6 +170,8 @@ const Auth = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}
                   startIcon={<Mail className="h-4 w-4" />}
+                  aria-invalid={Boolean(errors.email)}
+                  showSuccess={!errors.email && email.length > 0}
                   className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
                 />
                 {errors.email && (
@@ -188,6 +190,8 @@ const Auth = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
                   startIcon={<Lock className="h-4 w-4" />}
+                  aria-invalid={Boolean(errors.password)}
+                  showSuccess={!errors.password && password.length > 0}
                   endIcon={
                     <button
                       type="button"

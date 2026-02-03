@@ -140,6 +140,17 @@ export default {
   					transform: 'scale(1)',
   					opacity: '1'
   				}
+  			},
+  			shake: {
+  				'0%, 100%': {
+  					transform: 'translateX(0)'
+  				},
+  				'20%, 60%': {
+  					transform: 'translateX(-6px)'
+  				},
+  				'40%, 80%': {
+  					transform: 'translateX(6px)'
+  				}
   			}
   		},
   		animation: {
@@ -147,7 +158,8 @@ export default {
   			'accordion-up': 'accordion-up 0.2s ease-out',
   			'fade-in': 'fade-in 0.3s ease-out',
   			'fade-out': 'fade-out 0.3s ease-out',
-  			'scale-in': 'scale-in 0.2s ease-out'
+  			'scale-in': 'scale-in 0.2s ease-out',
+  			shake: 'shake 0.35s ease-in-out'
   		},
   		fontFamily: {
   			sans: [
