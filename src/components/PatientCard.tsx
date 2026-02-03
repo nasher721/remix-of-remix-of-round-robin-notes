@@ -10,6 +10,10 @@ import { FieldHistoryViewer } from "./FieldHistoryViewer";
 import { SystemsConfigManager } from "./SystemsConfigManager";
 import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
+import { PatientAcuityBadge } from "./PatientAcuityBadge";
+import { QuickActionsPanel, QuickActionButtons } from "./QuickActionsPanel";
+import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
+import { LabTrendBadge } from "./LabTrendingPanel";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -101,7 +105,7 @@ const PatientCardComponent = ({
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <span className="text-lg">👤</span>
             </div>
-            <div className="flex gap-3 flex-1 flex-wrap">
+            <div className="flex gap-3 flex-1 flex-wrap items-center">
               <Input
                 placeholder="Patient Name"
                 value={patient.name}
@@ -114,11 +118,21 @@ const PatientCardComponent = ({
                 onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
                 className="max-w-[120px] bg-card border border-border hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:shadow-[0_0_12px_hsl(var(--primary)/0.15)] rounded-lg px-3 h-9 text-muted-foreground transition-shadow duration-200"
               />
+              {/* Patient Status Badges */}
+              <div className="flex items-center gap-2 no-print">
+                <PatientAcuityBadge patient={patient} size="sm" />
+                <LabTrendBadge labText={patient.labs} />
+                <ProtocolBadge patient={patient} />
+              </div>
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1 no-print">
+          {/* Quick Actions & Protocol Tools */}
+          <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
+          <SmartProtocolSuggestions patient={patient} />
+          <div className="w-px h-5 bg-border mx-1" />
           <FieldHistoryViewer
             patientId={patient.id}
             patientName={patient.name}

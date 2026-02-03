@@ -13,6 +13,9 @@ import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
 import { PatientNavigator } from "./PatientNavigator";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
+import { LabTrendingPanel } from "@/components/LabTrendingPanel";
+import { UnitCensusDashboard, CensusBadge } from "@/components/UnitCensusDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -30,6 +33,7 @@ import {
   ListTodo,
   FileText,
   ChevronsUpDown,
+  Stethoscope,
 } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import {
@@ -209,6 +213,18 @@ export const DesktopDashboard = ({
                 existingBeds={patients.map(p => p.bed)}
                 onImportPatients={onImportPatients}
               />
+            </div>
+
+            {/* Clinical Tools Group */}
+            <div className="flex items-center gap-2 p-1 bg-background rounded-lg border border-border/60 shadow-sm">
+              <div className="flex items-center gap-1 px-2 text-muted-foreground">
+                <Stethoscope className="h-3.5 w-3.5" />
+                <span className="text-xs font-medium hidden md:inline">Clinical</span>
+              </div>
+              <div className="w-px h-5 bg-border" />
+              <UnitCensusDashboard patients={patients} />
+              <LabTrendingPanel patients={patients} />
+              <ClinicalRiskCalculator />
             </div>
 
             {/* Tools Group */}
