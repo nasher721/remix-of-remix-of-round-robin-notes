@@ -226,6 +226,7 @@ export const DesktopDashboard = ({
               <UnitCensusDashboard patients={patients} />
               <LabTrendingPanel patients={patients} />
               <ClinicalRiskCalculator />
+              <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
             </div>
 
             {/* Tools Group */}
