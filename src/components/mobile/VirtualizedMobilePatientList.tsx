@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useEffect, useState, CSSProperties, ReactElement } from "react";
+import * as React from "react";
 import { List, ListImperativeAPI } from "react-window";
 import { Patient } from "@/types/patient";
 import { SwipeablePatientCard } from "./SwipeablePatientCard";
