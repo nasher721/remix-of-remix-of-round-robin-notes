@@ -133,6 +133,7 @@ const PatientCardComponent = ({
           {/* Quick Actions & Protocol Tools */}
           <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
           <SmartProtocolSuggestions patient={patient} />
+          <AIGeneratorTools patient={patient} onUpdatePatient={onUpdate} compact />
           <div className="w-px h-5 bg-border mx-1" />
           <FieldHistoryViewer
             patientId={patient.id}
