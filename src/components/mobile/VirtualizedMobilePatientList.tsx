@@ -2,6 +2,8 @@ import { memo, useCallback, useMemo, useRef, useEffect, useState, CSSProperties,
 import { List, ListImperativeAPI } from "react-window";
 import { Patient } from "@/types/patient";
 import { SwipeablePatientCard } from "./SwipeablePatientCard";
+import { Button } from "@/components/ui/button";
+import { ArrowUp } from "lucide-react";
 
 interface VirtualizedMobilePatientListProps {
   patients: Patient[];
@@ -9,6 +11,8 @@ interface VirtualizedMobilePatientListProps {
   onPatientDelete: (id: string) => void;
   onPatientDuplicate: (id: string) => void;
   searchQuery?: string;
+  onAddPatient?: () => void;
+  onOpenImport?: () => void;
 }
 
 interface RowProps {
@@ -61,10 +65,13 @@ export const VirtualizedMobilePatientList = memo(({
   onPatientDelete,
   onPatientDuplicate,
   searchQuery,
+  onAddPatient,
+  onOpenImport,
 }: VirtualizedMobilePatientListProps) => {
   const listRef = useRef<ListImperativeAPI>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = useState(400);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Calculate container height based on viewport
   useEffect(() => {
@@ -90,6 +97,10 @@ export const VirtualizedMobilePatientList = memo(({
     onDuplicate: onPatientDuplicate,
   }), [patients, onPatientSelect, onPatientDelete, onPatientDuplicate]);
 
+  const handleScroll = useCallback(({ scrollOffset }: { scrollOffset: number }) => {
+    setShowScrollTop(scrollOffset > ROW_HEIGHT * 3);
+  }, []);
+
   if (patients.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
@@ -104,12 +115,22 @@ export const VirtualizedMobilePatientList = memo(({
             ? "Try adjusting your search."
             : "Tap the + button below to add your first patient."}
         </p>
+        {!searchQuery && (
+          <div className="flex flex-col gap-2 mt-6 w-full max-w-xs">
+            <Button onClick={onAddPatient} className="w-full" disabled={!onAddPatient}>
+              Add patient
+            </Button>
+            <Button variant="outline" onClick={onOpenImport} className="w-full" disabled={!onOpenImport}>
+              Import from Epic
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="relative w-full">
       <List
         listRef={listRef}
         rowCount={patients.length}
@@ -118,6 +139,7 @@ export const VirtualizedMobilePatientList = memo(({
         rowProps={rowProps}
         overscanCount={3}
         className="scrollbar-thin"
+        onScroll={handleScroll}
         style={{ height: containerHeight, width: '100%' }}
       />
 
@@ -126,6 +148,18 @@ export const VirtualizedMobilePatientList = memo(({
         <div className="py-4 px-6 text-center text-xs text-muted-foreground animate-fade-in">
           💡 Swipe left on a patient for quick actions
         </div>
+      )}
+
+      {showScrollTop && (
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={() => listRef.current?.scrollTo(0)}
+          className="absolute bottom-4 right-4 h-10 w-10 rounded-full shadow-lg"
+          aria-label="Scroll to top"
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
       )}
     </div>
   );

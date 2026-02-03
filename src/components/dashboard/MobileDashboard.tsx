@@ -7,12 +7,15 @@ import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { IBCCPanel } from "@/components/ibcc";
 import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronsUpDown, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
 import { useDashboard } from "@/contexts/DashboardContext";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { PatientFilterType } from "@/constants/config";
 
 // Mobile components
 import { MobileNavBar, MobileHeader } from "@/components/layout";
@@ -31,6 +34,8 @@ export const MobileDashboard = () => {
     filteredPatients,
     searchQuery,
     setSearchQuery,
+    filter,
+    setFilter,
     autotexts,
     templates,
     customDictionary,
@@ -53,6 +58,7 @@ export const MobileDashboard = () => {
     selectedPatient,
     mobileTab,
     setMobileTab,
+    lastSaved,
   } = useDashboard();
 
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones } = useSettings();
@@ -83,6 +89,17 @@ export const MobileDashboard = () => {
     onAddPatient();
     setMobileTab("patients");
   }, [onAddPatient, setMobileTab]);
+
+  const filterOptions = [
+    { id: PatientFilterType.All, label: "All" },
+    { id: PatientFilterType.Filled, label: "Filled" },
+    { id: PatientFilterType.Empty, label: "Empty" },
+  ];
+
+  const lastSavedLabel = new Date(lastSaved).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -123,7 +140,9 @@ export const MobileDashboard = () => {
             <>
               <MobileHeader
                 title="Patient Rounding"
-                subtitle="Synced"
+                subtitle={`${filteredPatients.length} of ${patients.length} patients`}
+                statusText="Synced"
+                statusTone="success"
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 rightAction={
@@ -140,6 +159,32 @@ export const MobileDashboard = () => {
                   ) : undefined
                 }
               />
+              <div className="sticky top-14 z-30 bg-background/95 backdrop-blur border-b border-border/40">
+                <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
+                  <span>
+                    {searchQuery ? `Results for "${searchQuery}"` : "All patients"}
+                  </span>
+                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                    Last saved {lastSavedLabel}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-thin">
+                  {filterOptions.map((option) => (
+                    <Button
+                      key={option.id}
+                      variant={filter === option.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFilter(option.id)}
+                      className={cn(
+                        "h-8 rounded-full px-3 text-xs",
+                        filter === option.id ? "shadow-sm" : "text-muted-foreground"
+                      )}
+                    >
+                      {option.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
               <div className="pb-mobile-nav">
                 <VirtualizedMobilePatientList
                   patients={filteredPatients}
@@ -151,8 +196,18 @@ export const MobileDashboard = () => {
                   onPatientDelete={handleRemovePatient}
                   onPatientDuplicate={onDuplicatePatient}
                   searchQuery={searchQuery}
+                  onAddPatient={handleAddPatient}
+                  onOpenImport={() => setShowImportModal(true)}
                 />
               </div>
+              <Button
+                onClick={handleAddPatient}
+                className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-lg z-40"
+                size="icon"
+              >
+                <Plus className="h-5 w-5" />
+                <span className="sr-only">Add patient</span>
+              </Button>
             </>
           )}
 
@@ -258,4 +313,3 @@ export const MobileDashboard = () => {
     </div>
   );
 };
-

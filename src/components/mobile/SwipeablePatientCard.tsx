@@ -94,6 +94,10 @@ export const SwipeablePatientCard = ({
   };
 
   const actionOpacity = Math.min(1, Math.abs(translateX) / SWIPE_THRESHOLD);
+  const lastUpdatedLabel = new Date(patient.lastModified).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
   return (
     <div 
@@ -147,6 +151,7 @@ export const SwipeablePatientCard = ({
             <span className="font-semibold text-base truncate">
               {patient.name || "Unnamed Patient"}
             </span>
+            <span className="text-[10px] text-muted-foreground">Updated {lastUpdatedLabel}</span>
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             {patient.bed && (
