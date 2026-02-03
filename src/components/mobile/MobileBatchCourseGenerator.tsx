@@ -121,18 +121,18 @@ export const MobileBatchCourseGenerator = ({
   };
 
   const handleCopyAll = () => {
-    const successResults = results.filter(r => r.course);
+    const successResults = results.filter(r => r.content);
     const text = successResults
-      .map(r => `## ${r.patientName}\n\n${r.course}`)
+      .map(r => `## ${r.patientName}\n\n${r.content}`)
       .join('\n\n---\n\n');
     
     navigator.clipboard.writeText(text);
-    toast.success('All courses copied to clipboard');
+    toast.success('All content copied to clipboard');
   };
 
-  const handleCopySingle = (course: string, name: string) => {
-    navigator.clipboard.writeText(course);
-    toast.success(`${name}'s course copied`);
+  const handleCopySingle = (content: string, name: string) => {
+    navigator.clipboard.writeText(content);
+    toast.success(`${name}'s content copied`);
   };
 
   const handleUndo = () => {
@@ -149,8 +149,8 @@ export const MobileBatchCourseGenerator = ({
     ? (progress.completed / progress.total) * 100 
     : 0;
 
-  const successCount = results.filter(r => r.course).length;
-  const failCount = results.filter(r => !r.course).length;
+  const successCount = results.filter(r => r.content).length;
+  const failCount = results.filter(r => !r.content).length;
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>
@@ -286,7 +286,7 @@ export const MobileBatchCourseGenerator = ({
                     <Card
                       key={result.patientId}
                       className={cn(
-                        result.course 
+                        result.content 
                           ? "border-l-4 border-l-green-500" 
                           : "border-l-4 border-l-destructive bg-destructive/5"
                       )}
@@ -294,27 +294,27 @@ export const MobileBatchCourseGenerator = ({
                       <CardContent className="p-3">
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
-                            {result.course ? (
+                            {result.content ? (
                               <Check className="h-4 w-4 text-green-500" />
                             ) : (
                               <X className="h-4 w-4 text-destructive" />
                             )}
                             <span className="font-medium">{result.patientName}</span>
                           </div>
-                          {result.course && (
+                          {result.content && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-8 w-8 p-0"
-                              onClick={() => handleCopySingle(result.course!, result.patientName)}
+                              onClick={() => handleCopySingle(result.content!, result.patientName)}
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
-                        {result.course ? (
+                        {result.content ? (
                           <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[100px] overflow-y-auto bg-muted/50 p-2 rounded">
-                            {result.course}
+                            {result.content}
                           </pre>
                         ) : (
                           <p className="text-xs text-destructive">{result.error}</p>
