@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo, useRef, useEffect, useState, CSSProperties, ReactElement } from "react";
-import { List, ListImperativeAPI } from "react-window";
+import * as React from "react";
+import { List, ListImperativeAPI, RowComponentProps } from "react-window";
 import { Patient } from "@/types/patient";
 import { SwipeablePatientCard } from "./SwipeablePatientCard";
 import { Button } from "@/components/ui/button";
@@ -33,15 +33,7 @@ const PatientRowComponent = ({
   onSelect,
   onDelete,
   onDuplicate,
-}: {
-  ariaAttributes: {
-    "aria-posinset": number;
-    "aria-setsize": number;
-    role: "listitem";
-  };
-  index: number;
-  style: CSSProperties;
-} & RowProps): ReactElement | null => {
+}: RowComponentProps<RowProps>): React.ReactElement | null => {
   const patient = patients[index];
 
   if (!patient) return null;
@@ -59,7 +51,7 @@ const PatientRowComponent = ({
   );
 };
 
-export const VirtualizedMobilePatientList = memo(({
+export const VirtualizedMobilePatientList = React.memo(({
   patients,
   onPatientSelect,
   onPatientDelete,
@@ -68,13 +60,13 @@ export const VirtualizedMobilePatientList = memo(({
   onAddPatient,
   onOpenImport,
 }: VirtualizedMobilePatientListProps) => {
-  const listRef = useRef<ListImperativeAPI>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerHeight, setContainerHeight] = useState(400);
-  const [showScrollTop, setShowScrollTop] = useState(false);
+  const listRef = React.useRef<ListImperativeAPI>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerHeight, setContainerHeight] = React.useState(400);
+  const [showScrollTop, setShowScrollTop] = React.useState(false);
 
   // Calculate container height based on viewport
-  useEffect(() => {
+  React.useEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
@@ -90,16 +82,25 @@ export const VirtualizedMobilePatientList = memo(({
   }, []);
 
   // Memoize row props to prevent re-renders
-  const rowProps = useMemo<RowProps>(() => ({
+  const rowProps = React.useMemo<RowProps>(() => ({
     patients,
     onSelect: onPatientSelect,
     onDelete: onPatientDelete,
     onDuplicate: onPatientDuplicate,
   }), [patients, onPatientSelect, onPatientDelete, onPatientDuplicate]);
 
-  const handleScroll = useCallback(({ scrollOffset }: { scrollOffset: number }) => {
-    setShowScrollTop(scrollOffset > ROW_HEIGHT * 3);
-  }, []);
+  // Track scroll position via scroll event listener
+  React.useEffect(() => {
+    const element = listRef.current?.element;
+    if (!element) return;
+    
+    const handleScroll = () => {
+      setShowScrollTop(element.scrollTop > ROW_HEIGHT * 3);
+    };
+    
+    element.addEventListener('scroll', handleScroll);
+    return () => element.removeEventListener('scroll', handleScroll);
+  }, [patients.length]); // Re-attach when patient count changes
 
   if (patients.length === 0) {
     return (
@@ -131,7 +132,7 @@ export const VirtualizedMobilePatientList = memo(({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <List
+      <List<RowProps>
         listRef={listRef}
         rowCount={patients.length}
         rowHeight={ROW_HEIGHT}
@@ -139,7 +140,6 @@ export const VirtualizedMobilePatientList = memo(({
         rowProps={rowProps}
         overscanCount={3}
         className="scrollbar-thin"
-        onScroll={handleScroll}
         style={{ height: containerHeight, width: '100%' }}
       />
 
@@ -154,7 +154,7 @@ export const VirtualizedMobilePatientList = memo(({
         <Button
           variant="secondary"
           size="icon"
-          onClick={() => listRef.current?.scrollTo(0)}
+          onClick={() => listRef.current?.scrollToRow({ index: 0, align: 'start', behavior: 'smooth' })}
           className="absolute bottom-4 right-4 h-10 w-10 rounded-full shadow-lg"
           aria-label="Scroll to top"
         >

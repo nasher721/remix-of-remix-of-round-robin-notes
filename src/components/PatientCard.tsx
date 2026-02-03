@@ -14,6 +14,7 @@ import { PatientAcuityBadge } from "./PatientAcuityBadge";
 import { QuickActionsPanel, QuickActionButtons } from "./QuickActionsPanel";
 import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
 import { LabTrendBadge } from "./LabTrendingPanel";
+import { AIGeneratorTools } from "./AIGeneratorTools";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -132,6 +133,7 @@ const PatientCardComponent = ({
           {/* Quick Actions & Protocol Tools */}
           <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
           <SmartProtocolSuggestions patient={patient} />
+          <AIGeneratorTools patient={patient} onUpdatePatient={onUpdate} compact />
           <div className="w-px h-5 bg-border mx-1" />
           <FieldHistoryViewer
             patientId={patient.id}
