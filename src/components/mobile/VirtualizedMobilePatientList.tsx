@@ -132,7 +132,7 @@ export const VirtualizedMobilePatientList = React.memo(({
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <List<RowProps>
+      <List
         listRef={listRef}
         rowCount={patients.length}
         rowHeight={ROW_HEIGHT}
