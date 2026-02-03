@@ -15,6 +15,7 @@ import { PrintControls } from "./print/PrintControls";
 import { PrintPreview } from "./print/PrintPreview";
 import { PrintTemplateSelector } from "./print/PrintTemplateSelector";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { PrintSettings as PrintSettingsType, ColumnConfig, CustomCombination } from "@/lib/print/types";
 import { getTemplateById, mergeTemplateCustomizations, PrintTemplatePreset, PrintTemplateType } from "@/types/printTemplates";
 import { defaultColumnWidths, defaultColumns, defaultCombinedColumnWidths } from "./print/constants";
