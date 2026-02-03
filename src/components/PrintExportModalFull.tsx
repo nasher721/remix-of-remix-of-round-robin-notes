@@ -8,15 +8,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Printer } from "lucide-react";
+import { Printer, LayoutTemplate } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PrintSettings } from "./print/PrintSettings";
 import { PrintControls } from "./print/PrintControls";
 import { PrintPreview } from "./print/PrintPreview";
 import { PrintTemplateSelector } from "./print/PrintTemplateSelector";
 import { PrintDocument } from "./print/PrintDocument";
+import { LayoutDesigner } from "./print/layoutDesigner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import type { LayoutConfig } from "@/types/layoutDesigner";
 import type { PrintSettings as PrintSettingsType, ColumnConfig, CustomCombination } from "@/lib/print/types";
 import { getTemplateById, mergeTemplateCustomizations, PrintTemplatePreset, PrintTemplateType } from "@/types/printTemplates";
 import { defaultColumnWidths, defaultColumns, defaultCombinedColumnWidths } from "./print/constants";
@@ -55,6 +57,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<PrintTemplateType>('standard');
   const [templatePresets, setTemplatePresets] = React.useState<PrintTemplatePreset[]>([]);
   const [templatePresetName, setTemplatePresetName] = React.useState("");
+  const [showLayoutDesigner, setShowLayoutDesigner] = React.useState(false);
+  const [appliedLayout, setAppliedLayout] = React.useState<LayoutConfig | null>(null);
   const exportRef = React.useRef<HTMLDivElement | null>(null);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const initialSyncDone = React.useRef(false);
@@ -508,6 +512,45 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     window.print();
   };
 
+  // Handle applying a layout from the designer
+  const handleApplyLayout = React.useCallback((layout: LayoutConfig) => {
+    setAppliedLayout(layout);
+
+    // Convert layout sections to column config
+    const newColumns = settings.columns.map(col => {
+      const layoutSection = layout.sections.find(s => s.id === col.key || s.type === col.key);
+      return {
+        ...col,
+        enabled: layoutSection?.enabled ?? col.enabled,
+      };
+    });
+
+    // Update settings based on layout
+    handleUpdateSettings({
+      columns: newColumns,
+      printOrientation: layout.pageSettings.orientation,
+      printFontSize: layout.globalStyles.fontSize,
+      printFontFamily: layout.globalStyles.fontFamily,
+      onePatientPerPage: layout.pageSettings.onePatientPerPage,
+      margins: typeof layout.pageSettings.margins === 'string'
+        ? layout.pageSettings.margins
+        : 'normal',
+      headerStyle: layout.globalStyles.headerStyle === 'branded'
+        ? 'detailed'
+        : layout.globalStyles.headerStyle,
+      borderStyle: layout.globalStyles.borderStyle,
+      showPageNumbers: layout.pageSettings.showPageNumbers,
+      showTimestamp: layout.pageSettings.showTimestamp,
+      compactMode: layout.globalStyles.spacing === 'compact',
+    });
+
+    setShowLayoutDesigner(false);
+    toast({
+      title: 'Layout Applied',
+      description: `"${layout.name}" layout has been applied to your export.`,
+    });
+  }, [settings.columns, handleUpdateSettings, toast]);
+
   const onExportPDF = async () => {
     setIsGenerating(true);
     try {
@@ -561,6 +604,20 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }
   };
 
+  // If layout designer is open, show it fullscreen
+  if (showLayoutDesigner) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[98vw] w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
+          <LayoutDesigner
+            onApplyLayout={handleApplyLayout}
+            onClose={() => setShowLayoutDesigner(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
@@ -569,16 +626,32 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             <DialogTitle className="flex items-center gap-2">
               <Printer className="h-5 w-5" />
               Print & Export
+              {appliedLayout && (
+                <span className="text-xs font-normal text-muted-foreground ml-2 px-2 py-0.5 rounded bg-primary/10">
+                  Using: {appliedLayout.name}
+                </span>
+              )}
             </DialogTitle>
-            <PrintControls
-              onPrint={handlePrint}
-              onExportPDF={onExportPDF}
-              onExportExcel={onExportExcel}
-              onExportWord={onExportWord}
-              onExportTXT={onExportTXT}
-              onExportRTF={onExportRTF}
-              isGenerating={isGenerating}
-            />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLayoutDesigner(true)}
+                className="gap-1.5"
+              >
+                <LayoutTemplate className="h-4 w-4" />
+                Layout Designer
+              </Button>
+              <PrintControls
+                onPrint={handlePrint}
+                onExportPDF={onExportPDF}
+                onExportExcel={onExportExcel}
+                onExportWord={onExportWord}
+                onExportTXT={onExportTXT}
+                onExportRTF={onExportRTF}
+                isGenerating={isGenerating}
+              />
+            </div>
           </div>
         </DialogHeader>
 
