@@ -4,6 +4,7 @@ import { useAuth } from "./useAuth";
 import { useNotifications } from "./use-notifications";
 import type { Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
 import { parseSystemsJson, parseFieldTimestampsJson, parseMedicationsJson, prepareUpdateData } from "@/lib/mappers/patientMapper";
+import { logMetric } from "@/lib/observability/logger";
 import type { Json } from "@/integrations/supabase/types";
 
 const defaultSystemsValue: PatientSystems = {
@@ -49,6 +50,8 @@ export const usePatients = () => {
       return;
     }
 
+    const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
+
     try {
       const { data, error } = await supabase
         .from("patients")
@@ -79,8 +82,17 @@ export const usePatients = () => {
       // Set counter to max patient_number + 1
       const maxNumber = formattedPatients.reduce((max, p) => Math.max(max, p.patientNumber), 0);
       setPatientCounter(maxNumber + 1);
+
+      const durationMs = Math.round(
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime
+      );
+      logMetric("patients.fetch.duration_ms", durationMs, "ms", {
+        userId: user.id,
+        resultCount: formattedPatients.length,
+      });
     } catch (error) {
       console.error("Error fetching patients:", error);
+      logMetric("patients.fetch.error", 1, "count", { userId: user.id });
       notifications.error({
         title: "Error",
         description: "Failed to load patients.",
@@ -554,4 +566,3 @@ export const usePatients = () => {
     refetch: fetchPatients,
   };
 };
-

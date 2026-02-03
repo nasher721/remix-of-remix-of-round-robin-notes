@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { offlineQueue, QueuedMutation, SyncResult } from './offlineQueue';
+import { logMetric } from '@/lib/observability/logger';
 import { toast } from 'sonner';
 
 export interface SyncProgress {
@@ -214,6 +215,9 @@ class SyncService {
     offlineQueue.setSyncInProgress(true);
     
     const queue = offlineQueue.getQueue();
+    logMetric('offline.sync.queue_length', queue.length, 'count', {
+      isOnline: navigator.onLine,
+    });
     const progress: SyncProgress = {
       total: queue.length,
       completed: 0,
