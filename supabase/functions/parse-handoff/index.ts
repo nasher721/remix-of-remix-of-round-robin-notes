@@ -519,36 +519,103 @@ SYSTEM MAPPING GUIDANCE:
         parsedData = JSON.parse(jsonStr);
       } catch (initialError) {
         console.log("Initial parse failed, attempting repair...");
-
+        
+        // Repair Strategy 1: Fix unescaped quotes in strings
+        let repaired = jsonStr;
+        
+        // Replace unescaped newlines and tabs inside strings
+        repaired = repaired.replace(/(?<!\\)\\n/g, '\\n');
+        repaired = repaired.replace(/(?<!\\)\\t/g, '\\t');
+        
         // Attempt to repair truncated JSON
-        const openBraces = (jsonStr.match(/\{/g) || []).length;
-        const closeBraces = (jsonStr.match(/\}/g) || []).length;
-        const openBrackets = (jsonStr.match(/\[/g) || []).length;
-        const closeBrackets = (jsonStr.match(/\]/g) || []).length;
+        const openBraces = (repaired.match(/\{/g) || []).length;
+        const closeBraces = (repaired.match(/\}/g) || []).length;
+        const openBrackets = (repaired.match(/\[/g) || []).length;
+        const closeBrackets = (repaired.match(/\]/g) || []).length;
 
         console.log(`Braces: ${openBraces} open, ${closeBraces} close. Brackets: ${openBrackets} open, ${closeBrackets} close`);
 
-        // Try a simpler fix: just close the truncated JSON
-        let repaired = jsonStr;
-
-        // Remove any trailing incomplete property
-        repaired = repaired.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"]*$/, '');
+        // Remove any trailing incomplete content more aggressively
+        // Remove incomplete string at end
+        repaired = repaired.replace(/,\s*"[^"]*$/, '');
+        // Remove incomplete property value
+        repaired = repaired.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, '');
+        // Remove incomplete object
         repaired = repaired.replace(/,\s*\{[^}]*$/, '');
+        // Remove incomplete array item
+        repaired = repaired.replace(/,\s*\[[^\]]*$/, '');
+        // Remove trailing comma before closing
+        repaired = repaired.replace(/,(\s*[\]\}])/g, '$1');
+        
+        // Calculate missing closers after cleanup
+        const finalOpenBraces = (repaired.match(/\{/g) || []).length;
+        const finalCloseBraces = (repaired.match(/\}/g) || []).length;
+        const finalOpenBrackets = (repaired.match(/\[/g) || []).length;
+        const finalCloseBrackets = (repaired.match(/\]/g) || []).length;
+        
+        const missingBrackets = finalOpenBrackets - finalCloseBrackets;
+        const missingBraces = finalOpenBraces - finalCloseBraces;
 
-        const missingBrackets = openBrackets - closeBrackets;
-        const missingBraces = openBraces - closeBraces;
+        console.log(`After cleanup - Braces: ${finalOpenBraces} open, ${finalCloseBraces} close. Brackets: ${finalOpenBrackets} open, ${finalCloseBrackets} close`);
 
+        // Close unclosed structures in correct order (brackets then braces)
         repaired += ']'.repeat(Math.max(0, missingBrackets));
         repaired += '}'.repeat(Math.max(0, missingBraces));
 
-        console.log("Attempting simple bracket repair...");
-        parsedData = JSON.parse(repaired);
+        console.log("Attempting bracket repair...");
+        
+        try {
+          parsedData = JSON.parse(repaired);
+        } catch (repairError1) {
+          console.log("Repair attempt 1 failed, trying alternative strategy...");
+          
+          // Repair Strategy 2: Try to extract just the patients array
+          const patientsMatch = jsonStr.match(/"patients"\s*:\s*\[([\s\S]*)/);
+          if (patientsMatch) {
+            let patientsContent = patientsMatch[1];
+            
+            // Find complete patient objects by matching balanced braces
+            const patients: ParsedPatient[] = [];
+            let depth = 0;
+            let start = -1;
+            
+            for (let i = 0; i < patientsContent.length; i++) {
+              const char = patientsContent[i];
+              if (char === '{') {
+                if (depth === 0) start = i;
+                depth++;
+              } else if (char === '}') {
+                depth--;
+                if (depth === 0 && start !== -1) {
+                  try {
+                    const patientStr = patientsContent.substring(start, i + 1);
+                    const patient = JSON.parse(patientStr);
+                    patients.push(patient);
+                  } catch {
+                    console.log("Skipping malformed patient object");
+                  }
+                  start = -1;
+                }
+              }
+            }
+            
+            if (patients.length > 0) {
+              console.log(`Extracted ${patients.length} complete patient objects`);
+              parsedData = { patients };
+            } else {
+              throw new Error("Could not extract any valid patient objects");
+            }
+          } else {
+            throw repairError1;
+          }
+        }
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      console.log("Raw content:", content.substring(0, 500));
+      console.log("Raw content (first 1000 chars):", content.substring(0, 1000));
+      console.log("Raw content (last 500 chars):", content.substring(content.length - 500));
       return new Response(
-        JSON.stringify({ success: false, error: "Failed to parse AI response" }),
+        JSON.stringify({ success: false, error: "Failed to parse AI response. The document may be too complex. Try splitting into smaller sections." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
