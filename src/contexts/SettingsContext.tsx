@@ -175,11 +175,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
           } else {
             await supabase
               .from('user_settings')
-              .upsert(
-                {
+              .upsert({
                   user_id: user.id,
-                  section_visibility: DEFAULT_SECTION_VISIBILITY,
-                  app_preferences: localPreferences,
+                  section_visibility: DEFAULT_SECTION_VISIBILITY as unknown as Json,
+                  app_preferences: localPreferences as unknown as Json,
                 },
                 { onConflict: 'user_id' }
               );

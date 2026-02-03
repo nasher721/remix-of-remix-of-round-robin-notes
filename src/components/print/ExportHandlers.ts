@@ -158,7 +158,6 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
           format: 'a4',
           orientation: ctx.printOrientation,
         },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['.print-avoid-break'] },
       })
       .from(element)
       .save();

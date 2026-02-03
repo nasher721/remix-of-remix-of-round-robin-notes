@@ -148,7 +148,6 @@ export const VirtualizedMobilePatientList = React.memo(({
         rowProps={rowProps}
         overscanCount={3}
         className="scrollbar-thin"
-        onScroll={handleScroll}
         style={{ height: containerHeight, width: '100%' }}
       />
 
@@ -163,7 +162,7 @@ export const VirtualizedMobilePatientList = React.memo(({
         <Button
           variant="secondary"
           size="icon"
-          onClick={() => listRef.current?.scrollTo(0)}
+          onClick={() => listRef.current?.scrollToRow({ index: 0, align: 'start', behavior: 'smooth' })}
           className="absolute bottom-4 right-4 h-10 w-10 rounded-full shadow-lg"
           aria-label="Scroll to top"
         >
