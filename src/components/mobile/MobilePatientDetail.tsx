@@ -40,6 +40,7 @@ import { ImagePasteEditor } from "@/components/ImagePasteEditor";
 import { PatientTodos } from "@/components/PatientTodos";
 import { FieldTimestamp } from "@/components/FieldTimestamp";
 import { FieldHistoryViewer } from "@/components/FieldHistoryViewer";
+import { AIClinicalAssistant } from "@/components/AIClinicalAssistant";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { AutoText } from "@/types/autotext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
@@ -203,6 +204,16 @@ export const MobilePatientDetail = ({
                 <Printer className="h-4 w-4 mr-2" />
                 Print / Export
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {/* AI Clinical Assistant - integrated inline */}
+              <div className="px-2 py-1">
+                <AIClinicalAssistant
+                  patient={patient}
+                  onUpdatePatient={onUpdate}
+                  compact
+                />
+              </div>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleDuplicate}>
                 <Copy className="h-4 w-4 mr-2" />
                 Duplicate Patient

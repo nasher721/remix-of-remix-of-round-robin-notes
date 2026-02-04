@@ -25,8 +25,12 @@ import {
   Plus,
   Loader2,
   Sparkles,
+  Brain,
+  FileText,
+  Zap,
 } from 'lucide-react';
 import { useTextTransform, TransformType, CustomPrompt } from '@/hooks/useTextTransform';
+import { useAIClinicalAssistant } from '@/hooks/useAIClinicalAssistant';
 import { toast } from 'sonner';
 
 interface AITextToolsProps {
@@ -55,6 +59,14 @@ export const AITextTools = ({
     removeCustomPrompt,
   } = useTextTransform();
 
+  const {
+    smartExpand,
+    correctMedicalText,
+    isProcessing: isAIProcessing,
+  } = useAIClinicalAssistant();
+
+  const isLoading = isTransforming || isAIProcessing;
+
   const handleTransform = async (type: TransformType, customPrompt?: string) => {
     const selectedText = getSelectedText();
     if (!selectedText) {
@@ -68,6 +80,37 @@ export const AITextTools = ({
       setIsOpen(false);
       setShowCustomDialog(false);
       toast.success('Text transformed');
+    }
+  };
+
+  // GPT-4 powered AI transformations
+  const handleSmartExpand = async () => {
+    const selectedText = getSelectedText();
+    if (!selectedText) {
+      toast.error('Please select some text first');
+      return;
+    }
+
+    const result = await smartExpand(selectedText);
+    if (result) {
+      replaceSelectedText(result);
+      setIsOpen(false);
+      toast.success('Text expanded with GPT-4');
+    }
+  };
+
+  const handleMedicalCorrection = async () => {
+    const selectedText = getSelectedText();
+    if (!selectedText) {
+      toast.error('Please select some text first');
+      return;
+    }
+
+    const result = await correctMedicalText(selectedText);
+    if (result) {
+      replaceSelectedText(result);
+      setIsOpen(false);
+      toast.success('Medical text corrected');
     }
   };
 
@@ -101,29 +144,65 @@ export const AITextTools = ({
           <Button
             variant="ghost"
             size="sm"
-            disabled={disabled || isTransforming}
+            disabled={disabled || isLoading}
             className="h-8 w-8 p-0"
             title="AI Text Tools"
           >
-            {isTransforming ? (
+            {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Wand2 className="h-4 w-4" />
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-2" align="start">
+        <PopoverContent className="w-72 p-2" align="start">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground px-2 py-1">
-              Transform Selected Text
+            {/* GPT-4 Powered Section */}
+            <p className="text-xs font-medium text-muted-foreground px-2 py-1 flex items-center gap-1">
+              <Brain className="h-3 w-3" />
+              GPT-4 Powered
             </p>
-            
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={handleSmartExpand}
+              disabled={isLoading}
+            >
+              <Zap className="h-4 w-4 mr-2 text-yellow-500" />
+              <div className="flex flex-col items-start">
+                <span>Smart Expand</span>
+                <span className="text-xs text-muted-foreground">Expand abbreviations to full text</span>
+              </div>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={handleMedicalCorrection}
+              disabled={isLoading}
+            >
+              <FileText className="h-4 w-4 mr-2 text-blue-500" />
+              <div className="flex flex-col items-start">
+                <span>Medical Correction</span>
+                <span className="text-xs text-muted-foreground">Fix terminology & formatting</span>
+              </div>
+            </Button>
+
+            <Separator className="my-2" />
+
+            <p className="text-xs font-medium text-muted-foreground px-2 py-1">
+              Quick Transform
+            </p>
+
             <Button
               variant="ghost"
               size="sm"
               className="w-full justify-start h-9"
               onClick={() => handleTransform('comma-list')}
-              disabled={isTransforming}
+              disabled={isLoading}
             >
               <List className="h-4 w-4 mr-2" />
               To Comma List
@@ -134,7 +213,7 @@ export const AITextTools = ({
               size="sm"
               className="w-full justify-start h-9"
               onClick={() => handleTransform('medical-shorthand')}
-              disabled={isTransforming}
+              disabled={isLoading}
             >
               <Stethoscope className="h-4 w-4 mr-2" />
               Medical Shorthand
@@ -149,7 +228,7 @@ export const AITextTools = ({
                 setShowCustomDialog(true);
                 setIsOpen(false);
               }}
-              disabled={isTransforming}
+              disabled={isLoading}
             >
               <MessageSquarePlus className="h-4 w-4 mr-2" />
               Custom Prompt...
@@ -183,7 +262,7 @@ export const AITextTools = ({
                         size="sm"
                         className="flex-1 justify-start h-8 text-sm"
                         onClick={() => handleSavedPromptClick(prompt)}
-                        disabled={isTransforming}
+                        disabled={isLoading}
                       >
                         <Sparkles className="h-3 w-3 mr-2 text-muted-foreground" />
                         {prompt.name}
@@ -256,9 +335,9 @@ export const AITextTools = ({
             </Button>
             <Button
               onClick={handleCustomPromptSubmit}
-              disabled={isTransforming || !customPromptText.trim()}
+              disabled={isLoading || !customPromptText.trim()}
             >
-              {isTransforming ? (
+              {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Transforming...
