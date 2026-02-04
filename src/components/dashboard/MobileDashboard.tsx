@@ -5,6 +5,7 @@ import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { IBCCPanel } from "@/components/ibcc";
+import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
 import { ChevronsUpDown, Plus } from "lucide-react";
@@ -321,6 +322,7 @@ export const MobileDashboard = () => {
       />
 
       <IBCCPanel />
+      <GuidelinesPanel />
     </div>
   );
 };

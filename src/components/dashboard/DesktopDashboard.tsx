@@ -9,6 +9,7 @@ import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
+import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
 import { PatientNavigator } from "./PatientNavigator";
@@ -458,6 +459,9 @@ export const DesktopDashboard = ({
 
       {/* IBCC Clinical Reference Panel */}
       <IBCCPanel />
+
+      {/* Clinical Guidelines Panel */}
+      <GuidelinesPanel />
     </div>
   );
 };
