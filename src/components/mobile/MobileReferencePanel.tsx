@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink } from "lucide-react";
+import { BookOpen, ExternalLink, ClipboardList, Stethoscope, Calculator, Info, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useIBCCState } from "@/contexts/IBCCContext";
@@ -12,6 +12,23 @@ export const MobileReferencePanel = () => {
   };
 
   const popularChapters = allChapters.slice(0, 8);
+  const resourceHighlights = [
+    {
+      title: "Rapid bedside answers",
+      description: "Concise summaries, differential diagnoses, and pitfalls for quick decision support.",
+      icon: <Stethoscope className="h-4 w-4 text-primary" />,
+    },
+    {
+      title: "Protocols & checklists",
+      description: "Stepwise workflows for high-stakes scenarios to keep teams aligned.",
+      icon: <ClipboardList className="h-4 w-4 text-primary" />,
+    },
+    {
+      title: "Point-of-care calculators",
+      description: "Embedded scoring tools with interpretations to speed up risk stratification.",
+      icon: <Calculator className="h-4 w-4 text-primary" />,
+    },
+  ];
 
   return (
     <div className="p-4 space-y-4 pb-20">
@@ -61,12 +78,60 @@ export const MobileReferencePanel = () => {
         </Button>
       </div>
 
-      <div className="pt-4">
-        <h3 className="text-sm font-medium text-muted-foreground mb-3">About IBCC</h3>
+      <div className="pt-4 space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground">IBCC Resource Highlights</h3>
+        <div className="grid gap-3">
+          {resourceHighlights.map((item) => (
+            <Card key={item.title} className="p-3">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  {item.icon}
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-2 space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground">How to use during rounds</h3>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-start gap-2">
+            <Info className="h-4 w-4 mt-0.5 text-primary" />
+            Start with a quick search or jump into a bookmarked chapter for rapid context.
+          </li>
+          <li className="flex items-start gap-2">
+            <BookOpen className="h-4 w-4 mt-0.5 text-primary" />
+            Review the embedded pearls and treatment algorithms before opening the full chapter.
+          </li>
+          <li className="flex items-start gap-2">
+            <ShieldCheck className="h-4 w-4 mt-0.5 text-primary" />
+            Use protocols and calculators to standardize care and document key decisions.
+          </li>
+        </ul>
+      </div>
+
+      <div className="pt-2 space-y-2">
+        <h3 className="text-sm font-medium text-muted-foreground">About IBCC</h3>
         <p className="text-sm text-muted-foreground">
-          The Internet Book of Critical Care (IBCC) is an online critical care reference 
-          by Dr. Josh Farkas. Content is embedded for quick reference during rounds.
+          The Internet Book of Critical Care (IBCC) is an online critical care reference by Dr. Josh Farkas.
+          Content is embedded here for fast bedside review, with links to the full chapter when you need deeper
+          guidance.
         </p>
+        <Button variant="outline" className="w-full" asChild>
+          <a
+            href="https://emcrit.org/ibcc/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Visit EMCrit IBCC
+          </a>
+        </Button>
       </div>
     </div>
   );
