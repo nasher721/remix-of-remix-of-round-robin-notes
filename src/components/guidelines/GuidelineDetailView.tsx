@@ -3,12 +3,14 @@
  * Full guideline display with recommendations, diagnostic criteria, and treatment algorithms
  */
 
-import { useState } from 'react';
-import { ArrowLeft, Star, ExternalLink, CheckCircle, AlertCircle, Pill, FileText, Calendar, Building2 } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { ArrowLeft, Star, ExternalLink, CheckCircle, AlertCircle, Pill, FileText, Calendar, Building2, Copy, Check, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
 import type { ClinicalGuideline, GuidelineRecommendation, DiagnosticCriterion, TreatmentRecommendation } from '@/types/clinicalGuidelines';
 import { SPECIALTY_MAP } from '@/types/clinicalGuidelines';
 import { cn } from '@/lib/utils';
@@ -45,13 +47,23 @@ function getRecommendationBadge(classOfRec: string, levelOfEvidence: string) {
   );
 }
 
-// Recommendation Component
-function RecommendationItem({ recommendation }: { recommendation: GuidelineRecommendation }) {
+// Recommendation Component with Copy functionality
+function RecommendationItem({ recommendation, onCopy }: { recommendation: GuidelineRecommendation; onCopy?: (text: string) => void }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = `${recommendation.text} (Class ${recommendation.classOfRecommendation}, LOE ${recommendation.levelOfEvidence})`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    onCopy?.(text);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
-    <div className="p-3 bg-secondary/30 rounded-lg border border-border">
+    <div className="group p-3 bg-secondary/30 rounded-lg border border-border relative">
       <div className="flex items-start gap-2">
         <CheckCircle className="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
-        <div className="flex-1">
+        <div className="flex-1 pr-8">
           <p className="text-sm">{recommendation.text}</p>
           <div className="flex items-center gap-2 mt-2">
             {getRecommendationBadge(recommendation.classOfRecommendation, recommendation.levelOfEvidence)}
@@ -66,6 +78,25 @@ function RecommendationItem({ recommendation }: { recommendation: GuidelineRecom
           )}
         </div>
       </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={handleCopy}
+          >
+            {copied ? (
+              <Check className="h-3 w-3 text-success" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p>{copied ? 'Copied!' : 'Copy recommendation'}</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }
@@ -184,6 +215,69 @@ export function GuidelineDetailView({
 }: GuidelineDetailViewProps) {
   const specialtyInfo = SPECIALTY_MAP[guideline.specialty];
   const [expandedSections, setExpandedSections] = useState<string[]>(['recommendations']);
+  const [copiedAll, setCopiedAll] = useState(false);
+  const { toast } = useToast();
+
+  // Copy all recommendations to clipboard
+  const handleCopyAllRecommendations = useCallback(() => {
+    if (!guideline.keyRecommendations?.length) return;
+
+    const text = guideline.keyRecommendations
+      .map((rec, idx) => `${idx + 1}. ${rec.text} (Class ${rec.classOfRecommendation}, LOE ${rec.levelOfEvidence})`)
+      .join('\n\n');
+
+    const fullText = `${guideline.shortTitle} (${guideline.organization.abbreviation} ${guideline.year})\n\nKey Recommendations:\n\n${text}`;
+
+    navigator.clipboard.writeText(fullText);
+    setCopiedAll(true);
+    toast({
+      title: 'Copied to clipboard',
+      description: `${guideline.keyRecommendations.length} recommendations copied`,
+    });
+    setTimeout(() => setCopiedAll(false), 2000);
+  }, [guideline, toast]);
+
+  // Copy diagnostic criteria
+  const handleCopyDiagnosticCriteria = useCallback(() => {
+    if (!guideline.diagnosticCriteria?.length) return;
+
+    const text = guideline.diagnosticCriteria
+      .map(section => `${section.category}:\n${section.criteria.map(c => `  • ${c}`).join('\n')}`)
+      .join('\n\n');
+
+    const fullText = `${guideline.shortTitle} - Diagnostic Criteria\n\n${text}`;
+
+    navigator.clipboard.writeText(fullText);
+    toast({
+      title: 'Copied to clipboard',
+      description: 'Diagnostic criteria copied',
+    });
+  }, [guideline, toast]);
+
+  // Copy treatment algorithm
+  const handleCopyTreatment = useCallback(() => {
+    if (!guideline.treatmentAlgorithm?.length) return;
+
+    const text = guideline.treatmentAlgorithm
+      .map((step, idx) => {
+        let stepText = `Step ${idx + 1}: ${step.phase} - ${step.title}\n`;
+        stepText += step.recommendations.map(r => `  • ${r}`).join('\n');
+        if (step.medications?.length) {
+          stepText += '\n  Medications:\n';
+          stepText += step.medications.map(m => `    - ${m.name}: ${m.dose} ${m.route} ${m.frequency}`).join('\n');
+        }
+        return stepText;
+      })
+      .join('\n\n');
+
+    const fullText = `${guideline.shortTitle} - Treatment Algorithm\n\n${text}`;
+
+    navigator.clipboard.writeText(fullText);
+    toast({
+      title: 'Copied to clipboard',
+      description: 'Treatment algorithm copied',
+    });
+  }, [guideline, toast]);
 
   return (
     <>
@@ -249,6 +343,21 @@ export function GuidelineDetailView({
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4 pt-2">
+                  <div className="flex justify-end mb-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={handleCopyAllRecommendations}
+                    >
+                      {copiedAll ? (
+                        <Check className="h-3 w-3 text-success" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                      Copy All
+                    </Button>
+                  </div>
                   <div className="space-y-2">
                     {guideline.keyRecommendations.map(rec => (
                       <RecommendationItem key={rec.id} recommendation={rec} />
@@ -268,6 +377,17 @@ export function GuidelineDetailView({
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4 pt-2">
+                  <div className="flex justify-end mb-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={handleCopyDiagnosticCriteria}
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copy
+                    </Button>
+                  </div>
                   <DiagnosticCriteriaSection criteria={guideline.diagnosticCriteria} />
                 </AccordionContent>
               </AccordionItem>
@@ -283,6 +403,17 @@ export function GuidelineDetailView({
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4 pt-2">
+                  <div className="flex justify-end mb-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={handleCopyTreatment}
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copy
+                    </Button>
+                  </div>
                   <TreatmentAlgorithmSection steps={guideline.treatmentAlgorithm} />
                 </AccordionContent>
               </AccordionItem>

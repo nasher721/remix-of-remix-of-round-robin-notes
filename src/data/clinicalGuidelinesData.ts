@@ -1471,6 +1471,429 @@ export const CLINICAL_GUIDELINES: ClinicalGuideline[] = [
         category: 'Treatment Strategy'
       }
     ]
+  },
+
+  // ============================================
+  // ADDITIONAL GUIDELINES
+  // ============================================
+  {
+    id: 'aha-htn-emergency-2023',
+    title: 'Management of Hypertensive Emergency',
+    shortTitle: 'Hypertensive Emergency',
+    organization: getOrg('aha-acc'),
+    specialty: 'cardiology',
+    condition: 'Hypertensive Emergency',
+    year: 2023,
+    lastUpdated: '2023-01-01',
+    url: 'https://www.ahajournals.org/doi/10.1161/HYP.0000000000000236',
+    keywords: ['hypertensive emergency', 'hypertensive urgency', 'blood pressure', 'malignant hypertension', 'nicardipine', 'labetalol', 'nitroprusside', 'aortic dissection', 'encephalopathy'],
+    summary: 'Guidelines for rapid and safe blood pressure reduction in hypertensive emergencies with end-organ damage.',
+    keyRecommendations: [
+      {
+        id: 'htn-e-1',
+        text: 'IV antihypertensives are recommended for hypertensive emergency with target organ damage.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'B-NR',
+        category: 'Treatment'
+      },
+      {
+        id: 'htn-e-2',
+        text: 'Reduce BP by no more than 25% in the first hour, then to 160/100 over 2-6 hours.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'C-EO',
+        category: 'BP Goals'
+      },
+      {
+        id: 'htn-e-3',
+        text: 'For aortic dissection, target SBP < 120 mmHg and HR < 60 within 20 minutes.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'B-NR',
+        category: 'Aortic Dissection'
+      },
+      {
+        id: 'htn-e-4',
+        text: 'Nicardipine, labetalol, or clevidipine are preferred IV agents.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'B-NR',
+        category: 'Medications'
+      }
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'htn-e-tx1',
+        phase: 'Initial',
+        title: 'First Hour',
+        recommendations: [
+          'Reduce MAP by max 25%',
+          'Nicardipine 5-15 mg/hr IV',
+          'Labetalol 20-80 mg bolus, then 2 mg/min'
+        ],
+        medications: [
+          { name: 'Nicardipine', dose: '5 mg/hr', route: 'IV', notes: 'Titrate by 2.5 mg/hr q5min, max 15 mg/hr' },
+          { name: 'Labetalol', dose: '20 mg', route: 'IV bolus', notes: 'May double q10min, then 2 mg/min infusion' }
+        ]
+      },
+      {
+        id: 'htn-e-tx2',
+        phase: 'Maintenance',
+        title: '2-6 Hours',
+        recommendations: [
+          'Target BP 160/100-110',
+          'Transition to oral therapy when stable',
+          'Avoid excessive BP reduction'
+        ]
+      }
+    ]
+  },
+  {
+    id: 'acg-acute-pancreatitis-2024',
+    title: 'Management of Acute Pancreatitis',
+    shortTitle: 'Acute Pancreatitis Guidelines',
+    organization: getOrg('acg'),
+    specialty: 'gastroenterology',
+    condition: 'Acute Pancreatitis',
+    year: 2024,
+    lastUpdated: '2024-01-01',
+    url: 'https://journals.lww.com/ajg/fulltext/2024/01000/acg_clinical_guideline__acute_pancreatitis.16.aspx',
+    keywords: ['pancreatitis', 'lipase', 'amylase', 'gallstones', 'alcohol', 'fluid resuscitation', 'necrotizing pancreatitis', 'ERCP', 'infected necrosis'],
+    summary: 'Evidence-based guidelines for diagnosis and management of acute pancreatitis including severity assessment and nutritional support.',
+    keyRecommendations: [
+      {
+        id: 'ap-1',
+        text: 'Goal-directed fluid resuscitation with Ringer lactate is preferred.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'Moderate',
+        category: 'Fluid Resuscitation'
+      },
+      {
+        id: 'ap-2',
+        text: 'Early oral feeding (within 24 hours) is recommended when tolerated.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'High',
+        category: 'Nutrition'
+      },
+      {
+        id: 'ap-3',
+        text: 'ERCP within 24 hours for cholangitis; elective for choledocholithiasis.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'High',
+        category: 'Intervention'
+      },
+      {
+        id: 'ap-4',
+        text: 'Prophylactic antibiotics are NOT recommended for severe acute pancreatitis.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'High',
+        category: 'Antibiotics'
+      },
+      {
+        id: 'ap-5',
+        text: 'Cholecystectomy during same admission for mild gallstone pancreatitis.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'Moderate',
+        category: 'Surgery'
+      }
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'ap-dx',
+        category: 'Diagnosis (2 of 3 criteria)',
+        criteria: [
+          'Abdominal pain consistent with acute pancreatitis',
+          'Lipase or amylase > 3x upper limit of normal',
+          'Characteristic findings on cross-sectional imaging'
+        ]
+      },
+      {
+        id: 'ap-severity',
+        category: 'Severity Classification',
+        criteria: [
+          'Mild: No organ failure, no local complications',
+          'Moderate: Transient organ failure (<48h) OR local complications',
+          'Severe: Persistent organ failure (>48h)'
+        ]
+      }
+    ]
+  },
+  {
+    id: 'asam-alcohol-withdrawal-2020',
+    title: 'Clinical Practice Guideline on Alcohol Withdrawal Management',
+    shortTitle: 'Alcohol Withdrawal Guidelines',
+    organization: getOrg('sccm'),
+    specialty: 'critical-care',
+    condition: 'Alcohol Withdrawal',
+    year: 2020,
+    lastUpdated: '2020-07-01',
+    url: 'https://www.asam.org/quality-care/clinical-guidelines/alcohol-withdrawal',
+    keywords: ['alcohol withdrawal', 'delirium tremens', 'DTs', 'CIWA', 'benzodiazepine', 'lorazepam', 'diazepam', 'phenobarbital', 'seizure', 'tremor'],
+    summary: 'Guidelines for recognition and management of alcohol withdrawal syndrome including prevention of severe complications.',
+    keyRecommendations: [
+      {
+        id: 'aw-1',
+        text: 'Benzodiazepines are first-line treatment for alcohol withdrawal.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'High',
+        category: 'Treatment'
+      },
+      {
+        id: 'aw-2',
+        text: 'Symptom-triggered therapy using CIWA-Ar is preferred over fixed-dose schedules.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'Moderate',
+        category: 'Dosing Strategy'
+      },
+      {
+        id: 'aw-3',
+        text: 'Phenobarbital is recommended for benzodiazepine-resistant withdrawal.',
+        classOfRecommendation: 'B',
+        levelOfEvidence: 'Moderate',
+        category: 'Refractory'
+      },
+      {
+        id: 'aw-4',
+        text: 'Thiamine should be given before glucose to prevent Wernicke encephalopathy.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'Low',
+        category: 'Prevention'
+      }
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'aw-tx1',
+        phase: 'Initial Assessment',
+        title: 'Risk Stratification',
+        recommendations: [
+          'CIWA-Ar score assessment',
+          'History of prior DTs or seizures',
+          'Time since last drink',
+          'Concurrent medical conditions'
+        ]
+      },
+      {
+        id: 'aw-tx2',
+        phase: 'Mild-Moderate (CIWA <15)',
+        title: 'Symptom-Triggered Therapy',
+        recommendations: [
+          'Lorazepam 2-4 mg PO/IV q1h PRN CIWA >= 8',
+          'Diazepam 10-20 mg PO q1h PRN CIWA >= 8',
+          'Monitor q1-4h'
+        ],
+        medications: [
+          { name: 'Lorazepam', dose: '2-4 mg', route: 'PO/IV', frequency: 'q1h PRN', notes: 'CIWA >= 8' },
+          { name: 'Diazepam', dose: '10-20 mg', route: 'PO', frequency: 'q1h PRN', notes: 'CIWA >= 8' }
+        ]
+      },
+      {
+        id: 'aw-tx3',
+        phase: 'Severe (CIWA >15 or DTs)',
+        title: 'Aggressive Treatment',
+        recommendations: [
+          'Diazepam 10-20 mg IV q5-10min until calm',
+          'Consider phenobarbital loading',
+          'ICU monitoring',
+          'Dexmedetomidine or propofol for refractory cases'
+        ],
+        medications: [
+          { name: 'Diazepam', dose: '10-20 mg', route: 'IV', frequency: 'q5-10min', notes: 'Until calm' },
+          { name: 'Phenobarbital', dose: '130-260 mg', route: 'IV', frequency: 'q15-30min', notes: 'Loading for resistant cases' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'idsa-meningitis-2024',
+    title: 'Clinical Practice Guidelines for Bacterial Meningitis',
+    shortTitle: 'Bacterial Meningitis Guidelines',
+    organization: getOrg('idsa'),
+    specialty: 'infectious-disease',
+    condition: 'Bacterial Meningitis',
+    year: 2024,
+    lastUpdated: '2024-01-01',
+    url: 'https://academic.oup.com/cid/article/78/1/e52/7193521',
+    keywords: ['meningitis', 'CSF', 'lumbar puncture', 'ceftriaxone', 'vancomycin', 'dexamethasone', 'empiric antibiotics', 'nuchal rigidity', 'kernig'],
+    summary: 'Guidelines for diagnosis and treatment of community-acquired bacterial meningitis in adults.',
+    keyRecommendations: [
+      {
+        id: 'mening-1',
+        text: 'Empiric therapy with vancomycin + ceftriaxone ± ampicillin (if >50 or immunocompromised).',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'High',
+        category: 'Empiric Treatment'
+      },
+      {
+        id: 'mening-2',
+        text: 'Dexamethasone should be given before or with first dose of antibiotics.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'High',
+        category: 'Adjunctive Therapy'
+      },
+      {
+        id: 'mening-3',
+        text: 'Do not delay antibiotics for LP; obtain blood cultures first if LP will be delayed.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'Moderate',
+        category: 'Timing'
+      },
+      {
+        id: 'mening-4',
+        text: 'CT head before LP only if focal deficits, altered consciousness, papilledema, or immunocompromised.',
+        classOfRecommendation: 'A',
+        levelOfEvidence: 'Moderate',
+        category: 'Imaging'
+      }
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'mening-tx1',
+        phase: 'Immediate',
+        title: 'Emergency Treatment',
+        recommendations: [
+          'Blood cultures x2',
+          'Dexamethasone 0.15 mg/kg IV q6h x 4 days',
+          'Vancomycin + Ceftriaxone',
+          'Add ampicillin if >50 or immunocompromised'
+        ],
+        medications: [
+          { name: 'Dexamethasone', dose: '0.15 mg/kg', route: 'IV', frequency: 'q6h', duration: '4 days', notes: 'Give before/with antibiotics' },
+          { name: 'Vancomycin', dose: '15-20 mg/kg', route: 'IV', frequency: 'q8-12h', notes: 'Target trough 15-20' },
+          { name: 'Ceftriaxone', dose: '2g', route: 'IV', frequency: 'q12h' },
+          { name: 'Ampicillin', dose: '2g', route: 'IV', frequency: 'q4h', notes: 'If >50 or immunocompromised' }
+        ],
+        timing: 'Within 60 minutes of recognition'
+      }
+    ]
+  },
+  {
+    id: 'esc-pe-2024',
+    title: 'Guidelines for the Diagnosis and Management of Acute Pulmonary Embolism',
+    shortTitle: 'Pulmonary Embolism Guidelines',
+    organization: getOrg('esc'),
+    specialty: 'pulmonology',
+    condition: 'Pulmonary Embolism',
+    year: 2024,
+    lastUpdated: '2024-01-01',
+    url: 'https://academic.oup.com/eurheartj/article/41/4/543/5556136',
+    keywords: ['pulmonary embolism', 'PE', 'DVT', 'anticoagulation', 'thrombolysis', 'PESI', 'Wells score', 'D-dimer', 'CTPA', 'hemodynamic instability'],
+    summary: 'Comprehensive guidelines for risk stratification and management of acute pulmonary embolism.',
+    keyRecommendations: [
+      {
+        id: 'pe-1',
+        text: 'Use validated clinical probability scores (Wells or Geneva) before testing.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'A',
+        category: 'Diagnosis'
+      },
+      {
+        id: 'pe-2',
+        text: 'CTPA is the first-line imaging test for suspected PE.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'A',
+        category: 'Imaging'
+      },
+      {
+        id: 'pe-3',
+        text: 'Systemic thrombolysis is recommended for high-risk PE with hemodynamic instability.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'B',
+        category: 'Treatment'
+      },
+      {
+        id: 'pe-4',
+        text: 'DOACs are preferred over VKA for most patients with PE.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'A',
+        category: 'Anticoagulation'
+      },
+      {
+        id: 'pe-5',
+        text: 'Extended anticoagulation is recommended for unprovoked PE.',
+        classOfRecommendation: 'IIa',
+        levelOfEvidence: 'B',
+        category: 'Duration'
+      }
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'pe-risk',
+        category: 'Risk Stratification',
+        criteria: [
+          'High-risk: Hemodynamic instability (SBP <90 or drop >40)',
+          'Intermediate-high: Elevated troponin AND RV dysfunction on imaging',
+          'Intermediate-low: Elevated troponin OR RV dysfunction',
+          'Low-risk: No hemodynamic compromise, normal troponin, normal RV'
+        ]
+      }
+    ]
+  },
+  {
+    id: 'aha-acls-2020',
+    title: 'Advanced Cardiovascular Life Support Guidelines',
+    shortTitle: 'ACLS Guidelines',
+    organization: getOrg('aha-acc'),
+    specialty: 'critical-care',
+    condition: 'Cardiac Arrest',
+    year: 2020,
+    lastUpdated: '2020-10-21',
+    url: 'https://cpr.heart.org/en/resuscitation-science/cpr-and-ecc-guidelines',
+    keywords: ['cardiac arrest', 'CPR', 'ACLS', 'VF', 'pulseless VT', 'PEA', 'asystole', 'ROSC', 'epinephrine', 'amiodarone', 'defibrillation'],
+    summary: 'Guidelines for management of adult cardiac arrest including CPR quality, defibrillation, and drug therapy.',
+    keyRecommendations: [
+      {
+        id: 'acls-1',
+        text: 'High-quality CPR: Rate 100-120, depth 2-2.4 inches, full recoil, minimize interruptions.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'B-NR',
+        category: 'CPR Quality'
+      },
+      {
+        id: 'acls-2',
+        text: 'Epinephrine 1 mg IV/IO every 3-5 minutes during cardiac arrest.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'B-R',
+        category: 'Medications'
+      },
+      {
+        id: 'acls-3',
+        text: 'For shockable rhythms, defibrillate as soon as possible.',
+        classOfRecommendation: 'I',
+        levelOfEvidence: 'B-NR',
+        category: 'Defibrillation'
+      },
+      {
+        id: 'acls-4',
+        text: 'Amiodarone or lidocaine for shock-refractory VF/pVT.',
+        classOfRecommendation: 'IIb',
+        levelOfEvidence: 'B-R',
+        category: 'Antiarrhythmics'
+      }
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'acls-vf',
+        phase: 'VF/pVT',
+        title: 'Shockable Rhythm',
+        recommendations: [
+          'Defibrillate 200J biphasic',
+          'Resume CPR immediately for 2 min',
+          'Epinephrine 1 mg IV/IO q3-5min',
+          'Amiodarone 300 mg IV after 3rd shock'
+        ],
+        medications: [
+          { name: 'Epinephrine', dose: '1 mg', route: 'IV/IO', frequency: 'q3-5min' },
+          { name: 'Amiodarone', dose: '300 mg', route: 'IV', notes: 'After 3rd shock; 150 mg for subsequent' }
+        ]
+      },
+      {
+        id: 'acls-pea',
+        phase: 'PEA/Asystole',
+        title: 'Non-Shockable Rhythm',
+        recommendations: [
+          'CPR 2 minutes',
+          'Epinephrine 1 mg IV/IO q3-5min',
+          'Identify and treat reversible causes (Hs and Ts)'
+        ]
+      }
+    ]
   }
 ];
 
@@ -1493,7 +1916,13 @@ export const GUIDELINE_KEYWORD_MAP: Record<string, string[]> = {
   'GI bleeding': ['melena', 'hematemesis', 'hematochezia', 'UGIB', 'LGIB'],
   'hepatic encephalopathy': ['HE', 'cirrhosis', 'ammonia', 'confusion'],
   'VTE': ['DVT', 'PE', 'blood clot', 'pulmonary embolism'],
-  'gout': ['uric acid', 'hyperuricemia', 'podagra', 'tophus']
+  'gout': ['uric acid', 'hyperuricemia', 'podagra', 'tophus'],
+  'hypertensive emergency': ['hypertensive crisis', 'malignant hypertension', 'high blood pressure', 'BP emergency'],
+  'pancreatitis': ['acute pancreatitis', 'necrotizing pancreatitis', 'lipase', 'amylase'],
+  'alcohol withdrawal': ['AWS', 'delirium tremens', 'DTs', 'CIWA', 'withdrawal seizure'],
+  'meningitis': ['bacterial meningitis', 'CSF', 'lumbar puncture', 'LP', 'nuchal rigidity'],
+  'pulmonary embolism': ['PE', 'DVT', 'VTE', 'blood clot', 'anticoagulation'],
+  'cardiac arrest': ['ACLS', 'CPR', 'code', 'VF', 'asystole', 'PEA', 'resuscitation']
 };
 
 // Export helper function to get all guidelines
