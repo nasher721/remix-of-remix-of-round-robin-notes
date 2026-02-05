@@ -50,7 +50,6 @@ interface ShiftHandoffProps {
   onCompleteHandoff: (handoffs: HandoffData[]) => void;
   onUpdatePatient?: (id: string, field: string, value: unknown) => void;
   existingHandoffs?: HandoffData[];
-  currentUser?: string;
   className?: string;
 }
 
@@ -60,7 +59,6 @@ export function ShiftHandoff({
   onCompleteHandoff,
   onUpdatePatient,
   existingHandoffs = [],
-  currentUser = "Provider",
   className,
 }: ShiftHandoffProps) {
   const [selectedPatientId, setSelectedPatientId] = React.useState<string | null>(
