@@ -30,6 +30,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { useBatchCourseGenerator, BatchResult, BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
+import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
 import { cn } from '@/lib/utils';
 
@@ -340,44 +341,46 @@ export const BatchCourseGenerator = ({
                 </div>
 
                 <ScrollArea className="flex-1 max-h-[400px] border rounded-lg">
-                  <div className="p-3 space-y-4">
-                    {results.map(result => (
-                      <div
-                        key={result.patientId}
-                        className={cn(
-                          "p-3 rounded-lg border",
-                          result.content ? "bg-muted/30" : "bg-destructive/10 border-destructive/30"
-                        )}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            {result.content ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <X className="h-4 w-4 text-destructive" />
+                  <AIErrorBoundary featureLabel="Batch Results">
+                    <div className="p-3 space-y-4">
+                      {results.map(result => (
+                        <div
+                          key={result.patientId}
+                          className={cn(
+                            "p-3 rounded-lg border",
+                            result.content ? "bg-muted/30" : "bg-destructive/10 border-destructive/30"
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {result.content ? (
+                                <Check className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <X className="h-4 w-4 text-destructive" />
+                              )}
+                              <span className="font-medium">{result.patientName}</span>
+                            </div>
+                            {result.content && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCopySingle(result.content!)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
                             )}
-                            <span className="font-medium">{result.patientName}</span>
                           </div>
-                          {result.content && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCopySingle(result.content!)}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
+                          {result.content ? (
+                            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[150px] overflow-y-auto">
+                              {result.content}
+                            </pre>
+                          ) : (
+                            <p className="text-xs text-destructive">{result.error}</p>
                           )}
                         </div>
-                        {result.content ? (
-                          <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[150px] overflow-y-auto">
-                            {result.content}
-                          </pre>
-                        ) : (
-                          <p className="text-xs text-destructive">{result.error}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  </AIErrorBoundary>
                 </ScrollArea>
               </div>
 

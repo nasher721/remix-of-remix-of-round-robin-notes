@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Loader2, Wand2, Check, X, RotateCcw } from 'lucide-react';
 import { useAIClinicalAssistant } from '@/hooks/useAIClinicalAssistant';
+import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 
 interface AISmartExpandProps {
   selectedText: string;
@@ -148,12 +149,14 @@ export const AISmartExpand = ({
           {/* Expanded result */}
           {expandedText && (
             <>
-              <div className="p-2 bg-green-50 dark:bg-green-950 rounded text-xs border border-green-200 dark:border-green-800">
-                <div className="text-green-700 dark:text-green-300 mb-1">
-                  {mode === 'expand' ? 'Expanded:' : 'Corrected:'}
+              <AIErrorBoundary featureLabel="AI Text Expansion" compact>
+                <div className="p-2 bg-green-50 dark:bg-green-950 rounded text-xs border border-green-200 dark:border-green-800">
+                  <div className="text-green-700 dark:text-green-300 mb-1">
+                    {mode === 'expand' ? 'Expanded:' : 'Corrected:'}
+                  </div>
+                  <div className="whitespace-pre-wrap">{expandedText}</div>
                 </div>
-                <div className="whitespace-pre-wrap">{expandedText}</div>
-              </div>
+              </AIErrorBoundary>
 
               <div className="flex gap-2">
                 <Button

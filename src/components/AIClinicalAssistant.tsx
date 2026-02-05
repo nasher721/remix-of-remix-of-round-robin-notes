@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useAIClinicalAssistant } from '@/hooks/useAIClinicalAssistant';
 import { useToast } from '@/hooks/use-toast';
+import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
 import type {
   DDxResponse,
@@ -170,76 +171,78 @@ export const AIClinicalAssistant = ({
             {renderResponseBadges()}
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 pr-4">
-              {/* Most Likely */}
-              <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
-                <div className="font-medium text-green-800 dark:text-green-200 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Most Likely: {ddxResult.mostLikely}
-                </div>
-              </div>
-
-              {/* Critical to Rule Out */}
-              {ddxResult.criticalToRuleOut?.length > 0 && (
-                <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
-                  <div className="font-medium text-red-800 dark:text-red-200 flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    Critical to Rule Out
+            <AIErrorBoundary featureLabel="Differential Diagnosis">
+              <div className="space-y-4 pr-4">
+                {/* Most Likely */}
+                <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="font-medium text-green-800 dark:text-green-200 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Most Likely: {ddxResult.mostLikely}
                   </div>
-                  <ul className="list-disc list-inside text-sm text-red-700 dark:text-red-300">
-                    {ddxResult.criticalToRuleOut.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
                 </div>
-              )}
 
-              {/* Differentials */}
-              <div className="space-y-3">
-                <h4 className="font-medium">Differential Diagnoses</h4>
-                {ddxResult.differentials?.map((dx, i) => (
-                  <div key={i} className="p-3 bg-muted rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{dx.diagnosis}</span>
-                      <Badge
-                        variant={
-                          dx.likelihood === 'high' ? 'default' :
-                          dx.likelihood === 'moderate' ? 'secondary' : 'outline'
-                        }
-                      >
-                        {dx.likelihood}
-                      </Badge>
+                {/* Critical to Rule Out */}
+                {ddxResult.criticalToRuleOut?.length > 0 && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="font-medium text-red-800 dark:text-red-200 flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Critical to Rule Out
                     </div>
-                    {dx.supportingFindings?.length > 0 && (
-                      <div className="text-sm text-muted-foreground mb-2">
-                        <span className="font-medium">Supporting: </span>
-                        {dx.supportingFindings.join(', ')}
-                      </div>
-                    )}
-                    {dx.workupNeeded?.length > 0 && (
-                      <div className="text-sm">
-                        <span className="font-medium">Workup: </span>
-                        {dx.workupNeeded.join(', ')}
-                      </div>
-                    )}
+                    <ul className="list-disc list-inside text-sm text-red-700 dark:text-red-300">
+                      {ddxResult.criticalToRuleOut.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
-              </div>
+                )}
 
-              {/* Suggested Workup */}
-              {ddxResult.suggestedWorkup?.length > 0 && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                    Suggested Workup
-                  </div>
-                  <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-300">
-                    {ddxResult.suggestedWorkup.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
+                {/* Differentials */}
+                <div className="space-y-3">
+                  <h4 className="font-medium">Differential Diagnoses</h4>
+                  {ddxResult.differentials?.map((dx, i) => (
+                    <div key={i} className="p-3 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">{dx.diagnosis}</span>
+                        <Badge
+                          variant={
+                            dx.likelihood === 'high' ? 'default' :
+                            dx.likelihood === 'moderate' ? 'secondary' : 'outline'
+                          }
+                        >
+                          {dx.likelihood}
+                        </Badge>
+                      </div>
+                      {dx.supportingFindings?.length > 0 && (
+                        <div className="text-sm text-muted-foreground mb-2">
+                          <span className="font-medium">Supporting: </span>
+                          {dx.supportingFindings.join(', ')}
+                        </div>
+                      )}
+                      {dx.workupNeeded?.length > 0 && (
+                        <div className="text-sm">
+                          <span className="font-medium">Workup: </span>
+                          {dx.workupNeeded.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
+
+                {/* Suggested Workup */}
+                {ddxResult.suggestedWorkup?.length > 0 && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                      Suggested Workup
+                    </div>
+                    <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-300">
+                      {ddxResult.suggestedWorkup.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </AIErrorBoundary>
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
@@ -277,69 +280,71 @@ export const AIClinicalAssistant = ({
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 pr-4">
-              {/* Score */}
-              <div className="p-4 bg-muted rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Overall Score</span>
-                  <span className={`text-2xl font-bold ${scoreColor}`}>
-                    {docCheckResult.overallScore}/100
-                  </span>
+            <AIErrorBoundary featureLabel="Documentation Check">
+              <div className="space-y-4 pr-4">
+                {/* Score */}
+                <div className="p-4 bg-muted rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">Overall Score</span>
+                    <span className={`text-2xl font-bold ${scoreColor}`}>
+                      {docCheckResult.overallScore}/100
+                    </span>
+                  </div>
+                  <Progress value={docCheckResult.overallScore} className="h-2" />
                 </div>
-                <Progress value={docCheckResult.overallScore} className="h-2" />
-              </div>
 
-              {/* Gaps */}
-              {docCheckResult.gaps?.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Documentation Gaps</h4>
-                  {docCheckResult.gaps.map((gap, i) => (
-                    <div
-                      key={i}
-                      className={`p-3 rounded-lg border ${
-                        gap.priority === 'critical' ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' :
-                        gap.priority === 'important' ? 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800' :
-                        'bg-muted'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">{gap.section}</span>
-                        <Badge
-                          variant={
-                            gap.priority === 'critical' ? 'destructive' :
-                            gap.priority === 'important' ? 'default' : 'secondary'
-                          }
-                        >
-                          {gap.priority}
-                        </Badge>
+                {/* Gaps */}
+                {docCheckResult.gaps?.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Documentation Gaps</h4>
+                    {docCheckResult.gaps.map((gap, i) => (
+                      <div
+                        key={i}
+                        className={`p-3 rounded-lg border ${
+                          gap.priority === 'critical' ? 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800' :
+                          gap.priority === 'important' ? 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800' :
+                          'bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium">{gap.section}</span>
+                          <Badge
+                            variant={
+                              gap.priority === 'critical' ? 'destructive' :
+                              gap.priority === 'important' ? 'default' : 'secondary'
+                            }
+                          >
+                            {gap.priority}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{gap.issue}</p>
+                        <p className="text-sm mt-1"><span className="font-medium">Suggestion:</span> {gap.suggestion}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{gap.issue}</p>
-                      <p className="text-sm mt-1"><span className="font-medium">Suggestion:</span> {gap.suggestion}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
 
-              {/* Strengths */}
-              {docCheckResult.strengths?.length > 0 && (
-                <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                  <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Strengths</h4>
-                  <ul className="list-disc list-inside text-sm text-green-700 dark:text-green-300">
-                    {docCheckResult.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                  </ul>
-                </div>
-              )}
+                {/* Strengths */}
+                {docCheckResult.strengths?.length > 0 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                    <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Strengths</h4>
+                    <ul className="list-disc list-inside text-sm text-green-700 dark:text-green-300">
+                      {docCheckResult.strengths.map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
 
-              {/* Suggestions */}
-              {docCheckResult.suggestions?.length > 0 && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Suggestions</h4>
-                  <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-300">
-                    {docCheckResult.suggestions.map((s, i) => <li key={i}>{s}</li>)}
-                  </ul>
-                </div>
-              )}
-            </div>
+                {/* Suggestions */}
+                {docCheckResult.suggestions?.length > 0 && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Suggestions</h4>
+                    <ul className="list-disc list-inside text-sm text-blue-700 dark:text-blue-300">
+                      {docCheckResult.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </AIErrorBoundary>
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
@@ -370,18 +375,20 @@ export const AIClinicalAssistant = ({
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 pr-4">
-              {['subjective', 'objective', 'assessment', 'plan'].map((section) => (
-                <div key={section} className="p-3 bg-muted rounded-lg">
-                  <h4 className="font-medium uppercase text-sm text-muted-foreground mb-2">
-                    {section}
-                  </h4>
-                  <p className="text-sm whitespace-pre-wrap">
-                    {soapResult[section as keyof SOAPNote]}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <AIErrorBoundary featureLabel="SOAP Note">
+              <div className="space-y-4 pr-4">
+                {['subjective', 'objective', 'assessment', 'plan'].map((section) => (
+                  <div key={section} className="p-3 bg-muted rounded-lg">
+                    <h4 className="font-medium uppercase text-sm text-muted-foreground mb-2">
+                      {section}
+                    </h4>
+                    <p className="text-sm whitespace-pre-wrap">
+                      {soapResult[section as keyof SOAPNote]}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </AIErrorBoundary>
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
@@ -430,33 +437,35 @@ export const AIClinicalAssistant = ({
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
-            <div className="space-y-4 pr-4">
-              {/* Overall Assessment */}
-              <div className="p-3 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Overall Assessment</h4>
-                <p className="text-sm">{apResult.overallAssessment}</p>
-              </div>
+            <AIErrorBoundary featureLabel="Assessment & Plan">
+              <div className="space-y-4 pr-4">
+                {/* Overall Assessment */}
+                <div className="p-3 bg-muted rounded-lg">
+                  <h4 className="font-medium mb-2">Overall Assessment</h4>
+                  <p className="text-sm">{apResult.overallAssessment}</p>
+                </div>
 
-              {/* Problems */}
-              <div className="space-y-3">
-                <h4 className="font-medium">Problem-Based Plan</h4>
-                {apResult.problems?.map((problem, i) => (
-                  <div key={i} className="p-3 border rounded-lg">
-                    <div className="font-medium text-primary mb-2">
-                      {i + 1}. {problem.problem}
+                {/* Problems */}
+                <div className="space-y-3">
+                  <h4 className="font-medium">Problem-Based Plan</h4>
+                  {apResult.problems?.map((problem, i) => (
+                    <div key={i} className="p-3 border rounded-lg">
+                      <div className="font-medium text-primary mb-2">
+                        {i + 1}. {problem.problem}
+                      </div>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        {problem.assessment}
+                      </div>
+                      <ul className="list-disc list-inside text-sm space-y-1">
+                        {problem.plan?.map((item, j) => (
+                          <li key={j}>{item}</li>
+                        ))}
+                      </ul>
                     </div>
-                    <div className="text-sm text-muted-foreground mb-2">
-                      {problem.assessment}
-                    </div>
-                    <ul className="list-disc list-inside text-sm space-y-1">
-                      {problem.plan?.map((item, j) => (
-                        <li key={j}>{item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            </AIErrorBoundary>
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
@@ -492,9 +501,11 @@ export const AIClinicalAssistant = ({
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
-            <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm">
-              {summaryResult}
-            </div>
+            <AIErrorBoundary featureLabel="Clinical Summary">
+              <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm">
+                {summaryResult}
+              </div>
+            </AIErrorBoundary>
           </ScrollArea>
           <DialogFooter>
             <Button variant="outline" onClick={closeDialog}>
