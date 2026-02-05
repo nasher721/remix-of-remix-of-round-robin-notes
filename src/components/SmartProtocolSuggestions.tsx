@@ -2,10 +2,8 @@ import * as React from "react";
 import {
   Lightbulb,
   CheckCircle2,
-  AlertTriangle,
   ChevronRight,
   ClipboardList,
-  Stethoscope,
   Activity,
   Droplets,
   Wind,
