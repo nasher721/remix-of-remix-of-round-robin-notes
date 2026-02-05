@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import type { ClinicalGuideline, MedicalSpecialty, GuidelineSearchResult } from '@/types/clinicalGuidelines';
-import { CLINICAL_GUIDELINES, GUIDELINE_ORGANIZATIONS } from '@/data/clinicalGuidelinesData';
+import { CLINICAL_GUIDELINES } from '@/data/clinicalGuidelinesData';
 import { useGuidelinesSearch, useGuidelinesBookmarks, useGuidelinesKeyboard } from '@/hooks/guidelines';
 import { SPECIALTY_MAP, GUIDELINE_ORGANIZATIONS as ORG_LIST } from '@/types/clinicalGuidelines';
 
