@@ -314,7 +314,7 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
     showToast: (message) => {
       toast.success(message);
     },
-    openDialog: (content) => {
+    openDialog: () => {
       // Could be expanded to show custom dialogs
     },
   };

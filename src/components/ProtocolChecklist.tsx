@@ -205,9 +205,6 @@ function ActiveProtocolCard({
   const completedCount = patientProtocol.completedItems.length;
   const totalItems = protocol.items.length;
   const requiredItems = protocol.items.filter(i => i.required);
-  const completedRequired = requiredItems.filter(i =>
-    patientProtocol.completedItems.includes(i.id)
-  ).length;
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>
