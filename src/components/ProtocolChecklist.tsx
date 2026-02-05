@@ -1,9 +1,6 @@
 import * as React from "react";
 import {
   CheckCircle2,
-  Circle,
-  Clock,
-  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -84,8 +81,6 @@ const CATEGORY_COLORS: Record<ProtocolCategory, string> = {
 };
 
 export function ProtocolChecklist({
-  patientId,
-  patientName,
   activeProtocols,
   onStartProtocol,
   onCompleteItem,
@@ -210,9 +205,6 @@ function ActiveProtocolCard({
   const completedCount = patientProtocol.completedItems.length;
   const totalItems = protocol.items.length;
   const requiredItems = protocol.items.filter(i => i.required);
-  const completedRequired = requiredItems.filter(i =>
-    patientProtocol.completedItems.includes(i.id)
-  ).length;
 
   return (
     <Collapsible open={isExpanded} onOpenChange={onToggle}>

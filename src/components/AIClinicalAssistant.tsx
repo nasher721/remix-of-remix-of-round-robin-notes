@@ -55,7 +55,6 @@ type DialogType = 'ddx' | 'doc_check' | 'soap' | 'ap' | 'summary' | null;
 export const AIClinicalAssistant = ({
   patient,
   onUpdatePatient,
-  className = '',
   compact = false,
 }: AIClinicalAssistantProps) => {
   const { toast } = useToast();

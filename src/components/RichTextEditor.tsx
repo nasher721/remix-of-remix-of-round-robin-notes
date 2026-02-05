@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter, HighlighterIcon,
+  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
   Indent, Outdent, Palette, Undo2, Redo2, FileText
 } from "lucide-react";
 import {
@@ -55,7 +55,6 @@ export const RichTextEditor = ({
   onChange,
   placeholder = "Enter text...",
   className,
-  minHeight = "80px",
   autotexts = defaultAutotexts,
   fontSize = 14,
   changeTracking = null,

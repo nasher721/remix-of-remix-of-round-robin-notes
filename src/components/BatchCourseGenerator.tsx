@@ -15,10 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sparkles,
-  Loader2,
   Check,
   X,
   Undo2,
@@ -29,7 +28,7 @@ import {
   Calendar,
   ClipboardList,
 } from 'lucide-react';
-import { useBatchCourseGenerator, BatchResult, BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
+import { useBatchCourseGenerator, type BatchResult, type BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
 import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
 import { cn } from '@/lib/utils';

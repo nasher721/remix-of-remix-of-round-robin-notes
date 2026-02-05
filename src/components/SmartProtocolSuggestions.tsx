@@ -2,10 +2,8 @@ import * as React from "react";
 import {
   Lightbulb,
   CheckCircle2,
-  AlertTriangle,
   ChevronRight,
   ClipboardList,
-  Stethoscope,
   Activity,
   Droplets,
   Wind,
@@ -34,7 +32,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import type { Patient } from "@/types/patient";
-import type { Protocol } from "@/types/protocols";
 
 interface SuggestedProtocol {
   id: string;
@@ -354,13 +351,11 @@ const analyzePatientForProtocols = (patient: Patient): SuggestedProtocol[] => {
 interface SmartProtocolSuggestionsProps {
   patient: Patient;
   className?: string;
-  onApplyProtocol?: (protocol: SuggestedProtocol) => void;
 }
 
 export function SmartProtocolSuggestions({
   patient,
   className,
-  onApplyProtocol,
 }: SmartProtocolSuggestionsProps) {
   const [expandedProtocol, setExpandedProtocol] = React.useState<string | null>(null);
   const [completedItems, setCompletedItems] = React.useState<Record<string, boolean>>({});

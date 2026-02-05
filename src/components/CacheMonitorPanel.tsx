@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, Database, Trash2, RefreshCw, HardDrive, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -151,7 +151,7 @@ export function CacheMonitorPanel() {
         </div>
         
         {/* Response Time */}
-        {metrics?.query.averageResponseTime > 0 && (
+        {metrics?.query?.averageResponseTime != null && metrics.query.averageResponseTime > 0 && (
           <div className="text-sm">
             <span className="text-muted-foreground">Avg Response Time: </span>
             <span className="font-mono">

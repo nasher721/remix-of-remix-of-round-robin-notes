@@ -11,12 +11,12 @@ import { SystemsConfigManager } from "./SystemsConfigManager";
 import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
 import { PatientAcuityBadge } from "./PatientAcuityBadge";
-import { QuickActionsPanel, QuickActionButtons } from "./QuickActionsPanel";
+import { QuickActionsPanel } from "./QuickActionsPanel";
 import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
 import { LabTrendBadge } from "./LabTrendingPanel";
 import { AIGeneratorTools } from "./AIGeneratorTools";
 import { AIClinicalAssistant } from "./AIClinicalAssistant";
-import { AutoText } from "@/types/autotext";
+import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
@@ -486,7 +486,7 @@ const PatientCardComponent = ({
           {sectionVisibility.medications && (
             <div className="bg-secondary/20 rounded-lg p-4 border border-border/50">
               <MedicationList
-                medications={patient.medications}
+                medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                 onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
               />
               <FieldTimestamp timestamp={patient.fieldTimestamps?.medications} className="pl-1 mt-2" />

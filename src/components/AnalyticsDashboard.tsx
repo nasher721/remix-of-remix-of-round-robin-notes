@@ -22,8 +22,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Bed,
-  ArrowRightLeft,
   FileCheck,
   Bell,
   Calendar,
@@ -44,10 +42,6 @@ import {
 } from "@/components/ui/select";
 import type {
   DashboardData,
-  UnitMetrics,
-  AcuityDistribution,
-  PatientFlowData,
-  TaskMetrics,
   QualityMetric,
 } from "@/types/analytics";
 import { QUALITY_METRICS } from "@/types/analytics";

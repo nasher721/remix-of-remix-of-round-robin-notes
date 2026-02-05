@@ -1,19 +1,14 @@
 import * as React from "react";
 import {
   ArrowRightLeft,
-  User,
-  Clock,
-  AlertTriangle,
   CheckCircle,
   Plus,
   X,
   ChevronDown,
   ChevronRight,
-  Copy,
   FileText,
   Send,
   Save,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
@@ -24,7 +19,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -37,13 +31,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import type { Patient } from "@/types/patient";
 import type {
   HandoffData,
@@ -64,7 +51,6 @@ interface ShiftHandoffProps {
   onCompleteHandoff: (handoffs: HandoffData[]) => void;
   onUpdatePatient?: (id: string, field: string, value: unknown) => void;
   existingHandoffs?: HandoffData[];
-  currentUser?: string;
   className?: string;
 }
 
@@ -74,7 +60,6 @@ export function ShiftHandoff({
   onCompleteHandoff,
   onUpdatePatient,
   existingHandoffs = [],
-  currentUser = "Provider",
   className,
 }: ShiftHandoffProps) {
   const [selectedPatientId, setSelectedPatientId] = React.useState<string | null>(
