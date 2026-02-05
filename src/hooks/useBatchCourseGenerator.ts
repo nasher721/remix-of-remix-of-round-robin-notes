@@ -166,11 +166,16 @@ export const useBatchCourseGenerator = () => {
           // Get the content based on type
           let content: string;
           if (type === 'intervalEvents') {
-            content = data.intervalEvents;
+            content = typeof data.intervalEvents === 'string' 
+              ? data.intervalEvents 
+              : JSON.stringify(data.intervalEvents, null, 2);
           } else if (type === 'dailySummary') {
-            content = data.summaryOnly || data.summary;
+            const raw = data.summaryOnly || data.summary;
+            content = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
           } else {
-            content = data.course;
+            content = typeof data.course === 'string' 
+              ? data.course 
+              : JSON.stringify(data.course, null, 2);
           }
           
           results.push({
