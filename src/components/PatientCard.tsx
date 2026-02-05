@@ -11,7 +11,7 @@ import { SystemsConfigManager } from "./SystemsConfigManager";
 import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
 import { PatientAcuityBadge } from "./PatientAcuityBadge";
-import { QuickActionsPanel, QuickActionButtons } from "./QuickActionsPanel";
+import { QuickActionsPanel } from "./QuickActionsPanel";
 import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
 import { LabTrendBadge } from "./LabTrendingPanel";
 import { AIGeneratorTools } from "./AIGeneratorTools";
