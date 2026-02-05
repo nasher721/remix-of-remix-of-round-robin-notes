@@ -1,9 +1,6 @@
 import * as React from "react";
 import {
   CheckCircle2,
-  Circle,
-  Clock,
-  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Plus,
