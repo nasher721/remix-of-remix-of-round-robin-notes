@@ -161,10 +161,9 @@ interface UserAvatarProps {
   user: UserPresence;
   size?: 'sm' | 'md' | 'lg';
   showStatus?: boolean;
-  showName?: boolean;
 }
 
-export function UserAvatar({ user, size = 'md', showStatus = false, showName = false }: UserAvatarProps) {
+export function UserAvatar({ user, size = 'md', showStatus = false }: UserAvatarProps) {
   const sizeClasses = {
     sm: 'h-7 w-7',
     md: 'h-9 w-9',
