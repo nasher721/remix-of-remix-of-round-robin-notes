@@ -111,7 +111,7 @@ export const FieldHistoryViewer = ({
   const [open, setOpen] = useState(false);
   const [selectedField, setSelectedField] = useState<string>("all");
   const { history, loading, fetchHistory, clearHistory } = useFieldHistory(patientId);
-  const { systems, systemLabels } = useSystemsConfig();
+  const { systems } = useSystemsConfig();
 
   // Build field labels dynamically based on systems config
   const fieldLabels = useMemo(() => {

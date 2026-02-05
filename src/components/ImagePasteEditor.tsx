@@ -74,7 +74,6 @@ export const ImagePasteEditor = ({
   onChange, 
   placeholder = "Enter text or paste images...", 
   className,
-  minHeight = "60px",
   autotexts = defaultAutotexts,
   fontSize = 14,
   changeTracking = null,
