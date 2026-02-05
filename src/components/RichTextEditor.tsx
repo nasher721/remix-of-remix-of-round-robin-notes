@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter, HighlighterIcon,
+  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
   Indent, Outdent, Palette, Undo2, Redo2, FileText
 } from "lucide-react";
 import {
