@@ -354,11 +354,10 @@ export function NotificationBell({
 
 // Inline presence indicator for patient cards
 interface PatientPresenceProps {
-  patientId: string;
   viewers: UserPresence[];
 }
 
-export function PatientPresence({ patientId, viewers }: PatientPresenceProps) {
+export function PatientPresence({ viewers }: PatientPresenceProps) {
   if (viewers.length === 0) return null;
 
   return (
