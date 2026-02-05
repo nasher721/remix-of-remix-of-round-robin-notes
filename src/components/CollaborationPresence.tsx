@@ -1,10 +1,6 @@
 import * as React from "react";
 import {
   Users,
-  Circle,
-  Clock,
-  MinusCircle,
-  CircleOff,
   Eye,
   Edit3,
   MessageSquare,
