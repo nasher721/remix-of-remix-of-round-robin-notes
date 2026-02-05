@@ -19,6 +19,7 @@ import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard, CensusBadge } from "@/components/UnitCensusDashboard";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -146,6 +147,16 @@ export const DesktopDashboard = ({
       onClearAll();
     }
   }, [onClearAll]);
+
+  const filterLabel = React.useMemo(() => {
+    if (filter === PatientFilterType.Filled) {
+      return "With notes";
+    }
+    if (filter === PatientFilterType.Empty) {
+      return "Empty notes";
+    }
+    return "All patients";
+  }, [filter]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -296,6 +307,20 @@ export const DesktopDashboard = ({
 
       {/* Search, Filter & Settings Bar */}
       <div className="container mx-auto px-6 py-4 no-print">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-3">
+          <Badge variant="secondary" className="gap-2 font-medium">
+            <Users className="h-3.5 w-3.5 text-primary" />
+            {filteredPatients.length} of {patients.length} shown
+          </Badge>
+          {searchQuery ? (
+            <Badge variant="outline" className="font-medium">
+              Searching “{searchQuery}”
+            </Badge>
+          ) : null}
+          <Badge variant="outline" className="font-medium">
+            {filterLabel}
+          </Badge>
+        </div>
         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
           {/* Search & Filter */}
           <div className="flex flex-1 gap-3 items-center w-full lg:w-auto">

@@ -8,7 +8,7 @@ import { IBCCPanel } from "@/components/ibcc";
 import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, Plus } from "lucide-react";
+import { ChevronsUpDown, Plus, ArrowUpDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,13 @@ import { useDashboard } from "@/contexts/DashboardContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PatientFilterType } from "@/constants/config";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Mobile components
 import { MobileNavBar, MobileHeader } from "@/components/layout";
@@ -164,14 +171,32 @@ export const MobileDashboard = () => {
               />
               <div className="sticky top-14 z-30 bg-background/95 backdrop-blur border-b border-border/40">
                 <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
-                  <span>
-                    {searchQuery ? `Results for "${searchQuery}"` : "All patients"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span>
+                      {searchQuery ? `Results for "${searchQuery}"` : "All patients"}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-medium">
+                      {filteredPatients.length} shown
+                    </Badge>
+                  </div>
                   <Badge variant="outline" className="text-[10px] px-2 py-0.5">
                     Last saved {lastSavedLabel}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-thin">
+                  <div className="flex items-center gap-2 bg-secondary/60 rounded-full px-2 py-1">
+                    <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as "number" | "room" | "name")}>
+                      <SelectTrigger className="h-7 w-[120px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="number">Order Added</SelectItem>
+                        <SelectItem value="room">Room</SelectItem>
+                        <SelectItem value="name">Name</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   {filterOptions.map((option) => (
                     <Button
                       key={option.id}
