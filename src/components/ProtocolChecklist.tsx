@@ -81,8 +81,6 @@ const CATEGORY_COLORS: Record<ProtocolCategory, string> = {
 };
 
 export function ProtocolChecklist({
-  patientId,
-  patientName,
   activeProtocols,
   onStartProtocol,
   onCompleteItem,
