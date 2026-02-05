@@ -332,6 +332,13 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate the request
+    const authResult = await authenticateRequest(req);
+    if ('error' in authResult) {
+      return authResult.error;
+    }
+    console.log(`Authenticated request from user: ${authResult.userId}`);
+
     const { pdfContent, images } = await req.json();
 
     if (!pdfContent && (!images || images.length === 0)) {
