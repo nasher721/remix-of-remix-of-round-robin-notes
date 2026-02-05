@@ -323,7 +323,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
 
                     <div className="space-y-2">
                       <Label className="text-sm font-medium flex items-center gap-2">
-                        <Pill className="h-4 w-4 text-amber-500" />
+                        <Pill className="h-4 w-4 text-warning" />
                         PRN ({parsedData.medications?.prn?.length || 0})
                       </Label>
                       <div className="text-sm p-2 bg-muted/50 rounded-md min-h-[40px]">
@@ -331,7 +331,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
                           <ul className="space-y-1">
                             {parsedData.medications.prn.map((med, i) => (
                               <li key={i} className="flex items-center gap-2">
-                                <span className="text-amber-500">•</span> {med}
+                                <span className="text-warning">•</span> {typeof med === 'string' ? med : JSON.stringify(med)}
                               </li>
                             ))}
                           </ul>
