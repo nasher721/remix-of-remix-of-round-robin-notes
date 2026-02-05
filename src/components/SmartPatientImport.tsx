@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Wand2, Loader2, Clipboard, FileText, Check, Edit2, Pill } from "lucide-react";
+import { Wand2, Loader2, Clipboard, Check, Edit2, Pill } from "lucide-react";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
 
 interface ParsedPatientData {
