@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { PatientSystems } from '@/types/patient';
+import { ensureString } from '@/lib/ai-response-utils';
 
 export const useIntervalEventsGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -53,7 +54,7 @@ export const useIntervalEventsGenerator = () => {
       }
 
       toast.success('Interval events generated');
-      return data.intervalEvents;
+      return ensureString(data.intervalEvents);
     } catch (err) {
       // Don't show error if it was cancelled
       if (err instanceof Error && err.name === 'AbortError') {

@@ -2,6 +2,7 @@ import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
+import { ensureString } from '@/lib/ai-response-utils';
 
 export const usePatientCourseGenerator = () => {
   const [isGenerating, setIsGenerating] = React.useState(false);
@@ -65,7 +66,7 @@ export const usePatientCourseGenerator = () => {
       }
 
       toast.success('Patient course generated');
-      return data.course;
+      return ensureString(data.course);
     } catch (err) {
       // Don't show error if it was cancelled
       if (err instanceof Error && err.name === 'AbortError') {
