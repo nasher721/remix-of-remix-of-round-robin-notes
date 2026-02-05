@@ -60,7 +60,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const [showLayoutDesigner, setShowLayoutDesigner] = React.useState(false);
   const [appliedLayout, setAppliedLayout] = React.useState<LayoutConfig | null>(null);
   const exportRef = React.useRef<HTMLDivElement | null>(null);
-  const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const syncTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSyncDone = React.useRef(false);
 
   // Settings State
