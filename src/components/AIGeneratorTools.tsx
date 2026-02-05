@@ -18,6 +18,7 @@ import {
 import { Sparkles, Calendar, ClipboardList, Loader2, Undo2 } from 'lucide-react';
 import { useIntervalEventsGenerator } from '@/hooks/useIntervalEventsGenerator';
 import { usePatientCourseGenerator } from '@/hooks/usePatientCourseGenerator';
+import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
 
 interface AIGeneratorToolsProps {
@@ -176,9 +177,11 @@ export const AIGeneratorTools = ({
                 Review the generated hospital course. You can insert it into the clinical summary or copy to clipboard.
               </DialogDescription>
             </DialogHeader>
-            <div className="my-4 p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm font-mono">
-              {generatedCourse}
-            </div>
+            <AIErrorBoundary featureLabel="Patient Course">
+              <div className="my-4 p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm font-mono">
+                {generatedCourse}
+              </div>
+            </AIErrorBoundary>
             <DialogFooter className="flex gap-2">
               <Button variant="outline" onClick={() => setShowCourseDialog(false)}>
                 Cancel
@@ -257,9 +260,11 @@ export const AIGeneratorTools = ({
               Review the generated hospital course. You can insert it into the clinical summary or copy to clipboard.
             </DialogDescription>
           </DialogHeader>
-          <div className="my-4 p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm font-mono">
-            {generatedCourse}
-          </div>
+          <AIErrorBoundary featureLabel="Patient Course">
+            <div className="my-4 p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm font-mono">
+              {generatedCourse}
+            </div>
+          </AIErrorBoundary>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={() => setShowCourseDialog(false)}>
               Cancel

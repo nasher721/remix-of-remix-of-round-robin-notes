@@ -30,6 +30,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { useBatchCourseGenerator, BatchResult, BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
+import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -325,48 +326,50 @@ export const MobileBatchCourseGenerator = ({
 
               {/* Results List */}
               <ScrollArea className="h-[280px]">
-                <div className="space-y-3">
-                  {results.map(result => (
-                    <Card
-                      key={result.patientId}
-                      className={cn(
-                        result.content 
-                          ? "border-l-4 border-l-green-500" 
-                          : "border-l-4 border-l-destructive bg-destructive/5"
-                      )}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            {result.content ? (
-                              <Check className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <X className="h-4 w-4 text-destructive" />
-                            )}
-                            <span className="font-medium">{result.patientName}</span>
-                          </div>
-                          {result.content && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleCopySingle(result.content!, result.patientName)}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        {result.content ? (
-                          <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[100px] overflow-y-auto bg-muted/50 p-2 rounded">
-                            {result.content}
-                          </pre>
-                        ) : (
-                          <p className="text-xs text-destructive">{result.error}</p>
+                <AIErrorBoundary featureLabel="Batch Results">
+                  <div className="space-y-3">
+                    {results.map(result => (
+                      <Card
+                        key={result.patientId}
+                        className={cn(
+                          result.content
+                            ? "border-l-4 border-l-green-500"
+                            : "border-l-4 border-l-destructive bg-destructive/5"
                         )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              {result.content ? (
+                                <Check className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <X className="h-4 w-4 text-destructive" />
+                              )}
+                              <span className="font-medium">{result.patientName}</span>
+                            </div>
+                            {result.content && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleCopySingle(result.content!, result.patientName)}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          {result.content ? (
+                            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[100px] overflow-y-auto bg-muted/50 p-2 rounded">
+                              {result.content}
+                            </pre>
+                          ) : (
+                            <p className="text-xs text-destructive">{result.error}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </AIErrorBoundary>
               </ScrollArea>
 
               {/* Result actions */}
