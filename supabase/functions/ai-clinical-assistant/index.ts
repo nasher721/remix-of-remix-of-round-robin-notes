@@ -42,6 +42,8 @@ RULES:
 5. Keep the tone professional and clinical
 6. Format vital signs and lab values consistently
 7. Preserve the original meaning exactly
+8. Only use data explicitly provided; do not invent values or events
+9. If data is missing, state that it is missing rather than guessing
 
 OUTPUT: Return only the expanded text, no explanations.`,
 
@@ -68,7 +70,9 @@ RULES:
 3. Include 3-5 differential diagnoses
 4. Always include critical diagnoses that must be ruled out
 5. Suggest targeted workup based on differentials
-6. Be evidence-based and clinically practical`,
+6. Be evidence-based and clinically practical
+7. Only use data explicitly provided; do not invent values or events
+8. If data is missing, state that it is missing rather than guessing`,
 
   documentation_check: `You are a clinical documentation specialist. Review the patient documentation for completeness and quality.
 
@@ -94,7 +98,9 @@ EVALUATION CRITERIA:
 4. Medication reconciliation (doses, frequencies, indications)
 5. Assessment and plan clarity
 6. Appropriate use of medical terminology
-7. Critical values and findings highlighted`,
+7. Critical values and findings highlighted
+8. Only use data explicitly provided; do not invent values or events
+9. If data is missing, state that it is missing rather than guessing`,
 
   soap_format: `You are an expert medical documentation specialist. Convert the clinical notes into proper SOAP format.
 
@@ -112,7 +118,8 @@ RULES:
 3. Include all relevant clinical data
 4. Keep each section focused and organized
 5. Highlight critical findings
-6. Do not add information not present in the source data`,
+6. Do not add information not present in the source data
+7. If data is missing, state that it is missing rather than guessing`,
 
   assessment_plan: `You are an expert ICU attending physician. Generate a problem-based Assessment & Plan from the clinical data.
 
@@ -135,7 +142,9 @@ RULES:
 4. Make plan items specific and actionable
 5. Consider standard ICU bundles and protocols
 6. Include monitoring parameters where appropriate
-7. Address all organ systems with active issues`,
+7. Address all organ systems with active issues
+8. Only use data explicitly provided; do not invent values or events
+9. If data is missing, state that it is missing rather than guessing`,
 
   clinical_summary: `You are an expert ICU physician. Generate a concise clinical summary from the patient data.
 
@@ -151,7 +160,10 @@ RULES:
 2. Use standard medical abbreviations appropriately
 3. Highlight critical issues
 4. Include relevant lab trends
-5. Note any recent significant events`,
+5. Note any recent significant events
+6. Only use data explicitly provided; do not invent values or events
+7. If data is missing, state that it is missing rather than guessing
+8. Label the output as AI-generated`,
 
   medical_correction: `You are a medical terminology expert. Review and correct the text for medical accuracy.
 
@@ -162,6 +174,7 @@ RULES:
 4. Fix numerical formatting (doses, vital signs, lab values)
 5. Do NOT change clinical meaning
 6. Preserve all information
+7. Only use data explicitly provided; do not invent values or events
 
 OUTPUT: Return only the corrected text.`,
 };

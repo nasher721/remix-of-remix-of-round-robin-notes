@@ -144,6 +144,14 @@ export const AIClinicalAssistant = ({
     });
   }, [onUpdatePatient, patient, closeDialog, toast]);
 
+  const renderResponseBadges = () => (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <Badge variant="secondary">AI-generated</Badge>
+      <Badge variant="outline">Scope: Selected patient</Badge>
+      <Badge variant="outline">Model: {lastModel || 'Unknown'}</Badge>
+    </div>
+  );
+
   // Render differential diagnosis result
   const renderDDxDialog = () => {
     if (!ddxResult) return null;
@@ -155,11 +163,11 @@ export const AIClinicalAssistant = ({
             <DialogTitle className="flex items-center gap-2">
               <Stethoscope className="h-5 w-5" />
               Differential Diagnosis
-              {lastModel && <Badge variant="outline" className="ml-2 text-xs">{lastModel}</Badge>}
             </DialogTitle>
             <DialogDescription>
-              AI-generated differential diagnosis based on available clinical data
+              AI-generated differential diagnosis based on available clinical data.
             </DialogDescription>
+            {renderResponseBadges()}
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-4 pr-4">
@@ -265,9 +273,9 @@ export const AIClinicalAssistant = ({
             <DialogTitle className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5" />
               Documentation Quality Check
-              {lastModel && <Badge variant="outline" className="ml-2 text-xs">{lastModel}</Badge>}
             </DialogTitle>
           </DialogHeader>
+          {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-4 pr-4">
               {/* Score */}
@@ -358,9 +366,9 @@ export const AIClinicalAssistant = ({
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
               SOAP Note Format
-              {lastModel && <Badge variant="outline" className="ml-2 text-xs">{lastModel}</Badge>}
             </DialogTitle>
           </DialogHeader>
+          {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-4 pr-4">
               {['subjective', 'objective', 'assessment', 'plan'].map((section) => (
@@ -418,9 +426,9 @@ export const AIClinicalAssistant = ({
             <DialogTitle className="flex items-center gap-2">
               <ListChecks className="h-5 w-5" />
               Assessment & Plan
-              {lastModel && <Badge variant="outline" className="ml-2 text-xs">{lastModel}</Badge>}
             </DialogTitle>
           </DialogHeader>
+          {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-4 pr-4">
               {/* Overall Assessment */}
@@ -480,9 +488,9 @@ export const AIClinicalAssistant = ({
             <DialogTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5" />
               AI Clinical Summary
-              {lastModel && <Badge variant="outline" className="ml-2 text-xs">{lastModel}</Badge>}
             </DialogTitle>
           </DialogHeader>
+          {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
             <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm">
               {summaryResult}
