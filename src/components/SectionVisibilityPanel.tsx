@@ -41,13 +41,13 @@ export const SectionVisibilityPanel = () => {
   }, [sectionVisibility, setSectionVisibility]);
 
   const allVisible = Object.values(sectionVisibility).every(Boolean);
-  const noneVisible = Object.values(sectionVisibility).every(v => !v);
 
   const toggleAll = React.useCallback(() => {
     const newValue = !allVisible;
-    const newVisibility = Object.fromEntries(
-      CLINICAL_SECTIONS.map(s => [s.key, newValue])
-    ) as typeof sectionVisibility;
+    const newVisibility = CLINICAL_SECTIONS.reduce((acc, s) => {
+      acc[s.key] = newValue;
+      return acc;
+    }, {} as SectionVisibility);
     setSectionVisibility(newVisibility);
   }, [allVisible, setSectionVisibility]);
 

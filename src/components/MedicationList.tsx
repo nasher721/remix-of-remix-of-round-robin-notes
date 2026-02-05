@@ -169,7 +169,7 @@ function MedicationListComponent({ medications, onMedicationsChange, readOnly = 
                         key={idx}
                         className="flex items-center justify-between py-1 px-2 text-sm rounded hover:bg-muted/50 group"
                       >
-                        <span>{med}</span>
+                        <span>{typeof med === 'string' ? med : JSON.stringify(med)}</span>
                         {!readOnly && (
                           <Button
                             variant="ghost"

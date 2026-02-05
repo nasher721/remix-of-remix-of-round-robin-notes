@@ -486,7 +486,7 @@ const PatientCardComponent = ({
           {sectionVisibility.medications && (
             <div className="bg-secondary/20 rounded-lg p-4 border border-border/50">
               <MedicationList
-                medications={patient.medications}
+                medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                 onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
               />
               <FieldTimestamp timestamp={patient.fieldTimestamps?.medications} className="pl-1 mt-2" />

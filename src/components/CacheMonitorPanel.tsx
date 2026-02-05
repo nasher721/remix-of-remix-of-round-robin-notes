@@ -151,7 +151,7 @@ export function CacheMonitorPanel() {
         </div>
         
         {/* Response Time */}
-        {metrics?.query.averageResponseTime > 0 && (
+        {metrics?.query?.averageResponseTime != null && metrics.query.averageResponseTime > 0 && (
           <div className="text-sm">
             <span className="text-muted-foreground">Avg Response Time: </span>
             <span className="font-mono">

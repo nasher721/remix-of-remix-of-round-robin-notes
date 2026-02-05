@@ -1,19 +1,14 @@
 import * as React from "react";
 import {
   ArrowRightLeft,
-  User,
-  Clock,
-  AlertTriangle,
   CheckCircle,
   Plus,
   X,
   ChevronDown,
   ChevronRight,
-  Copy,
   FileText,
   Send,
   Save,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
