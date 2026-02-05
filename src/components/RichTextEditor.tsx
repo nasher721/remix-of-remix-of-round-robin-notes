@@ -55,7 +55,6 @@ export const RichTextEditor = ({
   onChange,
   placeholder = "Enter text...",
   className,
-  minHeight = "80px",
   autotexts = defaultAutotexts,
   fontSize = 14,
   changeTracking = null,

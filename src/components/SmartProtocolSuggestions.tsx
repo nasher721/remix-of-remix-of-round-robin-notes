@@ -351,13 +351,11 @@ const analyzePatientForProtocols = (patient: Patient): SuggestedProtocol[] => {
 interface SmartProtocolSuggestionsProps {
   patient: Patient;
   className?: string;
-  onApplyProtocol?: (protocol: SuggestedProtocol) => void;
 }
 
 export function SmartProtocolSuggestions({
   patient,
   className,
-  onApplyProtocol,
 }: SmartProtocolSuggestionsProps) {
   const [expandedProtocol, setExpandedProtocol] = React.useState<string | null>(null);
   const [completedItems, setCompletedItems] = React.useState<Record<string, boolean>>({});
