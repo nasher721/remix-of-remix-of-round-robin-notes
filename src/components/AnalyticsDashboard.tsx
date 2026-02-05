@@ -22,8 +22,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Bed,
-  ArrowRightLeft,
   FileCheck,
   Bell,
   Calendar,
