@@ -45,7 +45,6 @@ interface CollaborationPresenceProps {
 }
 
 export function CollaborationPresence({
-  currentUser,
   activeUsers,
   notifications,
   onMarkNotificationRead,
@@ -53,8 +52,7 @@ export function CollaborationPresence({
   onNavigateToPatient,
   className,
 }: CollaborationPresenceProps) {
-  const unreadNotifications = notifications.filter(n => !n.read);
-  const onlineUsers = activeUsers.filter(u => u.status !== 'offline' && u.id !== currentUser.id);
+  const onlineUsers = activeUsers.filter(u => u.status !== 'offline');
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
