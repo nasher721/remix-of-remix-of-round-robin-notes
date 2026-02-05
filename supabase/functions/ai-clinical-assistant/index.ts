@@ -295,6 +295,14 @@ serve(async (req) => {
   }
 
   try {
+    // Authenticate the request
+    const authResult = await authenticateRequest(req);
+    if ('error' in authResult) {
+      return authResult.error;
+    }
+    const userId = authResult.userId;
+    console.log(`Authenticated request from user: ${userId}`);
+
     const {
       feature,
       text,

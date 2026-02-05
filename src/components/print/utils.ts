@@ -2,40 +2,13 @@ import type { Patient } from "@/types/patient";
 import type { PatientTodo } from "@/types/todo";
 import type { ColumnConfig } from "./types";
 import { columnCombinations } from "./constants";
+import { stripHtml as baseStripHtml, sanitizeAndCleanStyles } from "@/lib/sanitize";
 
-// Strip HTML tags for exports
-export const stripHtml = (html: string): string => {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent || "";
-};
+// Re-export strip HTML for backward compatibility
+export const stripHtml = baseStripHtml;
 
-// Clean inline font styles from HTML while preserving structure
-export const cleanInlineStyles = (html: string): string => {
-  if (!html) return '';
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  
-  const allElements = doc.body.querySelectorAll('*');
-  allElements.forEach(el => {
-    const element = el as HTMLElement;
-    if (element.style) {
-      element.style.fontSize = '';
-      element.style.fontFamily = '';
-      element.style.lineHeight = '';
-      if (element.getAttribute('style')?.trim() === '') {
-        element.removeAttribute('style');
-      }
-    }
-    if (element.tagName === 'FONT') {
-      const parent = element.parentNode;
-      while (element.firstChild) {
-        parent?.insertBefore(element.firstChild, element);
-      }
-      parent?.removeChild(element);
-    }
-  });
-  
-  return doc.body.innerHTML;
-};
+// Clean inline font styles from HTML while preserving structure AND sanitizing against XSS
+export const cleanInlineStyles = sanitizeAndCleanStyles;
 
 // Helper to escape RTF special characters
 export const escapeRTF = (text: string): string => {
