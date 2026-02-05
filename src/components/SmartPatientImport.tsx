@@ -344,16 +344,16 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
                 </TabsContent>
 
                 <TabsContent value="systems" className="space-y-3 mt-0">
-                  {renderEditableField("Neuro", "systems.neuro", parsedData.systems.neuro, true)}
-                  {renderEditableField("Cardiovascular", "systems.cv", parsedData.systems.cv, true)}
-                  {renderEditableField("Respiratory", "systems.resp", parsedData.systems.resp, true)}
-                  {renderEditableField("Renal/GU", "systems.renalGU", parsedData.systems.renalGU, true)}
-                  {renderEditableField("GI", "systems.gi", parsedData.systems.gi, true)}
-                  {renderEditableField("Endocrine", "systems.endo", parsedData.systems.endo, true)}
-                  {renderEditableField("Heme", "systems.heme", parsedData.systems.heme, true)}
-                  {renderEditableField("Infectious", "systems.infectious", parsedData.systems.infectious, true)}
-                  {renderEditableField("Skin/Lines", "systems.skinLines", parsedData.systems.skinLines, true)}
-                  {renderEditableField("Disposition", "systems.dispo", parsedData.systems.dispo, true)}
+                  {renderEditableField("Neuro", "systems.neuro", parsedData.systems.neuro ?? '', true)}
+                  {renderEditableField("Cardiovascular", "systems.cv", parsedData.systems.cv ?? '', true)}
+                  {renderEditableField("Respiratory", "systems.resp", parsedData.systems.resp ?? '', true)}
+                  {renderEditableField("Renal/GU", "systems.renalGU", parsedData.systems.renalGU ?? '', true)}
+                  {renderEditableField("GI", "systems.gi", parsedData.systems.gi ?? '', true)}
+                  {renderEditableField("Endocrine", "systems.endo", parsedData.systems.endo ?? '', true)}
+                  {renderEditableField("Heme", "systems.heme", parsedData.systems.heme ?? '', true)}
+                  {renderEditableField("Infectious", "systems.infectious", parsedData.systems.infectious ?? '', true)}
+                  {renderEditableField("Skin/Lines", "systems.skinLines", parsedData.systems.skinLines ?? '', true)}
+                  {renderEditableField("Disposition", "systems.dispo", parsedData.systems.dispo ?? '', true)}
                 </TabsContent>
               </Tabs>
             </ScrollArea>
