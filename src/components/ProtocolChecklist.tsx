@@ -214,98 +214,135 @@ function ActiveProtocolCard({
     patientProtocol.completedItems.includes(i.id)
   ).length;
 
+  const [showDiscontinueDialog, setShowDiscontinueDialog] = React.useState(false);
+  const [discontinueReason, setDiscontinueReason] = React.useState('');
+
   return (
-    <Collapsible open={isExpanded} onOpenChange={onToggle}>
-      <Card className={cn(
-        "transition-all",
-        completion === 100 && "border-green-300 bg-green-50/50"
-      )}>
-        <CollapsibleTrigger asChild>
-          <CardHeader className="py-3 cursor-pointer hover:bg-muted/50 transition-colors">
-            <div className="flex items-center gap-3">
-              {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              )}
+    <>
+      <Collapsible open={isExpanded} onOpenChange={onToggle}>
+        <Card className={cn(
+          "transition-all",
+          completion === 100 && "border-green-300 bg-green-50/50"
+        )}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="py-3 cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center gap-3">
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
 
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm">{protocol.name}</CardTitle>
-                  <Badge
-                    variant="outline"
-                    className={cn("text-xs", CATEGORY_COLORS[protocol.category])}
-                  >
-                    {protocol.shortName}
-                  </Badge>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-sm">{protocol.name}</CardTitle>
+                    <Badge
+                      variant="outline"
+                      className={cn("text-xs", CATEGORY_COLORS[protocol.category])}
+                    >
+                      {protocol.shortName}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-2">
+                    <Progress value={completion} className="flex-1 h-2" />
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {completedCount}/{totalItems} ({Math.round(completion)}%)
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3 mt-2">
-                  <Progress value={completion} className="flex-1 h-2" />
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {completedCount}/{totalItems} ({Math.round(completion)}%)
-                  </span>
-                </div>
+                {completion === 100 && (
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                )}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                {protocol.items.map((item) => {
+                  const isCompleted = patientProtocol.completedItems.includes(item.id);
+                  const completionTime = patientProtocol.completionTimes[item.id];
+                  const note = patientProtocol.notes[item.id];
+
+                  return (
+                    <ProtocolItemRow
+                      key={item.id}
+                      item={item}
+                      isCompleted={isCompleted}
+                      completionTime={completionTime}
+                      note={note}
+                      onToggle={() =>
+                        isCompleted ? onUncompleteItem(item.id) : onCompleteItem(item.id)
+                      }
+                      onAddNote={(noteText) => onAddNote(item.id, noteText)}
+                    />
+                  );
+                })}
               </div>
 
-              {completion === 100 && (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              )}
-            </div>
-          </CardHeader>
-        </CollapsibleTrigger>
+              <div className="flex items-center justify-between mt-4 pt-3 border-t">
+                <div className="text-xs text-muted-foreground">
+                  Started: {new Date(patientProtocol.startedAt).toLocaleString()}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => setShowDiscontinueDialog(true)}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Discontinue
+                </Button>
+              </div>
 
-        <CollapsibleContent>
-          <CardContent className="pt-0">
+              {protocol.source && (
+                <div className="text-xs text-muted-foreground mt-2">
+                  Source: {protocol.source}
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      <Dialog open={showDiscontinueDialog} onOpenChange={setShowDiscontinueDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Discontinue Protocol</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
             <div className="space-y-2">
-              {protocol.items.map((item) => {
-                const isCompleted = patientProtocol.completedItems.includes(item.id);
-                const completionTime = patientProtocol.completionTimes[item.id];
-                const note = patientProtocol.notes[item.id];
-
-                return (
-                  <ProtocolItemRow
-                    key={item.id}
-                    item={item}
-                    isCompleted={isCompleted}
-                    completionTime={completionTime}
-                    note={note}
-                    onToggle={() =>
-                      isCompleted ? onUncompleteItem(item.id) : onCompleteItem(item.id)
-                    }
-                    onAddNote={(noteText) => onAddNote(item.id, noteText)}
-                  />
-                );
-              })}
+              <label className="text-sm font-medium">Reason for discontinuation</label>
+              <Input
+                value={discontinueReason}
+                onChange={(e) => setDiscontinueReason(e.target.value)}
+                placeholder="e.g., Patient discharged, Condition improved..."
+              />
             </div>
-
-            <div className="flex items-center justify-between mt-4 pt-3 border-t">
-              <div className="text-xs text-muted-foreground">
-                Started: {new Date(patientProtocol.startedAt).toLocaleString()}
-              </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowDiscontinueDialog(false)}>
+                Cancel
+              </Button>
               <Button
-                variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-destructive"
+                variant="destructive"
                 onClick={() => {
-                  const reason = window.prompt('Reason for discontinuation:');
-                  if (reason) onDiscontinue(reason);
+                  if (discontinueReason.trim()) {
+                    onDiscontinue(discontinueReason);
+                    setShowDiscontinueDialog(false);
+                  }
                 }}
+                disabled={!discontinueReason.trim()}
               >
-                <X className="h-4 w-4 mr-1" />
                 Discontinue
               </Button>
             </div>
-
-            {protocol.source && (
-              <div className="text-xs text-muted-foreground mt-2">
-                Source: {protocol.source}
-              </div>
-            )}
-          </CardContent>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

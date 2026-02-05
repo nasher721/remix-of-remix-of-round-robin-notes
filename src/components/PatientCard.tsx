@@ -16,6 +16,7 @@ import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggesti
 import { LabTrendBadge } from "./LabTrendingPanel";
 import { AIGeneratorTools } from "./AIGeneratorTools";
 import { AIClinicalAssistant } from "./AIClinicalAssistant";
+import { PatientSystemsReview } from "./PatientSystemsReview";
 import { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -61,7 +62,7 @@ const PatientCardComponent = ({
     );
     if (result) {
       // Append to existing interval events with a newline separator
-      const newValue = patient.intervalEvents 
+      const newValue = patient.intervalEvents
         ? `${patient.intervalEvents}\n\n${result}`
         : result;
       onUpdate(patient.id, 'intervalEvents', newValue);
@@ -75,12 +76,12 @@ const PatientCardComponent = ({
   };
 
   const addTimestamp = (field: string) => {
-    const timestamp = new Date().toLocaleString('en-US', { 
-      hour: '2-digit', 
+    const timestamp = new Date().toLocaleString('en-US', {
+      hour: '2-digit',
       minute: '2-digit',
       hour12: true
     });
-    const currentValue = field.includes('.') 
+    const currentValue = field.includes('.')
       ? patient.systems[field.split('.')[1] as keyof PatientSystems]
       : patient[field as keyof Patient];
     const newValue = `[${timestamp}] ${currentValue || ''}`;
@@ -102,9 +103,7 @@ const PatientCardComponent = ({
     }
   };
 
-  const hasSystemContent = (key: string) => {
-    return Boolean(patient.systems[key as keyof PatientSystems]);
-  };
+
 
   return (
     <div className="print-avoid-break bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-all duration-300">
@@ -457,12 +456,12 @@ const PatientCardComponent = ({
                       </Button>
                     </div>
                   </div>
-                  
+
                   {/* Lab Fishbone Display (when enabled and labs have data) */}
                   {showLabFishbones && patient.labs && (
                     <LabFishbone labs={patient.labs} className="mb-2" />
                   )}
-                  
+
                   <div className="space-y-1">
                     <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
                       <RichTextEditor
@@ -495,89 +494,25 @@ const PatientCardComponent = ({
 
           {/* Systems Review */}
           {sectionVisibility.systemsReview && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-primary text-sm">⚕️</span>
-                  <h3 className="text-sm font-medium">Systems Review</h3>
-                </div>
-                <div className="flex gap-1 no-print">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearAllSystems}
-                    className="h-7 px-2 text-muted-foreground hover:text-destructive"
-                    title="Clear all systems"
-                  >
-                    <Eraser className="h-3.5 w-3.5 mr-1" />
-                    <span className="text-xs">Clear All</span>
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowSystemsConfig(true)}
-                    className="h-7 px-2 text-muted-foreground hover:text-foreground"
-                    title="Customize systems"
-                  >
-                    <Settings2 className="h-3.5 w-3.5 mr-1" />
-                    <span className="text-xs">Customize</span>
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {enabledSystems.map((system) => (
-                  <div 
-                    key={system.key} 
-                    className={`rounded-lg p-3 border transition-all duration-200 ${
-                      hasSystemContent(system.key) 
-                        ? 'bg-card border-primary/20 shadow-sm' 
-                        : 'bg-secondary/30 border-border/50 hover:border-border'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-xs font-medium flex items-center gap-1.5 text-muted-foreground">
-                        <span>{system.icon}</span>
-                        {system.label}
-                      </label>
-                      <div className="flex items-center gap-1">
-                        <PatientTodos
-                          todos={todos}
-                          section={system.key}
-                          patient={patient}
-                          generating={generating}
-                          onAddTodo={addTodo}
-                          onToggleTodo={toggleTodo}
-                          onDeleteTodo={deleteTodo}
-                          onGenerateTodos={generateTodos}
-                        />
-                        {hasSystemContent(system.key) && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <RichTextEditor
-                        value={patient.systems[system.key as keyof PatientSystems] || ''}
-                        onChange={(value) => onUpdate(patient.id, `systems.${system.key}`, value)}
-                        placeholder={`${system.label}...`}
-                        minHeight="50px"
-                        autotexts={autotexts}
-                        fontSize={globalFontSize}
-                        changeTracking={changeTracking}
-                      />
-                      <FieldTimestamp 
-                        timestamp={patient.fieldTimestamps?.[`systems.${system.key}` as keyof typeof patient.fieldTimestamps]} 
-                        className="pl-1" 
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <PatientSystemsReview
+              patient={patient}
+              todos={todos}
+              generating={generating}
+              autotexts={autotexts}
+              globalFontSize={globalFontSize}
+              changeTracking={changeTracking}
+              onUpdate={onUpdate}
+              addTodo={addTodo}
+              toggleTodo={toggleTodo}
+              deleteTodo={deleteTodo}
+              generateTodos={(section) => generateTodos(patient, section as TodoSection)}
+              onClearAll={clearAllSystems}
+              onOpenConfig={() => setShowSystemsConfig(true)}
+            />
           )}
         </div>
       )}
-      
+
       <SystemsConfigManager
         open={showSystemsConfig}
         onOpenChange={setShowSystemsConfig}

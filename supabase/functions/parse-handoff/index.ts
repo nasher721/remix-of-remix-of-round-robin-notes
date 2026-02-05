@@ -96,8 +96,17 @@ function deduplicateText(text: string): string {
  * Detects when the same phrase appears multiple times in sequence
  * PRESERVES original line breaks
  */
+/**
+ * Remove repeated phrases within text (stuttering/echoing artifacts)
+ * Detects when the same phrase appears multiple times in sequence
+ * PRESERVES original line breaks
+ * Added safety limits and optimized loop
+ */
 function removeRepeatedPhrases(text: string): string {
   if (!text || text.length < 20) return text;
+
+  // Safety limit: if text is too long, skip aggressive processing to prevent timeout
+  if (text.length > 50000) return text;
 
   // Process line by line to preserve structure
   const lines = text.split(/\n/);
@@ -111,14 +120,22 @@ function removeRepeatedPhrases(text: string): string {
 
     // Pattern: detect repeated consecutive phrases of 3+ words within this line
     const words = line.split(/\s+/);
+
+    // Skip very long lines to prevent performance issues
+    if (words.length > 1000) {
+      processedLines.push(line);
+      continue;
+    }
+
     const result: string[] = [];
     let i = 0;
 
     while (i < words.length) {
       // Try to find repeating patterns of various lengths
       let foundRepeat = false;
+      const maxPatternLen = Math.min(10, Math.floor((words.length - i) / 2));
 
-      for (let patternLen = 3; patternLen <= Math.min(10, Math.floor((words.length - i) / 2)); patternLen++) {
+      for (let patternLen = 3; patternLen <= maxPatternLen; patternLen++) {
         const pattern = words.slice(i, i + patternLen).join(' ');
         const nextPattern = words.slice(i + patternLen, i + patternLen * 2).join(' ');
 
@@ -161,30 +178,37 @@ function removeRepeatedPhrases(text: string): string {
  */
 function cleanPatientText(text: string): string {
   if (!text) return '';
+  if (typeof text !== 'string') return String(text);
 
   let cleaned = text;
 
-  // Step 1: Normalize escaped newlines to actual newlines
-  cleaned = cleaned.replace(/\\n/g, '\n');
+  try {
+    // Step 1: Normalize escaped newlines to actual newlines
+    cleaned = cleaned.replace(/\\n/g, '\n');
 
-  // Step 2: Remove repeated phrases (OCR stuttering)
-  cleaned = removeRepeatedPhrases(cleaned);
+    // Step 2: Remove repeated phrases (OCR stuttering)
+    cleaned = removeRepeatedPhrases(cleaned);
 
-  // Step 3: Remove duplicate lines
-  cleaned = deduplicateText(cleaned);
+    // Step 3: Remove duplicate lines
+    cleaned = deduplicateText(cleaned);
 
-  // Step 4: Clean up horizontal whitespace but PRESERVE newlines
-  cleaned = cleaned.replace(/[ \t]+/g, ' ');
+    // Step 4: Clean up horizontal whitespace but PRESERVE newlines
+    cleaned = cleaned.replace(/[ \t]+/g, ' ');
 
-  // Step 5: Normalize multiple consecutive blank lines to max 2
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    // Step 5: Normalize multiple consecutive blank lines to max 2
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
-  // Step 6: Convert newlines to <br> for HTML compatibility but respect block tags
-  // First convert all newlines to <br>
-  cleaned = cleaned.replace(/\n/g, '<br>');
-  // Remove <br> immediately surrounding block elements to prevent double spacing
-  cleaned = cleaned.replace(/<br>\s*(<(?:ul|ol|li|p|div|h[1-6]))/gi, '$1');
-  cleaned = cleaned.replace(/(<\/(?:ul|ol|li|p|div|h[1-6])>)\s*<br>/gi, '$1');
+    // Step 6: Convert newlines to <br> for HTML compatibility but respect block tags
+    // First convert all newlines to <br>
+    cleaned = cleaned.replace(/\n/g, '<br>');
+    // Remove <br> immediately surrounding block elements to prevent double spacing
+    cleaned = cleaned.replace(/<br>\s*(<(?:ul|ol|li|p|div|h[1-6]))/gi, '$1');
+    cleaned = cleaned.replace(/(<\/(?:ul|ol|li|p|div|h[1-6])>)\s*<br>/gi, '$1');
+  } catch (e) {
+    console.error("Error cleaning text:", e);
+    // Fallback: return marginally cleaned text
+    return text.replace(/\\n/g, '\n');
+  }
 
   return cleaned.trim();
 }
@@ -519,14 +543,14 @@ SYSTEM MAPPING GUIDANCE:
         parsedData = JSON.parse(jsonStr);
       } catch (initialError) {
         console.log("Initial parse failed, attempting repair...");
-        
+
         // Repair Strategy 1: Fix unescaped quotes in strings
         let repaired = jsonStr;
-        
+
         // Replace unescaped newlines and tabs inside strings
         repaired = repaired.replace(/(?<!\\)\\n/g, '\\n');
         repaired = repaired.replace(/(?<!\\)\\t/g, '\\t');
-        
+
         // Attempt to repair truncated JSON
         const openBraces = (repaired.match(/\{/g) || []).length;
         const closeBraces = (repaired.match(/\}/g) || []).length;
@@ -546,13 +570,13 @@ SYSTEM MAPPING GUIDANCE:
         repaired = repaired.replace(/,\s*\[[^\]]*$/, '');
         // Remove trailing comma before closing
         repaired = repaired.replace(/,(\s*[\]\}])/g, '$1');
-        
+
         // Calculate missing closers after cleanup
         const finalOpenBraces = (repaired.match(/\{/g) || []).length;
         const finalCloseBraces = (repaired.match(/\}/g) || []).length;
         const finalOpenBrackets = (repaired.match(/\[/g) || []).length;
         const finalCloseBrackets = (repaired.match(/\]/g) || []).length;
-        
+
         const missingBrackets = finalOpenBrackets - finalCloseBrackets;
         const missingBraces = finalOpenBraces - finalCloseBraces;
 
@@ -563,22 +587,22 @@ SYSTEM MAPPING GUIDANCE:
         repaired += '}'.repeat(Math.max(0, missingBraces));
 
         console.log("Attempting bracket repair...");
-        
+
         try {
           parsedData = JSON.parse(repaired);
         } catch (repairError1) {
           console.log("Repair attempt 1 failed, trying alternative strategy...");
-          
+
           // Repair Strategy 2: Try to extract just the patients array
           const patientsMatch = jsonStr.match(/"patients"\s*:\s*\[([\s\S]*)/);
           if (patientsMatch) {
             let patientsContent = patientsMatch[1];
-            
+
             // Find complete patient objects by matching balanced braces
             const patients: ParsedPatient[] = [];
             let depth = 0;
             let start = -1;
-            
+
             for (let i = 0; i < patientsContent.length; i++) {
               const char = patientsContent[i];
               if (char === '{') {
@@ -598,7 +622,7 @@ SYSTEM MAPPING GUIDANCE:
                 }
               }
             }
-            
+
             if (patients.length > 0) {
               console.log(`Extracted ${patients.length} complete patient objects`);
               parsedData = { patients };

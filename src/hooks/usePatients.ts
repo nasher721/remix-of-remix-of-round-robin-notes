@@ -35,7 +35,7 @@ export const usePatients = () => {
   const [patientCounter, setPatientCounter] = React.useState(1);
   const { user } = useAuth();
   const notifications = useNotifications();
-  
+
   // Ref to track latest patients for use in callbacks without stale closures
   const patientsRef = React.useRef<Patient[]>([]);
   React.useEffect(() => {
@@ -174,61 +174,63 @@ export const usePatients = () => {
     const isMedicationsField = field === 'medications';
     const shouldTrackTimestamp = trackableFields.includes(field) || isSystemField;
 
-    // Get old value for history tracking - use ref to avoid stale closure
-    const patient = patientsRef.current.find((p) => p.id === id);
-    let oldValue: string | null = null;
+    // Get current state from ref to ensure sequential updates see each other
+    // We clone the array to avoid mutating the previous state reference directly
+    const currentPatients = [...patientsRef.current];
+    const patientIndex = currentPatients.findIndex((p) => p.id === id);
 
-    if (shouldTrackTimestamp && patient && !isMedicationsField) {
+    if (patientIndex === -1) return;
+
+    // Clone the patient to avoid mutation
+    const oldPatient = currentPatients[patientIndex];
+    const updatedPatient = { ...oldPatient };
+
+    let oldValue: string | null = null;
+    if (shouldTrackTimestamp && !isMedicationsField) {
       if (isSystemField) {
         const systemKey = field.split('.')[1] as keyof PatientSystems;
-        oldValue = patient.systems[systemKey] || null;
+        oldValue = updatedPatient.systems[systemKey] || null;
       } else {
-        oldValue = (patient[field as keyof typeof patient] as string) || null;
+        oldValue = (updatedPatient[field as keyof typeof updatedPatient] as string) || null;
       }
     }
 
-    // Optimistic update - using functional update to avoid stale state
-    setPatients((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const updated = { ...p, lastModified: now };
+    // Apply updates to the cloned patient object
+    updatedPatient.lastModified = now;
 
-          // Update field timestamps if this is a trackable field
-          if (shouldTrackTimestamp) {
-            updated.fieldTimestamps = {
-              ...p.fieldTimestamps,
-              [field]: now,
-            };
-          }
-
-          if (field.includes(".")) {
-            const [parent, child] = field.split(".");
-            if (parent === "systems") {
-              updated.systems = { ...p.systems, [child]: value };
-            } else if (parent === "medications") {
-              updated.medications = { ...p.medications, [child]: value };
-            }
-          } else if (field === "medications") {
-            updated.medications = value as PatientMedications;
-          } else {
-            (updated as Record<string, unknown>)[field] = value;
-          }
-          return updated;
-        }
-        return p;
-      })
-    );
-
-    // Prepare update object - use ref for current patient data
-    const currentPatient = patientsRef.current.find((p) => p.id === id);
-    const updateData = prepareUpdateData(field, value, currentPatient?.systems, currentPatient?.medications);
-
-    // Add field timestamp update if trackable
-    if (shouldTrackTimestamp && currentPatient) {
-      updateData.field_timestamps = {
-        ...currentPatient.fieldTimestamps,
+    if (shouldTrackTimestamp) {
+      updatedPatient.fieldTimestamps = {
+        ...updatedPatient.fieldTimestamps,
         [field]: now,
       };
+    }
+
+    if (field.includes(".")) {
+      const [parent, child] = field.split(".");
+      if (parent === "systems") {
+        updatedPatient.systems = { ...updatedPatient.systems, [child]: value };
+      } else if (parent === "medications") {
+        updatedPatient.medications = { ...updatedPatient.medications, [child]: value };
+      }
+    } else if (field === "medications") {
+      updatedPatient.medications = value as PatientMedications;
+    } else {
+      (updatedPatient as Record<string, unknown>)[field] = value;
+    }
+
+    // Synchronously update the ref so next call sees this change immediately
+    currentPatients[patientIndex] = updatedPatient;
+    patientsRef.current = currentPatients;
+
+    // Update React state
+    setPatients(currentPatients);
+
+    // Prepare update object using the FULLY UPDATED patient object
+    // This ensures we don't send stale partial data to Supabase
+    const updateData = prepareUpdateData(field, value, updatedPatient.systems, updatedPatient.medications);
+
+    if (shouldTrackTimestamp) {
+      updateData.field_timestamps = updatedPatient.fieldTimestamps;
     }
 
     try {
@@ -241,7 +243,6 @@ export const usePatients = () => {
 
       // Record history entry for trackable fields (non-blocking, ignore errors)
       if (shouldTrackTimestamp && oldValue !== (value as string)) {
-        // Fire and forget - don't await, ignore all errors
         void (async () => {
           try {
             await supabase.from("patient_field_history").insert({
@@ -258,7 +259,7 @@ export const usePatients = () => {
       }
     } catch (error) {
       console.error("Error updating patient:", error);
-      // Revert on error
+      // Revert on error by fetching fresh data
       fetchPatients();
     }
   }, [user, fetchPatients]);
