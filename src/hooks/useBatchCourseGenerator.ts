@@ -2,6 +2,7 @@ import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
+import { ensureString } from '@/lib/ai-response-utils';
 
 export type BatchGenerationType = 'course' | 'intervalEvents' | 'dailySummary';
 
@@ -164,19 +165,11 @@ export const useBatchCourseGenerator = () => {
           });
         } else {
           // Get the content based on type
-          let content: string;
-          if (type === 'intervalEvents') {
-            content = typeof data.intervalEvents === 'string' 
-              ? data.intervalEvents 
-              : JSON.stringify(data.intervalEvents, null, 2);
-          } else if (type === 'dailySummary') {
-            const raw = data.summaryOnly || data.summary;
-            content = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
-          } else {
-            content = typeof data.course === 'string' 
-              ? data.course 
-              : JSON.stringify(data.course, null, 2);
-          }
+          const content = type === 'intervalEvents'
+            ? ensureString(data.intervalEvents)
+            : type === 'dailySummary'
+              ? ensureString(data.summaryOnly || data.summary)
+              : ensureString(data.course);
           
           results.push({
             patientId: patient.id,

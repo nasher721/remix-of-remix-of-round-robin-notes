@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
+import { ensureString } from '@/lib/ai-response-utils';
 
 export const useDailySummaryGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -67,12 +68,13 @@ export const useDailySummaryGenerator = () => {
       }
 
       // Auto-update if callback provided
-      if (onUpdate && data.summary) {
-        onUpdate(data.summary);
+      const summary = ensureString(data.summary);
+      if (onUpdate && summary) {
+        onUpdate(summary);
       }
 
       toast.success('Daily summary generated');
-      return data.summary;
+      return summary;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         return null;
