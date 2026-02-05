@@ -19,7 +19,7 @@ import {
   RotateCcw 
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
-import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
+import { CLINICAL_SECTIONS, type ClinicalSectionKey, type SectionVisibility } from "@/constants/config";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
