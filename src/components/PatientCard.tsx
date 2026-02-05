@@ -16,7 +16,7 @@ import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggesti
 import { LabTrendBadge } from "./LabTrendingPanel";
 import { AIGeneratorTools } from "./AIGeneratorTools";
 import { AIClinicalAssistant } from "./AIClinicalAssistant";
-import { AutoText } from "@/types/autotext";
+import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
