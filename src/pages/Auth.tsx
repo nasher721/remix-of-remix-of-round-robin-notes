@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { z } from "zod";
+import { lovable } from "@/integrations/lovable/index";
 
 const authSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
