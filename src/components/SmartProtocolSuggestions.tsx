@@ -32,7 +32,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import type { Patient } from "@/types/patient";
-import type { Protocol } from "@/types/protocols";
 
 interface SuggestedProtocol {
   id: string;
