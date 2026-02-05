@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Wand2, ChevronDown, ChevronUp, Droplets, Clock, Pill, FileText, Loader2 } from 'lucide-react';
+import { Wand2, ChevronDown, Droplets, Clock, Pill, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -169,7 +169,7 @@ function MedicationListComponent({ medications, onMedicationsChange, readOnly = 
                         key={idx}
                         className="flex items-center justify-between py-1 px-2 text-sm rounded hover:bg-muted/50 group"
                       >
-                        <span>{med}</span>
+                        <span>{typeof med === 'string' ? med : JSON.stringify(med)}</span>
                         {!readOnly && (
                           <Button
                             variant="ghost"

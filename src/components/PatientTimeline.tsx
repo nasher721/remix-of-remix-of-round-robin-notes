@@ -82,10 +82,7 @@ interface PatientTimelineProps {
 }
 
 export function PatientTimeline({
-  patientId,
-  patientName,
   events,
-  onAddEvent,
   onEventClick,
   className,
 }: PatientTimelineProps) {

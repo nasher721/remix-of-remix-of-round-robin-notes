@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { 
-  Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter, HighlighterIcon,
+  Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter,
   Indent, Outdent, Palette, Undo2, Redo2, FileText
 } from "lucide-react";
 import {
@@ -74,7 +74,6 @@ export const ImagePasteEditor = ({
   onChange, 
   placeholder = "Enter text or paste images...", 
   className,
-  minHeight = "60px",
   autotexts = defaultAutotexts,
   fontSize = 14,
   changeTracking = null,

@@ -1,10 +1,6 @@
 import * as React from "react";
 import {
   Users,
-  Circle,
-  Clock,
-  MinusCircle,
-  CircleOff,
   Eye,
   Edit3,
   MessageSquare,
@@ -49,7 +45,6 @@ interface CollaborationPresenceProps {
 }
 
 export function CollaborationPresence({
-  currentUser,
   activeUsers,
   notifications,
   onMarkNotificationRead,
@@ -57,8 +52,7 @@ export function CollaborationPresence({
   onNavigateToPatient,
   className,
 }: CollaborationPresenceProps) {
-  const unreadNotifications = notifications.filter(n => !n.read);
-  const onlineUsers = activeUsers.filter(u => u.status !== 'offline' && u.id !== currentUser.id);
+  const onlineUsers = activeUsers.filter(u => u.status !== 'offline');
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -167,10 +161,9 @@ interface UserAvatarProps {
   user: UserPresence;
   size?: 'sm' | 'md' | 'lg';
   showStatus?: boolean;
-  showName?: boolean;
 }
 
-export function UserAvatar({ user, size = 'md', showStatus = false, showName = false }: UserAvatarProps) {
+export function UserAvatar({ user, size = 'md', showStatus = false }: UserAvatarProps) {
   const sizeClasses = {
     sm: 'h-7 w-7',
     md: 'h-9 w-9',
@@ -361,11 +354,10 @@ export function NotificationBell({
 
 // Inline presence indicator for patient cards
 interface PatientPresenceProps {
-  patientId: string;
   viewers: UserPresence[];
 }
 
-export function PatientPresence({ patientId, viewers }: PatientPresenceProps) {
+export function PatientPresence({ viewers }: PatientPresenceProps) {
   if (viewers.length === 0) return null;
 
   return (
