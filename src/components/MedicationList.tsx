@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Wand2, ChevronDown, ChevronUp, Droplets, Clock, Pill, FileText, Loader2 } from 'lucide-react';
+import { Wand2, ChevronDown, Droplets, Clock, Pill, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
