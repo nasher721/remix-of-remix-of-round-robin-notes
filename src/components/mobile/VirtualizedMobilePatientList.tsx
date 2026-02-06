@@ -39,7 +39,7 @@ const PatientRowComponent = ({
   if (!patient) return null;
 
   return (
-    <div style={style} {...ariaAttributes} className="border-b border-border">
+    <div style={style} {...ariaAttributes} className="border-b border-border/30">
       <SwipeablePatientCard
         patient={patient}
         onSelect={onSelect}
@@ -104,24 +104,24 @@ export const VirtualizedMobilePatientList = React.memo(({
 
   if (patients.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
-          <span className="text-3xl">🏥</span>
+      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-secondary/60 flex items-center justify-center mb-5 border border-border/30">
+          <span className="text-2xl">{searchQuery ? "🔍" : "🏥"}</span>
         </div>
-        <h3 className="text-xl font-semibold mb-2">
+        <h3 className="text-lg font-semibold mb-1.5">
           {searchQuery ? "No patients found" : "Ready to Start Rounds"}
         </h3>
-        <p className="text-muted-foreground text-sm max-w-xs">
+        <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
           {searchQuery
             ? "Try adjusting your search."
             : "Tap the + button below to add your first patient."}
         </p>
         {!searchQuery && (
-          <div className="flex flex-col gap-2 mt-6 w-full max-w-xs">
-            <Button onClick={onAddPatient} className="w-full" disabled={!onAddPatient}>
+          <div className="flex flex-col gap-2 mt-8 w-full max-w-[240px]">
+            <Button onClick={onAddPatient} className="w-full shadow-sm" disabled={!onAddPatient}>
               Add patient
             </Button>
-            <Button variant="outline" onClick={onOpenImport} className="w-full" disabled={!onOpenImport}>
+            <Button variant="outline" onClick={onOpenImport} className="w-full border-border/40" disabled={!onOpenImport}>
               Import from Epic
             </Button>
           </div>

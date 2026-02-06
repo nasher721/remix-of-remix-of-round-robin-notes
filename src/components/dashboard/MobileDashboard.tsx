@@ -169,25 +169,18 @@ export const MobileDashboard = () => {
                   ) : undefined
                 }
               />
-              <div className="sticky top-14 z-30 bg-background/95 backdrop-blur border-b border-border/40">
-                <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <span>
-                      {searchQuery ? `Results for "${searchQuery}"` : "All patients"}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5 font-medium">
-                      {filteredPatients.length} shown
-                    </Badge>
-                  </div>
-                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
-                    Last saved {lastSavedLabel}
-                  </Badge>
+              <div className="sticky top-14 z-30 bg-background/90 backdrop-blur-xl border-b border-border/20">
+                <div className="flex items-center justify-between px-4 py-1.5 text-[11px] text-muted-foreground/70">
+                  <span>
+                    {searchQuery ? `Results for "${searchQuery}"` : `${filteredPatients.length} of ${patients.length} patients`}
+                  </span>
+                  <span>Saved {lastSavedLabel}</span>
                 </div>
-                <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-thin">
-                  <div className="flex items-center gap-2 bg-secondary/60 rounded-full px-2 py-1">
-                    <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                <div className="flex items-center gap-1.5 px-4 pb-2.5 overflow-x-auto scrollbar-thin">
+                  <div className="flex items-center gap-1.5 bg-secondary/40 rounded-full px-2 py-0.5">
+                    <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v as "number" | "room" | "name")}>
-                      <SelectTrigger className="h-7 w-[120px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
+                      <SelectTrigger className="h-7 w-[110px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
                         <SelectValue placeholder="Sort by" />
                       </SelectTrigger>
                       <SelectContent>
@@ -200,12 +193,12 @@ export const MobileDashboard = () => {
                   {filterOptions.map((option) => (
                     <Button
                       key={option.id}
-                      variant={filter === option.id ? "default" : "outline"}
+                      variant={filter === option.id ? "default" : "ghost"}
                       size="sm"
                       onClick={() => setFilter(option.id)}
                       className={cn(
-                        "h-8 rounded-full px-3 text-xs",
-                        filter === option.id ? "shadow-sm" : "text-muted-foreground"
+                        "h-7 rounded-full px-3 text-xs",
+                        filter === option.id ? "shadow-sm" : "text-muted-foreground/70"
                       )}
                     >
                       {option.label}
@@ -230,7 +223,7 @@ export const MobileDashboard = () => {
               </div>
               <Button
                 onClick={handleAddPatient}
-                className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-lg z-40"
+                className="fixed bottom-20 right-4 h-12 w-12 rounded-full shadow-lg shadow-primary/20 z-40 hover:shadow-xl hover:shadow-primary/30 transition-shadow"
                 size="icon"
               >
                 <Plus className="h-5 w-5" />

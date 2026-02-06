@@ -161,31 +161,31 @@ export const DesktopDashboard = ({
   return (
     <div className="min-h-screen bg-background">
       {/* Header - Modern Glass Effect */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl no-print shadow-sm">
-        <div className="container mx-auto px-6 h-16 flex items-center justify-between gap-6">
+      <header className="sticky top-0 z-50 border-b border-border/30 bg-background/80 backdrop-blur-xl no-print">
+        <div className="container mx-auto px-6 h-14 flex items-center justify-between gap-6">
           {/* Logo & Title */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 group cursor-pointer hover:opacity-80 transition-opacity">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/30 transition-colors"></div>
-                <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-9 w-auto relative z-10" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold tracking-tight leading-none text-foreground">Rolling Rounds</h1>
-                <p className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase mt-0.5">Professional Edition</p>
-              </div>
+          <div className="flex items-center gap-3 group cursor-pointer">
+            <div className="relative flex items-center justify-center h-8 w-8">
+              <div className="absolute inset-0 bg-primary/10 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-8 w-auto relative z-10" />
+            </div>
+            <div>
+              <h1 className="text-base font-semibold tracking-tight leading-none text-foreground">Rolling Rounds</h1>
+              <p className="text-[10px] text-muted-foreground/70 font-medium tracking-wider uppercase mt-0.5">Professional</p>
             </div>
           </div>
 
           {/* Center - Stats Pill */}
-          <div className="hidden md:flex items-center gap-1 px-3 py-1.5 bg-secondary/50 rounded-full border border-border/50 text-xs font-medium text-muted-foreground shadow-sm">
-            <Users className="h-3.5 w-3.5 text-primary" />
-            <span className="text-foreground">{patients.length}</span>
-            <span className="mr-2">active</span>
-            <div className="h-3 w-px bg-border/80" />
+          <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-secondary/60 rounded-full text-xs font-medium text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <span className="text-foreground font-semibold">{patients.length}</span>
+              <span>patients</span>
+            </div>
+            <div className="h-3 w-px bg-border" />
             <OfflineIndicator />
-            <div className="h-3 w-px bg-border/80" />
-            <Clock className="h-3.5 w-3.5 ml-1" />
+            <div className="h-3 w-px bg-border" />
+            <Clock className="h-3 w-3" />
             <span>
               {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
@@ -195,32 +195,32 @@ export const DesktopDashboard = ({
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <p className="text-xs font-medium leading-none text-foreground">{user.email}</p>
-              <p className="text-[10px] text-muted-foreground">Physician</p>
+              <p className="text-[10px] text-muted-foreground/70">Physician</p>
             </div>
             <Button
               onClick={onSignOut}
               variant="ghost"
               size="icon"
-              className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors"
               title="Sign Out"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Action Bar - Clean Toolbar */}
-      <div className="border-b border-border/40 bg-secondary/20 no-print py-3">
-        <div className="container mx-auto px-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
+      {/* Action Bar - Streamlined Toolbar */}
+      <div className="border-b border-border/30 bg-secondary/30 no-print">
+        <div className="container mx-auto px-6 py-2">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             {/* Primary Actions Group */}
-            <div className="flex items-center gap-2 p-1 bg-background rounded-lg border border-border/60 shadow-sm">
-              <Button onClick={onAddPatient} size="sm" className="gap-2 h-8 font-medium bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
+            <div className="flex items-center gap-1.5 p-1 bg-background/80 rounded-lg border border-border/40 shadow-sm">
+              <Button onClick={onAddPatient} size="sm" className="gap-1.5 h-8 font-medium bg-primary text-primary-foreground hover:bg-primary-dark shadow-sm rounded-md">
                 <Plus className="h-3.5 w-3.5" />
                 Add Patient
               </Button>
-              <div className="w-px h-5 bg-border mx-1 my-auto" />
+              <div className="w-px h-5 bg-border/50" />
               <SmartPatientImport onImportPatient={onAddPatientWithData} />
               <EpicHandoffImport
                 existingBeds={patients.map(p => p.bed)}
@@ -229,12 +229,12 @@ export const DesktopDashboard = ({
             </div>
 
             {/* Clinical Tools Group */}
-            <div className="flex items-center gap-2 p-1 bg-background rounded-lg border border-border/60 shadow-sm">
-              <div className="flex items-center gap-1 px-2 text-muted-foreground">
+            <div className="flex items-center gap-1.5 p-1 bg-background/80 rounded-lg border border-border/40 shadow-sm">
+              <div className="flex items-center gap-1 px-2 text-primary">
                 <Stethoscope className="h-3.5 w-3.5" />
-                <span className="text-xs font-medium hidden md:inline">Clinical</span>
+                <span className="text-xs font-semibold hidden md:inline">Clinical</span>
               </div>
-              <div className="w-px h-5 bg-border" />
+              <div className="w-px h-5 bg-border/40" />
               <UnitCensusDashboard patients={patients} />
               <LabTrendingPanel patients={patients} />
               <ClinicalRiskCalculator />
@@ -242,7 +242,7 @@ export const DesktopDashboard = ({
             </div>
 
             {/* Tools Group */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <ChangeTrackingControls
                 enabled={changeTracking.enabled}
                 color={changeTracking.color}
@@ -251,7 +251,7 @@ export const DesktopDashboard = ({
                 onColorChange={changeTracking.setColor}
                 onToggleStyle={changeTracking.toggleStyle}
               />
-              <div className="w-px h-5 bg-border mx-1" />
+              <div className="w-px h-5 bg-border/40" />
               <AutotextManager
                 autotexts={autotexts}
                 templates={templates}
@@ -266,39 +266,39 @@ export const DesktopDashboard = ({
                 onClick={() => setShowPhraseManager(true)}
                 variant="ghost"
                 size="sm"
-                className="gap-2 h-8 text-muted-foreground hover:text-foreground hover:bg-background border border-transparent hover:border-border/60"
+                className="gap-1.5 h-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
               >
-                <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Phrases</span>
+                <FileText className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-xs">Phrases</span>
               </Button>
             </div>
 
             {/* View Options Group */}
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-0.5 ml-auto">
               <Button
                 onClick={onCollapseAll}
                 variant="ghost"
                 size="sm"
-                className="gap-2 h-8 text-muted-foreground hover:text-foreground"
+                className="gap-1.5 h-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
                 disabled={patients.length === 0}
               >
-                <ChevronsUpDown className="h-4 w-4" />
-                <span className="hidden lg:inline">
-                  {patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                <ChevronsUpDown className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline text-xs">
+                  {patients.every(p => p.collapsed) ? 'Expand' : 'Collapse'}
                 </span>
               </Button>
-              <Button onClick={handlePrint} variant="ghost" size="sm" className="gap-2 h-8 text-muted-foreground hover:text-foreground">
-                <Printer className="h-4 w-4" />
-                <span className="hidden lg:inline">Print</span>
+              <Button onClick={handlePrint} variant="ghost" size="sm" className="gap-1.5 h-8 text-muted-foreground hover:text-foreground hover:bg-secondary">
+                <Printer className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline text-xs">Print</span>
               </Button>
-              <Button onClick={handleExport} variant="ghost" size="sm" className="gap-2 h-8 text-muted-foreground hover:text-foreground">
-                <Download className="h-4 w-4" />
-                <span className="hidden lg:inline">Export</span>
+              <Button onClick={handleExport} variant="ghost" size="sm" className="gap-1.5 h-8 text-muted-foreground hover:text-foreground hover:bg-secondary">
+                <Download className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline text-xs">Export</span>
               </Button>
-              <div className="w-px h-4 bg-border mx-1" />
-              <Button onClick={handleClearAll} variant="ghost" size="sm" className="gap-2 h-8 text-destructive/80 hover:text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-4 w-4" />
-                <span className="hidden lg:inline">Clear All</span>
+              <div className="w-px h-4 bg-border/40 mx-0.5" />
+              <Button onClick={handleClearAll} variant="ghost" size="sm" className="gap-1.5 h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline text-xs">Clear</span>
               </Button>
             </div>
           </div>
@@ -306,41 +306,27 @@ export const DesktopDashboard = ({
       </div>
 
       {/* Search, Filter & Settings Bar */}
-      <div className="container mx-auto px-6 py-4 no-print">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-3">
-          <Badge variant="secondary" className="gap-2 font-medium">
-            <Users className="h-3.5 w-3.5 text-primary" />
-            {filteredPatients.length} of {patients.length} shown
-          </Badge>
-          {searchQuery ? (
-            <Badge variant="outline" className="font-medium">
-              Searching “{searchQuery}”
-            </Badge>
-          ) : null}
-          <Badge variant="outline" className="font-medium">
-            {filterLabel}
-          </Badge>
-        </div>
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+      <div className="container mx-auto px-6 pt-4 pb-3 no-print">
+        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           {/* Search & Filter */}
-          <div className="flex flex-1 gap-3 items-center w-full lg:w-auto">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-1 gap-2.5 items-center w-full lg:w-auto">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
               <Input
                 placeholder="Search patients..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 bg-secondary/50 border-0 focus-visible:ring-1"
+                className="pl-10 h-9 bg-secondary/40 border-border/30 focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:border-primary/40 rounded-lg text-sm"
               />
             </div>
-            <div className="flex gap-1 p-1 bg-secondary/50 rounded-lg">
+            <div className="flex gap-0.5 p-0.5 bg-secondary/50 rounded-lg">
               {Object.values(PatientFilterType).map((f) => (
                 <Button
                   key={f}
                   variant={filter === f ? 'default' : 'ghost'}
                   onClick={() => setFilter(f)}
                   size="sm"
-                  className={filter === f ? '' : 'text-muted-foreground hover:text-foreground'}
+                  className={`h-8 text-xs rounded-md ${filter === f ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                 >
                   {f === PatientFilterType.All ? 'All' : f === PatientFilterType.Filled ? 'With Notes' : 'Empty'}
                 </Button>
@@ -348,10 +334,10 @@ export const DesktopDashboard = ({
             </div>
 
             {/* Sort Control */}
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/60" />
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'number' | 'room' | 'name')}>
-                <SelectTrigger className="w-32 h-9 bg-secondary/50 border-0">
+                <SelectTrigger className="w-28 h-8 bg-transparent border-0 text-xs shadow-none focus:ring-0">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -363,83 +349,99 @@ export const DesktopDashboard = ({
             </div>
           </div>
 
-          {/* Font Size Control */}
-          <div className="flex items-center gap-3 px-4 py-2 bg-secondary/50 rounded-lg">
-            <Type className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Size</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setGlobalFontSize(Math.max(10, globalFontSize - 2))}
-                disabled={globalFontSize <= 10}
-              >
-                <span className="text-lg font-medium">−</span>
-              </Button>
-              <Slider
-                value={[globalFontSize]}
-                min={10}
-                max={24}
-                step={1}
-                className="w-20"
-                onValueChange={(v) => setGlobalFontSize(v[0])}
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setGlobalFontSize(Math.min(24, globalFontSize + 2))}
-                disabled={globalFontSize >= 24}
-              >
-                <span className="text-lg font-medium">+</span>
-              </Button>
+          {/* Right controls */}
+          <div className="flex items-center gap-2">
+            {/* Font Size Control */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-secondary/40 rounded-lg">
+              <Type className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded"
+                  onClick={() => setGlobalFontSize(Math.max(10, globalFontSize - 2))}
+                  disabled={globalFontSize <= 10}
+                >
+                  <span className="text-sm font-medium">-</span>
+                </Button>
+                <Slider
+                  value={[globalFontSize]}
+                  min={10}
+                  max={24}
+                  step={1}
+                  className="w-16"
+                  onValueChange={(v) => setGlobalFontSize(v[0])}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded"
+                  onClick={() => setGlobalFontSize(Math.min(24, globalFontSize + 2))}
+                  disabled={globalFontSize >= 24}
+                >
+                  <span className="text-sm font-medium">+</span>
+                </Button>
+              </div>
+              <span className="text-[10px] font-mono text-muted-foreground/60 w-7">{globalFontSize}px</span>
             </div>
-            <span className="text-xs font-mono text-muted-foreground w-8">{globalFontSize}px</span>
+
+            {/* Section Visibility Panel */}
+            <SectionVisibilityPanel />
+
+            {/* Todos Always Visible Toggle */}
+            <Button
+              variant={todosAlwaysVisible ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTodosAlwaysVisible(!todosAlwaysVisible)}
+              className={`gap-1.5 h-8 text-xs ${!todosAlwaysVisible ? 'text-muted-foreground hover:text-foreground' : ''}`}
+            >
+              <ListTodo className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Todos</span>
+            </Button>
           </div>
-
-          {/* Section Visibility Panel */}
-          <SectionVisibilityPanel />
-
-          {/* Todos Always Visible Toggle */}
-          <Button
-            variant={todosAlwaysVisible ? "default" : "outline"}
-            size="sm"
-            onClick={() => setTodosAlwaysVisible(!todosAlwaysVisible)}
-            className="gap-2"
-          >
-            <ListTodo className="h-4 w-4" />
-            <span className="hidden sm:inline">Todos</span>
-            <span className="text-xs">{todosAlwaysVisible ? "Visible" : "Hidden"}</span>
-          </Button>
         </div>
 
-        {/* Sync Status */}
-        <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-          <div className="w-1.5 h-1.5 bg-success rounded-full" />
-          <Clock className="h-3 w-3" />
-          <span>Last synced {lastSaved.toLocaleTimeString()}</span>
+        {/* Status bar */}
+        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted-foreground/70">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-secondary/60">
+              <Users className="h-3 w-3 text-primary" />
+              {filteredPatients.length} of {patients.length}
+            </Badge>
+            {searchQuery && (
+              <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5">
+                Searching &ldquo;{searchQuery}&rdquo;
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 bg-success rounded-full" />
+            <span>Synced {lastSaved.toLocaleTimeString()}</span>
+          </div>
         </div>
       </div>
 
       {/* Patient Cards */}
       <div className="container mx-auto px-6 pb-12 pr-16 transition-all duration-300">
         {filteredPatients.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="mb-6">
-              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto mx-auto opacity-50" />
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="mb-8 relative">
+              <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full scale-150" />
+              <div className="relative bg-secondary/50 rounded-2xl p-6 border border-border/30">
+                <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-40" />
+              </div>
             </div>
-            <h3 className="text-2xl font-semibold mb-2">
+            <h3 className="text-xl font-semibold mb-2 text-foreground/90">
               {patients.length === 0 ? 'Ready to Start Rounds' : 'No patients match your filter'}
             </h3>
-            <p className="text-muted-foreground mb-6 max-w-sm">
+            <p className="text-muted-foreground text-sm mb-8 max-w-xs leading-relaxed">
               {patients.length === 0
                 ? 'Add your first patient to begin documenting rounds.'
                 : 'Try adjusting your search or filter criteria.'}
             </p>
             {patients.length === 0 && (
-              <Button onClick={onAddPatient} size="lg" className="gap-2">
-                <Plus className="h-5 w-5" />
+              <Button onClick={onAddPatient} size="lg" className="gap-2 rounded-xl shadow-md hover:shadow-lg transition-shadow">
+                <Plus className="h-4 w-4" />
                 Add First Patient
               </Button>
             )}
