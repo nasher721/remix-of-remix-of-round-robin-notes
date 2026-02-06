@@ -45,7 +45,7 @@ const PatientCardComponent = ({
   onToggleCollapse,
   autotexts = defaultAutotexts,
 }: PatientCardProps) => {
-  const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
+  const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility, isMorrow } = useSettings();
   const changeTracking = useChangeTracking();
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
@@ -111,12 +111,12 @@ const PatientCardComponent = ({
 
 
   return (
-    <div className="print-avoid-break bg-card rounded-2xl border border-border/30 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden card-hover">
+    <div className={"print-avoid-break bg-card border overflow-hidden card-hover transition-all " + (isMorrow ? "rounded-2xl border-border/30 shadow-md hover:shadow-lg duration-300" : "rounded-xl border-border/50 shadow-sm hover:shadow-md duration-200")}>
       {/* Header */}
-      <div className="flex justify-between items-center gap-4 px-5 py-4 bg-white/[0.03] border-b border-border/20">
+      <div className={"flex justify-between items-center gap-4 px-5 py-4 border-b " + (isMorrow ? "bg-white/[0.03] border-border/20" : "bg-gradient-to-r from-secondary/30 to-transparent border-border/30")}>
         <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-          <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/10">
-            <span className="text-base font-semibold text-card-foreground">
+          <div className={"h-9 w-9 flex items-center justify-center flex-shrink-0 border " + (isMorrow ? "rounded-xl bg-white/10 border-white/10" : "rounded-lg bg-primary/10 border-primary/10")}>
+            <span className={"text-base font-semibold " + (isMorrow ? "text-card-foreground" : "text-primary")}>
               {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
             </span>
           </div>
@@ -125,13 +125,13 @@ const PatientCardComponent = ({
               placeholder="Patient Name"
               value={patient.name}
               onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
-              className="max-w-[200px] font-medium bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground transition-all duration-200"
+              className={"max-w-[200px] font-medium border focus:ring-2 px-3 h-8 text-sm transition-all " + (isMorrow ? "bg-white/8 border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-white/10 rounded-xl text-card-foreground duration-200" : "bg-background/80 border-border/40 hover:border-primary/30 focus:border-primary/50 focus:ring-primary/10 rounded-lg duration-150")}
             />
             <Input
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
-              className="max-w-[100px] bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground/60 transition-all duration-200"
+              className={"max-w-[100px] border focus:ring-2 px-3 h-8 text-sm transition-all " + (isMorrow ? "bg-white/8 border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-white/10 rounded-xl text-card-foreground/60 duration-200" : "bg-background/80 border-border/40 hover:border-primary/30 focus:border-primary/50 focus:ring-primary/10 rounded-lg text-muted-foreground duration-150")}
             />
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">
@@ -218,12 +218,12 @@ const PatientCardComponent = ({
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                    <FileText className="h-3.5 w-3.5 text-card-foreground/70" />
+                  <div className={"h-5 w-5 rounded flex items-center justify-center " + (isMorrow ? "bg-white/8" : "bg-primary/8")}>
+                    <FileText className={"h-3.5 w-3.5 " + (isMorrow ? "text-card-foreground/70" : "text-primary")} />
                   </div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Clinical Summary</h3>
+                  <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isMorrow ? "text-card-foreground/60" : "text-muted-foreground")}>Clinical Summary</h3>
                   {patient.clinicalSummary && (
-                    <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
+                    <span className={"text-[10px] px-1.5 py-0.5 rounded " + (isMorrow ? "text-card-foreground/40 bg-white/8" : "text-muted-foreground/60 bg-secondary/60")}>
                       {patient.clinicalSummary.length}
                     </span>
                   )}
@@ -259,7 +259,7 @@ const PatientCardComponent = ({
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="bg-white/[0.03] rounded-xl p-3 border border-white/8 transition-colors focus-within:border-white/15 focus-within:bg-white/[0.05]">
+                <div className={"p-3 border transition-colors " + (isMorrow ? "bg-white/[0.03] rounded-xl border-white/8 focus-within:border-white/15 focus-within:bg-white/[0.05]" : "bg-secondary/20 rounded-lg border-border/30 focus-within:border-primary/20 focus-within:bg-secondary/30")}>
                   <RichTextEditor
                     value={patient.clinicalSummary}
                     onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
@@ -280,12 +280,12 @@ const PatientCardComponent = ({
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                    <Calendar className="h-3.5 w-3.5 text-card-foreground/70" />
+                  <div className={"h-5 w-5 rounded flex items-center justify-center " + (isMorrow ? "bg-white/8" : "bg-primary/8")}>
+                    <Calendar className={"h-3.5 w-3.5 " + (isMorrow ? "text-card-foreground/70" : "text-primary")} />
                   </div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Interval Events</h3>
+                  <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isMorrow ? "text-card-foreground/60" : "text-muted-foreground")}>Interval Events</h3>
                   {patient.intervalEvents && (
-                    <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
+                    <span className={"text-[10px] px-1.5 py-0.5 rounded " + (isMorrow ? "text-card-foreground/40 bg-white/8" : "text-muted-foreground/60 bg-secondary/60")}>
                       {patient.intervalEvents.length}
                     </span>
                   )}
@@ -361,7 +361,7 @@ const PatientCardComponent = ({
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="bg-white/[0.03] rounded-xl p-3 border border-white/8 transition-colors focus-within:border-white/15 focus-within:bg-white/[0.05]">
+                <div className={"p-3 border transition-colors " + (isMorrow ? "bg-white/[0.03] rounded-xl border-white/8 focus-within:border-white/15 focus-within:bg-white/[0.05]" : "bg-secondary/20 rounded-lg border-border/30 focus-within:border-primary/20 focus-within:bg-secondary/30")}>
                   <RichTextEditor
                     value={patient.intervalEvents}
                     onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
@@ -385,17 +385,17 @@ const PatientCardComponent = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                        <ImageIcon className="h-3.5 w-3.5 text-card-foreground/70" />
+                      <div className={"h-5 w-5 rounded flex items-center justify-center " + (isMorrow ? "bg-white/8" : "bg-primary/8")}>
+                        <ImageIcon className={"h-3.5 w-3.5 " + (isMorrow ? "text-card-foreground/70" : "text-blue-500")} />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Imaging</h3>
+                      <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isMorrow ? "text-card-foreground/60" : "text-muted-foreground")}>Imaging</h3>
                       {patient.imaging && (
-                        <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
+                        <span className={"text-[10px] px-1.5 py-0.5 rounded " + (isMorrow ? "text-card-foreground/40 bg-white/8" : "text-muted-foreground/60 bg-secondary/60")}>
                           {patient.imaging.replace(/<[^>]*>/g, '').length}
                         </span>
                       )}
                       {imagingImageCount > 0 && (
-                        <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
+                        <span className={"text-[10px] px-1.5 py-0.5 rounded " + (isMorrow ? "text-card-foreground/40 bg-white/8" : "text-muted-foreground/60 bg-secondary/60")}>
                           {imagingImageCount} img
                         </span>
                       )}
@@ -422,7 +422,7 @@ const PatientCardComponent = ({
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="bg-white/[0.03] rounded-xl border border-white/8 transition-colors focus-within:border-white/15">
+                    <div className={"border transition-colors " + (isMorrow ? "bg-white/[0.03] rounded-xl border-white/8 focus-within:border-white/15" : "bg-blue-50/20 rounded-lg border-blue-200/30 focus-within:border-blue-300/40")}>
                       <ImagePasteEditor
                         value={patient.imaging}
                         onChange={(value) => onUpdate(patient.id, 'imaging', value)}
@@ -445,12 +445,12 @@ const PatientCardComponent = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                        <TestTube className="h-3.5 w-3.5 text-card-foreground/70" />
+                      <div className={"h-5 w-5 rounded flex items-center justify-center " + (isMorrow ? "bg-white/8" : "bg-primary/8")}>
+                        <TestTube className={"h-3.5 w-3.5 " + (isMorrow ? "text-card-foreground/70" : "text-primary")} />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Labs</h3>
+                      <h3 className={"text-xs font-semibold uppercase tracking-wide " + (isMorrow ? "text-card-foreground/60" : "text-muted-foreground")}>Labs</h3>
                       {patient.labs && (
-                        <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
+                        <span className={"text-[10px] px-1.5 py-0.5 rounded " + (isMorrow ? "text-card-foreground/40 bg-white/8" : "text-muted-foreground/60 bg-secondary/60")}>
                           {patient.labs.length}
                         </span>
                       )}
@@ -483,7 +483,7 @@ const PatientCardComponent = ({
                   )}
 
                   <div className="space-y-1">
-                    <div className="bg-white/[0.03] rounded-xl p-3 border border-white/8 transition-colors focus-within:border-white/15 focus-within:bg-white/[0.05]">
+                    <div className={"p-3 border transition-colors " + (isMorrow ? "bg-white/[0.03] rounded-xl border-white/8 focus-within:border-white/15 focus-within:bg-white/[0.05]" : "bg-secondary/20 rounded-lg border-border/30 focus-within:border-primary/20 focus-within:bg-secondary/30")}>
                       <RichTextEditor
                         value={patient.labs}
                         onChange={(value) => onUpdate(patient.id, 'labs', value)}
@@ -503,7 +503,7 @@ const PatientCardComponent = ({
 
           {/* Medications */}
           {sectionVisibility.medications && (
-            <div className="bg-white/[0.03] rounded-xl p-4 border border-white/8">
+            <div className={"p-4 border " + (isMorrow ? "bg-white/[0.03] rounded-xl border-white/8" : "bg-secondary/15 rounded-lg border-border/30")}>
               <MedicationList
                 medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                 onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}

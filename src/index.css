@@ -38,36 +38,150 @@
   }
 }
 
-/* Morrow-inspired Design System - Premium sage/charcoal aesthetic
-   Clean, minimal, sophisticated - premium dark-mode-forward with earthy, muted greens/grays
+/* Dual Design System: Classic (Apple-inspired) + Morrow (sage/charcoal)
+   Switchable via data-design attribute on <html>.
+   Default is Classic. Morrow activates with data-design="morrow".
    All colors MUST be HSL.
 */
 
 @layer base {
+  /* ===== CLASSIC THEME (Apple-inspired blue/white) ===== */
   :root {
-    /* Morrow Sage Theme - Muted sage/charcoal palette */
-    --background: 160 8% 55%;        /* Muted sage/olive gray background */
-    --foreground: 180 10% 8%;        /* Near-black text */
+    --background: 220 20% 97%;
+    --foreground: 224 71% 4%;
 
-    --card: 180 10% 12%;             /* Dark charcoal cards */
-    --card-foreground: 0 0% 96%;     /* White text on dark cards */
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --primary-light: 217 91% 60%;
+    --primary-dark: 224 76% 42%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 46%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 214 95% 93%;
+    --accent-foreground: 221 83% 53%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.75rem;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.04);
+
+    --medical-blue: 217 91% 60%;
+    --medical-green: 160 84% 39%;
+    --medical-red: 0 84% 60%;
+    --medical-orange: 38 92% 50%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%) 0%, hsl(217 91% 60%) 100%);
+    --gradient-header: linear-gradient(to bottom, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.7));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(220 20% 99%) 100%);
+
+    /* Theme surface tokens (resolve differently per theme) */
+    --th-surface-overlay: hsl(220 14% 96% / 0.6);
+    --th-surface-medium: hsl(220 14% 96% / 0.4);
+    --th-surface-light: hsl(220 14% 96% / 0.2);
+    --th-surface-subtle: hsl(220 14% 96% / 0.15);
+    --th-header-bg: hsl(220 20% 97% / 0.8);
+    --th-toolbar-bg: hsl(220 14% 96% / 0.3);
+    --th-border-overlay: hsl(220 13% 91% / 0.4);
+    --th-border-light: hsl(220 13% 91% / 0.3);
+    --th-indicator: 221 83% 53%;
+  }
+
+  .dark {
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.4);
+
+    --th-surface-overlay: hsl(217 33% 17% / 0.6);
+    --th-surface-medium: hsl(217 33% 17% / 0.4);
+    --th-surface-light: hsl(217 33% 17% / 0.2);
+    --th-surface-subtle: hsl(217 33% 17% / 0.15);
+    --th-header-bg: hsl(224 71% 4% / 0.8);
+    --th-toolbar-bg: hsl(217 33% 17% / 0.3);
+    --th-border-overlay: hsl(217 33% 17% / 0.4);
+    --th-border-light: hsl(217 33% 17% / 0.3);
+    --th-indicator: 217 91% 60%;
+  }
+
+  /* ===== MORROW THEME (Sage/Charcoal premium) ===== */
+  [data-design="morrow"] {
+    --background: 160 8% 55%;
+    --foreground: 180 10% 8%;
+
+    --card: 180 10% 12%;
+    --card-foreground: 0 0% 96%;
 
     --popover: 180 10% 12%;
     --popover-foreground: 0 0% 96%;
 
-    --primary: 0 0% 100%;            /* White primary (for buttons on dark) */
-    --primary-foreground: 180 10% 8%; /* Dark text on white buttons */
+    --primary: 0 0% 100%;
+    --primary-foreground: 180 10% 8%;
 
-    --primary-light: 160 10% 70%;    /* Muted sage lighter */
-    --primary-dark: 160 12% 40%;     /* Deeper sage */
+    --primary-light: 160 10% 70%;
+    --primary-dark: 160 12% 40%;
 
-    --secondary: 160 6% 48%;         /* Slightly darker sage */
-    --secondary-foreground: 0 0% 96%; /* White text */
+    --secondary: 160 6% 48%;
+    --secondary-foreground: 0 0% 96%;
 
     --muted: 160 6% 48%;
-    --muted-foreground: 160 4% 75%;  /* Light muted text */
+    --muted-foreground: 160 4% 75%;
 
-    --accent: 180 10% 15%;           /* Dark accent (charcoal) */
+    --accent: 180 10% 15%;
     --accent-foreground: 0 0% 96%;
 
     --destructive: 0 72% 51%;
@@ -79,11 +193,11 @@
     --warning: 38 80% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 160 6% 45%;            /* Sage-toned borders */
+    --border: 160 6% 45%;
     --input: 160 6% 45%;
-    --ring: 0 0% 100%;               /* White ring */
+    --ring: 0 0% 100%;
 
-    --radius: 1rem;                  /* Larger radius for bento-grid cards */
+    --radius: 1rem;
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.1);
     --shadow: 0 2px 4px 0 rgb(0 0 0 / 0.12), 0 1px 2px -1px rgb(0 0 0 / 0.1);
@@ -99,9 +213,19 @@
     --gradient-primary: linear-gradient(135deg, hsl(160 8% 48%) 0%, hsl(160 10% 60%) 100%);
     --gradient-header: linear-gradient(to bottom, hsl(160 8% 52% / 0.9), hsl(160 8% 52% / 0.7));
     --gradient-card: linear-gradient(180deg, hsl(180 10% 12%) 0%, hsl(180 10% 14%) 100%);
+
+    --th-surface-overlay: hsl(0 0% 100% / 0.1);
+    --th-surface-medium: hsl(0 0% 100% / 0.08);
+    --th-surface-light: hsl(0 0% 100% / 0.03);
+    --th-surface-subtle: hsl(0 0% 100% / 0.03);
+    --th-header-bg: hsl(180 10% 12% / 0.95);
+    --th-toolbar-bg: hsl(180 10% 12% / 0.6);
+    --th-border-overlay: hsl(0 0% 100% / 0.1);
+    --th-border-light: hsl(0 0% 100% / 0.08);
+    --th-indicator: 160 80% 55%;
   }
 
-  .dark {
+  [data-design="morrow"].dark {
     --background: 180 12% 6%;
     --foreground: 0 0% 94%;
 
@@ -134,6 +258,16 @@
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.5);
     --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.5);
     --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+
+    --th-surface-overlay: hsl(0 0% 100% / 0.08);
+    --th-surface-medium: hsl(0 0% 100% / 0.05);
+    --th-surface-light: hsl(0 0% 100% / 0.03);
+    --th-surface-subtle: hsl(0 0% 100% / 0.02);
+    --th-header-bg: hsl(180 10% 10% / 0.95);
+    --th-toolbar-bg: hsl(180 10% 10% / 0.6);
+    --th-border-overlay: hsl(0 0% 100% / 0.08);
+    --th-border-light: hsl(0 0% 100% / 0.06);
+    --th-indicator: 160 80% 55%;
   }
 }
 
@@ -162,7 +296,7 @@
     line-height: 1.2;
   }
 
-  /* Morrow-style focus states */
+  /* Focus states */
   :focus-visible {
     @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
   }
@@ -340,9 +474,14 @@
   }
 }
 
-/* Morrow-style utility classes */
+/* Utility classes */
 @layer utilities {
-  .morrow-blur {
+  .app-blur {
+    backdrop-filter: saturate(180%) blur(20px);
+    background-color: hsl(var(--background) / 0.72);
+  }
+
+  [data-design="morrow"] .app-blur {
     backdrop-filter: saturate(120%) blur(24px);
     background-color: hsl(var(--background) / 0.75);
   }
@@ -366,8 +505,8 @@
   }
 
   .hover-lift:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-xl);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
   }
 
   /* Card hover effect */
@@ -376,17 +515,28 @@
   }
 
   .card-hover:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.08), 0 4px 10px -3px rgb(0 0 0 / 0.04);
+  }
+
+  [data-design="morrow"] .card-hover:hover {
     transform: translateY(-2px);
     box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.2), 0 6px 12px -4px rgb(0 0 0 / 0.1);
   }
 
   /* Smooth transitions */
-  .transition-morrow {
-    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
 
   /* Glass morphism panel */
   .glass-panel {
+    backdrop-filter: saturate(180%) blur(20px);
+    background-color: hsl(var(--background) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  [data-design="morrow"] .glass-panel {
     backdrop-filter: saturate(120%) blur(24px);
     background-color: hsl(180 10% 12% / 0.85);
     border: 1px solid hsl(var(--border) / 0.3);

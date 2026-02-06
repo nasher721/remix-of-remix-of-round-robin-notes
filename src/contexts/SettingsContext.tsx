@@ -5,20 +5,21 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 
 export type SortBy = 'number' | 'room' | 'name';
+export type DesignTheme = 'classic' | 'morrow';
 
 interface SettingsContextType {
   // Font size
   globalFontSize: number;
   setGlobalFontSize: (size: number) => void;
-  
+
   // Todos visibility
   todosAlwaysVisible: boolean;
   setTodosAlwaysVisible: (visible: boolean) => void;
-  
+
   // Sort preferences
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
-  
+
   // Lab Fishbone toggle
   showLabFishbones: boolean;
   setShowLabFishbones: (show: boolean) => void;
@@ -27,7 +28,12 @@ interface SettingsContextType {
   sectionVisibility: SectionVisibility;
   setSectionVisibility: (visibility: SectionVisibility) => void;
   resetSectionVisibility: () => void;
-  
+
+  // Design theme
+  designTheme: DesignTheme;
+  setDesignTheme: (theme: DesignTheme) => void;
+  isMorrow: boolean;
+
   // Sync status
   isSyncingSettings: boolean;
 }
@@ -68,6 +74,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   const [showLabFishbones, setShowLabFishbonesState] = React.useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SHOW_LAB_FISHBONES);
     return saved !== null ? saved === 'true' : true;
+  });
+
+  const [designTheme, setDesignThemeState] = React.useState<DesignTheme>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.DESIGN_THEME);
+    return (saved === 'classic' || saved === 'morrow') ? saved : 'classic';
   });
 
   const [sectionVisibility, setSectionVisibilityState] = React.useState<SectionVisibility>(() => {
@@ -229,6 +240,17 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(showLabFishbones));
   }, [showLabFishbones]);
 
+  // Persist design theme and apply data-design attribute to <html>
+  React.useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.DESIGN_THEME, designTheme);
+    const html = document.documentElement;
+    if (designTheme === 'morrow') {
+      html.setAttribute('data-design', 'morrow');
+    } else {
+      html.removeAttribute('data-design');
+    }
+  }, [designTheme]);
+
   // Persist section visibility to local storage and sync to DB with debounce
   React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
@@ -263,6 +285,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setShowLabFishbonesState(show);
   }, []);
 
+  const setDesignTheme = React.useCallback((theme: DesignTheme) => {
+    setDesignThemeState(theme);
+  }, []);
+
   const setSectionVisibility = React.useCallback((visibility: SectionVisibility) => {
     setSectionVisibilityState(visibility);
   }, []);
@@ -283,6 +309,9 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     sectionVisibility,
     setSectionVisibility,
     resetSectionVisibility,
+    designTheme,
+    setDesignTheme,
+    isMorrow: designTheme === 'morrow',
     isSyncingSettings,
   };
 
