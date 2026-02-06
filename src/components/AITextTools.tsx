@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useTextTransform, TransformType, CustomPrompt } from '@/hooks/useTextTransform';
 import { useAIClinicalAssistant } from '@/hooks/useAIClinicalAssistant';
+import { useWritingStyleProfile } from '@/hooks/useWritingStyleProfile';
 import { toast } from 'sonner';
 
 interface AITextToolsProps {
@@ -64,6 +65,7 @@ export const AITextTools = ({
     correctMedicalText,
     isProcessing: isAIProcessing,
   } = useAIClinicalAssistant();
+  const { summary, stylePrompt, updateFromSample, resetProfile } = useWritingStyleProfile();
 
   const isLoading = isTransforming || isAIProcessing;
 
@@ -74,9 +76,11 @@ export const AITextTools = ({
       return;
     }
 
-    const result = await transformText(selectedText, type, customPrompt);
+    const combinedPrompt = customPrompt ? `${stylePrompt}\n\n${customPrompt}` : stylePrompt;
+    const result = await transformText(selectedText, type, combinedPrompt);
     if (result) {
       replaceSelectedText(result);
+      updateFromSample(result);
       setIsOpen(false);
       setShowCustomDialog(false);
       toast.success('Text transformed');
@@ -94,6 +98,7 @@ export const AITextTools = ({
     const result = await smartExpand(selectedText);
     if (result) {
       replaceSelectedText(result);
+      updateFromSample(result);
       setIsOpen(false);
       toast.success('Text expanded with GPT-4');
     }
@@ -109,9 +114,20 @@ export const AITextTools = ({
     const result = await correctMedicalText(selectedText);
     if (result) {
       replaceSelectedText(result);
+      updateFromSample(result);
       setIsOpen(false);
       toast.success('Medical text corrected');
     }
+  };
+
+  const handleAnalyzeStyle = () => {
+    const selectedText = getSelectedText();
+    if (!selectedText) {
+      toast.error('Please select some text first');
+      return;
+    }
+    updateFromSample(selectedText);
+    toast.success('Writing style profile updated');
   };
 
   const handleCustomPromptSubmit = () => {
@@ -194,8 +210,36 @@ export const AITextTools = ({
             <Separator className="my-2" />
 
             <p className="text-xs font-medium text-muted-foreground px-2 py-1">
-              Quick Transform
+              Writing Style Memory
             </p>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={handleAnalyzeStyle}
+              disabled={isLoading}
+            >
+              <Sparkles className="h-4 w-4 mr-2 text-purple-500" />
+              Analyze Selected Text
+            </Button>
+
+            <div className="px-2 text-xs text-muted-foreground space-y-1">
+              <p>Samples: {summary.samples}</p>
+              <p>Style: {summary.tone}</p>
+              <p>Avg sentence: {summary.avgSentenceLength.toFixed(1)} words</p>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9 text-destructive"
+              onClick={resetProfile}
+              disabled={isLoading}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Reset Style Profile
+            </Button>
 
             <Button
               variant="ghost"
