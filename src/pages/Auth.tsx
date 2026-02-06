@@ -138,14 +138,14 @@ const Auth = () => {
   return (
     <div className="min-h-screen w-full flex">
       {/* Left Panel - Hero/Branding (Desktop only) */}
-      <div className="hidden lg:flex w-[45%] bg-slate-950 relative overflow-hidden items-center justify-center p-12">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/15 via-transparent to-indigo-600/10 z-0" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl" />
+      <div className="hidden lg:flex w-[45%] bg-[hsl(180,10%,10%)] relative overflow-hidden items-center justify-center p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(160,20%,40%)]/10 via-transparent to-[hsl(160,10%,30%)]/10 z-0" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[hsl(160,15%,45%)]/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[hsl(160,10%,35%)]/5 rounded-full blur-3xl" />
 
         <div className="relative z-10 text-white space-y-8 max-w-md">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+            <div className="p-2.5 bg-white/8 rounded-2xl backdrop-blur-sm border border-white/10">
               <img src={rollingRoundsLogo} alt="Logo" className="h-8 w-8 brightness-0 invert" />
             </div>
             <span className="text-xl font-semibold tracking-tight">Rolling Rounds</span>
@@ -154,19 +154,19 @@ const Auth = () => {
             <h2 className="text-3xl font-bold leading-tight tracking-tight">
               Streamline your <br />medical rounds <br />with intelligence.
             </h2>
-            <p className="text-slate-400 text-base leading-relaxed max-w-sm">
+            <p className="text-[hsl(160,6%,55%)] text-base leading-relaxed max-w-sm">
               The modern platform for healthcare professionals to manage patient data, track rounds, and collaborate efficiently.
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-4">
-            <div className="p-4 rounded-xl bg-white/[0.04] backdrop-blur-sm border border-white/[0.06] transition-colors hover:bg-white/[0.06]">
+            <div className="p-4 bg-white/[0.03] backdrop-blur-sm border border-white/[0.05] rounded-2xl transition-colors hover:bg-white/[0.05]">
               <h3 className="font-semibold text-sm mb-1.5">Smart Tracking</h3>
-              <p className="text-slate-500 text-xs leading-relaxed">Automated patient status updates and history.</p>
+              <p className="text-[hsl(160,6%,45%)] text-xs leading-relaxed">Automated patient status updates and history.</p>
             </div>
-            <div className="p-4 rounded-xl bg-white/[0.04] backdrop-blur-sm border border-white/[0.06] transition-colors hover:bg-white/[0.06]">
+            <div className="p-4 bg-white/[0.03] backdrop-blur-sm border border-white/[0.05] rounded-2xl transition-colors hover:bg-white/[0.05]">
               <h3 className="font-semibold text-sm mb-1.5">Secure & Safe</h3>
-              <p className="text-slate-500 text-xs leading-relaxed">HIPAA compliant data protection.</p>
+              <p className="text-[hsl(160,6%,45%)] text-xs leading-relaxed">HIPAA compliant data protection.</p>
             </div>
           </div>
         </div>
@@ -174,7 +174,7 @@ const Auth = () => {
 
       {/* Right Panel - Auth Form */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 bg-background">
-        <div className="w-full max-w-[340px] space-y-7">
+        <div className="w-full max-w-[400px] bg-card rounded-3xl p-8 shadow-xl space-y-7">
           <div className="text-center lg:text-left space-y-2">
             <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
             <h2 className="text-2xl font-bold tracking-tight">
@@ -256,7 +256,7 @@ const Auth = () => {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border/50" />
+              <span className="w-full border-t border-border/30" />
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
               <span className="bg-background px-3 text-muted-foreground/60">
@@ -268,7 +268,7 @@ const Auth = () => {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-10 border-border/50 hover:bg-secondary/50"
+            className="w-full h-10 border-border/30 hover:bg-secondary/30"
             onClick={handleGoogleSignIn}
             disabled={loading || googleLoading}
           >
