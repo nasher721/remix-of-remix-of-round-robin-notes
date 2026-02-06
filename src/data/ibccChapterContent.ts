@@ -1607,6 +1607,503 @@ export const CHAPTER_CONTENT: Record<string, IBCCChapterContent> = {
       },
     ],
   },
+
+  // ============================================
+  // ATRIAL FIBRILLATION - Comprehensive Content
+  // ============================================
+  afib: {
+    keyPearls: [
+      {
+        id: 'afib-pearl-1',
+        text: 'First question: stable or unstable? If hypotension, ischemia, pulmonary edema, or shock → synchronized cardioversion now.',
+        importance: 'critical',
+        category: 'Stability',
+      },
+      {
+        id: 'afib-pearl-2',
+        text: 'AFib <48 hours can be cardioverted without anticoagulation if no high-risk features; >48 hours needs anticoagulation or TEE-guided approach.',
+        importance: 'critical',
+        category: 'Anticoagulation',
+      },
+      {
+        id: 'afib-pearl-3',
+        text: 'Rate control goal: HR <110 bpm (lenient) for most patients unless symptomatic.',
+        importance: 'high',
+        category: 'Rate Control',
+      },
+      {
+        id: 'afib-pearl-4',
+        text: 'Avoid diltiazem/verapamil in decompensated HFrEF; use amiodarone or digoxin instead.',
+        importance: 'high',
+        category: 'Contraindications',
+      },
+      {
+        id: 'afib-pearl-5',
+        text: 'CHA2DS2-VASc drives stroke risk; HAS-BLED identifies bleeding risk but does NOT preclude anticoagulation.',
+        importance: 'high',
+        category: 'Risk Stratification',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'afib-dx-1',
+        title: 'AFib Definition (ECG)',
+        criteria: [
+          { id: 'dx-1-1', text: 'Irregularly irregular rhythm', required: true },
+          { id: 'dx-1-2', text: 'No distinct P waves', required: true },
+          { id: 'dx-1-3', text: 'Variable R-R intervals', required: true },
+        ],
+      },
+      {
+        id: 'afib-dx-2',
+        title: 'Unstable AFib Features',
+        criteria: [
+          { id: 'dx-2-1', text: 'Hypotension or shock', value: 'Unstable' },
+          { id: 'dx-2-2', text: 'Ongoing ischemic chest pain', value: 'Unstable' },
+          { id: 'dx-2-3', text: 'Acute heart failure/pulmonary edema', value: 'Unstable' },
+          { id: 'dx-2-4', text: 'Altered mental status or syncope', value: 'Unstable' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'afib-tx-1',
+        phase: 'Immediate',
+        title: 'Assess Stability',
+        timing: '0-10 minutes',
+        actions: [
+          { id: 'tx-1-1', text: 'Assess for instability (BP, ischemia, pulmonary edema, AMS)', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'If unstable → synchronized cardioversion (100-200J biphasic)', priority: 'immediate' },
+          { id: 'tx-1-3', text: 'Provide analgesia/sedation if time permits', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'afib-tx-2',
+        phase: 'Stable',
+        title: 'Rate vs Rhythm Strategy',
+        timing: '10-60 minutes',
+        actions: [
+          { id: 'tx-2-1', text: 'Rate control: IV diltiazem or metoprolol (target HR <110)', priority: 'urgent' },
+          { id: 'tx-2-2', text: 'Rhythm control if symptomatic, first episode, or <48 hours duration', priority: 'routine', details: 'Electrical or pharmacologic cardioversion' },
+          { id: 'tx-2-3', text: 'Anticoagulation decision using CHA2DS2-VASc', priority: 'routine' },
+        ],
+      },
+      {
+        id: 'afib-tx-3',
+        phase: 'Disposition',
+        title: 'Ongoing Management',
+        timing: 'After stabilization',
+        actions: [
+          { id: 'tx-3-1', text: 'Start anticoagulation if indicated', priority: 'routine' },
+          { id: 'tx-3-2', text: 'Identify triggers: infection, thyrotoxicosis, PE, alcohol', priority: 'routine' },
+          { id: 'tx-3-3', text: 'Cardiology follow-up for rhythm strategy', priority: 'routine' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'afib-med-1',
+        name: 'Diltiazem',
+        genericName: 'diltiazem',
+        category: 'first-line',
+        indication: 'Rate control in stable AFib with preserved EF',
+        dosing: [
+          { route: 'IV', dose: '0.25 mg/kg bolus, then 5-15 mg/hr infusion', notes: 'May repeat bolus 0.35 mg/kg' },
+        ],
+        contraindications: ['Decompensated HFrEF', 'WPW with AFib'],
+        sideEffects: ['Hypotension', 'Bradycardia'],
+        monitoringParameters: ['BP', 'HR', 'Rhythm'],
+      },
+      {
+        id: 'afib-med-2',
+        name: 'Metoprolol',
+        genericName: 'metoprolol tartrate',
+        category: 'first-line',
+        indication: 'Rate control in AFib',
+        dosing: [
+          { route: 'IV', dose: '5 mg q5 min x3', notes: 'Transition to PO after control' },
+        ],
+        contraindications: ['Acute decompensated HF', 'Severe asthma/bronchospasm'],
+        sideEffects: ['Bradycardia', 'Hypotension'],
+        monitoringParameters: ['BP', 'HR'],
+      },
+      {
+        id: 'afib-med-3',
+        name: 'Amiodarone',
+        genericName: 'amiodarone',
+        category: 'second-line',
+        indication: 'Rate or rhythm control in HFrEF or refractory AFib',
+        dosing: [
+          { route: 'IV', dose: '150 mg bolus over 10 min, then 1 mg/min x6h', notes: 'Then 0.5 mg/min' },
+        ],
+        sideEffects: ['Hypotension', 'Bradycardia'],
+        monitoringParameters: ['BP', 'QTc'],
+        pearls: ['Avoid in WPW with AFib'],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'afib-pitfall-1',
+        title: 'Delaying cardioversion in unstable AFib',
+        description: 'Attempting prolonged rate control in unstable patient',
+        consequence: 'Worsening shock, ischemia, pulmonary edema',
+        prevention: 'Unstable AFib requires immediate synchronized cardioversion',
+        severity: 'critical',
+      },
+      {
+        id: 'afib-pitfall-2',
+        title: 'Rate control with calcium channel blockers in HFrEF',
+        description: 'Using diltiazem/verapamil in decompensated systolic HF',
+        consequence: 'Worsening cardiac output, hypotension',
+        prevention: 'Use amiodarone or digoxin in HFrEF',
+        severity: 'major',
+      },
+      {
+        id: 'afib-pitfall-3',
+        title: 'Skipping anticoagulation assessment',
+        description: 'Not calculating CHA2DS2-VASc before discharge',
+        consequence: 'Preventable stroke risk',
+        prevention: 'Assess stroke risk and start anticoagulation when indicated',
+        severity: 'major',
+      },
+    ],
+    differentialDiagnosis: [
+      'Atrial flutter with variable block',
+      'Multifocal atrial tachycardia',
+      'Frequent PACs',
+      'SVT with irregular conduction',
+    ],
+  },
+
+  // ============================================
+  // STEMI - Comprehensive Content
+  // ============================================
+  stemi: {
+    keyPearls: [
+      {
+        id: 'stemi-pearl-1',
+        text: 'Time is myocardium. Door-to-balloon goal <90 minutes; door-to-needle (fibrinolysis) <30 minutes if PCI unavailable.',
+        importance: 'critical',
+        category: 'Timing',
+      },
+      {
+        id: 'stemi-pearl-2',
+        text: 'Do NOT delay reperfusion for troponin. Diagnosis is ECG-based.',
+        importance: 'critical',
+        category: 'Diagnosis',
+      },
+      {
+        id: 'stemi-pearl-3',
+        text: 'Activate cath lab immediately for new ST elevations in contiguous leads or posterior STEMI equivalents.',
+        importance: 'critical',
+        category: 'Activation',
+      },
+      {
+        id: 'stemi-pearl-4',
+        text: 'Give aspirin + P2Y12 + anticoagulation early. Avoid nitrates in RV infarction or hypotension.',
+        importance: 'high',
+        category: 'Medications',
+      },
+      {
+        id: 'stemi-pearl-5',
+        text: 'Obtain right-sided and posterior leads when inferior STEMI suspected or posterior MI symptoms.',
+        importance: 'high',
+        category: 'Diagnosis',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'stemi-dx-1',
+        title: 'STEMI ECG Criteria',
+        criteria: [
+          { id: 'dx-1-1', text: 'ST elevation ≥1 mm in ≥2 contiguous leads (except V2-V3)', required: true },
+          { id: 'dx-1-2', text: 'V2-V3: Men ≥2 mm, Women ≥1.5 mm', required: true },
+        ],
+        notes: 'Consider STEMI equivalents: posterior MI (ST depression V1-V3), new LBBB with Sgarbossa criteria',
+      },
+      {
+        id: 'stemi-dx-2',
+        title: 'Contraindications to Fibrinolysis',
+        criteria: [
+          { id: 'dx-2-1', text: 'Any prior intracranial hemorrhage', value: 'Absolute' },
+          { id: 'dx-2-2', text: 'Known intracranial neoplasm/AVM', value: 'Absolute' },
+          { id: 'dx-2-3', text: 'Ischemic stroke <3 months', value: 'Absolute' },
+          { id: 'dx-2-4', text: 'Active bleeding or bleeding diathesis', value: 'Absolute' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'stemi-tx-1',
+        phase: 'Immediate',
+        title: 'Initial STEMI Bundle',
+        timing: '0-10 minutes',
+        actions: [
+          { id: 'tx-1-1', text: 'Activate cath lab, call interventional cardiology', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Aspirin 325 mg chew', priority: 'immediate' },
+          { id: 'tx-1-3', text: 'P2Y12 inhibitor load (ticagrelor 180 mg or clopidogrel 600 mg)', priority: 'urgent' },
+          { id: 'tx-1-4', text: 'Anticoagulation (heparin bolus/infusion) per protocol', priority: 'urgent' },
+          { id: 'tx-1-5', text: 'High-intensity statin (atorvastatin 80 mg)', priority: 'routine' },
+        ],
+      },
+      {
+        id: 'stemi-tx-2',
+        phase: 'Reperfusion',
+        title: 'PCI vs Fibrinolysis',
+        timing: 'Within 90 minutes',
+        actions: [
+          { id: 'tx-2-1', text: 'Primary PCI if door-to-balloon <90 min (or <120 min from first medical contact)', priority: 'immediate' },
+          { id: 'tx-2-2', text: 'If PCI delay >120 min and symptom onset <12 hours → fibrinolysis', priority: 'urgent', details: 'Assess contraindications' },
+          { id: 'tx-2-3', text: 'Transfer for rescue PCI if failed fibrinolysis', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'stemi-tx-3',
+        phase: 'Complications',
+        title: 'Early Complication Management',
+        timing: 'First 24 hours',
+        actions: [
+          { id: 'tx-3-1', text: 'Treat RV infarct: fluids, avoid nitrates', priority: 'urgent' },
+          { id: 'tx-3-2', text: 'Manage arrhythmias (VT/VF) with ACLS protocols', priority: 'urgent' },
+          { id: 'tx-3-3', text: 'Start beta-blocker if no contraindications', priority: 'routine' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'stemi-med-1',
+        name: 'Aspirin',
+        genericName: 'acetylsalicylic acid',
+        category: 'first-line',
+        indication: 'Antiplatelet therapy for STEMI',
+        dosing: [
+          { route: 'PO', dose: '325 mg chew', notes: 'Then 81 mg daily' },
+        ],
+        contraindications: ['Active bleeding', 'Severe allergy'],
+        monitoringParameters: ['Bleeding'],
+        pearls: ['Give immediately unless true anaphylaxis'],
+      },
+      {
+        id: 'stemi-med-2',
+        name: 'Ticagrelor',
+        genericName: 'ticagrelor',
+        category: 'first-line',
+        indication: 'P2Y12 inhibition for STEMI',
+        dosing: [
+          { route: 'PO', dose: '180 mg loading dose', notes: 'Then 90 mg BID' },
+        ],
+        sideEffects: ['Dyspnea', 'Bleeding'],
+        monitoringParameters: ['Bleeding'],
+        pearls: ['Avoid with strong CYP3A inhibitors'],
+      },
+      {
+        id: 'stemi-med-3',
+        name: 'Heparin',
+        genericName: 'unfractionated heparin',
+        category: 'first-line',
+        indication: 'Anticoagulation during PCI or fibrinolysis',
+        dosing: [
+          { route: 'IV', dose: '60 units/kg bolus (max 4000), then 12 units/kg/hr', notes: 'Target aPTT per protocol' },
+        ],
+        contraindications: ['Active bleeding', 'HIT'],
+        monitoringParameters: ['aPTT', 'Platelets'],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'stemi-pitfall-1',
+        title: 'Waiting for troponin to activate cath lab',
+        description: 'Delaying reperfusion while waiting for biomarkers',
+        consequence: 'Larger infarct size, worse outcomes',
+        prevention: 'STEMI is an ECG diagnosis - activate immediately',
+        severity: 'critical',
+      },
+      {
+        id: 'stemi-pitfall-2',
+        title: 'Giving nitrates in RV infarct or hypotension',
+        description: 'Administering nitrates without assessing RV involvement',
+        consequence: 'Severe hypotension, shock',
+        prevention: 'Check right-sided leads in inferior STEMI; avoid nitrates if RV infarct suspected',
+        severity: 'critical',
+      },
+      {
+        id: 'stemi-pitfall-3',
+        title: 'Missing posterior MI',
+        description: 'Interpreting ST depression in V1-V3 as ischemia only',
+        consequence: 'Delayed reperfusion for posterior STEMI',
+        prevention: 'Obtain posterior leads (V7-V9) with ST depression in V1-V3',
+        severity: 'major',
+      },
+    ],
+    differentialDiagnosis: [
+      'Pericarditis',
+      'Early repolarization',
+      'Left ventricular aneurysm',
+      'Hyperkalemia',
+      'Brugada pattern',
+    ],
+  },
+
+  // ============================================
+  // COPD EXACERBATION - Comprehensive Content
+  // ============================================
+  copd: {
+    keyPearls: [
+      {
+        id: 'copd-pearl-1',
+        text: 'Treat with bronchodilators, systemic steroids, and antibiotics when indicated. Early NIV reduces intubation and mortality.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'copd-pearl-2',
+        text: 'Target oxygen saturation 88-92%. Avoid over-oxygenation which can worsen hypercapnia.',
+        importance: 'critical',
+        category: 'Oxygen',
+      },
+      {
+        id: 'copd-pearl-3',
+        text: 'NIV indications: pH 7.25-7.35 and PaCO2 >45 with dyspnea; contraindications include AMS, vomiting, or inability to protect airway.',
+        importance: 'high',
+        category: 'Ventilation',
+      },
+      {
+        id: 'copd-pearl-4',
+        text: 'Think about pneumonia, PE, CHF, and pneumothorax as triggers for exacerbation.',
+        importance: 'high',
+        category: 'Etiology',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'copd-dx-1',
+        title: 'Acute COPD Exacerbation',
+        criteria: [
+          { id: 'dx-1-1', text: 'Increased dyspnea', required: true },
+          { id: 'dx-1-2', text: 'Increased sputum volume', required: true },
+          { id: 'dx-1-3', text: 'Increased sputum purulence', required: false },
+        ],
+        notes: 'Presence of 2/3 symptoms supports diagnosis; consider infectious or environmental triggers',
+      },
+      {
+        id: 'copd-dx-2',
+        title: 'Indications for Hospitalization',
+        criteria: [
+          { id: 'dx-2-1', text: 'Severe dyspnea or accessory muscle use', value: 'Admit' },
+          { id: 'dx-2-2', text: 'Failure of outpatient management', value: 'Admit' },
+          { id: 'dx-2-3', text: 'Altered mental status or hypoxemia', value: 'Admit' },
+          { id: 'dx-2-4', text: 'Significant comorbidities (CHF, pneumonia)', value: 'Admit' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'copd-tx-1',
+        phase: 'Initial',
+        title: 'Immediate Management',
+        timing: '0-30 minutes',
+        actions: [
+          { id: 'tx-1-1', text: 'Supplemental O2 to target SpO2 88-92%', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Short-acting bronchodilators: albuterol + ipratropium nebs', priority: 'immediate' },
+          { id: 'tx-1-3', text: 'Systemic steroids: prednisone 40 mg PO or methylpred 40 mg IV', priority: 'urgent' },
+          { id: 'tx-1-4', text: 'Assess for NIV (BiPAP) if hypercapnic respiratory acidosis', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'copd-tx-2',
+        phase: 'Ongoing',
+        title: 'Escalation and Workup',
+        timing: '30-120 minutes',
+        actions: [
+          { id: 'tx-2-1', text: 'Start antibiotics if sputum purulence + dyspnea or need for ventilation', priority: 'routine' },
+          { id: 'tx-2-2', text: 'Obtain CXR and ABG/VBG', priority: 'routine' },
+          { id: 'tx-2-3', text: 'Consider alternative causes (PE, CHF, pneumonia, pneumothorax)', priority: 'routine' },
+        ],
+      },
+      {
+        id: 'copd-tx-3',
+        phase: 'Failure',
+        title: 'Intubation Criteria',
+        timing: 'If deteriorating',
+        actions: [
+          { id: 'tx-3-1', text: 'Progressive acidosis or hypercapnia despite NIV', priority: 'urgent' },
+          { id: 'tx-3-2', text: 'Worsening hypoxemia or inability to protect airway', priority: 'urgent' },
+          { id: 'tx-3-3', text: 'Prepare for intubation with ventilator settings to avoid auto-PEEP', priority: 'routine' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'copd-med-1',
+        name: 'Albuterol',
+        genericName: 'albuterol',
+        category: 'first-line',
+        indication: 'Bronchodilation in COPD exacerbation',
+        dosing: [
+          { route: 'INH', dose: '2.5 mg nebulized q20 min x3, then q1-4h', notes: 'Continuous neb if severe' },
+        ],
+        sideEffects: ['Tachycardia', 'Tremor'],
+        monitoringParameters: ['HR', 'Work of breathing'],
+      },
+      {
+        id: 'copd-med-2',
+        name: 'Ipratropium',
+        genericName: 'ipratropium bromide',
+        category: 'first-line',
+        indication: 'Adjunct bronchodilator',
+        dosing: [
+          { route: 'INH', dose: '0.5 mg nebulized q6h', notes: 'Combine with albuterol' },
+        ],
+        sideEffects: ['Dry mouth'],
+        monitoringParameters: ['Symptoms'],
+      },
+      {
+        id: 'copd-med-3',
+        name: 'Prednisone',
+        genericName: 'prednisone',
+        category: 'first-line',
+        indication: 'Reduce inflammation and shorten recovery',
+        dosing: [
+          { route: 'PO', dose: '40 mg daily x5 days', notes: 'No taper needed for short course' },
+        ],
+        sideEffects: ['Hyperglycemia', 'Mood changes'],
+        monitoringParameters: ['Glucose'],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'copd-pitfall-1',
+        title: 'Over-oxygenation',
+        description: 'Giving high-flow oxygen without titration',
+        consequence: 'Worsening hypercapnia and acidosis',
+        prevention: 'Target SpO2 88-92% and monitor ABG/VBG',
+        severity: 'critical',
+      },
+      {
+        id: 'copd-pitfall-2',
+        title: 'Delaying NIV',
+        description: 'Waiting until severe acidosis to start BiPAP',
+        consequence: 'Higher intubation rates and mortality',
+        prevention: 'Initiate NIV early in hypercapnic respiratory failure',
+        severity: 'major',
+      },
+      {
+        id: 'copd-pitfall-3',
+        title: 'Missing alternative diagnosis',
+        description: 'Assuming every dyspnea episode is COPD',
+        consequence: 'Delayed treatment of PE, CHF, or pneumonia',
+        prevention: 'Evaluate for triggers and alternate causes with CXR and labs',
+        severity: 'major',
+      },
+    ],
+    differentialDiagnosis: [
+      'Asthma exacerbation',
+      'CHF exacerbation',
+      'Pulmonary embolism',
+      'Pneumonia',
+      'Pneumothorax',
+    ],
+  },
 };
 
 /**
