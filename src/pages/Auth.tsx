@@ -174,13 +174,13 @@ const Auth = () => {
 
       {/* Right Panel - Auth Form */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 bg-background">
-        <div className="w-full max-w-[400px] bg-card rounded-3xl p-8 shadow-xl space-y-7">
+        <div className="w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl space-y-7">
           <div className="text-center lg:text-left space-y-2">
             <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
-            <h2 className="text-2xl font-bold tracking-tight">
+            <h2 className="text-2xl font-bold tracking-tight text-card-foreground">
               {isLogin ? "Welcome back" : "Create an account"}
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-card-foreground/70">
               {isLogin
                 ? "Enter your credentials to access your account"
                 : "Enter your information to get started"}
@@ -190,7 +190,7 @@ const Auth = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-3.5">
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs font-medium">Email</Label>
+                <Label htmlFor="email" className="text-xs font-medium text-card-foreground">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -210,7 +210,7 @@ const Auth = () => {
                 )}
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs font-medium">Password</Label>
+                <Label htmlFor="password" className="text-xs font-medium text-card-foreground">Password</Label>
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -259,7 +259,7 @@ const Auth = () => {
               <span className="w-full border-t border-border/30" />
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-              <span className="bg-background px-3 text-muted-foreground/60">
+              <span className="bg-card px-3 text-card-foreground/60">
                 Or continue with
               </span>
             </div>
@@ -294,11 +294,11 @@ const Auth = () => {
                 />
               </svg>
             )}
-            <span className="text-sm">Continue with Google</span>
+            <span className="text-sm text-card-foreground">Continue with Google</span>
           </Button>
 
           <div className="text-center text-sm">
-            <span className="text-muted-foreground">
+            <span className="text-card-foreground/70">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
             </span>
             <button
@@ -307,7 +307,7 @@ const Auth = () => {
                 setIsLogin(!isLogin);
                 setErrors({});
               }}
-              className="text-primary hover:underline font-semibold"
+              className="text-card-foreground hover:underline font-semibold"
             >
               {isLogin ? "Sign up" : "Sign in"}
             </button>
