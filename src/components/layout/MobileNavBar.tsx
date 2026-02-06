@@ -18,43 +18,39 @@ export const MobileNavBar = ({ activeTab, onTabChange, patientCount = 0 }: Mobil
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/40 safe-area-bottom shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-t border-border/30 safe-area-bottom">
       <div className="flex items-center justify-around h-16 px-2">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             onClick={() => onTabChange(id)}
             className={cn(
-              "flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-200 relative group active:scale-95",
+              "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200 relative active:scale-95",
               activeTab === id
-                ? "text-primary dark:text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
+                ? "text-primary"
+                : "text-muted-foreground/60"
             )}
           >
-            <span
-              className={cn(
-                "absolute top-0 left-4 right-4 h-0.5 rounded-full transition-opacity",
-                activeTab === id ? "bg-primary" : "bg-transparent"
-              )}
-            />
+            {activeTab === id && (
+              <span className="absolute top-0 left-1/4 right-1/4 h-[2px] rounded-full bg-primary" />
+            )}
             <div
               className={cn(
-                "relative px-4 py-1 rounded-full transition-all duration-300",
-                activeTab === id
-                  ? "bg-primary/10 dark:bg-primary/20"
-                  : id === "add"
-                    ? "bg-primary/5 group-hover:bg-primary/10"
-                    : "group-hover:bg-secondary/50"
+                "relative px-4 py-1.5 rounded-2xl transition-all duration-200",
+                activeTab === id && "bg-primary/8"
               )}
             >
-              <Icon className={cn("h-5 w-5 transition-transform", activeTab === id && "scale-105")} />
+              <Icon className={cn("h-5 w-5", activeTab === id && "text-primary")} />
               {id === "patients" && patientCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold bg-primary text-primary-foreground rounded-full px-0.5 shadow-sm border border-background">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] flex items-center justify-center text-[9px] font-bold bg-primary text-primary-foreground rounded-full px-0.5 border-2 border-background">
                   {patientCount}
                 </span>
               )}
             </div>
-            <span className={cn("text-[10px] font-medium tracking-wide", activeTab === id && "font-semibold")}>
+            <span className={cn(
+              "text-[10px] tracking-wide transition-colors",
+              activeTab === id ? "font-semibold text-primary" : "font-medium"
+            )}>
               {label}
             </span>
           </button>

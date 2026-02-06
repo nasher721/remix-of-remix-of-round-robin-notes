@@ -138,32 +138,35 @@ const Auth = () => {
   return (
     <div className="min-h-screen w-full flex">
       {/* Left Panel - Hero/Branding (Desktop only) */}
-      <div className="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center p-12">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20 z-0" />
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80')] bg-cover bg-center opacity-10" />
+      <div className="hidden lg:flex w-[45%] bg-slate-950 relative overflow-hidden items-center justify-center p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/15 via-transparent to-indigo-600/10 z-0" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl" />
 
-        <div className="relative z-10 text-white space-y-6 max-w-lg">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-white/10 rounded-xl backdrop-blur-sm border border-white/20">
-              <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-10 brightness-0 invert" />
+        <div className="relative z-10 text-white space-y-8 max-w-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10">
+              <img src={rollingRoundsLogo} alt="Logo" className="h-8 w-8 brightness-0 invert" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Rolling Rounds</h1>
+            <span className="text-xl font-semibold tracking-tight">Rolling Rounds</span>
           </div>
-          <h2 className="text-4xl font-bold leading-tight">
-            Streamline your medical rounds with intelligence.
-          </h2>
-          <p className="text-slate-300 text-lg leading-relaxed">
-            The modern platform for healthcare professionals to manage patient data, track rounds, and collaborate efficiently.
-          </p>
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold leading-tight tracking-tight">
+              Streamline your <br />medical rounds <br />with intelligence.
+            </h2>
+            <p className="text-slate-400 text-base leading-relaxed max-w-sm">
+              The modern platform for healthcare professionals to manage patient data, track rounds, and collaborate efficiently.
+            </p>
+          </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-8">
-            <div className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-              <h3 className="font-semibold text-lg mb-1">Smart Tracking</h3>
-              <p className="text-slate-400 text-sm">Automated patient status updates and history.</p>
+          <div className="grid grid-cols-2 gap-3 pt-4">
+            <div className="p-4 rounded-xl bg-white/[0.04] backdrop-blur-sm border border-white/[0.06] transition-colors hover:bg-white/[0.06]">
+              <h3 className="font-semibold text-sm mb-1.5">Smart Tracking</h3>
+              <p className="text-slate-500 text-xs leading-relaxed">Automated patient status updates and history.</p>
             </div>
-            <div className="p-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10">
-              <h3 className="font-semibold text-lg mb-1">Secure & Safe</h3>
-              <p className="text-slate-400 text-sm">HIPAA compliant data protection.</p>
+            <div className="p-4 rounded-xl bg-white/[0.04] backdrop-blur-sm border border-white/[0.06] transition-colors hover:bg-white/[0.06]">
+              <h3 className="font-semibold text-sm mb-1.5">Secure & Safe</h3>
+              <p className="text-slate-500 text-xs leading-relaxed">HIPAA compliant data protection.</p>
             </div>
           </div>
         </div>
@@ -171,23 +174,23 @@ const Auth = () => {
 
       {/* Right Panel - Auth Form */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 bg-background">
-        <div className="w-full max-w-sm space-y-8">
+        <div className="w-full max-w-[340px] space-y-7">
           <div className="text-center lg:text-left space-y-2">
-            <img src={rollingRoundsLogo} alt="Logo" className="h-12 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
-            <h2 className="text-3xl font-bold tracking-tight">
+            <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
+            <h2 className="text-2xl font-bold tracking-tight">
               {isLogin ? "Welcome back" : "Create an account"}
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {isLogin
                 ? "Enter your credentials to access your account"
                 : "Enter your information to get started"}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-3.5">
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-xs font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -198,16 +201,16 @@ const Auth = () => {
                   startIcon={<Mail className="h-4 w-4" />}
                   aria-invalid={Boolean(errors.email)}
                   showSuccess={!errors.email && email.length > 0}
-                  className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                  className={`h-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />
                 {errors.email && (
-                  <p className="text-sm text-destructive flex items-center gap-2">
+                  <p className="text-xs text-destructive flex items-center gap-2">
                     {errors.email}
                   </p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-xs font-medium">Password</Label>
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -231,15 +234,15 @@ const Auth = () => {
                       )}
                     </button>
                   }
-                  className={errors.password ? "border-destructive focus-visible:ring-destructive" : ""}
+                  className={`h-10 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />
                 {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password}</p>
+                  <p className="text-xs text-destructive">{errors.password}</p>
                 )}
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
+            <Button type="submit" className="w-full h-10 font-medium shadow-sm" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -253,10 +256,10 @@ const Auth = () => {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+              <span className="w-full border-t border-border/50" />
             </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
+            <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
+              <span className="bg-background px-3 text-muted-foreground/60">
                 Or continue with
               </span>
             </div>
@@ -265,7 +268,7 @@ const Auth = () => {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-11"
+            className="w-full h-10 border-border/50 hover:bg-secondary/50"
             onClick={handleGoogleSignIn}
             disabled={loading || googleLoading}
           >
@@ -291,7 +294,7 @@ const Auth = () => {
                 />
               </svg>
             )}
-            Continue with Google
+            <span className="text-sm">Continue with Google</span>
           </Button>
 
           <div className="text-center text-sm">

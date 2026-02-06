@@ -131,7 +131,7 @@ export const SwipeablePatientCard = ({
       {/* Main card content */}
       <div
         className={cn(
-          "relative bg-background flex items-center gap-3 p-4 border-b border-border",
+          "relative bg-background flex items-center gap-3 px-4 py-3.5",
           isAnimating && "transition-transform duration-300 ease-out"
         )}
         style={{ transform: `translateX(${translateX}px)` }}
@@ -141,58 +141,54 @@ export const SwipeablePatientCard = ({
         onClick={handleCardClick}
       >
         {/* Avatar */}
-        <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <User className="h-6 w-6 text-primary" />
+        <div className="h-10 w-10 rounded-lg bg-primary/8 flex items-center justify-center flex-shrink-0 border border-primary/10">
+          <span className="text-sm font-semibold text-primary">
+            {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
+          </span>
         </div>
 
         {/* Patient Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-semibold text-base truncate">
+            <span className="font-semibold text-[15px] truncate">
               {patient.name || "Unnamed Patient"}
             </span>
-            <span className="text-[10px] text-muted-foreground">Updated {lastUpdatedLabel}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
             {patient.bed && (
-              <span className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
+              <span className="text-[11px] text-muted-foreground/70 bg-secondary/50 px-1.5 py-0.5 rounded">
                 {patient.bed}
               </span>
             )}
-            {patient.clinicalSummary && (
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+            {patient.clinicalSummary ? (
               <span className="truncate">
-                {patient.clinicalSummary.replace(/<[^>]*>/g, "").slice(0, 40)}...
+                {patient.clinicalSummary.replace(/<[^>]*>/g, "").slice(0, 50)}
               </span>
+            ) : (
+              <span className="italic">No summary</span>
             )}
           </div>
           {/* Content indicators */}
-          <div className="flex items-center gap-1.5 mt-1.5">
+          <div className="flex items-center gap-1 mt-1.5">
             {patient.clinicalSummary && (
-              <span className="h-1.5 w-1.5 rounded-full bg-primary" title="Has clinical summary" />
+              <span className="h-1 w-1 rounded-full bg-primary/50" />
             )}
             {patient.intervalEvents && (
-              <span className="h-1.5 w-1.5 rounded-full bg-success" title="Has interval events" />
+              <span className="h-1 w-1 rounded-full bg-success/50" />
             )}
             {Object.values(patient.systems).some(v => v) && (
-              <span className="h-1.5 w-1.5 rounded-full bg-warning" title="Has systems notes" />
+              <span className="h-1 w-1 rounded-full bg-warning/50" />
             )}
+            <span className="text-[9px] text-muted-foreground/40 ml-1">{lastUpdatedLabel}</span>
           </div>
         </div>
 
         {/* Chevron - fades out when swiped */}
-        <ChevronRight 
-          className="h-5 w-5 text-muted-foreground flex-shrink-0 transition-opacity"
+        <ChevronRight
+          className="h-4 w-4 text-muted-foreground/30 flex-shrink-0 transition-opacity"
           style={{ opacity: 1 - actionOpacity }}
         />
       </div>
-
-      {/* Swipe hint indicator */}
-      {translateX === 0 && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/50 pointer-events-none">
-          ← swipe
-        </div>
-      )}
     </div>
   );
 };

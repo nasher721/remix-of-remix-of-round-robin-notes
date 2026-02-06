@@ -36,17 +36,17 @@ export const MobileHeader = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 safe-area-top shadow-sm">
+    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-xl border-b border-border/30 safe-area-top">
       <div className="flex items-center justify-between h-14 px-4">
         {isSearchOpen && onSearchChange ? (
           <div className="flex items-center gap-2 flex-1 animate-fade-in">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
               <Input
                 placeholder="Search patients..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="pl-9 h-10 bg-secondary/50 border-0"
+                className="pl-9 h-10 bg-secondary/40 border-border/30 rounded-xl text-sm"
                 autoFocus
               />
             </div>
@@ -57,27 +57,27 @@ export const MobileHeader = ({
                 setIsSearchOpen(false);
                 onSearchChange("");
               }}
-              className="h-10 w-10"
+              className="h-10 w-10 rounded-full"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-8 w-auto" />
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-7 w-auto" />
               <div className="min-w-0">
-                <h1 className="text-lg font-semibold tracking-tight truncate">{title}</h1>
+                <h1 className="text-base font-semibold tracking-tight truncate">{title}</h1>
                 {(subtitle || statusText) && (
                   <div className="flex items-center gap-2 min-w-0">
                     {subtitle && (
-                      <p className="text-xs text-muted-foreground truncate">{subtitle}</p>
+                      <p className="text-[11px] text-muted-foreground/70 truncate">{subtitle}</p>
                     )}
                     {statusText && (
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full border",
+                          "text-[9px] px-1.5 py-0 rounded-full border font-medium",
                           statusClasses[statusTone]
                         )}
                       >
@@ -89,16 +89,16 @@ export const MobileHeader = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <OfflineIndicator />
               {showSearch && onSearchChange && (
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsSearchOpen(true)}
-                  className="h-10 w-10"
+                  className="h-9 w-9 rounded-full text-muted-foreground"
                 >
-                  <Search className="h-5 w-5" />
+                  <Search className="h-4.5 w-4.5" />
                 </Button>
               )}
               {rightAction}
