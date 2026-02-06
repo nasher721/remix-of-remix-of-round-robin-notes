@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { MedicationList } from "@/components/MedicationList";
 import { Button } from "@/components/ui/button";
@@ -83,6 +83,10 @@ export const MobilePatientDetail = ({
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
   const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
   const { enabledSystems } = useSystemsConfig();
+  const imagingImageCount = useMemo(() => {
+    if (!patient.imaging) return 0;
+    return (patient.imaging.match(/<img[^>]+src=["'][^"']+["'][^>]*>/gi) || []).length;
+  }, [patient.imaging]);
 
   const sectionChips = [
     { id: "summary", label: "Summary", icon: FileText },
@@ -430,6 +434,11 @@ export const MobilePatientDetail = ({
             <div className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4 text-blue-500" />
               <span className="font-medium">Imaging</span>
+              {imagingImageCount > 0 && (
+                <span className="text-[10px] text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded">
+                  {imagingImageCount} img
+                </span>
+              )}
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
@@ -455,6 +464,8 @@ export const MobilePatientDetail = ({
                   autotexts={autotexts}
                   fontSize={globalFontSize}
                   changeTracking={changeTracking}
+                  patient={patient}
+                  section="imaging"
                 />
               </div>
               <FieldTimestamp timestamp={patient.fieldTimestamps?.imaging} className="pl-1" />

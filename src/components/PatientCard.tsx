@@ -54,6 +54,10 @@ const PatientCardComponent = ({
   const { generateIntervalEvents, isGenerating: isGeneratingEvents, cancelGeneration } = useIntervalEventsGenerator();
   const { generateDailySummary, isGenerating: isGeneratingSummary, cancelGeneration: cancelSummary } = useDailySummaryGenerator();
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
+  const imagingImageCount = React.useMemo(() => {
+    if (!patient.imaging) return 0;
+    return (patient.imaging.match(/<img[^>]+src=["'][^"']+["'][^>]*>/gi) || []).length;
+  }, [patient.imaging]);
 
   const handleGenerateIntervalEvents = async () => {
     const result = await generateIntervalEvents(
@@ -390,6 +394,11 @@ const PatientCardComponent = ({
                           {patient.imaging.replace(/<[^>]*>/g, '').length}
                         </span>
                       )}
+                      {imagingImageCount > 0 && (
+                        <span className="text-[10px] text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded">
+                          {imagingImageCount} img
+                        </span>
+                      )}
                     </div>
                     <div className="flex gap-0.5 no-print">
                       <PatientTodos
@@ -422,6 +431,8 @@ const PatientCardComponent = ({
                         autotexts={autotexts}
                         fontSize={globalFontSize}
                         changeTracking={changeTracking}
+                        patient={patient}
+                        section="imaging"
                       />
                     </div>
                     <FieldTimestamp timestamp={patient.fieldTimestamps?.imaging} className="pl-1" />

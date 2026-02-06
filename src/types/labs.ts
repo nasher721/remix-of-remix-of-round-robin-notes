@@ -86,45 +86,74 @@ export const parseLabText = (text: string): StructuredLabs => {
     cbc: {},
     rawText: text,
   };
-  
-  // Common lab patterns (case insensitive)
-  const patterns: Record<string, { target: 'bmp' | 'cbc'; key: keyof BMPLabs | keyof CBCLabs }> = {
-    'na[:\\s]+([\\d.]+)': { target: 'bmp', key: 'na' },
-    'sodium[:\\s]+([\\d.]+)': { target: 'bmp', key: 'na' },
-    'k[:\\s]+([\\d.]+)': { target: 'bmp', key: 'k' },
-    'potassium[:\\s]+([\\d.]+)': { target: 'bmp', key: 'k' },
-    'cl[:\\s]+([\\d.]+)': { target: 'bmp', key: 'cl' },
-    'chloride[:\\s]+([\\d.]+)': { target: 'bmp', key: 'cl' },
-    'co2[:\\s]+([\\d.]+)': { target: 'bmp', key: 'co2' },
-    'bicarb[:\\s]+([\\d.]+)': { target: 'bmp', key: 'co2' },
-    'hco3[:\\s]+([\\d.]+)': { target: 'bmp', key: 'co2' },
-    'bun[:\\s]+([\\d.]+)': { target: 'bmp', key: 'bun' },
-    'cr[:\\s]+([\\d.]+)': { target: 'bmp', key: 'cr' },
-    'creatinine[:\\s]+([\\d.]+)': { target: 'bmp', key: 'cr' },
-    'glu[:\\s]+([\\d.]+)': { target: 'bmp', key: 'glu' },
-    'glucose[:\\s]+([\\d.]+)': { target: 'bmp', key: 'glu' },
-    'wbc[:\\s]+([\\d.]+)': { target: 'cbc', key: 'wbc' },
-    'hgb[:\\s]+([\\d.]+)': { target: 'cbc', key: 'hgb' },
-    'hemoglobin[:\\s]+([\\d.]+)': { target: 'cbc', key: 'hgb' },
-    'hct[:\\s]+([\\d.]+)': { target: 'cbc', key: 'hct' },
-    'hematocrit[:\\s]+([\\d.]+)': { target: 'cbc', key: 'hct' },
-    'plt[:\\s]+([\\d.]+)': { target: 'cbc', key: 'plt' },
-    'platelets[:\\s]+([\\d.]+)': { target: 'cbc', key: 'plt' },
+
+  const numberPattern = '(\\d+(?:\\.\\d+)?)';
+  const trendSeparator = '(?:/|->|→)';
+  const prevKeywords = '(?:prev|previous|prior)';
+
+  const parseLabValue = (source: string, labels: string[]): LabValue | null => {
+    for (const label of labels) {
+      const trendRegex = new RegExp(
+        `${label}\\s*[:=]?\\s*${numberPattern}\\s*${trendSeparator}\\s*${numberPattern}`,
+        'i'
+      );
+      const prevRegex = new RegExp(
+        `${label}\\s*[:=]?\\s*${numberPattern}[^\\d]{0,8}${prevKeywords}\\s*[:=]?\\s*${numberPattern}`,
+        'i'
+      );
+      const simpleRegex = new RegExp(`${label}\\s*[:\\s]+${numberPattern}`, 'i');
+
+      const trendMatch = source.match(trendRegex);
+      if (trendMatch) {
+        return {
+          value: parseFloat(trendMatch[1]),
+          previousValue: parseFloat(trendMatch[2]),
+        };
+      }
+
+      const prevMatch = source.match(prevRegex);
+      if (prevMatch) {
+        return {
+          value: parseFloat(prevMatch[1]),
+          previousValue: parseFloat(prevMatch[2]),
+        };
+      }
+
+      const simpleMatch = source.match(simpleRegex);
+      if (simpleMatch) {
+        return { value: parseFloat(simpleMatch[1]) };
+      }
+    }
+
+    return null;
   };
-  
-  const normalizedText = text.toLowerCase();
-  
-  for (const [pattern, { target, key }] of Object.entries(patterns)) {
-    const regex = new RegExp(pattern, 'i');
-    const match = normalizedText.match(regex);
-    if (match && match[1]) {
-      const value = parseFloat(match[1]);
-      if (!isNaN(value)) {
-        if (target === 'bmp') {
-          result.bmp![key as keyof BMPLabs] = { value };
-        } else {
-          result.cbc![key as keyof CBCLabs] = { value };
-        }
+
+  // Common lab patterns (case insensitive)
+  const patterns: Array<{
+    target: 'bmp' | 'cbc';
+    key: keyof BMPLabs | keyof CBCLabs;
+    labels: string[];
+  }> = [
+    { target: 'bmp', key: 'na', labels: ['na', 'sodium'] },
+    { target: 'bmp', key: 'k', labels: ['k', 'potassium'] },
+    { target: 'bmp', key: 'cl', labels: ['cl', 'chloride'] },
+    { target: 'bmp', key: 'co2', labels: ['co2', 'bicarb', 'hco3'] },
+    { target: 'bmp', key: 'bun', labels: ['bun'] },
+    { target: 'bmp', key: 'cr', labels: ['cr', 'creatinine'] },
+    { target: 'bmp', key: 'glu', labels: ['glu', 'glucose'] },
+    { target: 'cbc', key: 'wbc', labels: ['wbc'] },
+    { target: 'cbc', key: 'hgb', labels: ['hgb', 'hemoglobin'] },
+    { target: 'cbc', key: 'hct', labels: ['hct', 'hematocrit'] },
+    { target: 'cbc', key: 'plt', labels: ['plt', 'platelets'] },
+  ];
+
+  for (const { target, key, labels } of patterns) {
+    const parsedValue = parseLabValue(text, labels);
+    if (parsedValue && !isNaN(parsedValue.value ?? NaN)) {
+      if (target === 'bmp') {
+        result.bmp![key as keyof BMPLabs] = parsedValue;
+      } else {
+        result.cbc![key as keyof CBCLabs] = parsedValue;
       }
     }
   }

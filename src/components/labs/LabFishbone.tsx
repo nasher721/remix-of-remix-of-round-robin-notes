@@ -48,16 +48,25 @@ const LabSlot = ({ label, labKey, value, className }: LabSlotProps) => {
   const displayValue = value?.value !== null && value?.value !== undefined 
     ? value.value.toString() 
     : '—';
+  const hasPrevious = value?.previousValue !== null && value?.previousValue !== undefined;
+  const trendDirection = delta !== null
+    ? delta > 0
+      ? 'up'
+      : delta < 0
+        ? 'down'
+        : 'flat'
+    : null;
+  const trendIcon = trendDirection === 'up' ? '▲' : trendDirection === 'down' ? '▼' : '▶';
 
   const tooltipContent = (
     <div className="space-y-1 text-xs">
       <div className="font-medium">{label}</div>
       {value?.value !== null && value?.value !== undefined && (
         <>
-          <div>Current: {value.value} {range?.unit || ''}</div>
+          <div>Recent: {value.value} {range?.unit || ''}</div>
           {value.previousValue !== null && value.previousValue !== undefined && (
             <div className="flex items-center gap-1">
-              <span>Previous: {value.previousValue}</span>
+              <span>Prior: {value.previousValue}</span>
               {delta !== null && (
                 <span className={cn(
                   'font-medium',
@@ -89,6 +98,17 @@ const LabSlot = ({ label, labKey, value, className }: LabSlotProps) => {
           )}>
             <span className="text-[10px] text-muted-foreground block leading-tight">{label}</span>
             <span className="text-sm leading-tight">{displayValue}</span>
+            {hasPrevious && (
+              <span className="text-[9px] leading-tight text-muted-foreground flex items-center justify-center gap-0.5">
+                <span className={cn(
+                  'font-medium',
+                  trendDirection === 'up' ? 'text-red-400' : trendDirection === 'down' ? 'text-blue-400' : 'text-muted-foreground'
+                )}>
+                  {trendIcon}
+                </span>
+                <span>Prev {value?.previousValue}</span>
+              </span>
+            )}
           </div>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-xs">

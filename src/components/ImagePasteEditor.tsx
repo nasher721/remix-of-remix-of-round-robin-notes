@@ -2,7 +2,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter,
-  Indent, Outdent, Palette, Undo2, Redo2, FileText
+  Indent, Outdent, Palette, Undo2, Redo2, FileText, ImagePlus, ClipboardList
 } from "lucide-react";
 import {
   Popover,
@@ -81,6 +81,7 @@ export const ImagePasteEditor = ({
   section
 }: ImagePasteEditorProps) => {
   const editorRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const isInternalUpdate = React.useRef(false);
   const [isUploading, setIsUploading] = React.useState(false);
   const [lightboxOpen, setLightboxOpen] = React.useState(false);
@@ -345,6 +346,22 @@ export const ImagePasteEditor = ({
     onChange(editorRef.current.innerHTML);
   };
 
+  const handleUploadFiles = async (files: FileList | null) => {
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      if (file.type.startsWith('image/')) {
+        const url = await uploadImage(file);
+        if (url) {
+          insertImage(url);
+          toast({
+            title: "Image uploaded",
+            description: "Image has been added to the imaging field.",
+          });
+        }
+      }
+    }
+  };
+
   const handlePaste = async (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -406,18 +423,7 @@ export const ImagePasteEditor = ({
     const files = e.dataTransfer?.files;
     if (!files) return;
 
-    for (const file of Array.from(files)) {
-      if (file.type.startsWith('image/')) {
-        const url = await uploadImage(file);
-        if (url) {
-          insertImage(url);
-          toast({
-            title: "Image uploaded",
-            description: "Image has been added to the imaging field.",
-          });
-        }
-      }
-    }
+    await handleUploadFiles(files);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -658,6 +664,30 @@ export const ImagePasteEditor = ({
           <ImageIcon className="h-3 w-3" />
           <span>Paste or drop images</span>
         </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          className="h-6 px-1.5 gap-1 text-[10px]"
+          title="Upload images"
+        >
+          <ImagePlus className="h-3 w-3" />
+          <span className="hidden sm:inline">Upload</span>
+        </Button>
+        {section === 'imaging' && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => insertPhraseContent('<div>• <strong>Study</strong>: </div>')}
+            className="h-6 px-1.5 gap-1 text-[10px]"
+            title="Insert imaging study template"
+          >
+            <ClipboardList className="h-3 w-3" />
+            <span className="hidden sm:inline">Template</span>
+          </Button>
+        )}
         <div className="ml-auto flex items-center gap-1">
           <AITextTools
             getSelectedText={() => {
@@ -748,6 +778,20 @@ export const ImagePasteEditor = ({
           )}
         </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(event) => {
+          void handleUploadFiles(event.target.files);
+          if (event.target) {
+            event.target.value = '';
+          }
+        }}
+      />
 
       {/* Thumbnail Gallery */}
       {imageUrls.length > 0 && (
