@@ -31,7 +31,7 @@ export function PatientNavigator({ patients, onScrollToPatient, className }: Pat
     return (
         <div
             className={cn(
-                "fixed right-0 top-16 bottom-0 z-30 transition-all duration-300 ease-in-out border-l border-border/40 bg-background/80 backdrop-blur-xl shadow-lg flex flex-col no-print",
+                "fixed right-0 top-16 bottom-0 z-30 transition-all duration-300 ease-in-out border-l border-border/20 bg-card/95 backdrop-blur-xl shadow-lg flex flex-col no-print",
                 isOpen ? "w-64" : "w-12",
                 className
             )}
@@ -41,16 +41,16 @@ export function PatientNavigator({ patients, onScrollToPatient, className }: Pat
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsOpen(!isOpen)}
-                className="absolute -left-3 top-4 h-6 w-6 rounded-full bg-background border border-border shadow-sm z-50 hover:bg-secondary"
+                className="absolute -left-3 top-4 h-6 w-6 rounded-full bg-card border border-border/30 shadow-md z-50 hover:bg-white/10"
             >
                 {isOpen ? <ChevronsRight className="h-3 w-3" /> : <ChevronsLeft className="h-3 w-3" />}
             </Button>
 
             {isOpen ? (
                 <>
-                    <div className="p-4 border-b border-border/40">
+                    <div className="p-4 border-b border-border/20">
                         <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                            <Hash className="h-4 w-4 text-primary" />
+                            <Hash className="h-4 w-4 text-card-foreground" />
                             Quick Jump
                         </h3>
                         <div className="relative">
@@ -59,7 +59,7 @@ export function PatientNavigator({ patients, onScrollToPatient, className }: Pat
                                 placeholder="Find patient..."
                                 value={filter}
                                 onChange={(e) => setFilter(e.target.value)}
-                                className="h-8 pl-8 text-xs bg-secondary/50 border-transparent focus:border-primary/50"
+                                className="h-8 pl-8 text-xs bg-white/8 border-transparent focus:border-white/20 text-card-foreground placeholder:text-card-foreground/40"
                             />
                         </div>
                     </div>
@@ -69,14 +69,14 @@ export function PatientNavigator({ patients, onScrollToPatient, className }: Pat
                                 <button
                                     key={patient.id}
                                     onClick={() => onScrollToPatient(patient.id)}
-                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-secondary/80 transition-colors group flex items-center gap-3"
+                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-white/8 transition-colors group flex items-center gap-3"
                                 >
-                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 border border-primary/10 group-hover:border-primary/20 transition-colors">
-                                        <span className="text-xs font-semibold text-primary">{patient.bed.slice(0, 3)}</span>
+                                    <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 border border-white/10 group-hover:border-white/20 transition-colors">
+                                        <span className="text-xs font-semibold text-card-foreground">{patient.bed.slice(0, 3)}</span>
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-medium truncate leading-none mb-1">{patient.name || "Unnamed"}</p>
-                                        <p className="text-[10px] text-muted-foreground truncate font-mono">{patient.bed}</p>
+                                        <p className="text-[10px] text-card-foreground/50 truncate font-mono">{patient.bed}</p>
                                     </div>
                                     <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>
@@ -88,21 +88,21 @@ export function PatientNavigator({ patients, onScrollToPatient, className }: Pat
                             )}
                         </div>
                     </ScrollArea>
-                    <div className="p-2 border-t border-border/40 text-[10px] text-center text-muted-foreground bg-secondary/20">
+                    <div className="p-2 border-t border-border/20 text-[10px] text-center text-card-foreground/50 bg-white/[0.03]">
                         {filteredPatients.length} patients
                     </div>
                 </>
             ) : (
                 <div className="flex flex-col items-center pt-4 gap-4">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <Hash className="h-4 w-4 text-primary" />
+                    <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                        <Hash className="h-4 w-4 text-card-foreground" />
                     </div>
                     <div className="flex-1 w-full flex flex-col items-center gap-2">
                         {filteredPatients.slice(0, 8).map(p => (
                             <button
                                 key={p.id}
                                 onClick={() => onScrollToPatient(p.id)}
-                                className="h-8 w-8 rounded-full hover:bg-secondary flex items-center justify-center text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                                className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-[10px] font-medium text-card-foreground/50 hover:text-card-foreground transition-colors"
                                 title={p.name}
                             >
                                 {p.bed.slice(0, 2)}

@@ -111,12 +111,12 @@ const PatientCardComponent = ({
 
 
   return (
-    <div className="print-avoid-break bg-card rounded-xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden card-hover">
+    <div className="print-avoid-break bg-card rounded-2xl border border-border/30 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden card-hover">
       {/* Header */}
-      <div className="flex justify-between items-center gap-4 px-5 py-4 bg-gradient-to-r from-secondary/30 to-transparent border-b border-border/30">
+      <div className="flex justify-between items-center gap-4 px-5 py-4 bg-white/[0.03] border-b border-border/20">
         <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/10">
-            <span className="text-base font-semibold text-primary">
+          <div className="h-9 w-9 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0 border border-white/10">
+            <span className="text-base font-semibold text-card-foreground">
               {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
             </span>
           </div>
@@ -125,13 +125,13 @@ const PatientCardComponent = ({
               placeholder="Patient Name"
               value={patient.name}
               onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
-              className="max-w-[200px] font-medium bg-background/80 border border-border/40 hover:border-primary/30 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 rounded-lg px-3 h-8 text-sm transition-all duration-150"
+              className="max-w-[200px] font-medium bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground transition-all duration-200"
             />
             <Input
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
-              className="max-w-[100px] bg-background/80 border border-border/40 hover:border-primary/30 focus:border-primary/50 focus:ring-2 focus:ring-primary/10 rounded-lg px-3 h-8 text-sm text-muted-foreground transition-all duration-150"
+              className="max-w-[100px] bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground/60 transition-all duration-200"
             />
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">
@@ -218,12 +218,12 @@ const PatientCardComponent = ({
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/8">
-                    <FileText className="h-3.5 w-3.5 text-primary" />
+                  <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
+                    <FileText className="h-3.5 w-3.5 text-card-foreground/70" />
                   </div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Summary</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Clinical Summary</h3>
                   {patient.clinicalSummary && (
-                    <span className="text-[10px] text-muted-foreground/60 bg-secondary/60 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
                       {patient.clinicalSummary.length}
                     </span>
                   )}
@@ -259,7 +259,7 @@ const PatientCardComponent = ({
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="bg-secondary/20 rounded-lg p-3 border border-border/30 transition-colors focus-within:border-primary/20 focus-within:bg-secondary/30">
+                <div className="bg-white/[0.03] rounded-xl p-3 border border-white/8 transition-colors focus-within:border-white/15 focus-within:bg-white/[0.05]">
                   <RichTextEditor
                     value={patient.clinicalSummary}
                     onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
@@ -280,12 +280,12 @@ const PatientCardComponent = ({
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/8">
-                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
+                    <Calendar className="h-3.5 w-3.5 text-card-foreground/70" />
                   </div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Interval Events</h3>
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Interval Events</h3>
                   {patient.intervalEvents && (
-                    <span className="text-[10px] text-muted-foreground/60 bg-secondary/60 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
                       {patient.intervalEvents.length}
                     </span>
                   )}
@@ -361,7 +361,7 @@ const PatientCardComponent = ({
                 </div>
               </div>
               <div className="space-y-1">
-                <div className="bg-secondary/20 rounded-lg p-3 border border-border/30 transition-colors focus-within:border-primary/20 focus-within:bg-secondary/30">
+                <div className="bg-white/[0.03] rounded-xl p-3 border border-white/8 transition-colors focus-within:border-white/15 focus-within:bg-white/[0.05]">
                   <RichTextEditor
                     value={patient.intervalEvents}
                     onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
@@ -385,17 +385,17 @@ const PatientCardComponent = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded flex items-center justify-center bg-blue-500/8">
-                        <ImageIcon className="h-3.5 w-3.5 text-blue-500" />
+                      <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
+                        <ImageIcon className="h-3.5 w-3.5 text-card-foreground/70" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Imaging</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Imaging</h3>
                       {patient.imaging && (
-                        <span className="text-[10px] text-blue-600/60 bg-blue-50 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
                           {patient.imaging.replace(/<[^>]*>/g, '').length}
                         </span>
                       )}
                       {imagingImageCount > 0 && (
-                        <span className="text-[10px] text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
                           {imagingImageCount} img
                         </span>
                       )}
@@ -422,7 +422,7 @@ const PatientCardComponent = ({
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="bg-blue-50/20 rounded-lg border border-blue-200/30 transition-colors focus-within:border-blue-300/40">
+                    <div className="bg-white/[0.03] rounded-xl border border-white/8 transition-colors focus-within:border-white/15">
                       <ImagePasteEditor
                         value={patient.imaging}
                         onChange={(value) => onUpdate(patient.id, 'imaging', value)}
@@ -445,12 +445,12 @@ const PatientCardComponent = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/8">
-                        <TestTube className="h-3.5 w-3.5 text-primary" />
+                      <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
+                        <TestTube className="h-3.5 w-3.5 text-card-foreground/70" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Labs</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Labs</h3>
                       {patient.labs && (
-                        <span className="text-[10px] text-muted-foreground/60 bg-secondary/60 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] text-card-foreground/40 bg-white/8 px-1.5 py-0.5 rounded">
                           {patient.labs.length}
                         </span>
                       )}
@@ -483,7 +483,7 @@ const PatientCardComponent = ({
                   )}
 
                   <div className="space-y-1">
-                    <div className="bg-secondary/20 rounded-lg p-3 border border-border/30 transition-colors focus-within:border-primary/20 focus-within:bg-secondary/30">
+                    <div className="bg-white/[0.03] rounded-xl p-3 border border-white/8 transition-colors focus-within:border-white/15 focus-within:bg-white/[0.05]">
                       <RichTextEditor
                         value={patient.labs}
                         onChange={(value) => onUpdate(patient.id, 'labs', value)}
@@ -503,7 +503,7 @@ const PatientCardComponent = ({
 
           {/* Medications */}
           {sectionVisibility.medications && (
-            <div className="bg-secondary/15 rounded-lg p-4 border border-border/30">
+            <div className="bg-white/[0.03] rounded-xl p-4 border border-white/8">
               <MedicationList
                 medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                 onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}

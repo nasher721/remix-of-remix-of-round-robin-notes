@@ -86,9 +86,10 @@ export default {
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)',
-  			xl: 'calc(var(--radius) + 4px)',
-  			'2xl': 'calc(var(--radius) + 8px)'
+  			sm: 'calc(var(--radius) - 6px)',
+  			xl: 'calc(var(--radius) + 6px)',
+  			'2xl': 'calc(var(--radius) + 12px)',
+  			'3xl': 'calc(var(--radius) + 20px)'
   		},
   		keyframes: {
   			'accordion-down': {
@@ -151,6 +152,14 @@ export default {
   				'40%, 80%': {
   					transform: 'translateX(6px)'
   				}
+  			},
+  			'glow-pulse': {
+  				'0%, 100%': {
+  					boxShadow: '0 0 0 0 hsl(160 8% 55% / 0.2)'
+  				},
+  				'50%': {
+  					boxShadow: '0 0 20px 4px hsl(160 8% 55% / 0.1)'
+  				}
   			}
   		},
   		animation: {
@@ -159,10 +168,12 @@ export default {
   			'fade-in': 'fade-in 0.3s ease-out',
   			'fade-out': 'fade-out 0.3s ease-out',
   			'scale-in': 'scale-in 0.2s ease-out',
-  			shake: 'shake 0.35s ease-in-out'
+  			shake: 'shake 0.35s ease-in-out',
+  			'glow-pulse': 'glow-pulse 3s ease-in-out infinite'
   		},
   		fontFamily: {
   			sans: [
+  				'Plus Jakarta Sans',
   				'Space Grotesk',
   				'ui-sans-serif',
   				'system-ui',
@@ -172,7 +183,6 @@ export default {
   				'Roboto',
   				'Helvetica Neue',
   				'Arial',
-  				'Noto Sans',
   				'sans-serif'
   			],
   			serif: [
@@ -213,7 +223,7 @@ export default {
   				'1rem',
   				{
   					lineHeight: '1.5rem',
-  					letterSpacing: '-0.011em'
+  					letterSpacing: '-0.014em'
   				}
   			],
   			lg: [
