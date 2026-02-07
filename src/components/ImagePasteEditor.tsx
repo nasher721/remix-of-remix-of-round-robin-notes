@@ -2,13 +2,21 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter,
-  Indent, Outdent, Palette, Undo2, Redo2, FileText, ImagePlus, ClipboardList
+  Indent, Outdent, Palette, Undo2, Redo2, FileText, ImagePlus, ClipboardList,
+  Pencil, Eraser, Square, Circle, ArrowUpRight, Type
 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +30,7 @@ import { PhrasePicker, PhraseFormDialog } from "./phrases";
 import { usePhraseExpansion } from "@/hooks/usePhraseExpansion";
 import { useClinicalPhrases } from "@/hooks/useClinicalPhrases";
 import type { Patient } from "@/types/patient";
+import { Slider } from "@/components/ui/slider";
 
 const textColors = [
   { name: "Default", value: "" },
@@ -69,6 +78,16 @@ const applyUnderlineFormatting = (html: string): string => {
   return html.replace(regex, '<u>#$1:</u>');
 };
 
+const updateImageAtIndex = (html: string, index: number, newUrl: string): string => {
+  const container = document.createElement("div");
+  container.innerHTML = html;
+  const images = container.querySelectorAll("img");
+  const target = images[index];
+  if (!target) return html;
+  target.setAttribute("src", newUrl);
+  return container.innerHTML;
+};
+
 export const ImagePasteEditor = ({ 
   value, 
   onChange, 
@@ -91,6 +110,21 @@ export const ImagePasteEditor = ({
   const { toast } = useToast();
   // Per-editor toggle: when true, marking is disabled for this editor
   const [localMarkingDisabled, setLocalMarkingDisabled] = React.useState(false);
+  const [annotationOpen, setAnnotationOpen] = React.useState(false);
+  const [annotationIndex, setAnnotationIndex] = React.useState<number | null>(null);
+  const [annotationUrl, setAnnotationUrl] = React.useState<string | null>(null);
+  const [annotationTool, setAnnotationTool] = React.useState<"pen" | "highlighter" | "arrow" | "rect" | "ellipse" | "text" | "eraser">("pen");
+  const [annotationColor, setAnnotationColor] = React.useState("#ef4444");
+  const [annotationWidth, setAnnotationWidth] = React.useState(4);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const isDrawingRef = React.useRef(false);
+  const startPointRef = React.useRef<{ x: number; y: number } | null>(null);
+  const snapshotRef = React.useRef<ImageData | null>(null);
+  const baseSnapshotRef = React.useRef<ImageData | null>(null);
+  const historyRef = React.useRef<ImageData[]>([]);
+  const redoRef = React.useRef<ImageData[]>([]);
+  const [historySize, setHistorySize] = React.useState(0);
+  const [redoSize, setRedoSize] = React.useState(0);
   
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
@@ -534,6 +568,285 @@ export const ImagePasteEditor = ({
     setLightboxOpen(true);
   };
 
+  const openAnnotator = (index: number) => {
+    setAnnotationIndex(index);
+    setAnnotationUrl(imageUrls[index] ?? null);
+    setAnnotationOpen(true);
+  };
+
+  const drawArrow = React.useCallback((context: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }) => {
+    const headLength = Math.max(10, annotationWidth * 2);
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    context.beginPath();
+    context.moveTo(from.x, from.y);
+    context.lineTo(to.x, to.y);
+    context.stroke();
+    context.beginPath();
+    context.moveTo(to.x, to.y);
+    context.lineTo(to.x - headLength * Math.cos(angle - Math.PI / 6), to.y - headLength * Math.sin(angle - Math.PI / 6));
+    context.lineTo(to.x - headLength * Math.cos(angle + Math.PI / 6), to.y - headLength * Math.sin(angle + Math.PI / 6));
+    context.lineTo(to.x, to.y);
+    context.fill();
+  }, [annotationWidth]);
+
+  const pushHistory = React.useCallback((context: CanvasRenderingContext2D) => {
+    const snapshot = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+    historyRef.current.push(snapshot);
+    redoRef.current = [];
+    setHistorySize(historyRef.current.length);
+    setRedoSize(0);
+  }, []);
+
+  const loadAnnotationImage = React.useCallback((url: string) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const maxWidth = 960;
+      const maxHeight = 640;
+      let width = img.naturalWidth || maxWidth;
+      let height = img.naturalHeight || maxHeight;
+      const scale = Math.min(maxWidth / width, maxHeight / height, 1);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      context.clearRect(0, 0, width, height);
+      context.drawImage(img, 0, 0, width, height);
+      const snapshot = context.getImageData(0, 0, width, height);
+      baseSnapshotRef.current = snapshot;
+      historyRef.current = [snapshot];
+      redoRef.current = [];
+      setHistorySize(1);
+      setRedoSize(0);
+    };
+    img.src = url;
+  }, []);
+
+  const restoreSnapshot = (snapshot: ImageData | null) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !snapshot) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    context.putImageData(snapshot, 0, 0);
+  };
+
+  const getCanvasPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const handleCanvasPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    canvas.setPointerCapture(event.pointerId);
+    const point = getCanvasPoint(event);
+
+    if (annotationTool === "text") {
+      const text = window.prompt("Annotation text");
+      if (text) {
+        context.save();
+        context.fillStyle = annotationColor;
+        context.font = `${Math.max(14, annotationWidth * 4)}px ui-sans-serif`;
+        context.fillText(text, point.x, point.y);
+        context.restore();
+        pushHistory(context);
+      }
+      return;
+    }
+
+    isDrawingRef.current = true;
+    startPointRef.current = point;
+    snapshotRef.current = context.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (annotationTool === "pen" || annotationTool === "highlighter" || annotationTool === "eraser") {
+      context.beginPath();
+      context.moveTo(point.x, point.y);
+    }
+  };
+
+  const handleCanvasPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const point = getCanvasPoint(event);
+
+    if (annotationTool === "pen" || annotationTool === "highlighter" || annotationTool === "eraser") {
+      context.save();
+      if (annotationTool === "eraser") {
+        context.globalCompositeOperation = "destination-out";
+        context.strokeStyle = "rgba(0,0,0,1)";
+      } else {
+        context.strokeStyle = annotationColor;
+      }
+      context.lineWidth = annotationWidth;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.globalAlpha = annotationTool === "highlighter" ? 0.3 : 1;
+      context.lineTo(point.x, point.y);
+      context.stroke();
+      context.restore();
+      return;
+    }
+
+    if (snapshotRef.current) {
+      context.putImageData(snapshotRef.current, 0, 0);
+    }
+    context.save();
+    context.strokeStyle = annotationColor;
+    context.fillStyle = annotationColor;
+    context.lineWidth = annotationWidth;
+    context.globalAlpha = 1;
+    const start = startPointRef.current;
+    if (!start) return;
+
+    if (annotationTool === "rect") {
+      context.strokeRect(start.x, start.y, point.x - start.x, point.y - start.y);
+    } else if (annotationTool === "ellipse") {
+      const radiusX = Math.abs(point.x - start.x) / 2;
+      const radiusY = Math.abs(point.y - start.y) / 2;
+      const centerX = (point.x + start.x) / 2;
+      const centerY = (point.y + start.y) / 2;
+      context.beginPath();
+      context.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+      context.stroke();
+    } else if (annotationTool === "arrow") {
+      drawArrow(context, start, point);
+    }
+    context.restore();
+  };
+
+  const handleCanvasPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    const point = getCanvasPoint(event);
+    const start = startPointRef.current;
+
+    if (annotationTool === "rect" || annotationTool === "ellipse" || annotationTool === "arrow") {
+      if (snapshotRef.current) {
+        context.putImageData(snapshotRef.current, 0, 0);
+      }
+      context.save();
+      context.strokeStyle = annotationColor;
+      context.fillStyle = annotationColor;
+      context.lineWidth = annotationWidth;
+      if (start) {
+        if (annotationTool === "rect") {
+          context.strokeRect(start.x, start.y, point.x - start.x, point.y - start.y);
+        } else if (annotationTool === "ellipse") {
+          const radiusX = Math.abs(point.x - start.x) / 2;
+          const radiusY = Math.abs(point.y - start.y) / 2;
+          const centerX = (point.x + start.x) / 2;
+          const centerY = (point.y + start.y) / 2;
+          context.beginPath();
+          context.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+          context.stroke();
+        } else if (annotationTool === "arrow") {
+          drawArrow(context, start, point);
+        }
+      }
+      context.restore();
+    }
+
+    if (annotationTool !== "text") {
+      pushHistory(context);
+    }
+
+    isDrawingRef.current = false;
+    startPointRef.current = null;
+    snapshotRef.current = null;
+  };
+
+  const handleAnnotationUndo = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context || historyRef.current.length <= 1) return;
+    const last = historyRef.current.pop();
+    if (last) {
+      redoRef.current.push(last);
+      const previous = historyRef.current[historyRef.current.length - 1];
+      if (previous) {
+        context.putImageData(previous, 0, 0);
+      }
+      setHistorySize(historyRef.current.length);
+      setRedoSize(redoRef.current.length);
+    }
+  };
+
+  const handleAnnotationRedo = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    if (!context || redoRef.current.length === 0) return;
+    const snapshot = redoRef.current.pop();
+    if (snapshot) {
+      context.putImageData(snapshot, 0, 0);
+      historyRef.current.push(snapshot);
+      setHistorySize(historyRef.current.length);
+      setRedoSize(redoRef.current.length);
+    }
+  };
+
+  const handleAnnotationClear = () => {
+    if (!baseSnapshotRef.current) return;
+    restoreSnapshot(baseSnapshotRef.current);
+    historyRef.current = [baseSnapshotRef.current];
+    redoRef.current = [];
+    setHistorySize(1);
+    setRedoSize(0);
+  };
+
+  const handleAnnotationSave = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || annotationIndex === null) return;
+    try {
+      const dataUrl = canvas.toDataURL("image/png");
+      const updated = updateImageAtIndex(value, annotationIndex, dataUrl);
+      if (editorRef.current) {
+        editorRef.current.innerHTML = updated;
+      }
+      isInternalUpdate.current = true;
+      onChange(updated);
+      setAnnotationOpen(false);
+      toast({
+        title: "Annotation saved",
+        description: "Image has been updated in the imaging section.",
+      });
+    } catch (error) {
+      console.error("Annotation save failed:", error);
+      toast({
+        title: "Annotation failed",
+        description: "Unable to save this annotation.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  React.useEffect(() => {
+    if (annotationOpen && annotationUrl) {
+      loadAnnotationImage(annotationUrl);
+    }
+  }, [annotationOpen, annotationUrl, loadAnnotationImage]);
+
   // Sync external value changes
   React.useEffect(() => {
     if (isInternalUpdate.current) {
@@ -832,7 +1145,7 @@ export const ImagePasteEditor = ({
           <div className="flex items-center gap-1 mb-1.5">
             <Maximize2 className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground font-medium">
-              {imageUrls.length} image{imageUrls.length > 1 ? 's' : ''} - Click to enlarge
+        {imageUrls.length} image{imageUrls.length > 1 ? 's' : ''} - Click to enlarge
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -848,6 +1161,19 @@ export const ImagePasteEditor = ({
                   alt={`Thumbnail ${index + 1}`}
                   className="w-16 h-16 object-cover"
                 />
+                {section === "imaging" && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      openAnnotator(index);
+                    }}
+                    className="absolute left-1 top-1 rounded-full bg-white/90 p-1 text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                    title="Annotate image"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                   <Maximize2 className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
@@ -893,6 +1219,112 @@ export const ImagePasteEditor = ({
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
       />
+
+      <Dialog open={annotationOpen} onOpenChange={setAnnotationOpen}>
+        <DialogContent className="max-w-4xl w-[95vw]">
+          <DialogHeader>
+            <DialogTitle>Annotate imaging</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1">
+                {[
+                  { id: "pen", label: "Pen", icon: Pencil },
+                  { id: "highlighter", label: "Highlighter", icon: Highlighter },
+                  { id: "arrow", label: "Arrow", icon: ArrowUpRight },
+                  { id: "rect", label: "Rectangle", icon: Square },
+                  { id: "ellipse", label: "Ellipse", icon: Circle },
+                  { id: "text", label: "Text", icon: Type },
+                  { id: "eraser", label: "Eraser", icon: Eraser },
+                ].map((tool) => {
+                  const Icon = tool.icon;
+                  return (
+                    <Button
+                      key={tool.id}
+                      type="button"
+                      size="sm"
+                      variant={annotationTool === tool.id ? "default" : "outline"}
+                      className="h-8 px-2"
+                      onClick={() => setAnnotationTool(tool.id as typeof annotationTool)}
+                    >
+                      <Icon className="h-3.5 w-3.5 mr-1" />
+                      <span className="text-xs">{tool.label}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <div className="flex items-center gap-1">
+                  {[
+                    "#ef4444",
+                    "#f97316",
+                    "#eab308",
+                    "#22c55e",
+                    "#3b82f6",
+                    "#8b5cf6",
+                    "#111827",
+                  ].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setAnnotationColor(color)}
+                      className={cn(
+                        "h-6 w-6 rounded-full border-2 transition-shadow",
+                        annotationColor === color ? "border-foreground shadow-sm" : "border-transparent"
+                      )}
+                      style={{ backgroundColor: color }}
+                      title={`Color ${color}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex items-center gap-2 min-w-[200px]">
+                <span className="text-xs text-muted-foreground">Stroke</span>
+                <Slider
+                  value={[annotationWidth]}
+                  min={2}
+                  max={16}
+                  step={1}
+                  className="w-32"
+                  onValueChange={([value]) => setAnnotationWidth(value)}
+                />
+                <span className="text-xs font-medium w-6">{annotationWidth}px</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={handleAnnotationUndo} disabled={historySize <= 1}>
+                  Undo
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={handleAnnotationRedo} disabled={redoSize === 0}>
+                  Redo
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={handleAnnotationClear}>
+                  Reset
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-2 flex justify-center">
+              <canvas
+                ref={canvasRef}
+                className="max-h-[65vh] w-full max-w-3xl rounded-md border bg-white touch-none"
+                onPointerDown={handleCanvasPointerDown}
+                onPointerMove={handleCanvasPointerMove}
+                onPointerUp={handleCanvasPointerUp}
+                onPointerLeave={handleCanvasPointerUp}
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-2">
+            <Button type="button" variant="outline" onClick={() => setAnnotationOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleAnnotationSave}>
+              Save annotation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Phrase Form Dialog */}
       {selectedPhrase && (
