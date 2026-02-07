@@ -84,6 +84,7 @@ export const ImagePasteEditor = ({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const isInternalUpdate = React.useRef(false);
   const [isUploading, setIsUploading] = React.useState(false);
+  const [isDragActive, setIsDragActive] = React.useState(false);
   const [lightboxOpen, setLightboxOpen] = React.useState(false);
   const [lightboxIndex, setLightboxIndex] = React.useState(0);
   const { user } = useAuth();
@@ -150,6 +151,7 @@ export const ImagePasteEditor = ({
 
   // Extract images from current value
   const imageUrls = React.useMemo(() => extractImageUrls(value), [value]);
+  const hasImages = imageUrls.length > 0;
 
   // Handle dictation transcript insertion
   const handleDictationTranscript = React.useCallback((text: string) => {
@@ -424,10 +426,22 @@ export const ImagePasteEditor = ({
     if (!files) return;
 
     await handleUploadFiles(files);
+    setIsDragActive(false);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragActive(true);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragActive(false);
   };
 
   const getCurrentWord = (): { word: string; range: Range | null } => {
@@ -544,7 +558,13 @@ export const ImagePasteEditor = ({
   }, [value]);
 
   return (
-    <div className={cn("border-2 border-border rounded-md bg-card relative h-auto", className)}>
+    <div
+      className={cn(
+        "border-2 border-border rounded-md bg-card relative h-auto transition-colors",
+        isDragActive && "ring-2 ring-blue-400/40 bg-blue-50/20",
+        className
+      )}
+    >
       {/* Toolbar */}
       <div className="flex items-center gap-1 p-1.5 border-b border-border bg-blue-50/50 flex-wrap">
         <Button
@@ -675,6 +695,19 @@ export const ImagePasteEditor = ({
           <ImagePlus className="h-3 w-3" />
           <span className="hidden sm:inline">Upload</span>
         </Button>
+        {hasImages && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => openLightbox(0)}
+            className="h-6 px-1.5 gap-1 text-[10px]"
+            title="Open image gallery"
+          >
+            <Maximize2 className="h-3 w-3" />
+            <span className="hidden sm:inline">Gallery</span>
+          </Button>
+        )}
         {section === 'imaging' && (
           <Button
             type="button"
@@ -828,7 +861,16 @@ export const ImagePasteEditor = ({
       )}
       
       {/* Editor with scroll container - relative positioning ensures proper document flow */}
-      <div className="max-h-[300px] editor-scroll-container relative">
+      <div
+        className="max-h-[300px] editor-scroll-container relative"
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+      >
+        {isDragActive && (
+          <div className="absolute inset-2 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-blue-400/60 bg-blue-50/80 text-blue-700 text-sm font-medium pointer-events-none">
+            Drop images to upload
+          </div>
+        )}
         <div
           ref={editorRef}
           contentEditable

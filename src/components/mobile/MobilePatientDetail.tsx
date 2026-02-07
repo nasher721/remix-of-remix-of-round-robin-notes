@@ -87,6 +87,10 @@ export const MobilePatientDetail = ({
     if (!patient.imaging) return 0;
     return (patient.imaging.match(/<img[^>]+src=["'][^"']+["'][^>]*>/gi) || []).length;
   }, [patient.imaging]);
+  const imagingTextCount = useMemo(() => {
+    if (!patient.imaging) return 0;
+    return patient.imaging.replace(/<[^>]*>/g, "").trim().length;
+  }, [patient.imaging]);
 
   const sectionChips = [
     { id: "summary", label: "Summary", icon: FileText },
@@ -130,6 +134,12 @@ export const MobilePatientDetail = ({
       : patient[field as keyof Patient];
     const newValue = `[${timestamp}] ${currentValue || ""}`;
     onUpdate(patient.id, field, newValue);
+  };
+
+  const clearSection = (field: string) => {
+    if (confirm("Clear this section?")) {
+      onUpdate(patient.id, field, "");
+    }
   };
 
   const handleRemove = () => {
@@ -434,6 +444,11 @@ export const MobilePatientDetail = ({
             <div className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4 text-blue-500" />
               <span className="font-medium">Imaging</span>
+              {imagingTextCount > 0 && (
+                <span className="text-[10px] text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded">
+                  {imagingTextCount} chars
+                </span>
+              )}
               {imagingImageCount > 0 && (
                 <span className="text-[10px] text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded">
                   {imagingImageCount} img
@@ -442,7 +457,27 @@ export const MobilePatientDetail = ({
             </div>
           </AccordionTrigger>
           <AccordionContent className="pb-4">
-            <div className="flex justify-end mb-2">
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addTimestamp("imaging")}
+                  className="h-7 text-xs"
+                >
+                  <Clock className="h-3 w-3 mr-1" />
+                  Add Time
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => clearSection("imaging")}
+                  className="h-7 text-xs text-destructive"
+                >
+                  <Eraser className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
               <PatientTodos
                 todos={todos}
                 section="imaging"

@@ -414,6 +414,15 @@ const PatientCardComponent = ({
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => addTimestamp('imaging')}
+                        className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
+                        title="Add timestamp"
+                      >
+                        <Clock className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => clearSection('imaging')}
                         className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
                       >
