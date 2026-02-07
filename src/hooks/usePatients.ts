@@ -1,31 +1,18 @@
 import * as React from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useNotifications } from "./use-notifications";
-import type { Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
-import { parseSystemsJson, parseFieldTimestampsJson, parseMedicationsJson, prepareUpdateData } from "@/lib/mappers/patientMapper";
+import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
+import { prepareUpdateData } from "@/lib/mappers/patientMapper";
 import { logMetric } from "@/lib/observability/logger";
-import type { Json } from "@/integrations/supabase/types";
-
-const defaultSystemsValue: PatientSystems = {
-  neuro: "",
-  cv: "",
-  resp: "",
-  renalGU: "",
-  gi: "",
-  endo: "",
-  heme: "",
-  infectious: "",
-  skinLines: "",
-  dispo: "",
-};
-
-const defaultMedicationsValue: PatientMedications = {
-  infusions: [],
-  scheduled: [],
-  prn: [],
-  rawText: "",
-};
+import {
+  buildPatientInsertPayload,
+  defaultMedicationsValue,
+  defaultSystemsValue,
+  getNextPatientCounter,
+  mapPatientRecord,
+  shouldTrackTimestamp,
+} from "@/services/patientService";
 
 export type { Patient, PatientSystems, PatientMedications };
 
@@ -35,6 +22,7 @@ export const usePatients = () => {
   const [patientCounter, setPatientCounter] = React.useState(1);
   const { user } = useAuth();
   const notifications = useNotifications();
+  const fetchIdRef = React.useRef(0);
 
   // Ref to track latest patients for use in callbacks without stale closures
   const patientsRef = React.useRef<Patient[]>([]);
@@ -50,6 +38,19 @@ export const usePatients = () => {
       return;
     }
 
+    if (!hasSupabaseConfig) {
+      setPatients([]);
+      setLoading(false);
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
+
+    const currentFetchId = fetchIdRef.current + 1;
+    fetchIdRef.current = currentFetchId;
+
     const startTime = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     try {
@@ -60,28 +61,16 @@ export const usePatients = () => {
 
       if (error) throw error;
 
-      const formattedPatients: Patient[] = (data || []).map((p) => ({
-        id: p.id,
-        patientNumber: p.patient_number,
-        name: p.name,
-        bed: p.bed,
-        clinicalSummary: p.clinical_summary,
-        intervalEvents: p.interval_events,
-        imaging: p.imaging || '',
-        labs: p.labs || '',
-        systems: parseSystemsJson(p.systems),
-        medications: parseMedicationsJson(p.medications),
-        fieldTimestamps: parseFieldTimestampsJson(p.field_timestamps),
-        collapsed: p.collapsed,
-        createdAt: p.created_at,
-        lastModified: p.last_modified,
-      }));
+      if (fetchIdRef.current !== currentFetchId) {
+        return;
+      }
+
+      const formattedPatients: Patient[] = (data || []).map(mapPatientRecord);
 
       setPatients(formattedPatients);
 
       // Set counter to max patient_number + 1
-      const maxNumber = formattedPatients.reduce((max, p) => Math.max(max, p.patientNumber), 0);
-      setPatientCounter(maxNumber + 1);
+      setPatientCounter(getNextPatientCounter(formattedPatients));
 
       const durationMs = Math.round(
         (typeof performance !== "undefined" ? performance.now() : Date.now()) - startTime
@@ -98,7 +87,9 @@ export const usePatients = () => {
         description: "Failed to load patients.",
       });
     } finally {
-      setLoading(false);
+      if (fetchIdRef.current === currentFetchId) {
+        setLoading(false);
+      }
     }
   }, [user, notifications]);
 
@@ -108,44 +99,27 @@ export const usePatients = () => {
 
   const addPatient = React.useCallback(async () => {
     if (!user) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     try {
       const { data, error } = await supabase
         .from("patients")
-        .insert([{
-          user_id: user.id,
-          patient_number: patientCounter,
-          name: "",
-          bed: "",
-          clinical_summary: "",
-          interval_events: "",
-          imaging: "",
-          labs: "",
-          systems: defaultSystemsValue as unknown as Json,
-          medications: defaultMedicationsValue as unknown as Json,
-          collapsed: false,
-        }])
+        .insert([buildPatientInsertPayload({
+          userId: user.id,
+          patientNumber: patientCounter,
+        })])
         .select()
         .single();
 
       if (error) throw error;
 
-      const newPatient: Patient = {
-        id: data.id,
-        patientNumber: data.patient_number,
-        name: data.name,
-        bed: data.bed,
-        clinicalSummary: data.clinical_summary,
-        intervalEvents: data.interval_events,
-        imaging: data.imaging || '',
-        labs: data.labs || '',
-        systems: parseSystemsJson(data.systems),
-        medications: parseMedicationsJson(data.medications),
-        fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
-        collapsed: data.collapsed,
-        createdAt: data.created_at,
-        lastModified: data.last_modified,
-      };
+      const newPatient = mapPatientRecord(data);
 
       setPatients((prev) => [...prev, newPatient]);
       setPatientCounter((prev) => prev + 1);
@@ -165,14 +139,19 @@ export const usePatients = () => {
 
   const updatePatient = React.useCallback(async (id: string, field: string, value: unknown) => {
     if (!user) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     const now = new Date().toISOString();
 
-    // Fields that should track timestamps (content fields only)
-    const trackableFields = ['clinicalSummary', 'intervalEvents', 'imaging', 'labs', 'medications'];
     const isSystemField = field.startsWith('systems.');
     const isMedicationsField = field === 'medications';
-    const shouldTrackTimestamp = trackableFields.includes(field) || isSystemField;
+    const shouldTrack = shouldTrackTimestamp(field);
 
     // Get current state from ref to ensure sequential updates see each other
     // We clone the array to avoid mutating the previous state reference directly
@@ -186,7 +165,7 @@ export const usePatients = () => {
     const updatedPatient = { ...oldPatient };
 
     let oldValue: string | null = null;
-    if (shouldTrackTimestamp && !isMedicationsField) {
+    if (shouldTrack && !isMedicationsField) {
       if (isSystemField) {
         const systemKey = field.split('.')[1] as keyof PatientSystems;
         oldValue = updatedPatient.systems[systemKey] || null;
@@ -198,7 +177,7 @@ export const usePatients = () => {
     // Apply updates to the cloned patient object
     updatedPatient.lastModified = now;
 
-    if (shouldTrackTimestamp) {
+    if (shouldTrack) {
       updatedPatient.fieldTimestamps = {
         ...updatedPatient.fieldTimestamps,
         [field]: now,
@@ -229,7 +208,7 @@ export const usePatients = () => {
     // This ensures we don't send stale partial data to Supabase
     const updateData = prepareUpdateData(field, value, updatedPatient.systems, updatedPatient.medications);
 
-    if (shouldTrackTimestamp) {
+    if (shouldTrack) {
       updateData.field_timestamps = updatedPatient.fieldTimestamps;
     }
 
@@ -242,7 +221,7 @@ export const usePatients = () => {
       if (error) throw error;
 
       // Record history entry for trackable fields (non-blocking, ignore errors)
-      if (shouldTrackTimestamp && oldValue !== (value as string)) {
+      if (shouldTrack && oldValue !== (value as string)) {
         void (async () => {
           try {
             await supabase.from("patient_field_history").insert({
@@ -266,6 +245,13 @@ export const usePatients = () => {
 
   const removePatient = React.useCallback(async (id: string) => {
     if (!user) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -292,6 +278,13 @@ export const usePatients = () => {
 
   const duplicatePatient = React.useCallback(async (id: string) => {
     if (!user) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     const patient = patientsRef.current.find((p) => p.id === id);
     if (!patient) return;
@@ -299,40 +292,24 @@ export const usePatients = () => {
     try {
       const { data, error } = await supabase
         .from("patients")
-        .insert([{
-          user_id: user.id,
-          patient_number: patientCounter,
-          name: patient.name + " (Copy)",
+        .insert([buildPatientInsertPayload({
+          userId: user.id,
+          patientNumber: patientCounter,
+          name: `${patient.name} (Copy)`,
           bed: patient.bed,
-          clinical_summary: patient.clinicalSummary,
-          interval_events: patient.intervalEvents,
+          clinicalSummary: patient.clinicalSummary,
+          intervalEvents: patient.intervalEvents,
           imaging: patient.imaging,
           labs: patient.labs,
-          systems: patient.systems as unknown as Json,
-          medications: patient.medications as unknown as Json,
-          collapsed: false,
-        }])
+          systems: patient.systems,
+          medications: patient.medications,
+        })])
         .select()
         .single();
 
       if (error) throw error;
 
-      const newPatient: Patient = {
-        id: data.id,
-        patientNumber: data.patient_number,
-        name: data.name,
-        bed: data.bed,
-        clinicalSummary: data.clinical_summary,
-        intervalEvents: data.interval_events,
-        imaging: data.imaging || '',
-        labs: data.labs || '',
-        systems: parseSystemsJson(data.systems),
-        medications: parseMedicationsJson(data.medications),
-        fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
-        collapsed: data.collapsed,
-        createdAt: data.created_at,
-        lastModified: data.last_modified,
-      };
+      const newPatient = mapPatientRecord(data);
 
       setPatients((prev) => [...prev, newPatient]);
       setPatientCounter((prev) => prev + 1);
@@ -360,6 +337,13 @@ export const usePatients = () => {
   const collapseAll = React.useCallback(async () => {
     const currentPatients = patientsRef.current;
     if (!user || currentPatients.length === 0) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     // Check if all are already collapsed
     const allCollapsed = currentPatients.every(p => p.collapsed);
@@ -390,51 +374,37 @@ export const usePatients = () => {
     medications?: PatientMedications;
   }>) => {
     if (!user) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     try {
       let currentCounter = patientCounter;
       const newPatients: Patient[] = [];
 
       for (const p of patientsToImport) {
-        const systemsToInsert = p.systems || defaultSystemsValue;
-        const medicationsToInsert = p.medications || defaultMedicationsValue;
-
         const { data, error } = await supabase
           .from("patients")
-          .insert([{
-            user_id: user.id,
-            patient_number: currentCounter,
+          .insert([buildPatientInsertPayload({
+            userId: user.id,
+            patientNumber: currentCounter,
             name: p.name,
             bed: p.bed,
-            clinical_summary: p.clinicalSummary,
-            interval_events: p.intervalEvents || "",
-            imaging: "",
-            labs: "",
-            systems: systemsToInsert as unknown as Json,
-            medications: medicationsToInsert as unknown as Json,
-            collapsed: false,
-          }])
+            clinicalSummary: p.clinicalSummary,
+            intervalEvents: p.intervalEvents || "",
+            systems: p.systems ?? defaultSystemsValue,
+            medications: p.medications ?? defaultMedicationsValue,
+          })])
           .select()
           .single();
 
         if (error) throw error;
 
-        newPatients.push({
-          id: data.id,
-          patientNumber: data.patient_number,
-          name: data.name,
-          bed: data.bed,
-          clinicalSummary: data.clinical_summary,
-          intervalEvents: data.interval_events,
-          imaging: data.imaging || '',
-          labs: data.labs || '',
-          systems: parseSystemsJson(data.systems),
-          medications: parseMedicationsJson(data.medications),
-          fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
-          collapsed: data.collapsed,
-          createdAt: data.created_at,
-          lastModified: data.last_modified,
-        });
+        newPatients.push(mapPatientRecord(data));
 
         currentCounter++;
       }
@@ -468,44 +438,35 @@ export const usePatients = () => {
     medications?: PatientMedications;
   }) => {
     if (!user) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     try {
       const { data, error } = await supabase
         .from("patients")
-        .insert([{
-          user_id: user.id,
-          patient_number: patientCounter,
+        .insert([buildPatientInsertPayload({
+          userId: user.id,
+          patientNumber: patientCounter,
           name: patientData.name || "",
           bed: patientData.bed || "",
-          clinical_summary: patientData.clinicalSummary || "",
-          interval_events: patientData.intervalEvents || "",
+          clinicalSummary: patientData.clinicalSummary || "",
+          intervalEvents: patientData.intervalEvents || "",
           imaging: patientData.imaging || "",
           labs: patientData.labs || "",
-          systems: patientData.systems as unknown as Json,
-          medications: (patientData.medications || defaultMedicationsValue) as unknown as Json,
-          collapsed: false,
-        }])
+          systems: patientData.systems,
+          medications: patientData.medications || defaultMedicationsValue,
+        })])
         .select()
         .single();
 
       if (error) throw error;
 
-      const newPatient: Patient = {
-        id: data.id,
-        patientNumber: data.patient_number,
-        name: data.name,
-        bed: data.bed,
-        clinicalSummary: data.clinical_summary,
-        intervalEvents: data.interval_events,
-        imaging: data.imaging || '',
-        labs: data.labs || '',
-        systems: parseSystemsJson(data.systems),
-        medications: parseMedicationsJson(data.medications),
-        fieldTimestamps: parseFieldTimestampsJson(data.field_timestamps),
-        collapsed: data.collapsed,
-        createdAt: data.created_at,
-        lastModified: data.last_modified,
-      };
+      const newPatient = mapPatientRecord(data);
 
       setPatients((prev) => [...prev, newPatient]);
       setPatientCounter((prev) => prev + 1);
@@ -526,6 +487,13 @@ export const usePatients = () => {
 
   const clearAll = React.useCallback(async () => {
     if (!user) return;
+    if (!hasSupabaseConfig) {
+      notifications.error({
+        title: "Configuration Error",
+        description: "Supabase is not configured. Please check environment variables.",
+      });
+      return;
+    }
 
     try {
       // Delete all patients for the current user

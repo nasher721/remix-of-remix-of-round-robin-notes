@@ -106,6 +106,12 @@ const Auth = () => {
           navigate("/");
         }
       }
+    } catch (error) {
+      toast({
+        title: "Authentication Error",
+        description: "Something went wrong while processing your request.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -136,7 +142,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex">
+    <main className="min-h-screen w-full flex" aria-labelledby="auth-heading">
       {/* Left Panel - Hero/Branding (Desktop only) */}
       <div className="hidden lg:flex w-[45%] bg-[hsl(180,10%,10%)] relative overflow-hidden items-center justify-center p-12">
         <div className="absolute inset-0 bg-gradient-to-br from-[hsl(160,20%,40%)]/10 via-transparent to-[hsl(160,10%,30%)]/10 z-0" />
@@ -177,7 +183,7 @@ const Auth = () => {
         <div className="w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl space-y-7">
           <div className="text-center lg:text-left space-y-2">
             <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
-            <h2 className="text-2xl font-bold tracking-tight text-card-foreground">
+            <h2 id="auth-heading" className="text-2xl font-bold tracking-tight text-card-foreground">
               {isLogin ? "Welcome back" : "Create an account"}
             </h2>
             <p className="text-sm text-card-foreground/70">
@@ -200,11 +206,12 @@ const Auth = () => {
                   disabled={loading}
                   startIcon={<Mail className="h-4 w-4" />}
                   aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? "email-error" : undefined}
                   showSuccess={!errors.email && email.length > 0}
                   className={`h-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />
                 {errors.email && (
-                  <p className="text-xs text-destructive flex items-center gap-2">
+                  <p id="email-error" className="text-xs text-destructive flex items-center gap-2" role="alert">
                     {errors.email}
                   </p>
                 )}
@@ -220,11 +227,14 @@ const Auth = () => {
                   disabled={loading}
                   startIcon={<Lock className="h-4 w-4" />}
                   aria-invalid={Boolean(errors.password)}
+                  aria-describedby={errors.password ? "password-error" : undefined}
                   showSuccess={!errors.password && password.length > 0}
                   endIcon={
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
                       className="focus:outline-none hover:text-foreground transition-colors"
                     >
                       {showPassword ? (
@@ -237,7 +247,7 @@ const Auth = () => {
                   className={`h-10 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />
                 {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password}</p>
+                  <p id="password-error" className="text-xs text-destructive" role="alert">{errors.password}</p>
                 )}
               </div>
             </div>
@@ -314,7 +324,7 @@ const Auth = () => {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 
