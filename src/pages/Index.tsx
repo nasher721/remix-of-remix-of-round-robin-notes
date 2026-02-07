@@ -111,27 +111,7 @@ function IndexContent(): React.ReactElement | null {
     }
   }, [navigate, signOut]);
 
-  if (authLoading || patientsLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4" role="status" aria-live="polite" aria-busy="true">
-          <div className="relative mx-auto w-12 h-12">
-            <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary relative" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-foreground text-sm font-medium">Loading workspace</p>
-            <p className="text-muted-foreground/60 text-xs">Preparing your rounds...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
+  // Build dashboard context value - must be before any conditional returns to satisfy Rules of Hooks
   const dashboardContextValue = React.useMemo(() => ({
     user,
     patients,
@@ -195,6 +175,27 @@ function IndexContent(): React.ReactElement | null {
     setMobileTab,
     lastSaved,
   ]);
+
+  if (authLoading || patientsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4" role="status" aria-live="polite" aria-busy="true">
+          <div className="relative mx-auto w-12 h-12">
+            <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary relative" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-foreground text-sm font-medium">Loading workspace</p>
+            <p className="text-muted-foreground/60 text-xs">Preparing your rounds...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   // Mobile Layout
   if (isMobile) {
