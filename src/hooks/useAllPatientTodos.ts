@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { hasSupabaseConfig, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PatientTodo } from '@/types/todo';
 
@@ -14,6 +14,11 @@ export function useAllPatientTodos(patientIds: string[]) {
 
   const fetchAllTodos = useCallback(async () => {
     if (!user || patientIds.length === 0) {
+      setTodosMap({});
+      return;
+    }
+
+    if (!hasSupabaseConfig) {
       setTodosMap({});
       return;
     }
