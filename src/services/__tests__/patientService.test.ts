@@ -52,5 +52,23 @@ test("flags trackable fields and computes next counter", () => {
   assert.equal(shouldTrackTimestamp("clinicalSummary"), true);
   assert.equal(shouldTrackTimestamp("systems.neuro"), true);
   assert.equal(shouldTrackTimestamp("nonTracked"), false);
-  assert.equal(getNextPatientCounter([{ patientNumber: 7 } as { patientNumber: number }]), 8);
+  
+  // Create a minimal Patient-like object for testing getNextPatientCounter
+  const mockPatient = {
+    id: "test-id",
+    patientNumber: 7,
+    name: "",
+    bed: "",
+    clinicalSummary: "",
+    intervalEvents: "",
+    imaging: "",
+    labs: "",
+    systems: defaultSystemsValue,
+    medications: defaultMedicationsValue,
+    fieldTimestamps: {},
+    collapsed: false,
+    createdAt: "",
+    lastModified: null,
+  };
+  assert.equal(getNextPatientCounter([mockPatient]), 8);
 });
