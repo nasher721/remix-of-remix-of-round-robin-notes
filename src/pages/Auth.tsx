@@ -233,6 +233,8 @@ const Auth = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-pressed={showPassword}
                       className="focus:outline-none hover:text-foreground transition-colors"
                     >
                       {showPassword ? (

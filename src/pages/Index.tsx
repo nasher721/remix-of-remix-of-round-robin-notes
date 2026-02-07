@@ -114,7 +114,7 @@ function IndexContent(): React.ReactElement | null {
   if (authLoading || patientsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4" role="status" aria-live="polite" aria-busy="true">
           <div className="relative mx-auto w-12 h-12">
             <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary relative" />
