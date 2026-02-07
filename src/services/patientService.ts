@@ -1,4 +1,4 @@
-import type { Json } from "@/integrations/supabase/types";
+import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import type { Patient, PatientMedications, PatientSystems } from "@/types/patient";
 import { parseFieldTimestampsJson, parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
 
@@ -65,7 +65,7 @@ export const buildPatientInsertPayload = (input: {
   labs?: string;
   systems?: PatientSystems;
   medications?: PatientMedications;
-}): Record<string, unknown> => ({
+}): TablesInsert<"patients"> => ({
   user_id: input.userId,
   patient_number: input.patientNumber,
   name: input.name ?? "",
