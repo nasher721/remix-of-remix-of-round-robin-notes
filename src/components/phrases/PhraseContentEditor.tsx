@@ -241,7 +241,8 @@ export const PhraseContentEditor = ({
             "p-3 outline-none min-h-[80px]",
             "prose prose-sm max-w-none",
             "[&_ul]:list-disc [&_ul]:ml-4",
-            "[&_ol]:list-decimal [&_ol]:ml-4"
+            "[&_ol]:list-decimal [&_ol]:ml-4",
+            "text-card-foreground"
           )}
           style={{ 
             fontSize: '14px',
