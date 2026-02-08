@@ -238,7 +238,7 @@ export const PhraseContentEditor = ({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           className={cn(
-            "p-3 outline-none min-h-[80px]",
+            "p-3 outline-none min-h-[80px] text-card-foreground",
             "prose prose-sm max-w-none",
             "[&_ul]:list-disc [&_ul]:ml-4",
             "[&_ol]:list-decimal [&_ol]:ml-4"
