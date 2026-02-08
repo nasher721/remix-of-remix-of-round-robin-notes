@@ -1200,7 +1200,7 @@ export const ImagePasteEditor = ({
         <div
           ref={editorRef}
           contentEditable
-          className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none min-h-[80px] relative"
+          className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none min-h-[80px] relative text-card-foreground"
           style={{ fontSize: `${fontSize}px` }}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
