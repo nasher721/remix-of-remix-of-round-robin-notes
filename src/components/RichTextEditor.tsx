@@ -737,7 +737,7 @@ export const RichTextEditor = ({
         <div
           ref={editorRef}
           contentEditable
-          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative whitespace-pre-wrap"
+          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative whitespace-pre-wrap text-card-foreground"
           style={{ fontSize: `${fontSizeRef.current}px` }}
           onInput={handleInput}
           onPaste={handlePaste}
