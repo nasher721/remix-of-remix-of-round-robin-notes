@@ -9,7 +9,11 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --loader ./scripts/ts-loader.mjs --test"
+    "test": "node --loader ./scripts/ts-loader.mjs --test",
+    "test:unit": "node --loader ./scripts/ts-loader.mjs --test tests/unit",
+    "test:integration": "node --loader ./scripts/ts-loader.mjs --test tests/integration",
+    "test:e2e": "node --loader ./scripts/ts-loader.mjs --test tests/e2e",
+    "test:coverage": "node --loader ./scripts/ts-loader.mjs --test --experimental-test-coverage tests/unit tests/integration"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

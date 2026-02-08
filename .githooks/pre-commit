@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail
+
+echo "Running unit tests before commit..."
+
+npm run test:unit
