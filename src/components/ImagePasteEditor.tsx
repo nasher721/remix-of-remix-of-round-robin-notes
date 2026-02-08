@@ -32,16 +32,28 @@ import { useClinicalPhrases } from "@/hooks/useClinicalPhrases";
 import type { Patient } from "@/types/patient";
 import { Slider } from "@/components/ui/slider";
 
+// Text color options using HSL CSS variables from design system
 const textColors = [
-  { name: "Default", value: "" },
-  { name: "Red", value: "#ef4444" },
-  { name: "Orange", value: "#f97316" },
-  { name: "Yellow", value: "#eab308" },
-  { name: "Green", value: "#22c55e" },
-  { name: "Blue", value: "#3b82f6" },
-  { name: "Purple", value: "#8b5cf6" },
-  { name: "Pink", value: "#ec4899" },
-  { name: "Gray", value: "#6b7280" },
+  { name: "Default", value: "", cssVar: "" },
+  { name: "Red", value: "hsl(0 72% 51%)", cssVar: "--destructive" },
+  { name: "Orange", value: "hsl(38 80% 50%)", cssVar: "--warning" },
+  { name: "Yellow", value: "hsl(45 93% 47%)", cssVar: "" },
+  { name: "Green", value: "hsl(160 60% 40%)", cssVar: "--success" },
+  { name: "Blue", value: "hsl(200 50% 50%)", cssVar: "--medical-blue" },
+  { name: "Purple", value: "hsl(265 70% 55%)", cssVar: "" },
+  { name: "Pink", value: "hsl(330 80% 60%)", cssVar: "" },
+  { name: "Gray", value: "hsl(var(--muted-foreground))", cssVar: "--muted-foreground" },
+];
+
+// Annotation color options using HSL values aligned with design system
+const annotationColors = [
+  { name: "Red", value: "hsl(0 72% 51%)" },
+  { name: "Orange", value: "hsl(38 80% 50%)" },
+  { name: "Yellow", value: "hsl(45 93% 47%)" },
+  { name: "Green", value: "hsl(160 60% 40%)" },
+  { name: "Blue", value: "hsl(200 50% 50%)" },
+  { name: "Purple", value: "hsl(265 70% 55%)" },
+  { name: "Dark", value: "hsl(180 12% 6%)" },
 ];
 
 interface ImagePasteEditorProps {
@@ -114,7 +126,7 @@ export const ImagePasteEditor = ({
   const [annotationIndex, setAnnotationIndex] = React.useState<number | null>(null);
   const [annotationUrl, setAnnotationUrl] = React.useState<string | null>(null);
   const [annotationTool, setAnnotationTool] = React.useState<"pen" | "highlighter" | "arrow" | "rect" | "ellipse" | "text" | "eraser">("pen");
-  const [annotationColor, setAnnotationColor] = React.useState("#ef4444");
+  const [annotationColor, setAnnotationColor] = React.useState("hsl(0 72% 51%)");
   const [annotationWidth, setAnnotationWidth] = React.useState(4);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const isDrawingRef = React.useRef(false);
@@ -874,12 +886,12 @@ export const ImagePasteEditor = ({
     <div
       className={cn(
         "border-2 border-border rounded-md bg-card relative h-auto transition-colors",
-        isDragActive && "ring-2 ring-blue-400/40 bg-blue-50/20",
+        isDragActive && "ring-2 ring-ring/40 bg-accent/20",
         className
       )}
     >
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-1.5 border-b border-border bg-blue-50/50 flex-wrap">
+      <div className="flex items-center gap-1 p-1.5 border-b border-border bg-muted/30 flex-wrap">
         <Button
           type="button"
           variant="ghost"
@@ -993,7 +1005,7 @@ export const ImagePasteEditor = ({
           </PopoverContent>
         </Popover>
         <div className="w-px h-4 bg-border mx-1" />
-        <div className="flex items-center gap-1 text-[10px] text-blue-600">
+        <div className="flex items-center gap-1 text-[10px] text-primary-foreground/70">
           <ImageIcon className="h-3 w-3" />
           <span>Paste or drop images</span>
         </div>
@@ -1114,7 +1126,7 @@ export const ImagePasteEditor = ({
               title={localMarkingDisabled ? "Enable marking" : "Disable marking"}
               className={cn(
                 "h-6 px-1.5 gap-1",
-                !localMarkingDisabled && "text-orange-600 hover:text-orange-700",
+                !localMarkingDisabled && "text-warning hover:text-warning/80",
                 localMarkingDisabled && "text-muted-foreground"
               )}
             >
@@ -1193,14 +1205,14 @@ export const ImagePasteEditor = ({
         onDragLeave={handleDragLeave}
       >
         {isDragActive && (
-          <div className="absolute inset-2 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-blue-400/60 bg-blue-50/80 text-blue-700 text-sm font-medium pointer-events-none">
+          <div className="absolute inset-2 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-ring/60 bg-accent/80 text-accent-foreground text-sm font-medium pointer-events-none">
             Drop images to upload
           </div>
         )}
         <div
           ref={editorRef}
           contentEditable
-          className="p-2 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-all prose prose-sm max-w-none min-h-[80px] relative text-card-foreground"
+          className="p-2 focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all prose prose-sm max-w-none min-h-[80px] relative text-card-foreground"
           style={{ fontSize: `${fontSize}px` }}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
@@ -1255,25 +1267,17 @@ export const ImagePasteEditor = ({
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 <div className="flex items-center gap-1">
-                  {[
-                    "#ef4444",
-                    "#f97316",
-                    "#eab308",
-                    "#22c55e",
-                    "#3b82f6",
-                    "#8b5cf6",
-                    "#111827",
-                  ].map((color) => (
+                  {annotationColors.map((color) => (
                     <button
-                      key={color}
+                      key={color.name}
                       type="button"
-                      onClick={() => setAnnotationColor(color)}
+                      onClick={() => setAnnotationColor(color.value)}
                       className={cn(
                         "h-6 w-6 rounded-full border-2 transition-shadow",
-                        annotationColor === color ? "border-foreground shadow-sm" : "border-transparent"
+                        annotationColor === color.value ? "border-foreground shadow-sm" : "border-transparent"
                       )}
-                      style={{ backgroundColor: color }}
-                      title={`Color ${color}`}
+                      style={{ backgroundColor: color.value }}
+                      title={color.name}
                     />
                   ))}
                 </div>
