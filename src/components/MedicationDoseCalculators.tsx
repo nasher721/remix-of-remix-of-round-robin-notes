@@ -219,10 +219,10 @@ export function MedicationDoseCalculators() {
 
   const getRenalCategoryColor = (category: string) => {
     switch (category) {
-      case 'no adjustment': return 'text-green-600 bg-green-50 border-green-200';
-      case 'mild': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'moderate': return 'text-orange-600 bg-orange-50 border-orange-200';
-      case 'severe': return 'text-red-600 bg-red-50 border-red-200';
+      case 'no adjustment': return 'text-green-700 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950 dark:border-green-800';
+      case 'mild': return 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800';
+      case 'moderate': return 'text-orange-700 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950 dark:border-orange-800';
+      case 'severe': return 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800';
     }
   };
 

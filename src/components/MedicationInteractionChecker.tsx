@@ -322,13 +322,13 @@ export function MedicationInteractionChecker({
   const getSeverityColor = (severity: MedicationInteraction['severity']) => {
     switch (severity) {
       case 'contraindicated':
-        return 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800';
+        return 'text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950 dark:border-red-800';
       case 'major':
-        return 'text-orange-600 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950 dark:border-orange-800';
+        return 'text-orange-700 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950 dark:border-orange-800';
       case 'moderate':
-        return 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-950 dark:border-yellow-800';
+        return 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950 dark:border-amber-800';
       case 'minor':
-        return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800';
+        return 'text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-800';
     }
   };
 
@@ -425,7 +425,7 @@ export function MedicationInteractionChecker({
 
           {interactions.filter(i => i.severity === 'major').length > 0 && (
             <Alert className="border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+              <AlertTriangle className="h-4 w-4 text-orange-700 dark:text-orange-400" />
               <AlertTitle className="text-orange-900 dark:text-orange-100">Major Interactions</AlertTitle>
               <AlertDescription className="mt-2 space-y-2">
                 {interactions.filter(i => i.severity === 'major').map(interaction => (
@@ -452,7 +452,7 @@ export function MedicationInteractionChecker({
           {interactions.filter(i => i.severity === 'moderate').length > 0 && (
             <div className="space-y-2">
               <h3 className="font-medium text-sm flex items-center gap-2">
-                <ShieldX className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                <ShieldX className="h-4 w-4 text-amber-700 dark:text-amber-400" />
                 Moderate Interactions
               </h3>
               {interactions.filter(i => i.severity === 'moderate').map(interaction => (
@@ -478,7 +478,7 @@ export function MedicationInteractionChecker({
           {interactions.filter(i => i.severity === 'minor').length > 0 && (
             <div className="space-y-2">
               <h3 className="font-medium text-sm flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertCircle className="h-4 w-4 text-blue-700 dark:text-blue-400" />
                 Minor Interactions
               </h3>
               {interactions.filter(i => i.severity === 'minor').map(interaction => (
@@ -502,9 +502,9 @@ export function MedicationInteractionChecker({
           )}
 
           {conditionAlerts.length > 0 && (
-            <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950">
-              <Info className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              <AlertTitle className="text-yellow-900 dark:text-yellow-100">Condition-Based Alerts</AlertTitle>
+            <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
+              <Info className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+              <AlertTitle className="text-amber-900 dark:text-amber-100">Condition-Based Alerts</AlertTitle>
               <AlertDescription className="mt-2 space-y-2">
                 {conditionAlerts.map(alert => (
                   <div key={alert.id} className={`p-3 border rounded ${getSeverityColor(alert.severity)}`}>
@@ -530,7 +530,7 @@ export function MedicationInteractionChecker({
           {totalAlerts === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="bg-green-100 dark:bg-green-950 rounded-full p-4 mb-4">
-                <ShieldX className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <ShieldX className="h-8 w-8 text-green-700 dark:text-green-400" />
               </div>
               <h3 className="font-semibold text-lg mb-2">No Interactions Detected</h3>
               <p className="text-sm text-muted-foreground max-w-sm">

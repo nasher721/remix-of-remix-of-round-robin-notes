@@ -379,9 +379,9 @@ export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
       'bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-800'
     }`}>
       <div className="flex items-center gap-2">
-        {lab.isCritical && <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />}
-        {lab.isAbnormal && !lab.isCritical && <Minus className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />}
-        {!lab.isAbnormal && <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />}
+        {lab.isCritical && <AlertTriangle className="h-4 w-4 text-red-700 dark:text-red-400" />}
+        {lab.isAbnormal && !lab.isCritical && <Minus className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />}
+        {!lab.isAbnormal && <CheckCircle2 className="h-4 w-4 text-green-700 dark:text-green-400" />}
         <span className="text-sm font-medium">{lab.name}</span>
       </div>
       <div className="flex items-center gap-3">

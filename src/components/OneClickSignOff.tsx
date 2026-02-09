@@ -263,7 +263,7 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
                       return (
                         <div key={section.id} className="flex items-center gap-2 text-xs">
                           {isComplete ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-700 dark:text-green-400 shrink-0" />
                           ) : (
                             <AlertCircle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                           )}
@@ -324,7 +324,7 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
           </div>
           <div className="flex gap-4">
             <div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-2xl font-bold text-green-700 dark:text-green-400">
                 {progress.signedCount}
               </div>
               <div className="text-xs text-muted-foreground">Signed</div>

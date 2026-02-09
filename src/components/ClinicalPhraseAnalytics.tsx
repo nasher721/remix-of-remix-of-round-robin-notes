@@ -245,7 +245,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center text-xs text-muted-foreground">
-                      <ArrowUpRight className="h-3 w-3 mr-1 text-green-500" />
+                      <ArrowUpRight className="h-3 w-3 mr-1 text-green-700 dark:text-green-400" />
                       {avgUsagePerDay.toFixed(1)} per day
                     </div>
                   </CardContent>
@@ -393,7 +393,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                               <Calendar className="h-3 w-3" />
                               {stat.lastUsed ? new Date(stat.lastUsed).toLocaleDateString() : 'Never'}
                             </span>
-                            <span className={`flex items-center gap-1 ${stat.trend >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            <span className={`flex items-center gap-1 ${stat.trend >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
                               {stat.trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
                               {Math.abs(stat.trend).toFixed(1)}%
                             </span>
@@ -532,19 +532,19 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                 <CardContent>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      <Check className="h-4 w-4 text-green-700 dark:text-green-400 mt-0.5 shrink-0" />
                       <span>Create shortcuts for phrases you use 3+ times per day</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      <Check className="h-4 w-4 text-green-700 dark:text-green-400 mt-0.5 shrink-0" />
                       <span>Keep shortcut names short and memorable (2-4 characters)</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      <Check className="h-4 w-4 text-green-700 dark:text-green-400 mt-0.5 shrink-0" />
                       <span>Use consistent naming conventions (e.g., all uppercase for emergencies)</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
+                      <Check className="h-4 w-4 text-green-700 dark:text-green-400 mt-0.5 shrink-0" />
                       <span>Review analytics weekly to identify new automation opportunities</span>
                     </li>
                   </ul>
