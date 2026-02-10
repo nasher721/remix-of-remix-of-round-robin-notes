@@ -269,13 +269,13 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
                             <h3 className="font-medium text-sm">{category}</h3>
                           </div>
                           <div className="space-y-1 ml-6">
-                            {Object.entries(chapters).map(([id, chapter]) => (
+                            {chapters.map((chapter) => (
                               <Button
-                                key={id}
+                                key={chapter.id}
                                 variant="ghost"
                                 className="w-full justify-start text-sm h-8"
                                 onClick={() => {
-                                  onChapterSelect?.(id);
+                                  onChapterSelect?.(chapter.id);
                                   setOpen(false);
                                 }}
                               >
