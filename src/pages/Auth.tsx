@@ -117,27 +117,31 @@ const Auth = () => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
+  const [appleLoading, setAppleLoading] = useState(false);
+
+  const handleOAuthSignIn = async (provider: "google" | "apple") => {
+    const setLoading = provider === "google" ? setGoogleLoading : setAppleLoading;
+    const label = provider === "google" ? "Google" : "Apple";
+    setLoading(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
+      const { error } = await lovable.auth.signInWithOAuth(provider, {
         redirect_uri: window.location.origin,
       });
       if (error) {
         toast({
-          title: "Google Sign In Failed",
-          description: error.message || "Could not sign in with Google. Please try again.",
+          title: `${label} Sign In Failed`,
+          description: error.message || `Could not sign in with ${label}. Please try again.`,
           variant: "destructive",
         });
       }
     } catch (err) {
       toast({
-        title: "Google Sign In Failed",
+        title: `${label} Sign In Failed`,
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setGoogleLoading(false);
+      setLoading(false);
     }
   };
 
