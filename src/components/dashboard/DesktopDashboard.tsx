@@ -17,6 +17,7 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
 import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard, CensusBadge } from "@/components/UnitCensusDashboard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -197,6 +198,7 @@ export const DesktopDashboard = ({
               <p className="text-xs font-medium leading-none text-card-foreground">{user.email}</p>
               <p className="text-[10px] text-card-foreground/50">Physician</p>
             </div>
+            <ThemeToggle />
             <Button
               onClick={onSignOut}
               variant="ghost"
