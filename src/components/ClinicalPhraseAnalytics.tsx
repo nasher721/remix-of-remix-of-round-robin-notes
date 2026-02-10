@@ -76,8 +76,8 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
       
       usageData?.forEach(log => {
         phraseUsageMap.set(log.phrase_id, (phraseUsageMap.get(log.phrase_id) || 0) + 1);
-        if (!phraseLastUsedMap.has(log.phrase_id) || new Date(log.timestamp) > new Date(phraseLastUsedMap.get(log.phrase_id)!)) {
-          phraseLastUsedMap.set(log.phrase_id, log.timestamp);
+        if (!phraseLastUsedMap.has(log.phrase_id) || new Date(log.created_at) > new Date(phraseLastUsedMap.get(log.phrase_id)!)) {
+          phraseLastUsedMap.set(log.phrase_id, log.created_at);
         }
       });
 
