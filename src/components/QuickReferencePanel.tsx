@@ -322,7 +322,7 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
 
                 <TabsContent value="shortcuts" className="m-0">
                   <div className="space-y-2">
-                    {AUTOTEXTS.map((autotext) => (
+                    {defaultAutotexts.map((autotext) => (
                       <div
                         key={autotext.shortcut}
                         className="p-3 border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
