@@ -8,11 +8,11 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { IBCCProvider } from "@/contexts/IBCCContext";
 import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
-import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PrintExportTest from "./pages/PrintExportTest";
+import { ThemeProvider } from "@/components/theme-provider";
 
 // Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({
@@ -33,8 +33,8 @@ const queryClient = new QueryClient({
 
 function App(): React.ReactElement {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="rr-theme">
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <AuthProvider>
           <SettingsProvider>
             <IBCCProvider>
@@ -57,8 +57,8 @@ function App(): React.ReactElement {
             </IBCCProvider>
           </SettingsProvider>
         </AuthProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

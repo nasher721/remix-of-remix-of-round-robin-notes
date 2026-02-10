@@ -28,9 +28,13 @@ import {
   Activity,
   RotateCcw,
   Users,
+  Sun,
+  Moon,
+  Laptop,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSettings } from "@/contexts/SettingsContext";
+import { useTheme } from "@/components/theme-provider";
 import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -98,6 +102,7 @@ export const MobileSettingsPanel = ({
   patientCount = 0,
 }: MobileSettingsPanelProps) => {
   const { sectionVisibility, setSectionVisibility, resetSectionVisibility } = useSettings();
+  const { theme, setTheme } = useTheme();
 
   const toggleSection = (key: ClinicalSectionKey) => {
     setSectionVisibility({
@@ -135,6 +140,38 @@ export const MobileSettingsPanel = ({
             onValueChange={(v) => onFontSizeChange(v[0])}
             className="w-full"
           />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sun className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm">Theme</span>
+          </div>
+          <Select value={theme} onValueChange={(v) => setTheme(v as "light" | "dark" | "system")}>
+            <SelectTrigger className="w-32 h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="light">
+                <div className="flex items-center gap-2">
+                  <Sun className="h-3 w-3" />
+                  <span>Light</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="dark">
+                <div className="flex items-center gap-2">
+                  <Moon className="h-3 w-3" />
+                  <span>Dark</span>
+                </div>
+              </SelectItem>
+              <SelectItem value="system">
+                <div className="flex items-center gap-2">
+                  <Laptop className="h-3 w-3" />
+                  <span>System</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center justify-between">
@@ -254,11 +291,10 @@ export const MobileSettingsPanel = ({
                   <button
                     key={color}
                     onClick={() => changeTracking.setColor(color)}
-                    className={`h-8 w-8 rounded-full transition-transform ${
-                      changeTracking.color === color
-                        ? "ring-2 ring-offset-2 ring-primary scale-110"
-                        : ""
-                    }`}
+                    className={`h-8 w-8 rounded-full transition-transform ${changeTracking.color === color
+                      ? "ring-2 ring-offset-2 ring-primary scale-110"
+                      : ""
+                      }`}
                     style={{ backgroundColor: color }}
                   />
                 ))}
