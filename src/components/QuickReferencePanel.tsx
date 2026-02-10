@@ -141,7 +141,7 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
   const groupedGuidelines = React.useMemo(() => {
     const groups: Record<string, ClinicalGuideline[]> = {};
     CLINICAL_GUIDELINES.forEach(guideline => {
-      const category = guideline.category || 'General';
+      const category = guideline.specialty || 'General';
       if (!groups[category]) {
         groups[category] = [];
       }
