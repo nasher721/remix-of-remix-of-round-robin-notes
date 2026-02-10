@@ -66,8 +66,8 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
 
       const { data: usageData, error } = await supabase
         .from('phrase_usage_log')
-        .select('phrase_id, timestamp')
-        .gte('timestamp', cutoffDate);
+        .select('phrase_id, created_at')
+        .gte('created_at', cutoffDate);
 
       if (error) throw error;
 
