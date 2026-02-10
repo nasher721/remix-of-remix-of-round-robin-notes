@@ -44,17 +44,17 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
     const query = debouncedSearch.toLowerCase();
     const results: Array<{ type: 'ibcc' | 'guideline' | 'autotext'; id: string; title: string; category?: string; snippet?: string }> = [];
 
-    Object.entries(IBCC_DATA).forEach(([id, chapter]) => {
+    IBCC_CHAPTERS.forEach((chapter) => {
       if (
         chapter.title.toLowerCase().includes(query) ||
-        chapter.content?.toLowerCase().includes(query)
+        chapter.summary?.toLowerCase().includes(query)
       ) {
         results.push({
           type: 'ibcc',
-          id,
+          id: chapter.id,
           title: chapter.title,
-          category: chapter.category,
-          snippet: chapter.content?.substring(0, 150),
+          category: chapter.category?.name,
+          snippet: chapter.summary?.substring(0, 150),
         });
       }
     });
