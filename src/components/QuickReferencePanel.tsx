@@ -118,7 +118,7 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
     }
 
     if (result.type === 'autotext') {
-      navigator.clipboard.writeText(AUTOTEXTS.find(a => a.shortcut === result.id)?.expansion || '');
+      navigator.clipboard.writeText(defaultAutotexts.find(a => a.shortcut === result.id)?.expansion || '');
       toast.success('Copied to clipboard');
     }
 
