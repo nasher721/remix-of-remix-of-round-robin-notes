@@ -91,6 +91,7 @@ export const MobileHeader = ({
             </div>
 
             <div className="flex items-center gap-0.5">
+              <ThemeToggle />
               <OfflineIndicator />
               {showSearch && onSearchChange && (
                 <Button
