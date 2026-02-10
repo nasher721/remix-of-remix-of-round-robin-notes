@@ -198,6 +198,7 @@ export const DesktopDashboard = ({
               <p className="text-xs font-medium leading-none text-card-foreground">{user.email}</p>
               <p className="text-[10px] text-card-foreground/50">Physician</p>
             </div>
+            <ThemeToggle />
             <Button
               onClick={onSignOut}
               variant="ghost"
