@@ -33,30 +33,32 @@ const queryClient = new QueryClient({
 
 function App(): React.ReactElement {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <SettingsProvider>
-          <IBCCProvider>
-            <ClinicalGuidelinesProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Sonner />
-                <BrowserRouter>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/auth" element={<Auth />} />
-                    {import.meta.env.DEV && (
-                      <Route path="/__print-export-test" element={<PrintExportTest />} />
-                    )}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </BrowserRouter>
-              </TooltipProvider>
-            </ClinicalGuidelinesProvider>
-          </IBCCProvider>
-        </SettingsProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="rr-theme">
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <SettingsProvider>
+            <IBCCProvider>
+              <ClinicalGuidelinesProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/auth" element={<Auth />} />
+                      {import.meta.env.DEV && (
+                        <Route path="/__print-export-test" element={<PrintExportTest />} />
+                      )}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </BrowserRouter>
+                </TooltipProvider>
+              </ClinicalGuidelinesProvider>
+            </IBCCProvider>
+          </SettingsProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
