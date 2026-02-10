@@ -10,9 +10,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { BookOpen, Stethoscope, FileText, X, Search, ChevronRight, Heart, Activity, TestTube, Pill, Brain, Bone, Baby, Utensils } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toast } from "sonner";
-import { IBCC_DATA } from "@/data/ibcc";
-import { CLINICAL_GUIDELINES } from "@/data/guidelines";
-import { AUTOTEXTS } from "@/data/autotexts";
+import { ibccChapters as IBCC_DATA } from "@/data/ibccContent";
+import { clinicalGuidelines as CLINICAL_GUIDELINES } from "@/data/clinicalGuidelinesData";
+import { defaultAutotexts as AUTOTEXTS } from "@/data/autotexts";
 
 interface QuickReferencePanelProps {
   onChapterSelect?: (chapterId: string) => void;

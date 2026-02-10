@@ -143,7 +143,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
         .map(([text, frequency]) => {
           const existingPhrase = phrases.find(p => 
             p.shortcut.toLowerCase().includes(text.substring(0, 10).toLowerCase()) ||
-            p.title.toLowerCase().includes(text.substring(0, 10).toLowerCase())
+            p.name.toLowerCase().includes(text.substring(0, 10).toLowerCase())
           );
 
           return {

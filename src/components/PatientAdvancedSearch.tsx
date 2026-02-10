@@ -416,7 +416,7 @@ export function PatientAdvancedSearch({
                     onCheckedChange={(checked) => 
                       setFilterOptions(prev => ({
                         ...prev,
-                        timeRange: { ...prev.timeRange, enabled: checked }
+                        timeRange: { ...prev.timeRange, enabled: !!checked }
                       }))
                     }
                   />

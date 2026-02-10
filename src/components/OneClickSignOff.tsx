@@ -16,7 +16,7 @@ interface SignOffSection {
   label: string;
   icon: React.ElementType;
   isComplete: (patient: Patient, todos?: PatientTodo[]) => boolean;
-  getDescription: (patient: Patient) => string;
+  getDescription: (patient: Patient, todos?: PatientTodo[]) => string;
 }
 
 const SECTIONS: SignOffSection[] = [

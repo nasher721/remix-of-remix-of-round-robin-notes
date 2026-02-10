@@ -124,9 +124,10 @@ export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
         
         if (!ref) return null;
 
-        const isCritical = ref.critical && (
-          (ref.critical.min && value < ref.critical.min) ||
-          (ref.critical.max && value > ref.critical.max)
+        const criticalRef = 'critical' in ref ? (ref as { critical: { min: number; max: number } }).critical : null;
+        const isCritical = criticalRef && (
+          (criticalRef.min && value < criticalRef.min) ||
+          (criticalRef.max && value > criticalRef.max)
         );
         
         const isAbnormal = value < ref.min || value > ref.max;
