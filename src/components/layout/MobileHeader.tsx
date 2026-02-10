@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,7 @@ export const MobileHeader = ({
             </div>
 
             <div className="flex items-center gap-0.5">
+              <ThemeToggle />
               <OfflineIndicator />
               {showSearch && onSearchChange && (
                 <Button
