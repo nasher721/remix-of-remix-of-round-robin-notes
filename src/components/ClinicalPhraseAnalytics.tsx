@@ -88,7 +88,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
           return {
             phraseId: phrase.id,
             phraseShortcut: phrase.shortcut,
-            phraseTitle: phrase.title,
+            phraseTitle: phrase.name,
             usageCount,
             lastUsed: phraseLastUsedMap.get(phrase.id) || '',
             trend: Math.random() * 20 - 10,
