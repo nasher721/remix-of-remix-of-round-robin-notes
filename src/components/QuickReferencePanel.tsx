@@ -127,13 +127,13 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
   };
 
   const groupedChapters = React.useMemo(() => {
-    const groups: Record<string, typeof IBCC_DATA> = {};
-    Object.entries(IBCC_DATA).forEach(([id, chapter]) => {
-      const category = chapter.category || 'General';
+    const groups: Record<string, IBCCChapter[]> = {};
+    IBCC_CHAPTERS.forEach((chapter) => {
+      const category = chapter.category?.name || 'General';
       if (!groups[category]) {
-        groups[category] = {};
+        groups[category] = [];
       }
-      groups[category][id] = chapter;
+      groups[category].push(chapter);
     });
     return groups;
   }, []);
