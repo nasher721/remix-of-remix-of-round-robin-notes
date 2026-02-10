@@ -318,7 +318,7 @@ const PatientCardComponent = ({
                         variant="ghost"
                         size="sm"
                         onClick={handleGenerateDailySummary}
-                        className="h-7 px-2 text-amber-600 hover:text-amber-600 hover:bg-amber-100/50 dark:hover:bg-amber-900/20"
+                        className="h-7 px-2 text-warning hover:text-warning hover:bg-warning/10"
                         title="Summarize today's changes & todos (AI)"
                       >
                         <ClipboardList className="h-3 w-3" />
