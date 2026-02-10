@@ -131,7 +131,7 @@ const PatientCardComponent = ({
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
-              className="max-w-[100px] bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground/60 transition-all duration-200"
+              className="max-w-[100px] bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground transition-all duration-200"
             />
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">
