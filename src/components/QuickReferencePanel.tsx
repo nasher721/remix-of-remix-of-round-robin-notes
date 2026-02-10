@@ -73,7 +73,7 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
       }
     });
 
-    AUTOTEXTS.forEach(autotext => {
+    defaultAutotexts.forEach(autotext => {
       if (
         autotext.shortcut.toLowerCase().includes(query) ||
         autotext.expansion.toLowerCase().includes(query)
