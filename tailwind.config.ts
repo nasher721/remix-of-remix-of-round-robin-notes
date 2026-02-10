@@ -173,7 +173,6 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Plus Jakarta Sans',
   				'Space Grotesk',
   				'ui-sans-serif',
   				'system-ui',
@@ -183,6 +182,7 @@ export default {
   				'Roboto',
   				'Helvetica Neue',
   				'Arial',
+  				'Noto Sans',
   				'sans-serif'
   			],
   			serif: [
