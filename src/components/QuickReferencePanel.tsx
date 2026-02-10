@@ -62,13 +62,13 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
     CLINICAL_GUIDELINES.forEach(guideline => {
       if (
         guideline.title.toLowerCase().includes(query) ||
-        guideline.recommendations?.some(r => r.toLowerCase().includes(query))
+        guideline.summary?.toLowerCase().includes(query)
       ) {
         results.push({
           type: 'guideline',
           id: guideline.id,
           title: guideline.title,
-          category: guideline.category,
+          category: guideline.specialty,
         });
       }
     });
