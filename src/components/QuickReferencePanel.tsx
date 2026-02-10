@@ -10,9 +10,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { BookOpen, Stethoscope, FileText, X, Search, ChevronRight, Heart, Activity, TestTube, Pill, Brain, Bone, Baby, Utensils } from "lucide-react";
 import { useDebounce } from "@/hooks/useDebounce";
 import { toast } from "sonner";
-import { IBCC_DATA } from "@/data/ibcc";
-import { CLINICAL_GUIDELINES } from "@/data/guidelines";
-import { AUTOTEXTS } from "@/data/autotexts";
+import { IBCC_CHAPTERS } from "@/data/ibccContent";
+import { CLINICAL_GUIDELINES } from "@/data/clinicalGuidelinesData";
+import { defaultAutotexts } from "@/data/autotexts";
+import type { IBCCChapter } from "@/types/ibcc";
+import type { ClinicalGuideline } from "@/types/clinicalGuidelines";
 
 interface QuickReferencePanelProps {
   onChapterSelect?: (chapterId: string) => void;
@@ -42,17 +44,17 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
     const query = debouncedSearch.toLowerCase();
     const results: Array<{ type: 'ibcc' | 'guideline' | 'autotext'; id: string; title: string; category?: string; snippet?: string }> = [];
 
-    Object.entries(IBCC_DATA).forEach(([id, chapter]) => {
+    IBCC_CHAPTERS.forEach((chapter) => {
       if (
         chapter.title.toLowerCase().includes(query) ||
-        chapter.content?.toLowerCase().includes(query)
+        chapter.summary?.toLowerCase().includes(query)
       ) {
         results.push({
           type: 'ibcc',
-          id,
+          id: chapter.id,
           title: chapter.title,
-          category: chapter.category,
-          snippet: chapter.content?.substring(0, 150),
+          category: chapter.category?.name,
+          snippet: chapter.summary?.substring(0, 150),
         });
       }
     });
@@ -60,18 +62,18 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
     CLINICAL_GUIDELINES.forEach(guideline => {
       if (
         guideline.title.toLowerCase().includes(query) ||
-        guideline.recommendations?.some(r => r.toLowerCase().includes(query))
+        guideline.summary?.toLowerCase().includes(query)
       ) {
         results.push({
           type: 'guideline',
           id: guideline.id,
           title: guideline.title,
-          category: guideline.category,
+          category: guideline.specialty,
         });
       }
     });
 
-    AUTOTEXTS.forEach(autotext => {
+    defaultAutotexts.forEach(autotext => {
       if (
         autotext.shortcut.toLowerCase().includes(query) ||
         autotext.expansion.toLowerCase().includes(query)
@@ -116,7 +118,7 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
     }
 
     if (result.type === 'autotext') {
-      navigator.clipboard.writeText(AUTOTEXTS.find(a => a.shortcut === result.id)?.expansion || '');
+      navigator.clipboard.writeText(defaultAutotexts.find(a => a.shortcut === result.id)?.expansion || '');
       toast.success('Copied to clipboard');
     }
 
@@ -125,21 +127,21 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
   };
 
   const groupedChapters = React.useMemo(() => {
-    const groups: Record<string, typeof IBCC_DATA> = {};
-    Object.entries(IBCC_DATA).forEach(([id, chapter]) => {
-      const category = chapter.category || 'General';
+    const groups: Record<string, IBCCChapter[]> = {};
+    IBCC_CHAPTERS.forEach((chapter) => {
+      const category = chapter.category?.name || 'General';
       if (!groups[category]) {
-        groups[category] = {};
+        groups[category] = [];
       }
-      groups[category][id] = chapter;
+      groups[category].push(chapter);
     });
     return groups;
   }, []);
 
   const groupedGuidelines = React.useMemo(() => {
-    const groups: Record<string, typeof CLINICAL_GUIDELINES> = {};
+    const groups: Record<string, ClinicalGuideline[]> = {};
     CLINICAL_GUIDELINES.forEach(guideline => {
-      const category = guideline.category || 'General';
+      const category = guideline.specialty || 'General';
       if (!groups[category]) {
         groups[category] = [];
       }
@@ -267,13 +269,13 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
                             <h3 className="font-medium text-sm">{category}</h3>
                           </div>
                           <div className="space-y-1 ml-6">
-                            {Object.entries(chapters).map(([id, chapter]) => (
+                            {chapters.map((chapter) => (
                               <Button
-                                key={id}
+                                key={chapter.id}
                                 variant="ghost"
                                 className="w-full justify-start text-sm h-8"
                                 onClick={() => {
-                                  onChapterSelect?.(id);
+                                  onChapterSelect?.(chapter.id);
                                   setOpen(false);
                                 }}
                               >
@@ -320,7 +322,7 @@ export function QuickReferencePanel({ onChapterSelect, onGuidelineSelect }: Quic
 
                 <TabsContent value="shortcuts" className="m-0">
                   <div className="space-y-2">
-                    {AUTOTEXTS.map((autotext) => (
+                    {defaultAutotexts.map((autotext) => (
                       <div
                         key={autotext.shortcut}
                         className="p-3 border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"

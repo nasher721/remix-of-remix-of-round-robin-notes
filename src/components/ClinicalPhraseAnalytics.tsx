@@ -66,8 +66,8 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
 
       const { data: usageData, error } = await supabase
         .from('phrase_usage_log')
-        .select('phrase_id, timestamp')
-        .gte('timestamp', cutoffDate);
+        .select('phrase_id, created_at')
+        .gte('created_at', cutoffDate);
 
       if (error) throw error;
 
@@ -76,8 +76,8 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
       
       usageData?.forEach(log => {
         phraseUsageMap.set(log.phrase_id, (phraseUsageMap.get(log.phrase_id) || 0) + 1);
-        if (!phraseLastUsedMap.has(log.phrase_id) || new Date(log.timestamp) > new Date(phraseLastUsedMap.get(log.phrase_id)!)) {
-          phraseLastUsedMap.set(log.phrase_id, log.timestamp);
+        if (!phraseLastUsedMap.has(log.phrase_id) || new Date(log.created_at) > new Date(phraseLastUsedMap.get(log.phrase_id)!)) {
+          phraseLastUsedMap.set(log.phrase_id, log.created_at);
         }
       });
 
@@ -88,7 +88,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
           return {
             phraseId: phrase.id,
             phraseShortcut: phrase.shortcut,
-            phraseTitle: phrase.title,
+            phraseTitle: phrase.name,
             usageCount,
             lastUsed: phraseLastUsedMap.get(phrase.id) || '',
             trend: Math.random() * 20 - 10,
@@ -143,7 +143,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
         .map(([text, frequency]) => {
           const existingPhrase = phrases.find(p => 
             p.shortcut.toLowerCase().includes(text.substring(0, 10).toLowerCase()) ||
-            p.title.toLowerCase().includes(text.substring(0, 10).toLowerCase())
+            p.name.toLowerCase().includes(text.substring(0, 10).toLowerCase())
           );
 
           return {
