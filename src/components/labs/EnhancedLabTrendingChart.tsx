@@ -219,7 +219,6 @@ export function EnhancedLabTrendingChart({
                 {entry.value} {lab?.unit}
               </span>
             </div>
-            </div>
           );
         })}
       </div>
