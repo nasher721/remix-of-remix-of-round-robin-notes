@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rolling Rounds - Medical Rounding Tool</title>
+    <meta name="description" content="Professional medical rounding tool for healthcare providers. Organize patient notes, clinical summaries, and systems reviews efficiently." />
+    <meta name="author" content="Rolling Rounds" />
+
+    <meta property="og:title" content="Rolling Rounds - Medical Rounding Tool" />
+    <meta property="og:description" content="Professional medical rounding tool for healthcare providers. Organize patient notes, clinical summaries, and systems reviews efficiently." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@lovable_dev" />
+    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <!-- Theme color for PWA -->
+    <meta name="theme-color" content="#1a1a2e" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Apple-style fonts - preloaded for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/src/main.tsx" as="script" crossorigin>
+
+    <!-- Service Worker Registration -->
+    <script>
+      // Register service worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('[SW] Service worker registered:', registration);
+
+              // Check for updates
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                console.log('[SW] New service worker found:', newWorker);
+
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New version is ready, skip waiting
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                    window.location.reload();
+                  }
+                });
+              });
+
+              registration.addEventListener('controllerchange', () => {
+                console.log('[SW] Service worker activated');
+                // Refresh data when new worker takes control
+                if (navigator.serviceWorker.controller) {
+                  navigator.serviceWorker.controller.postMessage({
+                    type: 'GET_METRICS'
+                  });
+                }
+              });
+            })
+            .catch((error) => {
+              console.error('[SW] Service worker registration failed:', error);
+            });
+        });
+      } else {
+        console.warn('[SW] Service workers not supported');
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

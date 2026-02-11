@@ -1,0 +1,59 @@
+{
+  "name": "Round Robin Notes",
+  "short_name": "Round Robin",
+  "description": "Professional medical rounding tool for healthcare providers. Organize patient notes, clinical summaries, and systems reviews efficiently.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["medical", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Add Patient",
+      "short_name": "Add Patient",
+      "description": "Create a new patient entry",
+      "url": "/?action=new-patient",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Patients",
+      "short_name": "Patients",
+      "description": "View all patients",
+      "url": "/",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}
