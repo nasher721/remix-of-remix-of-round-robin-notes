@@ -21,7 +21,7 @@ interface RiskScores {
 export function useRiskScores(patient: Patient): RiskScores {
   const scores = useMemo((): RiskScores => {
     // Try to extract values from patient data
-    const age = patient.age || 50;
+    const age = (patient as any).age || 50;
     
     // Parse labs for values
     const labs = patient.labs || '';
