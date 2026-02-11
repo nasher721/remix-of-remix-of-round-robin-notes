@@ -82,13 +82,13 @@ Rules:
       );
 
       if (result) {
-        const enhancedSuggestions = result.map((suggestion) => {
-          const protocol = PROTOCOLS.find(p => p.name === suggestion.protocolName);
+        const enhancedSuggestions = (result as any[]).map((suggestion: any) => {
+          const name = suggestion.protocolName || suggestion.protocol?.name || 'Unknown';
           return {
             ...suggestion,
-            protocol: protocol || {
-              id: suggestion.protocolName,
-              name: suggestion.protocolName,
+            protocol: suggestion.protocol || {
+              id: name,
+              name,
               description: 'AI-suggested protocol',
               category: 'prevention',
               priority: 'moderate',

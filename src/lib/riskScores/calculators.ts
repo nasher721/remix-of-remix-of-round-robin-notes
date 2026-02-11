@@ -234,7 +234,7 @@ export function calculateqSOFA(
   alteredMentalStatus: boolean
 ): qSOFAResult {
   const respiratory = respiratoryRate >= 22 ? 1 : 0;
-  const systolicBP = systolicBP <= 100 ? 1 : 0;
+  const systolicBPScore = systolicBP <= 100 ? 1 : 0;
   const alteredMental = alteredMentalStatus ? 1 : 0;
 
   return {

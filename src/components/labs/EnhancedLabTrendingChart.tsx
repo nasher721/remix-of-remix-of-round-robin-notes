@@ -42,7 +42,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LAB_NORMAL_RANGES } from "@/types/labs";
-import { useLabPrediction, type LabPrediction } from "@/hooks/useLabPrediction";
+import { useLabPrediction } from "@/hooks/useLabPrediction";
 
 export interface LabDataPoint {
   timestamp: string;
