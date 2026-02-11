@@ -13,11 +13,14 @@ import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
 import { Loader2 } from "lucide-react";
+import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
 import type { MobileTab } from "@/components/layout";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import type { Patient } from "@/types/patient";
 
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
+  useNetworkStatus();
   const isMobile = useIsMobile();
   const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
@@ -178,16 +181,21 @@ function IndexContent(): React.ReactElement | null {
 
   if (authLoading || patientsLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4" role="status" aria-live="polite" aria-busy="true">
-          <div className="relative mx-auto w-12 h-12">
-            <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary relative" />
+      <div className="min-h-screen bg-background" role="status" aria-live="polite" aria-busy="true">
+        <div className="flex items-center justify-center py-8">
+          <div className="text-center space-y-4">
+            <div className="relative mx-auto w-12 h-12">
+              <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary relative" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-foreground text-sm font-medium">Loading workspace</p>
+              <p className="text-muted-foreground/60 text-xs">Preparing your rounds...</p>
+            </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-foreground text-sm font-medium">Loading workspace</p>
-            <p className="text-muted-foreground/60 text-xs">Preparing your rounds...</p>
-          </div>
+        </div>
+        <div className="container mx-auto px-6 pb-8">
+          <PatientListSkeleton count={3} />
         </div>
       </div>
     );

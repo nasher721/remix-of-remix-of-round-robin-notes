@@ -13,6 +13,8 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PrintExportTest from "./pages/PrintExportTest";
 import { ThemeProvider } from "@/components/theme-provider";
+import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
+import { SkipToContent } from "@/components/SkipToContent";
 
 // Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({
@@ -33,6 +35,7 @@ const queryClient = new QueryClient({
 
 function App(): React.ReactElement {
   return (
+    <GlobalErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <AuthProvider>
@@ -43,6 +46,7 @@ function App(): React.ReactElement {
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
+                    <SkipToContent />
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/auth" element={<Auth />} />
@@ -59,6 +63,7 @@ function App(): React.ReactElement {
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
+    </GlobalErrorBoundary>
   );
 }
 
