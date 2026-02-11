@@ -238,13 +238,13 @@ export function calculateqSOFA(
   const alteredMental = alteredMentalStatus ? 1 : 0;
 
   return {
-    total: respiratory + systolicBP + alteredMental,
+    total: respiratory + systolicBPScore + alteredMental,
     components: {
       respiratory,
-      systolicBP,
+      systolicBP: systolicBPScore,
       alteredMental,
     },
-    isPositive: (respiratory + systolicBP + alteredMental) >= 2,
+    isPositive: (respiratory + systolicBPScore + alteredMental) >= 2,
   };
 }
 
