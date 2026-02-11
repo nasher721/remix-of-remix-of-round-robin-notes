@@ -51,6 +51,7 @@ import type { Patient } from "@/types/patient";
 import type { AutoText, Template } from "@/types/autotext";
 import { PatientFilterType } from "@/constants/config";
 import type { PatientTodo } from "@/types/todo";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 interface DesktopDashboardProps {
   user: { email?: string };
@@ -117,6 +118,14 @@ export const DesktopDashboard = ({
 
   const [showPrintModal, setShowPrintModal] = React.useState(false);
   const [showPhraseManager, setShowPhraseManager] = React.useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  useKeyboardShortcuts({
+    onAddPatient,
+    onSearch: () => searchInputRef.current?.focus(),
+    onCollapseAll,
+    onPrint: () => setShowPrintModal(true),
+  });
 
   const handlePrint = React.useCallback(() => {
     setShowPrintModal(true);
@@ -160,7 +169,7 @@ export const DesktopDashboard = ({
   }, [filter]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" id="main-content">
       {/* Header - Modern Glass Effect */}
       <header className="sticky top-0 z-50 border-b border-border/20 bg-card/95 backdrop-blur-xl no-print">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between gap-6">
@@ -315,7 +324,8 @@ export const DesktopDashboard = ({
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
               <Input
-                placeholder="Search patients..."
+                ref={searchInputRef}
+                placeholder="Search patients... (Ctrl+K)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 h-9 bg-card/60 border-border/30 focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-white/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
