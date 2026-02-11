@@ -24,12 +24,12 @@ class OfflineQueueManager {
   private queue: QueuedMutation[] = [];
   private listeners: Set<(queue: QueuedMutation[]) => void> = new Set();
   private syncInProgress = false;
-  
+
   constructor() {
     this.loadFromStorage();
     this.setupOnlineListener();
   }
-  
+
   private loadFromStorage(): void {
     try {
       const stored = localStorage.getItem(QUEUE_STORAGE_KEY);
@@ -42,7 +42,7 @@ class OfflineQueueManager {
       this.queue = [];
     }
   }
-  
+
   private saveToStorage(): void {
     try {
       localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(this.queue));
@@ -50,27 +50,37 @@ class OfflineQueueManager {
       console.error('[OfflineQueue] Failed to save queue:', error);
     }
   }
-  
+
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
       console.log('[OfflineQueue] Connection restored, syncing...');
       this.notifyListeners();
     });
-    
+
     window.addEventListener('offline', () => {
       console.log('[OfflineQueue] Connection lost, queuing mutations...');
       this.notifyListeners();
     });
+
+    // Listen for storage events (cross-tab sync)
+    // When another tab modifies the queue, reload it here
+    window.addEventListener('storage', (event) => {
+      if (event.key === QUEUE_STORAGE_KEY) {
+        console.log('[OfflineQueue] Queue updated in another tab, reloading...');
+        this.loadFromStorage();
+        this.notifyListeners();
+      }
+    });
   }
-  
+
   private notifyListeners(): void {
     this.listeners.forEach(callback => callback([...this.queue]));
   }
-  
+
   // Add mutation to queue
   enqueue(mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'retryCount' | 'maxRetries'>): string {
     const id = `mutation_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    
+
     const queuedMutation: QueuedMutation = {
       ...mutation,
       id,
@@ -78,14 +88,14 @@ class OfflineQueueManager {
       retryCount: 0,
       maxRetries: MAX_RETRIES,
     };
-    
+
     // Check for existing mutation on same entity
     const existingIndex = this.queue.findIndex(
-      m => m.entityId === mutation.entityId && 
-           m.table === mutation.table &&
-           m.type === mutation.type
+      m => m.entityId === mutation.entityId &&
+        m.table === mutation.table &&
+        m.type === mutation.type
     );
-    
+
     if (existingIndex !== -1) {
       // Merge with existing mutation (last write wins for updates)
       if (mutation.operation === 'update') {
@@ -108,14 +118,14 @@ class OfflineQueueManager {
     } else {
       this.queue.push(queuedMutation);
     }
-    
+
     this.saveToStorage();
     this.notifyListeners();
-    
+
     console.log(`[OfflineQueue] Queued mutation: ${mutation.type}/${mutation.operation}`);
     return id;
   }
-  
+
   // Remove mutation from queue
   dequeue(mutationId: string): void {
     const index = this.queue.findIndex(m => m.id === mutationId);
@@ -125,64 +135,64 @@ class OfflineQueueManager {
       this.notifyListeners();
     }
   }
-  
+
   // Mark mutation as failed and increment retry
   markFailed(mutationId: string): boolean {
     const mutation = this.queue.find(m => m.id === mutationId);
     if (mutation) {
       mutation.retryCount++;
-      
+
       if (mutation.retryCount >= mutation.maxRetries) {
         // Move to dead letter queue or remove
         console.warn(`[OfflineQueue] Mutation ${mutationId} exceeded max retries, removing`);
         this.dequeue(mutationId);
         return false;
       }
-      
+
       this.saveToStorage();
       return true;
     }
     return false;
   }
-  
+
   // Get all pending mutations
   getQueue(): QueuedMutation[] {
     return [...this.queue];
   }
-  
+
   // Get mutations by type
   getByType(type: QueuedMutation['type']): QueuedMutation[] {
     return this.queue.filter(m => m.type === type);
   }
-  
+
   // Get queue length
   getLength(): number {
     return this.queue.length;
   }
-  
+
   // Check if sync is needed
   hasPendingMutations(): boolean {
     return this.queue.length > 0;
   }
-  
+
   // Clear all mutations
   clear(): void {
     this.queue = [];
     this.saveToStorage();
     this.notifyListeners();
   }
-  
+
   // Subscribe to queue changes
   subscribe(callback: (queue: QueuedMutation[]) => void): () => void {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
   }
-  
+
   // Lock for sync
   setSyncInProgress(value: boolean): void {
     this.syncInProgress = value;
   }
-  
+
   isSyncInProgress(): boolean {
     return this.syncInProgress;
   }

@@ -1,5 +1,6 @@
 // APACHE II Score Calculator
 // Reference: Knaus WA, et al. APACHE II: a severity of disease classification system. Crit Care Med. 1985
+import { APACHE_II_CONDITIONS } from './riskConstants';
 
 export interface APACHEIIResult {
   total: number;
@@ -36,12 +37,12 @@ export function calculateAPACHEII(
 
   // Chronic health score
   let chronicHealthScore = 0;
-  if (chronicHealthConditions.includes('severe organ failure')) chronicHealthScore = 5;
-  else if (chronicHealthConditions.includes('immunocompromised')) chronicHealthScore = 3;
+  if (chronicHealthConditions.includes(APACHE_II_CONDITIONS.SEVERE_ORGAN_FAILURE)) chronicHealthScore = 5;
+  else if (chronicHealthConditions.includes(APACHE_II_CONDITIONS.IMMUNOCOMPROMISED)) chronicHealthScore = 3;
 
   // Physiological score
   let physiologicalScore = 0;
-  
+
   // Temperature
   if (temperature >= 41) physiologicalScore += 4;
   else if (temperature >= 39) physiologicalScore += 3;
@@ -50,13 +51,13 @@ export function calculateAPACHEII(
   else if (temperature <= 32) physiologicalScore += 3;
   else if (temperature <= 34) physiologicalScore += 2;
   else if (temperature <= 36) physiologicalScore += 1;
-  
+
   // MAP
   if (meanArterialPressure < 50) physiologicalScore += 4;
   else if (meanArterialPressure < 70) physiologicalScore += 2;
   else if (meanArterialPressure > 160) physiologicalScore += 2;
   else if (meanArterialPressure > 130) physiologicalScore += 1;
-  
+
   // Heart rate
   if (heartRate >= 180) physiologicalScore += 4;
   else if (heartRate >= 140) physiologicalScore += 3;
@@ -64,13 +65,13 @@ export function calculateAPACHEII(
   else if (heartRate < 40) physiologicalScore += 4;
   else if (heartRate < 55) physiologicalScore += 3;
   else if (heartRate < 70) physiologicalScore += 2;
-  
+
   // Respiratory rate
   if (respiratoryRate >= 50) physiologicalScore += 4;
   else if (respiratoryRate >= 35) physiologicalScore += 3;
   else if (respiratoryRate < 6) physiologicalScore += 4;
   else if (respiratoryRate < 10) physiologicalScore += 3;
-  
+
   // PaO2/FiO2
   if (pao2Fio2 < 100) physiologicalScore += 4;
   else if (pao2Fio2 < 200) physiologicalScore += 3;
@@ -233,18 +234,18 @@ export function calculateqSOFA(
   systolicBP: number,
   alteredMentalStatus: boolean
 ): qSOFAResult {
-  const respiratory = respiratoryRate >= 22 ? 1 : 0;
-  const systolicBP = systolicBP <= 100 ? 1 : 0;
-  const alteredMental = alteredMentalStatus ? 1 : 0;
+  const respiratoryScore = respiratoryRate >= 22 ? 1 : 0;
+  const systolicBPScore = systolicBP <= 100 ? 1 : 0;
+  const alteredMentalScore = alteredMentalStatus ? 1 : 0;
 
   return {
-    total: respiratory + systolicBP + alteredMental,
+    total: respiratoryScore + systolicBPScore + alteredMentalScore,
     components: {
-      respiratory,
-      systolicBP,
-      alteredMental,
+      respiratory: respiratoryScore,
+      systolicBP: systolicBPScore,
+      alteredMental: alteredMentalScore,
     },
-    isPositive: (respiratory + systolicBP + alteredMental) >= 2,
+    isPositive: (respiratoryScore + systolicBPScore + alteredMentalScore) >= 2,
   };
 }
 

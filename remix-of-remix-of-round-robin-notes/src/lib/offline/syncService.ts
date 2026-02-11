@@ -24,7 +24,7 @@ type TableUpdate<T extends PublicTableName> = Database['public']['Tables'][T]['U
 type TableRow<T extends PublicTableName> = Database['public']['Tables'][T]['Row'];
 
 // Tables that support last_modified for conflict resolution
-type TimestampedTable = 'patients';
+type TimestampedTable = 'patients' | 'patient_todos';
 
 interface ConflictCheckResult {
   hasConflict: boolean;
@@ -35,12 +35,12 @@ interface ConflictCheckResult {
 class SyncService {
   private isSyncing = false;
   private progressListeners: Set<SyncProgressCallback> = new Set();
-  
+
   // Check if table has last_modified field for conflict resolution
   private isTimestampedTable(table: string): table is TimestampedTable {
-    return table === 'patients';
+    return ['patients', 'patient_todos'].includes(table);
   }
-  
+
   // Fetch server timestamp for conflict detection
   private async checkConflict(
     table: TimestampedTable,
@@ -53,22 +53,25 @@ class SyncService {
         .select('last_modified')
         .eq('id', entityId)
         .maybeSingle();
-      
+
       if (error) {
         console.error(`[SyncService] Failed to check conflict for ${table}:`, error);
         return { hasConflict: false };
       }
-      
+
       if (!data) {
         // Record doesn't exist, no conflict
         return { hasConflict: false };
       }
-      
+
+      // @ts-expect-error - Dynamic access to last_modified which exists in DB but maybe not in types yet
       const serverTimestamp = new Date(data.last_modified).getTime();
+      // @ts-expect-error
       const hasConflict = serverTimestamp > mutationTimestamp;
-      
+
       return {
         hasConflict,
+        // @ts-expect-error
         serverTimestamp: data.last_modified,
         mutationTimestamp,
       };
@@ -77,11 +80,11 @@ class SyncService {
       return { hasConflict: false };
     }
   }
-  
+
   // Type-safe mutation executor
   private async executeMutation(mutation: QueuedMutation): Promise<SyncResult & { skipped?: boolean }> {
     const { table, operation, payload, entityId, timestamp } = mutation;
-    
+
     // Validate table name against known tables
     if (!this.isValidTable(table)) {
       console.error(`[SyncService] Unknown table: ${table}`);
@@ -91,7 +94,7 @@ class SyncService {
         error: `Unknown table: ${table}`,
       };
     }
-    
+
     try {
       switch (operation) {
         case 'create': {
@@ -99,18 +102,18 @@ class SyncService {
           const { error } = await supabase
             .from(table)
             .insert(insertPayload);
-          
+
           if (error) throw error;
           break;
         }
-        
+
         case 'update': {
           if (!entityId) throw new Error('Missing entityId for update');
-          
+
           // Conflict resolution for timestamped tables
           if (this.isTimestampedTable(table)) {
             const conflict = await this.checkConflict(table, entityId, timestamp);
-            
+
             if (conflict.hasConflict) {
               console.warn(
                 `[SyncService] Conflict detected for ${table}/${entityId}: ` +
@@ -118,7 +121,7 @@ class SyncService {
                 `mutation timestamp (${new Date(conflict.mutationTimestamp!).toISOString()}). ` +
                 `Skipping update to avoid overwriting newer data.`
               );
-              
+
               return {
                 success: true,
                 mutationId: mutation.id,
@@ -126,33 +129,33 @@ class SyncService {
               };
             }
           }
-          
+
           const updatePayload = payload as TableUpdate<typeof table>;
           const { error } = await supabase
             .from(table)
             .update(updatePayload)
             .eq('id', entityId);
-          
+
           if (error) throw error;
           break;
         }
-        
+
         case 'delete': {
           if (!entityId) throw new Error('Missing entityId for delete');
-          
+
           const { error } = await supabase
             .from(table)
             .delete()
             .eq('id', entityId);
-          
+
           if (error) throw error;
           break;
         }
-        
+
         default:
           throw new Error(`Unknown operation: ${operation}`);
       }
-      
+
       return { success: true, mutationId: mutation.id };
     } catch (error) {
       console.error(`[SyncService] Mutation failed:`, error);
@@ -163,7 +166,7 @@ class SyncService {
       };
     }
   }
-  
+
   // Validate table name is a known public table
   private isValidTable(table: string): table is PublicTableName {
     const validTables: PublicTableName[] = [
@@ -184,7 +187,7 @@ class SyncService {
     ];
     return validTables.includes(table as PublicTableName);
   }
-  
+
   // Sync all pending mutations
   async syncAll(onProgress?: SyncProgressCallback): Promise<SyncProgress> {
     if (this.isSyncing) {
@@ -198,7 +201,7 @@ class SyncService {
         results: [],
       };
     }
-    
+
     if (!navigator.onLine) {
       console.log('[SyncService] Offline, skipping sync');
       return {
@@ -210,10 +213,10 @@ class SyncService {
         results: [],
       };
     }
-    
+
     this.isSyncing = true;
     offlineQueue.setSyncInProgress(true);
-    
+
     const queue = offlineQueue.getQueue();
     logMetric('offline.sync.queue_length', queue.length, 'count', {
       isOnline: navigator.onLine,
@@ -226,26 +229,26 @@ class SyncService {
       current: '',
       results: [],
     };
-    
+
     if (queue.length === 0) {
       this.isSyncing = false;
       offlineQueue.setSyncInProgress(false);
       return progress;
     }
-    
+
     console.log(`[SyncService] Starting sync of ${queue.length} mutations`);
-    
+
     // Sort by timestamp (oldest first)
     const sortedQueue = [...queue].sort((a, b) => a.timestamp - b.timestamp);
-    
+
     for (const mutation of sortedQueue) {
       progress.current = `${mutation.type}/${mutation.operation}`;
       onProgress?.(progress);
       this.notifyProgress(progress);
-      
+
       const result = await this.executeMutation(mutation);
       progress.results.push(result);
-      
+
       if (result.success) {
         if (result.skipped) {
           progress.skipped++;
@@ -257,40 +260,40 @@ class SyncService {
       } else {
         progress.failed++;
         const shouldRetry = offlineQueue.markFailed(mutation.id);
-        
+
         if (!shouldRetry) {
           console.warn(`[SyncService] Mutation permanently failed: ${mutation.id}`);
         }
       }
-      
+
       onProgress?.(progress);
       this.notifyProgress(progress);
     }
-    
+
     this.isSyncing = false;
     offlineQueue.setSyncInProgress(false);
-    
+
     const summary = [
       `${progress.completed} succeeded`,
       progress.skipped > 0 ? `${progress.skipped} skipped (conflicts)` : null,
       progress.failed > 0 ? `${progress.failed} failed` : null,
     ].filter(Boolean).join(', ');
-    
+
     console.log(`[SyncService] Sync complete: ${summary}`);
-    
+
     return progress;
   }
-  
+
   // Subscribe to progress updates
   subscribeProgress(callback: SyncProgressCallback): () => void {
     this.progressListeners.add(callback);
     return () => this.progressListeners.delete(callback);
   }
-  
+
   private notifyProgress(progress: SyncProgress): void {
     this.progressListeners.forEach(callback => callback(progress));
   }
-  
+
   // Check if currently syncing
   getIsSyncing(): boolean {
     return this.isSyncing;
@@ -305,9 +308,9 @@ if (typeof window !== 'undefined') {
   window.addEventListener('online', async () => {
     if (offlineQueue.hasPendingMutations()) {
       toast.info('Connection restored. Syncing changes...');
-      
+
       const result = await syncService.syncAll();
-      
+
       if (result.failed === 0 && result.completed > 0) {
         const skippedMsg = result.skipped > 0 ? ` (${result.skipped} skipped due to conflicts)` : '';
         toast.success(`Synced ${result.completed} changes successfully${skippedMsg}`);
