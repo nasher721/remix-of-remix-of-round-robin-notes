@@ -12,7 +12,6 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PrintExportTest from "./pages/PrintExportTest";
-import FHIRCallback from "./pages/FHIRCallback";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -51,7 +50,6 @@ function App(): React.ReactElement {
                     <Routes>
                       <Route path="/" element={<Index />} />
                       <Route path="/auth" element={<Auth />} />
-                      <Route path="/fhir/callback" element={<FHIRCallback />} />
                       {import.meta.env.DEV && (
                         <Route path="/__print-export-test" element={<PrintExportTest />} />
                       )}
