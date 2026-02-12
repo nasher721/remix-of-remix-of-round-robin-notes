@@ -76,7 +76,7 @@ const Landing: React.FC = () => {
            style={{ backgroundColor: "#eef4f9" }}>
         <video
           ref={videoRef}
-          className="intro-video max-w-full max-h-full object-contain"
+          className="intro-video w-full h-full object-cover"
           style={{ mixBlendMode: "multiply" }}
           muted
           playsInline
@@ -94,7 +94,7 @@ const Landing: React.FC = () => {
         )}
       </div>
 
-      <div className={`poster-container w-full max-w-[720px] min-h-screen mx-auto flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
+      <div className={`poster-container w-full h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
            style={isActive ? { background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" } : {}}>
 
         <div className="bg-circle absolute rounded-full bg-white/5 animate-[float_6s_ease-in-out_infinite] z-0" style={{ width: "300px", height: "300px", top: "-100px", right: "-50px" }}></div>
