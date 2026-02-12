@@ -2,6 +2,7 @@ import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import FeatureHighlights from "@/components/landing/FeatureHighlights";
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -266,6 +267,9 @@ const Landing: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Feature highlights section */}
+      {showContent && <FeatureHighlights />}
 
       <style>{`
         @keyframes iconFloat {
