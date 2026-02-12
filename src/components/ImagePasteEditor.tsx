@@ -346,12 +346,22 @@ export const ImagePasteEditor = ({
         return null;
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
+      // Get signed URL for private bucket
+      const { data: urlData, error: urlError } = await supabase.storage
         .from('patient-images')
-        .getPublicUrl(data.path);
+        .createSignedUrl(data.path, 3600); // 1 hour expiry
 
-      return urlData.publicUrl;
+      if (urlError || !urlData) {
+        console.error('Signed URL error:', urlError);
+        toast({
+          title: "Upload failed",
+          description: "Failed to generate image URL",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      return urlData.signedUrl;
     } catch (error) {
       console.error('Upload error:', error);
       toast({
