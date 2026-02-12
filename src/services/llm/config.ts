@@ -62,6 +62,31 @@ function getEnv(key: string): string | undefined {
 }
 
 // ---------------------------------------------------------------------------
+// User settings helpers (reads from localStorage to work outside React)
+// ---------------------------------------------------------------------------
+
+interface UserAISettings {
+  provider: LLMProviderName | '';
+  model: string;
+  apiKeys: Partial<Record<LLMProviderName, string>>;
+}
+
+function getUserAISettings(): UserAISettings {
+  try {
+    const provider = (localStorage.getItem('aiProvider') || '') as LLMProviderName | '';
+    const model = localStorage.getItem('aiModel') || '';
+    let apiKeys: Partial<Record<LLMProviderName, string>> = {};
+    const savedKeys = localStorage.getItem('aiApiKeys');
+    if (savedKeys) {
+      apiKeys = JSON.parse(savedKeys);
+    }
+    return { provider, model, apiKeys };
+  } catch {
+    return { provider: '', model: '', apiKeys: {} };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Build config from environment
 // ---------------------------------------------------------------------------
 
@@ -101,10 +126,29 @@ export function buildConfigFromEnv(): LLMSystemConfig {
     };
   }
 
-  const defaultProvider = (getEnv('DEFAULT_LLM_PROVIDER') || 'openai') as LLMProviderName;
-  const defaultModel = getEnv('DEFAULT_LLM_MODEL') || 'gpt-4o-mini';
+  let defaultProvider = (getEnv('DEFAULT_LLM_PROVIDER') || 'openai') as LLMProviderName;
+  let defaultModel = getEnv('DEFAULT_LLM_MODEL') || 'gpt-4o-mini';
   const fallbackProvider = (getEnv('FALLBACK_LLM_PROVIDER') || 'gemini') as LLMProviderName;
   const fallbackModel = getEnv('FALLBACK_LLM_MODEL') || 'gemini-2.0-flash';
+
+  // Apply user settings overrides from localStorage
+  const userSettings = getUserAISettings();
+
+  // Merge user-provided API keys (override env keys per provider)
+  for (const [providerName, apiKey] of Object.entries(userSettings.apiKeys)) {
+    if (apiKey) {
+      providers[providerName as LLMProviderName] = {
+        ...providers[providerName as LLMProviderName],
+        apiKey,
+      };
+    }
+  }
+
+  // Override default provider/model if user has selected one
+  if (userSettings.provider && userSettings.model) {
+    defaultProvider = userSettings.provider as LLMProviderName;
+    defaultModel = userSettings.model;
+  }
 
   return {
     providers,
@@ -173,9 +217,19 @@ export function createRouter(config?: LLMSystemConfig): LLMRouter {
 
 /**
  * Reset the singleton (useful for testing or reconfiguration).
+ * The next call to getLLMRouter() will re-create with current settings.
  */
 export function resetRouter(): void {
   _routerInstance = null;
+}
+
+/**
+ * Reconfigure the router with current settings (env + user overrides).
+ * Call this when user AI settings change.
+ */
+export function reconfigureRouter(): LLMRouter {
+  resetRouter();
+  return getLLMRouter();
 }
 
 // ---------------------------------------------------------------------------

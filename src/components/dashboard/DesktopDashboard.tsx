@@ -52,6 +52,13 @@ import type { AutoText, Template } from "@/types/autotext";
 import { PatientFilterType } from "@/constants/config";
 import type { PatientTodo } from "@/types/todo";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { AISettingsPanel } from "@/components/AISettingsPanel";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Bot } from "lucide-react";
 
 interface DesktopDashboardProps {
   user: { email?: string };
@@ -250,6 +257,21 @@ export const DesktopDashboard = ({
               <LabTrendingPanel patients={patients} />
               <ClinicalRiskCalculator />
               <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
+                  >
+                    <Bot className="h-3.5 w-3.5" />
+                    <span className="hidden md:inline text-xs">AI Model</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-0" align="end">
+                  <AISettingsPanel />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Tools Group */}

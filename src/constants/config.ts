@@ -7,6 +7,11 @@ export const STORAGE_KEYS = {
   SHOW_LAB_FISHBONES: 'showLabFishbones',
   SECTION_VISIBILITY: 'sectionVisibility',
   
+  // AI model preferences
+  AI_PROVIDER: 'aiProvider',
+  AI_MODEL: 'aiModel',
+  AI_API_KEYS: 'aiApiKeys',
+
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
   PRINT_COLUMN_PREFS: 'printColumnPrefs',

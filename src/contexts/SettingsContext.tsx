@@ -3,22 +3,26 @@ import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, type SectionV
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
+import { reconfigureRouter } from '@/services/llm/config';
 
 export type SortBy = 'number' | 'room' | 'name';
+
+export type AIProviderKey = 'openai' | 'anthropic' | 'gemini' | 'grok' | 'glm' | 'huggingface' | '';
+export type AIApiKeys = Partial<Record<Exclude<AIProviderKey, ''>, string>>;
 
 interface SettingsContextType {
   // Font size
   globalFontSize: number;
   setGlobalFontSize: (size: number) => void;
-  
+
   // Todos visibility
   todosAlwaysVisible: boolean;
   setTodosAlwaysVisible: (visible: boolean) => void;
-  
+
   // Sort preferences
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
-  
+
   // Lab Fishbone toggle
   showLabFishbones: boolean;
   setShowLabFishbones: (show: boolean) => void;
@@ -27,7 +31,15 @@ interface SettingsContextType {
   sectionVisibility: SectionVisibility;
   setSectionVisibility: (visibility: SectionVisibility) => void;
   resetSectionVisibility: () => void;
-  
+
+  // AI model preferences
+  aiProvider: AIProviderKey;
+  setAIProvider: (provider: AIProviderKey) => void;
+  aiModel: string;
+  setAIModel: (model: string) => void;
+  aiApiKeys: AIApiKeys;
+  setAIApiKey: (provider: Exclude<AIProviderKey, ''>, key: string) => void;
+
   // Sync status
   isSyncingSettings: boolean;
 }
@@ -80,6 +92,26 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       }
     }
     return DEFAULT_SECTION_VISIBILITY;
+  });
+
+  const [aiProvider, setAIProviderState] = React.useState<AIProviderKey>(() => {
+    return (localStorage.getItem(STORAGE_KEYS.AI_PROVIDER) as AIProviderKey) || '';
+  });
+
+  const [aiModel, setAIModelState] = React.useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEYS.AI_MODEL) || '';
+  });
+
+  const [aiApiKeys, setAIApiKeysState] = React.useState<AIApiKeys>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AI_API_KEYS);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return {};
+      }
+    }
+    return {};
   });
 
   const buildAppPreferences = React.useCallback((): AppPreferences => ({
@@ -271,6 +303,30 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setSectionVisibilityState(DEFAULT_SECTION_VISIBILITY);
   }, []);
 
+  const setAIProvider = React.useCallback((provider: AIProviderKey) => {
+    setAIProviderState(provider);
+    localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, provider);
+    reconfigureRouter();
+  }, []);
+
+  const setAIModel = React.useCallback((model: string) => {
+    setAIModelState(model);
+    localStorage.setItem(STORAGE_KEYS.AI_MODEL, model);
+    reconfigureRouter();
+  }, []);
+
+  const setAIApiKey = React.useCallback((provider: Exclude<AIProviderKey, ''>, key: string) => {
+    setAIApiKeysState(prev => {
+      const updated = { ...prev, [provider]: key };
+      if (!key) {
+        delete updated[provider];
+      }
+      localStorage.setItem(STORAGE_KEYS.AI_API_KEYS, JSON.stringify(updated));
+      reconfigureRouter();
+      return updated;
+    });
+  }, []);
+
   const value: SettingsContextType = {
     globalFontSize,
     setGlobalFontSize,
@@ -283,6 +339,12 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     sectionVisibility,
     setSectionVisibility,
     resetSectionVisibility,
+    aiProvider,
+    setAIProvider,
+    aiModel,
+    setAIModel,
+    aiApiKeys,
+    setAIApiKey,
     isSyncingSettings,
   };
 

@@ -33,6 +33,7 @@ import {
   Laptop,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { AISettingsPanel } from "@/components/AISettingsPanel";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useTheme } from "@/components/theme-provider";
 import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
@@ -349,6 +350,9 @@ export const MobileSettingsPanel = ({
           </div>
         )}
       </Card>
+
+      {/* AI Model Settings */}
+      <AISettingsPanel />
 
       {/* AI Tools */}
       {onOpenBatchCourse && patientCount > 0 && (
