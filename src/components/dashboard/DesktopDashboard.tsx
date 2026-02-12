@@ -12,6 +12,7 @@ import { IBCCPanel } from "@/components/ibcc";
 import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
+import { DesktopSpecialtySelector } from "@/components/settings/DesktopSpecialtySelector";
 import { PatientNavigator } from "./PatientNavigator";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
@@ -417,6 +418,9 @@ export const DesktopDashboard = ({
               <ListTodo className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Todos</span>
             </Button>
+
+            {/* Specialty / Role Selector */}
+            <DesktopSpecialtySelector />
           </div>
         </div>
 
