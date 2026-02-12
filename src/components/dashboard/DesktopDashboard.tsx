@@ -19,6 +19,8 @@ import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard, CensusBadge } from "@/components/UnitCensusDashboard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
+import { MultiPatientComparison } from "@/components/MultiPatientComparison";
+import { ContextAwareHelp } from "@/components/ContextAwareHelp";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -118,6 +120,7 @@ export const DesktopDashboard = ({
 
   const [showPrintModal, setShowPrintModal] = React.useState(false);
   const [showPhraseManager, setShowPhraseManager] = React.useState(false);
+  const [showComparisonModal, setShowComparisonModal] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   useKeyboardShortcuts({
@@ -297,6 +300,10 @@ export const DesktopDashboard = ({
                 <span className="hidden lg:inline text-xs">
                   {patients.every(p => p.collapsed) ? 'Expand' : 'Collapse'}
                 </span>
+              </Button>
+              <Button onClick={() => setShowComparisonModal(true)} variant="ghost" size="sm" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
+                <Users className="h-3.5 w-3.5" />
+                <span className="hidden lg:inline text-xs">Compare</span>
               </Button>
               <Button onClick={handlePrint} variant="ghost" size="sm" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
                 <Printer className="h-3.5 w-3.5" />
@@ -491,6 +498,13 @@ export const DesktopDashboard = ({
         onUpdatePatient={onUpdatePatient}
       />
 
+      <MultiPatientComparison
+        open={showComparisonModal}
+        onOpenChange={setShowComparisonModal}
+        patients={filteredPatients}
+        todosMap={todosMap}
+      />
+
       <PhraseManager
         open={showPhraseManager}
         onOpenChange={setShowPhraseManager}
@@ -501,6 +515,8 @@ export const DesktopDashboard = ({
 
       {/* Clinical Guidelines Panel */}
       <GuidelinesPanel />
+
+      <ContextAwareHelp />
     </div>
   );
 };
