@@ -17,6 +17,7 @@ import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
 import type { MobileTab } from "@/components/layout";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import type { Patient } from "@/types/patient";
+import Landing from "./Landing";
 
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
@@ -58,13 +59,6 @@ function IndexContent(): React.ReactElement | null {
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
 
   const navigate = useNavigate();
-
-  // Redirect to auth if not logged in
-  React.useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [user, authLoading, navigate]);
 
   // Update last saved time when patients change
   React.useEffect(() => {
@@ -202,7 +196,7 @@ function IndexContent(): React.ReactElement | null {
   }
 
   if (!user) {
-    return null;
+    return <Landing />;
   }
 
   // Mobile Layout
