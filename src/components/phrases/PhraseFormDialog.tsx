@@ -213,7 +213,7 @@ export const PhraseFormDialog: React.FC<PhraseFormDialogProps> = ({
           </div>
         );
 
-      case 'dropdown':
+      case 'dropdown': {
         const dropdownOptions = field.options as FieldOption[];
         return (
           <div key={field.id} className="space-y-2">
@@ -244,8 +244,9 @@ export const PhraseFormDialog: React.FC<PhraseFormDialogProps> = ({
             )}
           </div>
         );
+      }
 
-      case 'checkbox':
+      case 'checkbox': {
         const checkboxOptions = field.options as FieldOption[];
         const checkedValues = (value as string[]) || [];
         return (
@@ -281,8 +282,9 @@ export const PhraseFormDialog: React.FC<PhraseFormDialogProps> = ({
             )}
           </div>
         );
+      }
 
-      case 'radio':
+      case 'radio': {
         const radioOptions = field.options as FieldOption[];
         return (
           <div key={field.id} className="space-y-2">
@@ -314,6 +316,7 @@ export const PhraseFormDialog: React.FC<PhraseFormDialogProps> = ({
             )}
           </div>
         );
+      }
 
       case 'patient_data':
         return (

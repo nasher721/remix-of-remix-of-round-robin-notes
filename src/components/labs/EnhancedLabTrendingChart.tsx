@@ -44,6 +44,19 @@ import {
 import { LAB_NORMAL_RANGES } from "@/types/labs";
 import { useLabPrediction } from "@/hooks/useLabPrediction";
 
+interface TooltipPayloadEntry {
+  dataKey: string;
+  value: number;
+  color: string;
+  [key: string]: unknown;
+}
+
+interface TooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+  label?: string;
+}
+
 export interface LabDataPoint {
   timestamp: string;
   value: number;
@@ -187,15 +200,15 @@ export function EnhancedLabTrendingChart({
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
     if (!active || !payload) return null;
 
     return (
       <div className="bg-popover border rounded-lg shadow-lg p-3 text-sm">
         <p className="font-medium mb-2">
-          {new Date(label).toLocaleString()}
+          {new Date(label as string).toLocaleString()}
         </p>
-        {payload.map((entry: any) => {
+        {payload.map((entry) => {
           const lab = labData.find(l => l.labKey === entry.dataKey);
           const prediction = getPrediction(lab.labName);
           const isPredicted = entry[`${lab.labKey}_predicted`];

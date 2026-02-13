@@ -71,18 +71,18 @@ export function VoiceCommandPanel({ onCommand, className }: VoiceCommandPanelPro
   const [lastResult, setLastResult] = React.useState<VoiceCommandResult | null>(null);
   const [showFeedback, setShowFeedback] = React.useState(false);
 
-  const recognitionRef = React.useRef<any>(null);
+  const recognitionRef = React.useRef<SpeechRecognition | null>(null);
 
   // Initialize speech recognition
   React.useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = settings.continuous;
       recognitionRef.current.interimResults = settings.interimResults;
       recognitionRef.current.lang = settings.language;
 
-      recognitionRef.current.onresult = (event: any) => {
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         const result = event.results[event.results.length - 1];
         const text = result[0].transcript;
         setTranscript(text);
@@ -92,7 +92,7 @@ export function VoiceCommandPanel({ onCommand, className }: VoiceCommandPanelPro
         }
       };
 
-      recognitionRef.current.onerror = (event: any) => {
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         setIsListening(false);
       };

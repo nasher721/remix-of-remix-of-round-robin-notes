@@ -77,6 +77,7 @@ export interface DbPatient {
   collapsed: boolean;
   created_at: string;
   last_modified: string;
+  age?: number;
 }
 
 /**
@@ -98,6 +99,7 @@ export interface Patient {
   collapsed: boolean;
   createdAt: string;
   lastModified: string;
+  age?: number;
 }
 
 /**

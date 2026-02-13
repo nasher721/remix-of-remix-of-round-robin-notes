@@ -41,18 +41,23 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
   // Load fields when phrase is selected
   React.useEffect(() => {
     if (selectedPhrase) {
-      getPhraseFields(selectedPhrase.id).then(fields => {
-        setPhraseFields(fields);
-        // If no fields, expand directly
-        if (fields.length === 0) {
-          const expanded = expandPhrase(selectedPhrase, [], {}, patient);
-          onInsert?.(expanded.content);
-          logUsage(selectedPhrase.id, patient?.id, context?.section, {}, expanded.content);
+      getPhraseFields(selectedPhrase.id)
+        .then(fields => {
+          setPhraseFields(fields);
+          // If no fields, expand directly
+          if (fields.length === 0) {
+            const expanded = expandPhrase(selectedPhrase, [], {}, patient);
+            onInsert?.(expanded.content);
+            logUsage(selectedPhrase.id, patient?.id, context?.section, {}, expanded.content);
+            setSelectedPhrase(null);
+          } else {
+            setShowForm(true);
+          }
+        })
+        .catch(error => {
+          console.error('Failed to load phrase fields:', error);
           setSelectedPhrase(null);
-        } else {
-          setShowForm(true);
-        }
-      });
+        });
     }
   }, [selectedPhrase, getPhraseFields, patient, onInsert, logUsage, context?.section]);
 

@@ -7,6 +7,7 @@ import { PatientTodos } from "./PatientTodos";
 import type { Patient, PatientSystems } from "@/types/patient";
 import type { AutoText } from "@/types/autotext";
 import type { PatientTodo, TodoSection } from "@/types/todo";
+import type { ChangeTrackingContextValue } from "@/types/changeTracking";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 
 interface PatientSystemsReviewProps {
@@ -15,7 +16,7 @@ interface PatientSystemsReviewProps {
     generating: boolean;
     autotexts?: AutoText[];
     globalFontSize: number;
-    changeTracking: any;
+    changeTracking: ChangeTrackingContextValue | null;
     onUpdate: (id: string, field: string, value: unknown) => void;
     addTodo: (text: string, section?: string | null) => Promise<PatientTodo | undefined>;
     toggleTodo: (id: string) => Promise<void>;

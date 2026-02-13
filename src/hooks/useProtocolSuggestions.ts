@@ -14,6 +14,13 @@ interface ProtocolSuggestion {
   reason: string;
 }
 
+interface RawAISuggestion {
+  protocolName?: string;
+  protocol?: ProtocolSuggestion['protocol'];
+  confidence?: number;
+  reason?: string;
+}
+
 export function useProtocolSuggestions() {
   const { processWithAI } = useLLMClinicalAssistant();
   const [suggestions, setSuggestions] = useState<ProtocolSuggestion[]>([]);
@@ -81,11 +88,12 @@ Rules:
         { text: prompt }
       );
 
-      if (result) {
-        const enhancedSuggestions = (result as any[]).map((suggestion: any) => {
+      if (result && Array.isArray(result)) {
+        const enhancedSuggestions: ProtocolSuggestion[] = (result as RawAISuggestion[]).map((suggestion) => {
           const name = suggestion.protocolName || suggestion.protocol?.name || 'Unknown';
           return {
-            ...suggestion,
+            confidence: suggestion.confidence ?? 0,
+            reason: suggestion.reason ?? '',
             protocol: suggestion.protocol || {
               id: name,
               name,

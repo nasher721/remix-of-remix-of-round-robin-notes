@@ -22,6 +22,13 @@ export interface ChangeTrackingState {
   styles: ChangeTrackingStyles;
 }
 
+export interface ChangeTrackingContextValue extends ChangeTrackingState {
+  toggleEnabled: () => void;
+  setColor: (color: string) => void;
+  toggleStyle: (style: keyof ChangeTrackingStyles) => void;
+  wrapWithMarkup: (text: string) => string;
+}
+
 export const DEFAULT_TRACKING_COLOR = "#C92A2A";
 
 export const DEFAULT_STYLES: ChangeTrackingStyles = {

@@ -551,18 +551,31 @@ const PatientCardComponent = ({
 };
 
 // Memoize to prevent unnecessary re-renders when other patients change
+// React Query provides stable patient references when data hasn't changed,
+// so reference comparison is sufficient for the patient object
 export const PatientCard = React.memo(PatientCardComponent, (prevProps, nextProps) => {
-  // Custom comparison for better performance
+  // Fast path: if patient reference is identical, only check callbacks
+  if (prevProps.patient === nextProps.patient) {
+    return (
+      prevProps.autotexts === nextProps.autotexts &&
+      prevProps.onUpdate === nextProps.onUpdate &&
+      prevProps.onRemove === nextProps.onRemove &&
+      prevProps.onDuplicate === nextProps.onDuplicate &&
+      prevProps.onToggleCollapse === nextProps.onToggleCollapse
+    );
+  }
+  
+  // Different patient objects - check if it's actually a different patient
+  // or just an update to the same patient
+  if (prevProps.patient.id !== nextProps.patient.id) {
+    return false; // Different patient, must re-render
+  }
+  
+  // Same patient ID but different object - check if meaningful fields changed
+  // Use lastModified as a quick change indicator
   return (
-    prevProps.patient.id === nextProps.patient.id &&
-    prevProps.patient.name === nextProps.patient.name &&
-    prevProps.patient.bed === nextProps.patient.bed &&
-    prevProps.patient.clinicalSummary === nextProps.patient.clinicalSummary &&
-    prevProps.patient.intervalEvents === nextProps.patient.intervalEvents &&
-    prevProps.patient.imaging === nextProps.patient.imaging &&
-    prevProps.patient.labs === nextProps.patient.labs &&
-    prevProps.patient.collapsed === nextProps.patient.collapsed &&
     prevProps.patient.lastModified === nextProps.patient.lastModified &&
+    prevProps.patient.collapsed === nextProps.patient.collapsed &&
     prevProps.autotexts === nextProps.autotexts &&
     prevProps.onUpdate === nextProps.onUpdate &&
     prevProps.onRemove === nextProps.onRemove &&

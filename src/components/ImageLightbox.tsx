@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
@@ -24,15 +24,15 @@ export const ImageLightbox = ({
     setZoom(1);
   }, [initialIndex, open]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
     setZoom(1);
-  };
+  }, [images.length]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % images.length);
     setZoom(1);
-  };
+  }, [images.length]);
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(prev + 0.5, 3));
@@ -52,7 +52,7 @@ export const ImageLightbox = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, images.length]);
+  }, [open, handlePrev, handleNext, onOpenChange]);
 
   if (!images.length) return null;
 

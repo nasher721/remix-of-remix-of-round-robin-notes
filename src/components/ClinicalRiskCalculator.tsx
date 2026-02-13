@@ -110,13 +110,9 @@ const QSOFACalculator = () => {
   const [inputs, setInputs] = React.useState<QSOFAInputs>({});
   const [result, setResult] = React.useState<RiskScoreResult | null>(null);
 
-  const calculate = () => {
-    setResult(calculateQSOFA(inputs));
-  };
-
   React.useEffect(() => {
     if (inputs.respiratoryRate !== undefined || inputs.systolicBP !== undefined || inputs.alteredMentation !== undefined) {
-      calculate();
+      setResult(calculateQSOFA(inputs));
     }
   }, [inputs]);
 
