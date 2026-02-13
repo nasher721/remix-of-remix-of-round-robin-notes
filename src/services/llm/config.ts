@@ -20,6 +20,7 @@
  * VITE_FALLBACK_LLM_MODEL (e.g. "gemini-2.0-flash")
  */
 
+import { DEFAULT_CONFIG, STORAGE_KEYS } from '@/constants/config';
 import type { LLMProviderName, LLMSystemConfig, ProviderConfig, RouterConfig } from './types';
 import { LLMRouter } from './LLMRouter';
 import {
@@ -61,6 +62,17 @@ function getEnv(key: string): string | undefined {
   return undefined;
 }
 
+function getStoredCredentials(): Partial<Record<LLMProviderName, string>> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEYS.AI_CREDENTIALS);
+    if (!raw) return {};
+    return JSON.parse(raw) as Partial<Record<LLMProviderName, string>>;
+  } catch {
+    return {};
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Build config from environment
 // ---------------------------------------------------------------------------
@@ -68,32 +80,34 @@ function getEnv(key: string): string | undefined {
 export function buildConfigFromEnv(): LLMSystemConfig {
   const providers: Partial<Record<LLMProviderName, ProviderConfig>> = {};
 
-  const openaiKey = getEnv('OPENAI_API_KEY');
+  const storedCredentials = getStoredCredentials();
+
+  const openaiKey = getEnv('OPENAI_API_KEY') || storedCredentials.openai;
   if (openaiKey) {
     providers.openai = { apiKey: openaiKey };
   }
 
-  const anthropicKey = getEnv('ANTHROPIC_API_KEY');
+  const anthropicKey = getEnv('ANTHROPIC_API_KEY') || storedCredentials.anthropic;
   if (anthropicKey) {
     providers.anthropic = { apiKey: anthropicKey };
   }
 
-  const geminiKey = getEnv('GEMINI_API_KEY');
+  const geminiKey = getEnv('GEMINI_API_KEY') || storedCredentials.gemini;
   if (geminiKey) {
     providers.gemini = { apiKey: geminiKey };
   }
 
-  const grokKey = getEnv('GROK_API_KEY');
+  const grokKey = getEnv('GROK_API_KEY') || storedCredentials.grok;
   if (grokKey) {
     providers.grok = { apiKey: grokKey };
   }
 
-  const glmKey = getEnv('GLM_API_KEY');
+  const glmKey = getEnv('GLM_API_KEY') || storedCredentials.glm;
   if (glmKey) {
     providers.glm = { apiKey: glmKey };
   }
 
-  const hfKey = getEnv('HUGGINGFACE_API_KEY');
+  const hfKey = getEnv('HUGGINGFACE_API_KEY') || storedCredentials.huggingface;
   if (hfKey) {
     providers.huggingface = {
       apiKey: hfKey,
@@ -101,8 +115,8 @@ export function buildConfigFromEnv(): LLMSystemConfig {
     };
   }
 
-  const defaultProvider = (getEnv('DEFAULT_LLM_PROVIDER') || 'openai') as LLMProviderName;
-  const defaultModel = getEnv('DEFAULT_LLM_MODEL') || 'gpt-4o-mini';
+  const defaultProvider = (getEnv('DEFAULT_LLM_PROVIDER') || DEFAULT_CONFIG.DEFAULT_AI_PROVIDER) as LLMProviderName;
+  const defaultModel = getEnv('DEFAULT_LLM_MODEL') || DEFAULT_CONFIG.DEFAULT_AI_MODEL;
   const fallbackProvider = (getEnv('FALLBACK_LLM_PROVIDER') || 'gemini') as LLMProviderName;
   const fallbackModel = getEnv('FALLBACK_LLM_MODEL') || 'gemini-2.0-flash';
 

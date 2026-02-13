@@ -7,6 +7,9 @@ export const STORAGE_KEYS = {
   SHOW_LAB_FISHBONES: 'showLabFishbones',
   SECTION_VISIBILITY: 'sectionVisibility',
   SELECTED_SPECIALTY: 'selectedSpecialty',
+  AI_PROVIDER: 'aiProvider',
+  AI_MODEL: 'aiModel',
+  AI_CREDENTIALS: 'aiCredentials',
   
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
@@ -56,6 +59,8 @@ export const DEFAULT_CONFIG = {
   PRINT_ORIENTATION: 'portrait' as const,
   SYSTEMS_REVIEW_COLUMN_COUNT: 2,
   DEFAULT_SORT_BY: 'room' as const,
+  DEFAULT_AI_PROVIDER: 'openai' as const,
+  DEFAULT_AI_MODEL: 'gpt-4o-mini' as const,
   SHOW_LAB_FISHBONES: true,
   PRINT_MARGINS: 'normal' as const,
   PRINT_HEADER_STYLE: 'standard' as const,

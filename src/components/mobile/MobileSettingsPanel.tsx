@@ -37,6 +37,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useTheme } from "@/components/theme-provider";
 import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
 import { SpecialtySelectionPanel } from "@/components/settings/SpecialtySelectionPanel";
+import { AIModelSettingsPanel } from "@/components/settings/AIModelSettingsPanel";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
@@ -353,6 +354,8 @@ export const MobileSettingsPanel = ({
           </div>
         )}
       </Card>
+
+      <AIModelSettingsPanel />
 
       {/* AI Tools */}
       {onOpenBatchCourse && patientCount > 0 && (

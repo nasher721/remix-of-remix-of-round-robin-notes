@@ -15,6 +15,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSettings } from '@/contexts/SettingsContext';
 import type { Patient } from '@/types/patient';
 import type {
   AIFeature,
@@ -349,6 +350,7 @@ export const useLLMClinicalAssistant = (
   options: UseLLMClinicalAssistantOptions = {}
 ): UseLLMClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
+  const { aiProvider, aiModel } = useSettings();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<unknown | null>(null);
@@ -419,14 +421,19 @@ export const useLLMClinicalAssistant = (
 
       // Try the new LLM router first
       const router = getLLMRouter();
-      const hasProviders = router.listProviders().length > 0;
+      const availableProviders = router.listProviders();
+      const hasProviders = availableProviders.length > 0;
+      const resolvedProvider = options.provider ?? aiProvider;
+      const resolvedModel = options.model ?? aiModel;
+      const overrideProvider = availableProviders.includes(resolvedProvider) ? resolvedProvider : undefined;
+      const overrideModel = overrideProvider ? resolvedModel : undefined;
 
       let result: T | null;
       if (hasProviders) {
         result = await doRouterRequest<T>(
           router, feature, text, finalContext, customPrompt,
           abortControllerRef.current.signal,
-          options.provider, options.model,
+          overrideProvider, overrideModel,
           setLastModel, setLastResult, onSuccess,
         );
       } else {
@@ -457,7 +464,7 @@ export const useLLMClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast, options.provider, options.model]);
+  }, [onSuccess, onError, toast, options.provider, options.model, aiProvider, aiModel]);
 
   // -----------------------------------------------------------------------
   // Convenience methods

@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { getRoleById, type SpecialtyFeature } from '@/constants/specialties';
+import type { LLMProviderName } from '@/services/llm';
+import { resetRouter } from '@/services/llm';
 
 export type SortBy = 'number' | 'room' | 'name';
 
@@ -34,6 +36,13 @@ interface SettingsContextType {
   setSelectedSpecialty: (specialtyId: string | null) => void;
   isFeatureEnabledForRole: (feature: SpecialtyFeature) => boolean;
 
+  aiProvider: LLMProviderName;
+  aiModel: string;
+  aiCredentials: Partial<Record<LLMProviderName, string>>;
+  setAiModel: (provider: LLMProviderName, model: string) => void;
+  resetAiModel: () => void;
+  setAiCredential: (provider: LLMProviderName, credential: string) => void;
+
   // Sync status
   isSyncingSettings: boolean;
 }
@@ -44,6 +53,9 @@ interface AppPreferences {
   sortBy: SortBy;
   showLabFishbones: boolean;
   selectedSpecialty: string | null;
+  aiProvider: LLMProviderName;
+  aiModel: string;
+  aiCredentials?: Partial<Record<LLMProviderName, string>>;
 }
 
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
@@ -81,6 +93,26 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return localStorage.getItem(STORAGE_KEYS.SELECTED_SPECIALTY) || null;
   });
 
+  const [aiProvider, setAiProviderState] = React.useState<LLMProviderName>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AI_PROVIDER) as LLMProviderName | null;
+    return saved || DEFAULT_CONFIG.DEFAULT_AI_PROVIDER;
+  });
+
+  const [aiModel, setAiModelState] = React.useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AI_MODEL);
+    return saved || DEFAULT_CONFIG.DEFAULT_AI_MODEL;
+  });
+
+  const [aiCredentials, setAiCredentialsState] = React.useState<Partial<Record<LLMProviderName, string>>>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AI_CREDENTIALS);
+    if (!saved) return {};
+    try {
+      return JSON.parse(saved) as Partial<Record<LLMProviderName, string>>;
+    } catch {
+      return {};
+    }
+  });
+
   const [sectionVisibility, setSectionVisibilityState] = React.useState<SectionVisibility>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
     if (saved) {
@@ -99,7 +131,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     sortBy,
     showLabFishbones,
     selectedSpecialty,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty]);
+    aiProvider,
+    aiModel,
+    aiCredentials,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials]);
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
@@ -126,7 +161,27 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         localStorage.removeItem(STORAGE_KEYS.SELECTED_SPECIALTY);
       }
     }
-  }, []);
+
+    if (prefs.aiProvider !== undefined) {
+      setAiProviderState(prefs.aiProvider);
+      localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, prefs.aiProvider);
+    }
+
+    if (prefs.aiModel !== undefined) {
+      setAiModelState(prefs.aiModel);
+      localStorage.setItem(STORAGE_KEYS.AI_MODEL, prefs.aiModel);
+    }
+
+    if (prefs.aiCredentials !== undefined) {
+      setAiCredentialsState(prefs.aiCredentials ?? {});
+      if (prefs.aiCredentials) {
+        localStorage.setItem(STORAGE_KEYS.AI_CREDENTIALS, JSON.stringify(prefs.aiCredentials));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.AI_CREDENTIALS);
+      }
+      resetRouter();
+    }
+  }, [resetRouter]);
 
   // Sync settings to database with debounce
   const syncSettingsToDb = React.useCallback(async (visibility: SectionVisibility, appPreferences: AppPreferences) => {
@@ -292,6 +347,34 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     }
   }, []);
 
+  const setAiModel = React.useCallback((provider: LLMProviderName, model: string) => {
+    setAiProviderState(provider);
+    setAiModelState(model);
+    localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, provider);
+    localStorage.setItem(STORAGE_KEYS.AI_MODEL, model);
+  }, []);
+
+  const resetAiModel = React.useCallback(() => {
+    setAiProviderState(DEFAULT_CONFIG.DEFAULT_AI_PROVIDER);
+    setAiModelState(DEFAULT_CONFIG.DEFAULT_AI_MODEL);
+    localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, DEFAULT_CONFIG.DEFAULT_AI_PROVIDER);
+    localStorage.setItem(STORAGE_KEYS.AI_MODEL, DEFAULT_CONFIG.DEFAULT_AI_MODEL);
+  }, []);
+
+  const setAiCredential = React.useCallback((provider: LLMProviderName, credential: string) => {
+    setAiCredentialsState((prev) => {
+      const next = { ...prev } as Partial<Record<LLMProviderName, string>>;
+      if (credential) {
+        next[provider] = credential;
+      } else {
+        delete next[provider];
+      }
+      localStorage.setItem(STORAGE_KEYS.AI_CREDENTIALS, JSON.stringify(next));
+      resetRouter();
+      return next;
+    });
+  }, []);
+
   const isFeatureEnabledForRole = React.useCallback((feature: SpecialtyFeature): boolean => {
     if (!selectedSpecialty) return true; // No role selected = all features enabled
     const role = getRoleById(selectedSpecialty);
@@ -322,6 +405,12 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     selectedSpecialty,
     setSelectedSpecialty,
     isFeatureEnabledForRole,
+    aiProvider,
+    aiModel,
+    aiCredentials,
+    setAiModel,
+    resetAiModel,
+    setAiCredential,
     isSyncingSettings,
   };
 
