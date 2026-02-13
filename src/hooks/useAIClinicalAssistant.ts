@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Patient } from '@/types/patient';
+import { useSettings } from '@/contexts/SettingsContext';
 import type {
   AIFeature,
   DDxResponse,
@@ -67,6 +68,7 @@ export const useAIClinicalAssistant = (
   options: UseAIClinicalAssistantOptions = {}
 ): UseAIClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
+  const { getModelForFeature } = useSettings();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<unknown | null>(null);
@@ -145,6 +147,7 @@ export const useAIClinicalAssistant = (
           text,
           context: finalContext,
           customPrompt,
+          model: getModelForFeature('clinical_assistant'),
         },
       });
 

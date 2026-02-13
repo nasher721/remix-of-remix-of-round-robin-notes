@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export const usePatientCourseGenerator = () => {
+  const { getModelForFeature } = useSettings();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
@@ -46,6 +48,7 @@ export const usePatientCourseGenerator = () => {
             systems: patient.systems,
           },
           existingCourse,
+          model: getModelForFeature('patient_course'),
         },
       });
 

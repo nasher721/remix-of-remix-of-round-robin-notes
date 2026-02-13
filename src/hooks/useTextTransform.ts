@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
 import type { Json } from '@/integrations/supabase/types';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export type TransformType = 'comma-list' | 'medical-shorthand' | 'custom';
 
@@ -16,6 +17,7 @@ const CUSTOM_PROMPTS_KEY = 'ai-custom-prompts';
 
 export const useTextTransform = () => {
   const { user } = useAuth();
+  const { getModelForFeature } = useSettings();
   const [isTransforming, setIsTransforming] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -157,7 +159,7 @@ export const useTextTransform = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('transform-text', {
-        body: { text, transformType, customPrompt },
+        body: { text, transformType, customPrompt, model: getModelForFeature('text_transform') },
       });
 
       if (error) {

@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export const useDailySummaryGenerator = () => {
+  const { getModelForFeature } = useSettings();
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -48,6 +50,7 @@ export const useDailySummaryGenerator = () => {
           medications: patient.medications,
           todos: todos || [],
           existingIntervalEvents: patient.intervalEvents,
+          model: getModelForFeature('daily_summary'),
         },
       });
 

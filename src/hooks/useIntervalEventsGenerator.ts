@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { PatientSystems } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export const useIntervalEventsGenerator = () => {
+  const { getModelForFeature } = useSettings();
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -34,7 +36,7 @@ export const useIntervalEventsGenerator = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('generate-interval-events', {
-        body: { systems, existingIntervalEvents, patientName },
+        body: { systems, existingIntervalEvents, patientName, model: getModelForFeature('interval_events') },
       });
 
       // Check if aborted

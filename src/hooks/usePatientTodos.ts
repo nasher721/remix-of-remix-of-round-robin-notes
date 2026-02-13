@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export function usePatientTodos(patientId: string | null) {
   const [todos, setTodos] = useState<PatientTodo[]>([]);
@@ -11,6 +12,7 @@ export function usePatientTodos(patientId: string | null) {
   const [generating, setGenerating] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { getModelForFeature } = useSettings();
 
   const fetchTodos = useCallback(async () => {
     if (!patientId || !user) return;
@@ -149,6 +151,7 @@ export function usePatientTodos(patientId: string | null) {
             systems: patient.systems,
           },
           section,
+          model: getModelForFeature('todos'),
         },
       });
 

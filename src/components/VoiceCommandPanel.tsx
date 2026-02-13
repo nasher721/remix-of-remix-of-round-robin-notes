@@ -76,8 +76,8 @@ export function VoiceCommandPanel({ onCommand, className }: VoiceCommandPanelPro
   // Initialize speech recognition
   React.useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
+      const SpeechRecognitionCtor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognitionCtor();
       recognitionRef.current.continuous = settings.continuous;
       recognitionRef.current.interimResults = settings.interimResults;
       recognitionRef.current.lang = settings.language;

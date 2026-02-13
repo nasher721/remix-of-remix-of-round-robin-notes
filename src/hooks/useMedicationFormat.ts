@@ -2,8 +2,10 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { PatientMedications } from '@/types/patient';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export const useMedicationFormat = () => {
+  const { getModelForFeature } = useSettings();
   const [isFormatting, setIsFormatting] = useState(false);
 
   const formatMedications = useCallback(async (
@@ -18,7 +20,7 @@ export const useMedicationFormat = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('format-medications', {
-        body: { medications: rawText },
+        body: { medications: rawText, model: getModelForFeature('medications') },
       });
 
       if (error) {
