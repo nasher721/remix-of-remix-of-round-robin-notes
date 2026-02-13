@@ -1,7 +1,8 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import FeatureHighlights from "@/components/landing/FeatureHighlights";
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -9,7 +10,22 @@ const Landing: React.FC = () => {
   const [showContent, setShowContent] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [showPlayOverlay, setShowPlayOverlay] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = useCallback(() => {
+    if (containerRef.current) {
+      setScrollY(containerRef.current.scrollTop);
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -68,12 +84,23 @@ const Landing: React.FC = () => {
     }
   };
 
-  return (
-    <div className="landing-page min-h-screen relative overflow-hidden transition-colors duration-[1500ms] ease-in-out"
-         style={{ backgroundColor: "#eef4f9" }}>
+  // Parallax factors
+  const parallaxSlow = scrollY * 0.3;
+  const parallaxMed = scrollY * 0.5;
+  const parallaxFast = scrollY * 0.7;
+  const bgOpacity = Math.min(scrollY / 600, 0.15);
 
-      <div className={`intro-container fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-[800ms] ease-out ${showContent ? "opacity-0 invisible pointer-events-none" : ""}`}
-           style={{ backgroundColor: "#eef4f9" }}>
+  return (
+    <div
+      ref={containerRef}
+      className="landing-page min-h-screen relative overflow-y-auto overflow-x-hidden transition-colors duration-[1500ms] ease-in-out scroll-smooth"
+      style={{ backgroundColor: "#eef4f9" }}
+    >
+      {/* Video intro overlay */}
+      <div
+        className={`intro-container fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-[800ms] ease-out ${showContent ? "opacity-0 invisible pointer-events-none" : ""}`}
+        style={{ backgroundColor: "#eef4f9" }}
+      >
         <video
           ref={videoRef}
           className="intro-video w-full h-full object-cover"
@@ -94,69 +121,123 @@ const Landing: React.FC = () => {
         )}
       </div>
 
-      <div className={`poster-container w-full h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
-           style={isActive ? { background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" } : {}}>
+      {/* Hero section with parallax */}
+      <div
+        className={`poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
+        style={isActive ? { background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" } : {}}
+      >
+        {/* Parallax background circles */}
+        <div
+          className="bg-circle absolute rounded-full bg-white/5 z-0"
+          style={{
+            width: "300px", height: "300px", top: "-100px", right: "-50px",
+            transform: `translateY(${parallaxSlow}px)`,
+            transition: "transform 0.1s linear",
+          }}
+        />
+        <div
+          className="bg-circle absolute rounded-full bg-white/5"
+          style={{
+            width: "200px", height: "200px", bottom: "100px", left: "-50px",
+            transform: `translateY(${-parallaxMed}px)`,
+            transition: "transform 0.1s linear",
+          }}
+        />
+        <div
+          className="bg-circle absolute rounded-full bg-white/5"
+          style={{
+            width: "150px", height: "150px", top: "50%", right: "-30px",
+            transform: `translateY(${parallaxSlow}px)`,
+            transition: "transform 0.1s linear",
+          }}
+        />
 
-        <div className="bg-circle absolute rounded-full bg-white/5 animate-[float_6s_ease-in-out_infinite] z-0" style={{ width: "300px", height: "300px", top: "-100px", right: "-50px" }}></div>
-        <div className="bg-circle absolute rounded-full bg-white/5 animate-[float_6s_ease-in-out_infinite]" style={{ width: "200px", height: "200px", bottom: "100px", left: "-50px", animationDelay: "2s" }}></div>
-        <div className="bg-circle absolute rounded-full bg-white/5 animate-[float_6s_ease-in-out_infinite]" style={{ width: "150px", height: "150px", top: "50%", right: "-30px", animationDelay: "4s" }}></div>
-
-        <span className="floating-icon absolute text-white/10 text-[30px] animate-[floatRandom_8s_ease-in-out_infinite] z-1" style={{ top: "15%", left: "10%" }}>
+        {/* Parallax floating icons */}
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ top: "15%", left: "10%", transform: `translateY(${-parallaxFast}px)`, transition: "transform 0.1s linear" }}
+        >
           <span className="material-icons">local_hospital</span>
         </span>
-        <span className="floating-icon absolute text-white/10 text-[30px] animate-[floatRandom_8s_ease-in-out_infinite]" style={{ top: "25%", right: "15%", animationDelay: "2s" }}>
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ top: "25%", right: "15%", transform: `translateY(${-parallaxMed}px)`, transition: "transform 0.1s linear" }}
+        >
           <span className="material-icons">medical_services</span>
         </span>
-        <span className="floating-icon absolute text-white/10 text-[30px] animate-[floatRandom_8s_ease-in-out_infinite]" style={{ bottom: "25%", left: "12%", animationDelay: "4s" }}>
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ bottom: "25%", left: "12%", transform: `translateY(${parallaxSlow}px)`, transition: "transform 0.1s linear" }}
+        >
           <span className="material-icons">health_and_safety</span>
         </span>
-        <span className="floating-icon absolute text-white/10 text-[30px] animate-[floatRandom_8s_ease-in-out_infinite]" style={{ bottom: "30%", right: "10%", animationDelay: "1s" }}>
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ bottom: "30%", right: "10%", transform: `translateY(${parallaxMed}px)`, transition: "transform 0.1s linear" }}
+        >
           <span className="material-icons">monitor_heart</span>
         </span>
 
-        <div className="logo-container relative w-[320px] h-[380px] flex justify-center items-center mb-10 z-10 transition-transform duration-[1200ms] ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-             style={{ transform: isActive ? "scale(1)" : "scale(0.9)" }}>
+        {/* Extra parallax glow layer */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            background: `radial-gradient(ellipse at 50% ${30 + parallaxSlow * 0.05}%, rgba(255,255,255,${bgOpacity}), transparent 70%)`,
+          }}
+        />
 
+        {/* Logo / cart with parallax */}
+        <div
+          className="logo-container relative w-[320px] h-[380px] flex justify-center items-center mb-10 z-10 transition-transform duration-[1200ms] ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+          style={{
+            transform: `scale(${isActive ? 1 : 0.9}) translateY(${-parallaxSlow * 0.2}px)`,
+          }}
+        >
           <div className="cart-wrapper relative w-[320px] h-[380px]">
-
-            <div className="monitor absolute top-[10px] left-1/2 -translate-x-1/2 w-[180px] h-[130px] bg-[#f0f4f8] rounded-xl border-4 border-[#2c3e50] shadow-[0_10px_30px_rgba(0,0,0,0.2)] z-5">
+            <div className="monitor absolute top-[10px] left-1/2 -translate-x-1/2 w-[180px] h-[130px] bg-[#f0f4f8] rounded-xl border-4 border-[#2c3e50] shadow-[0_10px_30px_rgba(0,0,0,0.2)] z-[5]">
               <div className="screen w-[156px] h-[100px] bg-[#1976D2] mx-2 rounded-md flex justify-center items-center relative overflow-hidden border-2 border-[#2c3e50]">
                 <span className="material-icons text-[40px] text-white/90 animate-[iconFloat_3s_ease-in-out_infinite]">analytics</span>
               </div>
             </div>
-
-            <div className="stand-pole absolute left-1/2 top-[140px] -translate-x-1/2 w-[24px] h-[160px] bg-[#e0e0e0] border-l-2 border-r-2 border-[#bdc3c7] z-1"></div>
-
-            <div className="work-surface absolute top-[180px] left-1/2 -translate-x-1/2 w-[220px] h-[15px] bg-white rounded-lg border-3 border-[#2c3e50] z-4 shadow-[0_5px_15px_rgba(0,0,0,0.1)]"></div>
-
-            <div className="keyboard-tray absolute top-[205px] left-1/2 -translate-x-1/2 w-[140px] h-[10px] bg-[#90A4AE] rounded border-2 border-[#2c3e50] z-3"></div>
-
-            <div className="cart-base absolute bottom-[60px] left-1/2 -translate-x-1/2 w-[200px] h-[40px] bg-white rounded-[20px] border-3 border-[#2c3e50] z-2"></div>
-
-            <div className="wheels-container absolute bottom-0 left-1/2 -translate-x-1/2 w-[240px] h-[70px] flex justify-between z-1">
+            <div className="stand-pole absolute left-1/2 top-[140px] -translate-x-1/2 w-[24px] h-[160px] bg-[#e0e0e0] border-l-2 border-r-2 border-[#bdc3c7] z-[1]" />
+            <div className="work-surface absolute top-[180px] left-1/2 -translate-x-1/2 w-[220px] h-[15px] bg-white rounded-lg border-3 border-[#2c3e50] z-[4] shadow-[0_5px_15px_rgba(0,0,0,0.1)]" />
+            <div className="keyboard-tray absolute top-[205px] left-1/2 -translate-x-1/2 w-[140px] h-[10px] bg-[#90A4AE] rounded border-2 border-[#2c3e50] z-[3]" />
+            <div className="cart-base absolute bottom-[60px] left-1/2 -translate-x-1/2 w-[200px] h-[40px] bg-white rounded-[20px] border-3 border-[#2c3e50] z-[2]" />
+            <div className="wheels-container absolute bottom-0 left-1/2 -translate-x-1/2 w-[240px] h-[70px] flex justify-between z-[1]">
               <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top"></div>
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-120"></div>
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-240"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full"></div>
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
               </div>
               <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top"></div>
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-120"></div>
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-240"></div>
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full"></div>
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
               </div>
             </div>
           </div>
         </div>
 
+        {/* Title section with staggered parallax */}
         <div className="title-section text-center relative z-10 -mt-5">
-          <h1 className={`main-title font-[Montserrat] text-[56px] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
-              style={{ fontFamily: "'Montserrat', sans-serif" }}>
+          <h1
+            className={`main-title font-[Montserrat] text-[56px] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              transform: isActive ? `translateY(${-parallaxSlow * 0.15}px)` : undefined,
+            }}
+          >
             Rolling Rounds
           </h1>
-          <p className={`subtitle text-[1.2rem] font-light text-white/90 mb-7.5 transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
-             style={{ fontFamily: "'Poppins', sans-serif" }}>
+          <p
+            className={`subtitle text-[1.2rem] font-light text-white/90 mb-7.5 transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            style={{
+              fontFamily: "'Poppins', sans-serif",
+              transform: isActive ? `translateY(${-parallaxSlow * 0.1}px)` : undefined,
+            }}
+          >
             Medical Rounding & Patient List Management
           </p>
 
@@ -187,20 +268,10 @@ const Landing: React.FC = () => {
         </div>
       </div>
 
+      {/* Feature highlights section */}
+      {showContent && <FeatureHighlights />}
+
       <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          50% { transform: translateY(-30px) rotate(10deg); }
-        }
-        @keyframes floatRandom {
-          0%, 100% { transform: translateY(0) rotate(0deg); }
-          33% { transform: translateY(-20px) rotate(5deg); }
-          66% { transform: translateY(10px) rotate(-5deg); }
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
         @keyframes iconFloat {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-3px); }

@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useTheme } from "@/components/theme-provider";
 import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
+import { SpecialtySelectionPanel } from "@/components/settings/SpecialtySelectionPanel";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
@@ -191,6 +192,9 @@ export const MobileSettingsPanel = ({
           </Select>
         </div>
       </Card>
+
+      {/* Specialty / Role Selection */}
+      <SpecialtySelectionPanel />
 
       {/* Todos Visibility */}
       <Card className="p-4">

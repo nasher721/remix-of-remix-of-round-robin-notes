@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   PATIENT_SORT_BY: 'patientSortBy',
   SHOW_LAB_FISHBONES: 'showLabFishbones',
   SECTION_VISIBILITY: 'sectionVisibility',
+  SELECTED_SPECIALTY: 'selectedSpecialty',
   
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',

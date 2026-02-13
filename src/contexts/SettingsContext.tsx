@@ -3,6 +3,7 @@ import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, type SectionV
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
+import { getRoleById, type SpecialtyFeature } from '@/constants/specialties';
 
 export type SortBy = 'number' | 'room' | 'name';
 
@@ -10,15 +11,15 @@ interface SettingsContextType {
   // Font size
   globalFontSize: number;
   setGlobalFontSize: (size: number) => void;
-  
+
   // Todos visibility
   todosAlwaysVisible: boolean;
   setTodosAlwaysVisible: (visible: boolean) => void;
-  
+
   // Sort preferences
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
-  
+
   // Lab Fishbone toggle
   showLabFishbones: boolean;
   setShowLabFishbones: (show: boolean) => void;
@@ -27,7 +28,12 @@ interface SettingsContextType {
   sectionVisibility: SectionVisibility;
   setSectionVisibility: (visibility: SectionVisibility) => void;
   resetSectionVisibility: () => void;
-  
+
+  // Specialty / medical role
+  selectedSpecialty: string | null;
+  setSelectedSpecialty: (specialtyId: string | null) => void;
+  isFeatureEnabledForRole: (feature: SpecialtyFeature) => boolean;
+
   // Sync status
   isSyncingSettings: boolean;
 }
@@ -37,6 +43,7 @@ interface AppPreferences {
   todosAlwaysVisible: boolean;
   sortBy: SortBy;
   showLabFishbones: boolean;
+  selectedSpecialty: string | null;
 }
 
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
@@ -70,6 +77,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return saved !== null ? saved === 'true' : true;
   });
 
+  const [selectedSpecialty, setSelectedSpecialtyState] = React.useState<string | null>(() => {
+    return localStorage.getItem(STORAGE_KEYS.SELECTED_SPECIALTY) || null;
+  });
+
   const [sectionVisibility, setSectionVisibilityState] = React.useState<SectionVisibility>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
     if (saved) {
@@ -87,7 +98,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     todosAlwaysVisible,
     sortBy,
     showLabFishbones,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones]);
+    selectedSpecialty,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty]);
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
@@ -105,6 +117,14 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     if (prefs.showLabFishbones !== undefined) {
       setShowLabFishbonesState(prefs.showLabFishbones);
       localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(prefs.showLabFishbones));
+    }
+    if (prefs.selectedSpecialty !== undefined) {
+      setSelectedSpecialtyState(prefs.selectedSpecialty);
+      if (prefs.selectedSpecialty) {
+        localStorage.setItem(STORAGE_KEYS.SELECTED_SPECIALTY, prefs.selectedSpecialty);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.SELECTED_SPECIALTY);
+      }
     }
   }, []);
 
@@ -263,6 +283,22 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setShowLabFishbonesState(show);
   }, []);
 
+  const setSelectedSpecialty = React.useCallback((specialtyId: string | null) => {
+    setSelectedSpecialtyState(specialtyId);
+    if (specialtyId) {
+      localStorage.setItem(STORAGE_KEYS.SELECTED_SPECIALTY, specialtyId);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.SELECTED_SPECIALTY);
+    }
+  }, []);
+
+  const isFeatureEnabledForRole = React.useCallback((feature: SpecialtyFeature): boolean => {
+    if (!selectedSpecialty) return true; // No role selected = all features enabled
+    const role = getRoleById(selectedSpecialty);
+    if (!role) return true;
+    return role.enabledFeatures.includes(feature);
+  }, [selectedSpecialty]);
+
   const setSectionVisibility = React.useCallback((visibility: SectionVisibility) => {
     setSectionVisibilityState(visibility);
   }, []);
@@ -283,6 +319,9 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     sectionVisibility,
     setSectionVisibility,
     resetSectionVisibility,
+    selectedSpecialty,
+    setSelectedSpecialty,
+    isFeatureEnabledForRole,
     isSyncingSettings,
   };
 
