@@ -55,7 +55,7 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { systems, existingIntervalEvents, patientName } = await req.json();
+    const { systems, existingIntervalEvents, patientName, model: requestedModel } = await req.json();
 
     if (!systems || typeof systems !== 'object') {
       return new Response(
@@ -146,7 +146,7 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: requestedModel || 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }

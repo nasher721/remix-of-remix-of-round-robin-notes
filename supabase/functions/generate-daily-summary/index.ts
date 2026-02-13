@@ -91,7 +91,8 @@ serve(async (req) => {
       systems,
       medications,
       todos,
-      existingIntervalEvents 
+      existingIntervalEvents,
+      model: requestedModel,
     } = await req.json();
 
     if (!LOVABLE_API_KEY) {
@@ -256,7 +257,7 @@ RULES:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: requestedModel || 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }

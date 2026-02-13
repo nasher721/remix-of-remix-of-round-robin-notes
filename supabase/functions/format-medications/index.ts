@@ -59,7 +59,7 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { medications } = await req.json();
+    const { medications, model: requestedModel } = await req.json();
 
     if (!medications || typeof medications !== "string") {
       return new Response(
@@ -114,7 +114,7 @@ Each array contains formatted medication strings.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: requestedModel || "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Parse and format these medications:\n\n${medications}` },

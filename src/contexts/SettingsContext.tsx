@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, type SectionVisibility } from '@/constants/config';
+import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,6 +43,11 @@ interface SettingsContextType {
   resetAiModel: () => void;
   setAiCredential: (provider: LLMProviderName, credential: string) => void;
 
+  // Per-feature AI model overrides
+  aiFeatureModels: AIFeatureModels;
+  setAiFeatureModel: (feature: AIFeatureCategory, model: string) => void;
+  getModelForFeature: (feature: AIFeatureCategory) => string;
+
   // Sync status
   isSyncingSettings: boolean;
 }
@@ -56,6 +61,7 @@ interface AppPreferences {
   aiProvider: LLMProviderName;
   aiModel: string;
   aiCredentials?: Partial<Record<LLMProviderName, string>>;
+  aiFeatureModels?: AIFeatureModels;
 }
 
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
@@ -103,6 +109,16 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return saved || DEFAULT_CONFIG.DEFAULT_AI_MODEL;
   });
 
+  const [aiFeatureModels, setAiFeatureModelsState] = React.useState<AIFeatureModels>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.AI_FEATURE_MODELS);
+    if (!saved) return {};
+    try {
+      return JSON.parse(saved) as AIFeatureModels;
+    } catch {
+      return {};
+    }
+  });
+
   const [aiCredentials, setAiCredentialsState] = React.useState<Partial<Record<LLMProviderName, string>>>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.AI_CREDENTIALS);
     if (!saved) return {};
@@ -134,7 +150,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiProvider,
     aiModel,
     aiCredentials,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials]);
+    aiFeatureModels,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels]);
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
@@ -180,6 +197,15 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         localStorage.removeItem(STORAGE_KEYS.AI_CREDENTIALS);
       }
       resetRouter();
+    }
+
+    if (prefs.aiFeatureModels !== undefined) {
+      setAiFeatureModelsState(prefs.aiFeatureModels ?? {});
+      if (prefs.aiFeatureModels) {
+        localStorage.setItem(STORAGE_KEYS.AI_FEATURE_MODELS, JSON.stringify(prefs.aiFeatureModels));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.AI_FEATURE_MODELS);
+      }
     }
   }, [resetRouter]);
 
@@ -375,6 +401,23 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     });
   }, []);
 
+  const setAiFeatureModel = React.useCallback((feature: AIFeatureCategory, model: string) => {
+    setAiFeatureModelsState((prev) => {
+      const next = { ...prev };
+      if (model) {
+        next[feature] = model;
+      } else {
+        delete next[feature];
+      }
+      localStorage.setItem(STORAGE_KEYS.AI_FEATURE_MODELS, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const getModelForFeature = React.useCallback((feature: AIFeatureCategory): string => {
+    return aiFeatureModels[feature] || DEFAULT_GATEWAY_MODEL;
+  }, [aiFeatureModels]);
+
   const isFeatureEnabledForRole = React.useCallback((feature: SpecialtyFeature): boolean => {
     if (!selectedSpecialty) return true; // No role selected = all features enabled
     const role = getRoleById(selectedSpecialty);
@@ -411,6 +454,9 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setAiModel,
     resetAiModel,
     setAiCredential,
+    aiFeatureModels,
+    setAiFeatureModel,
+    getModelForFeature,
     isSyncingSettings,
   };
 

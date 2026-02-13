@@ -307,12 +307,14 @@ serve(async (req) => {
       feature,
       text,
       context,
-      customPrompt
+      customPrompt,
+      model: requestedModel,
     }: {
       feature: AIFeature;
       text?: string;
       context?: ClinicalContext;
       customPrompt?: string;
+      model?: string;
     } = await req.json();
 
     if (!feature) {
@@ -355,11 +357,12 @@ serve(async (req) => {
 
     console.log(`Processing ${feature} request with ${userMessage.length} chars of input`);
 
-    let result: string | null = null;
-    let modelUsed = '';
+    // Determine which model to use
+    const defaultGatewayModel = requestedModel || 'google/gemini-3-flash-preview';
+    const isGatewayModel = requestedModel && (requestedModel.startsWith('google/') || requestedModel.startsWith('openai/'));
 
-    // Try OpenAI GPT-4 first (preferred for clinical reasoning)
-    if (OPENAI_API_KEY) {
+    // Try OpenAI GPT-4 first (preferred for clinical reasoning) - only if no gateway model requested
+    if (OPENAI_API_KEY && !isGatewayModel) {
       try {
         // Use GPT-4o for complex tasks, GPT-4o-mini for simpler ones
         const isComplexTask = ['differential_diagnosis', 'assessment_plan', 'documentation_check'].includes(feature);
@@ -413,7 +416,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-3-flash-preview',
+            model: defaultGatewayModel,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userMessage }

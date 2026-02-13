@@ -339,7 +339,7 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { pdfContent, images } = await req.json();
+    const { pdfContent, images, model: requestedModel } = await req.json();
 
     if (!pdfContent && (!images || images.length === 0)) {
       return new Response(
@@ -522,7 +522,7 @@ SYSTEM MAPPING GUIDANCE:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: requestedModel || "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },

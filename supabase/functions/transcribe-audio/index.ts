@@ -126,7 +126,7 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { audio, mimeType = 'audio/webm', enhanceMedical = true } = await req.json();
+    const { audio, mimeType = 'audio/webm', enhanceMedical = true, model: requestedModel } = await req.json();
     
     if (!audio) {
       throw new Error('No audio data provided');
@@ -243,7 +243,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-3-flash-preview',
+            model: requestedModel || 'google/gemini-3-flash-preview',
             messages: [
               { role: 'system', content: MEDICAL_ENHANCEMENT_PROMPT },
               { role: 'user', content: rawTranscript }

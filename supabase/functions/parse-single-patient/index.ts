@@ -100,7 +100,7 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { content } = await req.json();
+    const { content, model: requestedModel } = await req.json();
 
     if (!content || typeof content !== 'string') {
       return new Response(
@@ -177,7 +177,7 @@ ${content}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: requestedModel || "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

@@ -77,9 +77,10 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { patientData, existingCourse } = await req.json() as {
+    const { patientData, existingCourse, model: requestedModel } = await req.json() as {
       patientData: PatientData;
       existingCourse?: string;
+      model?: string;
     };
 
     if (!patientData) {
@@ -197,7 +198,7 @@ Output ONLY the formatted course summary. No explanations or headers outside the
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: requestedModel || 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }

@@ -52,7 +52,7 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { patientData, section } = await req.json();
+    const { patientData, section, model: requestedModel } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -124,7 +124,7 @@ Systems Review: ${JSON.stringify(patientData.systems || {}, null, 2)}
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: requestedModel || "google/gemini-3-flash-preview",
         messages: [
           {
             role: "system",

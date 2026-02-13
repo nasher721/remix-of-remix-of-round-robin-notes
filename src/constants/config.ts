@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   AI_PROVIDER: 'aiProvider',
   AI_MODEL: 'aiModel',
   AI_CREDENTIALS: 'aiCredentials',
+  AI_FEATURE_MODELS: 'aiFeatureModels',
   
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
@@ -70,6 +71,37 @@ export const DEFAULT_CONFIG = {
   PRINT_ALTERNATE_ROW_COLORS: true,
   PRINT_COMPACT_MODE: false,
 } as const;
+
+// AI feature categories for per-feature model customization
+export const AI_FEATURE_CATEGORIES = [
+  { key: 'clinical_assistant', label: 'Clinical Assistant', description: 'Smart expand, DDx, SOAP, A&P' },
+  { key: 'interval_events', label: 'Interval Events', description: 'Generate interval event summaries' },
+  { key: 'patient_course', label: 'Patient Course', description: 'Generate hospital course' },
+  { key: 'daily_summary', label: 'Daily Summary', description: 'Generate daily summaries' },
+  { key: 'todos', label: 'Todo Generation', description: 'Generate action items' },
+  { key: 'text_transform', label: 'Text Transform', description: 'Shorthand, comma lists, custom' },
+  { key: 'transcription', label: 'Transcription Enhancement', description: 'Medical dictation correction' },
+  { key: 'medications', label: 'Medication Formatting', description: 'Parse & categorize meds' },
+  { key: 'parsing', label: 'Document Parsing', description: 'Handoff & patient import' },
+] as const;
+
+export type AIFeatureCategory = typeof AI_FEATURE_CATEGORIES[number]['key'];
+
+export type AIFeatureModels = Partial<Record<AIFeatureCategory, string>>;
+
+// Supported models that can be used in edge functions via Lovable AI gateway
+export const GATEWAY_MODELS = [
+  { value: '', label: 'Use default' },
+  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
+  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (balanced)' },
+  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (best quality)' },
+  { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro (next-gen)' },
+  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (balanced)' },
+  { value: 'openai/gpt-5', label: 'GPT-5 (best quality)' },
+  { value: 'openai/gpt-5-nano', label: 'GPT-5 Nano (fast)' },
+] as const;
+
+export const DEFAULT_GATEWAY_MODEL = 'google/gemini-3-flash-preview';
 
 // Patient filter state enum
 export enum PatientFilterType {

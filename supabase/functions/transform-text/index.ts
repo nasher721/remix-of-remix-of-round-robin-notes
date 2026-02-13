@@ -55,7 +55,7 @@ serve(async (req) => {
     }
     console.log(`Authenticated request from user: ${authResult.userId}`);
 
-    const { text, transformType, customPrompt } = await req.json();
+    const { text, transformType, customPrompt, model: requestedModel } = await req.json();
 
     if (!text || !transformType) {
       return new Response(
@@ -135,7 +135,7 @@ Output ONLY the rewritten text in medical shorthand. No explanations.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-flash-preview',
+        model: requestedModel || 'google/gemini-3-flash-preview',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
