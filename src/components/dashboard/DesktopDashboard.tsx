@@ -13,6 +13,7 @@ import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
 import { DesktopSpecialtySelector } from "@/components/settings/DesktopSpecialtySelector";
+import { DesktopAIModelSettingsDialog } from "@/components/settings/DesktopAIModelSettingsDialog";
 import { PatientNavigator } from "./PatientNavigator";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
@@ -406,7 +407,9 @@ export const DesktopDashboard = ({
             </div>
 
             {/* Section Visibility Panel */}
-            <SectionVisibilityPanel />
+              <SectionVisibilityPanel />
+
+              <DesktopAIModelSettingsDialog />
 
             {/* Todos Always Visible Toggle */}
             <Button
