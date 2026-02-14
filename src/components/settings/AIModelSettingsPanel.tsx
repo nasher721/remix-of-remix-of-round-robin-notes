@@ -6,9 +6,10 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AVAILABLE_MODELS, getLLMRouter, type LLMProviderName, type ModelOption } from '@/services/llm';
 import { useSettings } from '@/contexts/SettingsContext';
-import { DEFAULT_CONFIG } from '@/constants/config';
+import { DEFAULT_CONFIG, AI_FEATURE_CATEGORIES, GATEWAY_MODELS } from '@/constants/config';
 
 const PROVIDER_LABELS: Record<LLMProviderName, string> = {
   openai: 'OpenAI',
@@ -26,9 +27,11 @@ export function AIModelSettingsPanel() {
     aiProvider,
     aiModel,
     aiCredentials,
+    aiFeatureModels,
     setAiModel,
     resetAiModel,
     setAiCredential,
+    setAiFeatureModel,
   } = useSettings();
 
   const [search, setSearch] = React.useState('');
@@ -141,6 +144,38 @@ export function AIModelSettingsPanel() {
               </RadioGroup>
             </div>
           </ScrollArea>
+        </div>
+
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Per-feature model overrides</Label>
+          <p className="text-xs text-muted-foreground">
+            Customize which AI model is used for each feature. Leave as "Use default" to use the gateway default.
+          </p>
+          <div className="space-y-3">
+            {AI_FEATURE_CATEGORIES.map((cat) => (
+              <div key={cat.key} className="space-y-1">
+                <Label htmlFor={`feat-${cat.key}`} className="text-xs font-medium">
+                  {cat.label}
+                  <span className="ml-1 text-muted-foreground font-normal">— {cat.description}</span>
+                </Label>
+                <Select
+                  value={aiFeatureModels[cat.key] || ''}
+                  onValueChange={(v) => setAiFeatureModel(cat.key, v)}
+                >
+                  <SelectTrigger id={`feat-${cat.key}`} className="h-8 text-xs">
+                    <SelectValue placeholder="Use default" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GATEWAY_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-3">

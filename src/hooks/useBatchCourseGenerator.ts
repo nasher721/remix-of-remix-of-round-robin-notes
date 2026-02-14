@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export type BatchGenerationType = 'course' | 'intervalEvents' | 'dailySummary';
 
@@ -27,6 +28,7 @@ export type UndoEntry = {
 };
 
 export const useBatchCourseGenerator = () => {
+  const { getModelForFeature } = useSettings();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [progress, setProgress] = React.useState<BatchProgress>({
     total: 0,
@@ -109,6 +111,7 @@ export const useBatchCourseGenerator = () => {
               systems: patient.systems,
               existingIntervalEvents: patient.intervalEvents,
               patientName: patient.name,
+              model: getModelForFeature('interval_events'),
             },
           });
           data = response.data;
@@ -131,6 +134,7 @@ export const useBatchCourseGenerator = () => {
               medications: patient.medications,
               todos: todos || [],
               existingIntervalEvents: patient.intervalEvents,
+              model: getModelForFeature('daily_summary'),
             },
           });
           data = response.data;
@@ -146,6 +150,7 @@ export const useBatchCourseGenerator = () => {
                 labs: patient.labs,
                 systems: patient.systems,
               },
+              model: getModelForFeature('patient_course'),
             },
           });
           data = response.data;
