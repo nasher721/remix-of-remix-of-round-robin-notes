@@ -1,44 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-// Authentication helper
-async function authenticateRequest(req: Request): Promise<{ userId: string } | { error: Response }> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Missing or invalid authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const token = authHeader.replace('Bearer ', '');
-  const { data, error } = await supabaseClient.auth.getClaims(token);
-  
-  if (error || !data?.claims) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Unauthorized - invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  return { userId: data.claims.sub as string };
-}
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
 
 // AI Feature types
 type AIFeature =
@@ -291,7 +253,7 @@ function buildContextString(context: ClinicalContext): string {
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   try {
@@ -301,7 +263,16 @@ serve(async (req) => {
       return authResult.error;
     }
     const userId = authResult.userId;
-    console.log(`Authenticated request from user: ${userId}`);
+    safeLog('info', `Authenticated request from user: ${userId}`);
+    
+    // Rate limiting check
+    const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
+    if (!rateLimit.allowed) {
+      return rateLimit.response ?? new Response(
+        JSON.stringify({ error: 'Rate limit exceeded' }),
+        { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
 
     const {
       feature,
@@ -355,7 +326,7 @@ serve(async (req) => {
 
     const temperature = FEATURE_TEMPERATURES[feature] || 0.3;
 
-    console.log(`Processing ${feature} request with ${userMessage.length} chars of input`);
+    safeLog('info', `Processing ${feature} request with ${userMessage.length} chars of input`);
 
     // Determine which model to use
     const defaultGatewayModel = requestedModel || 'google/gemini-3-flash-preview';
@@ -389,20 +360,20 @@ serve(async (req) => {
           const data = await response.json();
           result = data.choices?.[0]?.message?.content;
           modelUsed = model;
-          console.log(`GPT response received: ${result?.length || 0} chars`);
+          safeLog('info', `GPT response received: ${result?.length || 0} chars`);
         } else {
           const errorText = await response.text();
-          console.error(`OpenAI API error: ${response.status} - ${errorText}`);
+          safeLog('error', `OpenAI API error: ${response.status} - ${errorText}`);
 
           if (response.status === 429) {
             return new Response(
               JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
             );
           }
         }
       } catch (err) {
-        console.error('OpenAI API error:', err);
+        safeLog('error', `OpenAI API error: ${err}`);
       }
     }
 
@@ -430,26 +401,26 @@ serve(async (req) => {
           const data = await response.json();
           result = data.choices?.[0]?.message?.content;
           modelUsed = 'gemini-3-flash';
-          console.log(`Lovable AI response received: ${result?.length || 0} chars`);
+          safeLog('info', `Lovable AI response received: ${result?.length || 0} chars`);
         } else {
           const errorText = await response.text();
-          console.error(`Lovable AI error: ${response.status} - ${errorText}`);
+          safeLog('error', `Lovable AI error: ${response.status} - ${errorText}`);
 
           if (response.status === 429) {
             return new Response(
               JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-              { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
             );
           }
           if (response.status === 402) {
             return new Response(
               JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }),
-              { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+              { status: 402, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
             );
           }
         }
       } catch (err) {
-        console.error('Lovable AI error:', err);
+        safeLog('error', `Lovable AI error: ${err}`);
       }
     }
 
@@ -468,7 +439,7 @@ serve(async (req) => {
         const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : result;
         parsedResult = JSON.parse(jsonStr.trim());
       } catch (parseErr) {
-        console.error('JSON parse error:', parseErr);
+        safeLog('error', `JSON parse error: ${parseErr}`);
         // Return raw text if JSON parsing fails
         parsedResult = result;
       }
@@ -481,15 +452,15 @@ serve(async (req) => {
         model: modelUsed,
         feature,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('AI Clinical Assistant error:', error);
+    safeLog('error', `AI Clinical Assistant error: ${error}`);
     const errorMessage = error instanceof Error ? error.message : 'AI processing failed';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
     );
   }
 });

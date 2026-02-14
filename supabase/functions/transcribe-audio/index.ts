@@ -1,43 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-// Authentication helper
-async function authenticateRequest(req: Request): Promise<{ userId: string } | { error: Response }> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Missing or invalid authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const token = authHeader.replace('Bearer ', '');
-  const { data, error } = await supabaseClient.auth.getClaims(token);
-  
-  if (error || !data?.claims) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Unauthorized - invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  return { userId: data.claims.sub as string };
-}
+import { 
+  authenticateRequest, 
+  corsHeaders, 
+  createErrorResponse,
+  checkRateLimit,
+  createCorsResponse,
+  safeLog
+} from "../_shared/mod.ts";
 
 // Process base64 in chunks to prevent memory issues
 function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Array {
@@ -124,7 +93,7 @@ serve(async (req) => {
     if ('error' in authResult) {
       return authResult.error;
     }
-    console.log(`Authenticated request from user: ${authResult.userId}`);
+    safeLog('info', 'Authenticated transcription request');
 
     const { audio, mimeType = 'audio/webm', enhanceMedical = true, model: requestedModel } = await req.json();
     
@@ -173,7 +142,7 @@ serve(async (req) => {
     if (transcribeResponse.ok) {
       const whisperResult = await transcribeResponse.json();
       rawTranscript = whisperResult.text;
-      console.log('Whisper transcription:', rawTranscript);
+      safeLog('info', 'Whisper transcription completed');
     } else {
       // Fallback: Use Lovable AI to process audio description
       // This won't work for actual audio, so we need a different approach
@@ -225,7 +194,7 @@ serve(async (req) => {
             const gptResult = await gptResponse.json();
             finalText = gptResult.choices?.[0]?.message?.content || rawTranscript;
             enhancementModel = 'gpt-4o-mini';
-            console.log('GPT-4 enhanced transcription:', finalText);
+            safeLog('info', 'GPT-4 enhancement completed');
           } else {
             console.log('GPT-4 enhancement failed, falling back to Lovable AI');
           }
@@ -257,7 +226,7 @@ serve(async (req) => {
           const enhanceResult = await enhanceResponse.json();
           finalText = enhanceResult.choices?.[0]?.message?.content || rawTranscript;
           enhancementModel = 'gemini-3-flash';
-          console.log('Lovable AI enhanced transcription:', finalText);
+           safeLog('info', 'Lovable AI enhancement completed');
         } else {
           console.error('Enhancement failed, using raw transcription');
         }

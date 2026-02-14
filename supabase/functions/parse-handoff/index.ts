@@ -1,43 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-// Authentication helper
-async function authenticateRequest(req: Request): Promise<{ userId: string } | { error: Response }> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Missing or invalid authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const token = authHeader.replace('Bearer ', '');
-  const { data, error } = await supabaseClient.auth.getClaims(token);
-  
-  if (error || !data?.claims) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Unauthorized - invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  return { userId: data.claims.sub as string };
-}
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
 
 interface PatientSystems {
   neuro: string;
@@ -328,7 +290,7 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   try {
@@ -337,27 +299,33 @@ serve(async (req) => {
     if ('error' in authResult) {
       return authResult.error;
     }
-    console.log(`Authenticated request from user: ${authResult.userId}`);
+    safeLog('info', `Authenticated request from user: ${authResult.userId}`);
+
+    // Rate limiting check
+    const rateLimit = checkRateLimit(req, RATE_LIMITS.parse, authResult.userId);
+    if (!rateLimit.allowed) {
+      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+    }
 
     const { pdfContent, images, model: requestedModel } = await req.json();
 
     if (!pdfContent && (!images || images.length === 0)) {
       return new Response(
         JSON.stringify({ success: false, error: "PDF content or images are required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
+      safeLog('error', "LOVABLE_API_KEY not configured");
       return new Response(
         JSON.stringify({ success: false, error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Parsing Epic handoff content...", images ? `(${images.length} images)` : "(text)");
+    safeLog('info', "Parsing Epic handoff content..." + (images ? `(${images.length} images)` : "(text)"));
 
     const systemPrompt = `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data with system-based organization.
 

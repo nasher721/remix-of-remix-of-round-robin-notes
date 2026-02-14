@@ -1,43 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-
-// Authentication helper
-async function authenticateRequest(req: Request): Promise<{ userId: string } | { error: Response }> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Missing or invalid authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const token = authHeader.replace('Bearer ', '');
-  const { data, error } = await supabaseClient.auth.getClaims(token);
-  
-  if (error || !data?.claims) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Unauthorized - invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  return { userId: data.claims.sub as string };
-}
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
 
 interface PatientSystems {
   neuro: string;
@@ -89,7 +51,7 @@ function convertLineBreaks(text: string): string {
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   try {
@@ -98,23 +60,28 @@ serve(async (req) => {
     if ('error' in authResult) {
       return authResult.error;
     }
-    console.log(`Authenticated request from user: ${authResult.userId}`);
+    safeLog('info', `Authenticated request from user: ${authResult.userId}`);
+    // Rate limiting check
+    const rateLimit = checkRateLimit(req, RATE_LIMITS.parse, authResult.userId);
+    if (!rateLimit.allowed) {
+      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+    }
 
     const { content, model: requestedModel } = await req.json();
 
     if (!content || typeof content !== 'string') {
       return new Response(
         JSON.stringify({ error: "Content is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+      safeLog('error', "LOVABLE_API_KEY is not configured");
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -167,7 +134,7 @@ MEDICATION FORMATTING RULES:
 INPUT:
 ${content}`;
 
-    console.log("Calling AI gateway for single patient parsing...");
+    safeLog('info', "Calling AI gateway for single patient parsing...");
 
     // Use gemini-2.5-pro for better instruction following
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -236,43 +203,43 @@ ${content}`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
       
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
           JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
       
       return new Response(
         JSON.stringify({ error: "Failed to process clinical notes" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     const aiResponse = await response.json();
     
-    console.log("AI response received, parsing...");
-    console.log("Full AI response:", JSON.stringify(aiResponse, null, 2));
+    safeLog('info', "AI response received, parsing...");
+    safeLog('info', `Full AI response: ${JSON.stringify(aiResponse, null, 2)}`);
 
     let parsedData: any;
     
     // Check for tool call response
     const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
-      console.log("Tool call arguments raw:", toolCall.function.arguments);
+      safeLog('info', `Tool call arguments raw: ${toolCall.function.arguments}`);
       try {
         parsedData = JSON.parse(toolCall.function.arguments);
-        console.log("Parsed tool data neuro sample:", parsedData.neuro?.substring(0, 200));
+        safeLog('info', `Parsed tool data neuro sample: ${parsedData.neuro?.substring(0, 200)}`);
       } catch (e) {
-        console.error("Failed to parse tool call arguments:", e);
+        safeLog('error', `Failed to parse tool call arguments: ${e}`);
       }
     }
     
@@ -280,10 +247,10 @@ ${content}`;
     if (!parsedData) {
       let aiContent = aiResponse.choices?.[0]?.message?.content;
       if (!aiContent) {
-        console.error("No content in AI response");
+        safeLog('error', "No content in AI response");
         return new Response(
           JSON.stringify({ error: "No response from AI service" }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
 
@@ -303,7 +270,7 @@ ${content}`;
       try {
         parsedData = JSON.parse(jsonStr);
       } catch (parseError) {
-        console.error("JSON parse error:", parseError);
+        safeLog('error', `JSON parse error: ${parseError}`);
         // Try to repair common JSON issues
         let repaired = jsonStr
           .replace(/,\s*}/g, '}')
@@ -317,7 +284,7 @@ ${content}`;
         } catch {
           return new Response(
             JSON.stringify({ error: "Failed to parse AI response" }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
           );
         }
       }
@@ -379,18 +346,18 @@ ${content}`;
       },
     };
 
-    console.log("Successfully parsed patient data");
+    safeLog('info', "Successfully parsed patient data");
 
     return new Response(
       JSON.stringify({ patient: cleanedPatient }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
 
   } catch (error) {
-    console.error("Error in parse-single-patient:", error);
+    safeLog('error', `Error in parse-single-patient: ${error}`);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

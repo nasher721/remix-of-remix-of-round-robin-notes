@@ -1,10 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
 
 interface MedicationCategories {
   infusions: string[];
@@ -13,42 +8,9 @@ interface MedicationCategories {
   rawText: string;
 }
 
-// Authentication helper
-async function authenticateRequest(req: Request): Promise<{ userId: string } | { error: Response }> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Missing or invalid authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  const supabaseClient = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    { global: { headers: { Authorization: authHeader } } }
-  );
-
-  const token = authHeader.replace('Bearer ', '');
-  const { data, error } = await supabaseClient.auth.getClaims(token);
-  
-  if (error || !data?.claims) {
-    return {
-      error: new Response(
-        JSON.stringify({ error: 'Unauthorized - invalid token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    };
-  }
-
-  return { userId: data.claims.sub as string };
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   try {
@@ -57,23 +19,29 @@ serve(async (req) => {
     if ('error' in authResult) {
       return authResult.error;
     }
-    console.log(`Authenticated request from user: ${authResult.userId}`);
+    const userId = authResult.userId;
+    safeLog('info', `Authenticated request from user: ${userId}`);
+    // Rate limiting check
+    const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
+    if (!rateLimit.allowed) {
+      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+    }
 
     const { medications, model: requestedModel } = await req.json();
 
-    if (!medications || typeof medications !== "string") {
+      if (!medications || typeof medications !== "string") {
       return new Response(
         JSON.stringify({ error: "Medications text is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+      safeLog('error', "LOVABLE_API_KEY is not configured");
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -156,29 +124,29 @@ Each array contains formatted medication strings.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
 
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
           JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
 
       return new Response(
         JSON.stringify({ error: "Failed to process medications" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
 
     const aiResponse = await response.json();
-    console.log("AI response for medications:", JSON.stringify(aiResponse, null, 2));
+    safeLog('info', "AI response received for medications");
 
     let parsedMeds: MedicationCategories = {
       infusions: [],
@@ -199,7 +167,7 @@ Each array contains formatted medication strings.`;
           rawText: medications,
         };
       } catch (e) {
-        console.error("Failed to parse tool call arguments:", e);
+        safeLog('error', `Failed to parse tool call arguments: ${e}`);
       }
     }
 
@@ -223,21 +191,21 @@ Each array contains formatted medication strings.`;
             };
           }
         } catch (e) {
-          console.error("Failed to parse content JSON:", e);
+          safeLog('error', `Failed to parse content JSON: ${e}`);
         }
       }
     }
 
-    console.log("Parsed medications:", parsedMeds);
+    safeLog('info', `Parsed medications successfully`);
 
     return new Response(JSON.stringify({ medications: parsedMeds }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders(req), "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in format-medications:", error);
+    safeLog('error', `Error in format-medications: ${error}`);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
     );
   }
 });

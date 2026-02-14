@@ -1,9 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import {
+  authenticateRequest,
+  getCorsHeaders,
+  errorResponse,
+  checkRateLimit,
+  handleOptions,
+  safeLog,
+  RATE_LIMITS,
+} from '../_shared/mod.ts';
 
 interface DrugInteractionRequest {
   medications: string[];
@@ -146,8 +150,22 @@ async function checkInteraction(
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return handleOptions(req);
   }
+
+  // SECURITY: Authenticate request
+  const authResult = await authenticateRequest(req);
+  if ('error' in authResult) {
+    return authResult.error;
+  }
+
+  // Rate limiting
+  const rateLimitResult = checkRateLimit(req, RATE_LIMITS.standard, authResult.userId);
+  if (!rateLimitResult.allowed) {
+    return rateLimitResult.response!;
+  }
+
+  safeLog('info', 'Drug interaction check request', { userIdPrefix: authResult.userId.slice(0, 8) });
 
   try {
     const body = await req.json();
@@ -160,7 +178,7 @@ serve(async (req) => {
         }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -177,7 +195,7 @@ serve(async (req) => {
         }),
         { 
           status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -214,12 +232,12 @@ serve(async (req) => {
       }),
       { 
         status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
       }
     );
 
   } catch (error) {
-    console.error('Drug interaction check error:', error);
+    safeLog('error', 'Drug interaction check error', { errorMessage: (error as Error).message });
     
     return new Response(
       JSON.stringify({ 
@@ -228,7 +246,7 @@ serve(async (req) => {
       }),
       { 
         status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
       }
     );
   }
