@@ -159,8 +159,8 @@ export function AIModelSettingsPanel() {
                   <span className="ml-1 text-muted-foreground font-normal">— {cat.description}</span>
                 </Label>
                 <Select
-                  value={aiFeatureModels[cat.key] || ''}
-                  onValueChange={(v) => setAiFeatureModel(cat.key, v)}
+                  value={aiFeatureModels[cat.key] || '__default__'}
+                  onValueChange={(v) => setAiFeatureModel(cat.key, v === '__default__' ? '' : v)}
                 >
                   <SelectTrigger id={`feat-${cat.key}`} className="h-8 text-xs">
                     <SelectValue placeholder="Use default" />
