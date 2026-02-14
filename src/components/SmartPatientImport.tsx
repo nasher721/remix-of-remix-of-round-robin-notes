@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Wand2, Loader2, Clipboard, Check, Edit2, Pill } from "lucide-react";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface ParsedPatientData {
   name: string;
@@ -50,6 +51,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
   const [parsedData, setParsedData] = React.useState<ParsedPatientData | null>(null);
   const [editingField, setEditingField] = React.useState<string | null>(null);
   const { toast } = useToast();
+  const { getModelForFeature } = useSettings();
 
   const handlePaste = async () => {
     try {
@@ -80,7 +82,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("parse-single-patient", {
-        body: { content: content.trim() },
+        body: { content: content.trim(), model: getModelForFeature('parsing') },
       });
 
       if (error) {

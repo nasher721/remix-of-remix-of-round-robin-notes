@@ -327,9 +327,10 @@ async function doEdgeFunctionRequest<T>(
   setLastResult?: (r: unknown) => void,
   setLastModel?: (m: string | null) => void,
   onSuccess?: (result: unknown, feature: AIFeature) => void,
+  model?: string,
 ): Promise<T | null> {
   const { data, error: fnError } = await supabase.functions.invoke('ai-clinical-assistant', {
-    body: { feature, text, context, customPrompt },
+    body: { feature, text, context, customPrompt, model },
   });
 
   if (fnError) throw new Error(fnError.message || 'AI processing failed');
@@ -350,7 +351,7 @@ export const useLLMClinicalAssistant = (
   options: UseLLMClinicalAssistantOptions = {}
 ): UseLLMClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
-  const { aiProvider, aiModel } = useSettings();
+  const { aiProvider, aiModel, getModelForFeature } = useSettings();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<unknown | null>(null);
@@ -441,6 +442,7 @@ export const useLLMClinicalAssistant = (
         result = await doEdgeFunctionRequest<T>(
           feature, text, finalContext, customPrompt,
           setLastResult, setLastModel, onSuccess,
+          getModelForFeature('clinical_assistant'),
         );
       }
 
@@ -464,7 +466,7 @@ export const useLLMClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast, options.provider, options.model, aiProvider, aiModel]);
+  }, [onSuccess, onError, toast, options.provider, options.model, aiProvider, aiModel, getModelForFeature]);
 
   // -----------------------------------------------------------------------
   // Convenience methods

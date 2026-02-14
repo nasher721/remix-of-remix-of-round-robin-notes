@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface UseDictationOptions {
   onTranscript?: (text: string) => void;
@@ -21,6 +22,7 @@ interface UseDictationReturn {
 
 export const useDictation = (options: UseDictationOptions = {}): UseDictationReturn => {
   const { onTranscript, enhanceMedical = true } = options;
+  const { getModelForFeature } = useSettings();
   
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -197,6 +199,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
                   audio: base64,
                   mimeType: mimeType.split(';')[0],
                   enhanceMedical,
+                  model: getModelForFeature('transcription'),
                 },
               });
               

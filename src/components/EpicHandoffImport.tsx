@@ -15,6 +15,7 @@ import { FileUp, Loader2, FileText, Users, AlertCircle, Settings2, Info } from "
 import { extractPdfText, extractPdfAsImages } from "@/lib/import-utils";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
+import { useSettings } from "@/contexts/SettingsContext";
 
 interface PatientSystems {
   neuro: string;
@@ -71,6 +72,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { settings, updateSettings } = useImportSettings();
+  const { getModelForFeature } = useSettings();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -133,7 +135,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
           setStatusMessage("Analyzing images with AI...");
           const { data, error } = await supabase.functions.invoke('parse-handoff', {
-            body: { images },
+            body: { images, model: getModelForFeature('parsing') },
           });
 
           if (error) throw new Error(error.message);
@@ -159,7 +161,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       setStatusMessage("Parsing extracted text...");
       const { data, error } = await supabase.functions.invoke('parse-handoff', {
-        body: { pdfContent: content },
+        body: { pdfContent: content, model: getModelForFeature('parsing') },
       });
 
       if (error) throw new Error(error.message);
@@ -219,7 +221,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       setSelectedPatients(new Set());
 
       const { data, error } = await supabase.functions.invoke('parse-handoff', {
-        body: { pdfContent: text },
+        body: { pdfContent: text, model: getModelForFeature('parsing') },
       });
 
       if (error) throw new Error(error.message);
