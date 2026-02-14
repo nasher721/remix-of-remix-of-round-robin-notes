@@ -133,9 +133,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
             throw new Error("Could not extract any content from the PDF.");
           }
 
-          setStatusMessage("Analyzing images with AI...");
+          setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
           const { data, error } = await supabase.functions.invoke('parse-handoff', {
             body: { images, model: getModelForFeature('parsing') },
+            timeout: 180000, // 3 min for OCR
           });
 
           if (error) throw new Error(error.message);
@@ -162,6 +163,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       setStatusMessage("Parsing extracted text...");
       const { data, error } = await supabase.functions.invoke('parse-handoff', {
         body: { pdfContent: content, model: getModelForFeature('parsing') },
+        timeout: 120000, // 2 min
       });
 
       if (error) throw new Error(error.message);
@@ -222,6 +224,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       const { data, error } = await supabase.functions.invoke('parse-handoff', {
         body: { pdfContent: text, model: getModelForFeature('parsing') },
+        timeout: 120000, // 2 min
       });
 
       if (error) throw new Error(error.message);
