@@ -527,7 +527,7 @@ SYSTEM MAPPING GUIDANCE:
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        max_tokens: 16000,
+        max_completion_tokens: 16000,
       }),
     });
 
