@@ -381,7 +381,7 @@ serve(async (req) => {
               { role: 'user', content: userMessage }
             ],
             temperature,
-            max_tokens: 4000,
+            max_completion_tokens: 4000,
           }),
         });
 
@@ -422,7 +422,7 @@ serve(async (req) => {
               { role: 'user', content: userMessage }
             ],
             temperature,
-            max_tokens: 4000,
+            max_completion_tokens: 4000,
           }),
         });
 
