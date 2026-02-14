@@ -134,16 +134,22 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
           }
 
           setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
-          const { data, error } = await supabase.functions.invoke('parse-handoff', {
-            body: { images, model: getModelForFeature('parsing') },
-            timeout: 180000, // 3 min for OCR
-          });
+          const ocrController = new AbortController();
+          const ocrTimeout = setTimeout(() => ocrController.abort(), 180000);
+          try {
+            const { data, error } = await supabase.functions.invoke('parse-handoff', {
+              body: { images, model: getModelForFeature('parsing') },
+            });
+            clearTimeout(ocrTimeout);
 
           if (error) throw new Error(error.message);
           if (!data.success) throw new Error(data.error || "Failed to parse handoff");
 
           finalizeImport(data.data?.patients || []);
           return;
+          } finally {
+            clearTimeout(ocrTimeout);
+          }
         }
       } else {
         // Text file
@@ -163,7 +169,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       setStatusMessage("Parsing extracted text...");
       const { data, error } = await supabase.functions.invoke('parse-handoff', {
         body: { pdfContent: content, model: getModelForFeature('parsing') },
-        timeout: 120000, // 2 min
       });
 
       if (error) throw new Error(error.message);
@@ -224,7 +229,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       const { data, error } = await supabase.functions.invoke('parse-handoff', {
         body: { pdfContent: text, model: getModelForFeature('parsing') },
-        timeout: 120000, // 2 min
       });
 
       if (error) throw new Error(error.message);
