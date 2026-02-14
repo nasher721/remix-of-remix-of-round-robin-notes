@@ -91,7 +91,7 @@ export type AIFeatureModels = Partial<Record<AIFeatureCategory, string>>;
 
 // Supported models that can be used in edge functions via Lovable AI gateway
 export const GATEWAY_MODELS = [
-  { value: '', label: 'Use default' },
+  { value: '__default__', label: 'Use default' },
   { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
   { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (balanced)' },
   { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (best quality)' },
