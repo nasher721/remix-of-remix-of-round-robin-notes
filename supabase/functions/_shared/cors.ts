@@ -57,8 +57,13 @@ export function getCorsHeaders(request: Request): Record<string, string> {
   const allowedOrigins = getAllowedOrigins();
   
   // Check if origin is allowed
-  const isAllowed = origin && allowedOrigins.some(allowed => 
-    origin === allowed || origin.startsWith(allowed + '/')
+  const isAllowed = origin && (
+    // Allow any *.lovable.app subdomain (preview, published, etc.)
+    origin.endsWith('.lovable.app') ||
+    // Check explicit allowlist for non-Lovable origins
+    allowedOrigins.some(allowed => 
+      origin === allowed || origin.startsWith(allowed + '/')
+    )
   );
   
   // SECURITY: If origin is not allowed, return NO CORS headers
