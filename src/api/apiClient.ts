@@ -14,6 +14,7 @@ export type ApiFetchOptions = RequestInit & {
 };
 
 const DEFAULT_TIMEOUT_MS = 10000;
+const EDGE_FUNCTION_TIMEOUT_MS = 300000; // 5 minutes for edge functions (OCR, AI parsing)
 const DEFAULT_RETRY_COUNT = 2;
 const DEFAULT_RETRY_DELAY_MS = 300;
 
@@ -40,11 +41,13 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
   const apiFetch = async (url: string, init: ApiFetchOptions = {}): Promise<Response> => {
+    // Use longer timeout for edge function calls (AI/OCR can take minutes)
+    const isEdgeFunction = url.includes('/functions/v1/');
     const {
-      timeoutMs = DEFAULT_TIMEOUT_MS,
-      retryCount = DEFAULT_RETRY_COUNT,
+      timeoutMs = isEdgeFunction ? EDGE_FUNCTION_TIMEOUT_MS : DEFAULT_TIMEOUT_MS,
+      retryCount = isEdgeFunction ? 0 : DEFAULT_RETRY_COUNT,
       retryDelayMs = DEFAULT_RETRY_DELAY_MS,
-      dedupe = true,
+      dedupe = !isEdgeFunction,
       ...requestInit
     } = init;
 
