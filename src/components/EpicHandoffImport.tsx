@@ -139,7 +139,15 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
             timeout: 180000, // 3 min for OCR
           });
 
-          if (error) throw new Error(error.message);
+          // Enhanced error logging
+          if (error) {
+            console.error("Edge Function invocation error (OCR path):", {
+              message: error.message,
+              details: error,
+              stack: error.stack,
+            });
+            throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
+          }
           if (!data.success) throw new Error(data.error || "Failed to parse handoff");
 
           finalizeImport(data.data?.patients || []);
@@ -166,7 +174,15 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
         timeout: 120000, // 2 min
       });
 
-      if (error) throw new Error(error.message);
+      // Enhanced error logging
+      if (error) {
+        console.error("Edge Function invocation error:", {
+          message: error.message,
+          details: error,
+          stack: error.stack,
+        });
+        throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
+      }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
 
       finalizeImport(data.data?.patients || []);
@@ -227,7 +243,15 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
         timeout: 120000, // 2 min
       });
 
-      if (error) throw new Error(error.message);
+      // Enhanced error logging
+      if (error) {
+        console.error("Edge Function invocation error (paste path):", {
+          message: error.message,
+          details: error,
+          stack: error.stack,
+        });
+        throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
+      }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
 
       finalizeImport(data.data?.patients || []);
