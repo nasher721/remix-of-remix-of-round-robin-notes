@@ -86,18 +86,18 @@ This migration replaces the hardcoded single-provider AI integration with a **pr
 
 ### Step 1: Set Environment Variables
 
-Add API keys for the providers you want to use. At minimum, keep the existing `OPENAI_API_KEY` and `LOVABLE_API_KEY`.
+Add API keys for the providers you want to use. At minimum, you need `OPENAI_API_KEY`.
 
 ```bash
-# Required for new multi-provider system:
+# Required:
 OPENAI_API_KEY=sk-...
+
+# Optional (for multi-provider support):
 ANTHROPIC_API_KEY=sk-ant-...
 GEMINI_API_KEY=AIza...
-
-# Optional:
 GROK_API_KEY=xai-...
 GLM_API_KEY=...
-HUGGINGFACE_API_KEY=hf_...
+HUGGINGFACE_API_KEY=hf-...
 ```
 
 ### Step 2: Replace Hook Imports (Per-Component)

@@ -117,17 +117,13 @@ serve(async (req) => {
     formData.append('language', 'en');
     formData.append('prompt', WHISPER_MEDICAL_PROMPT);
 
-    // Transcribe with Whisper via Lovable AI Gateway
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    // Transcribe with Whisper via OpenAI API
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    // First, transcribe using Whisper through OpenAI-compatible endpoint
-    // Since Lovable AI doesn't have Whisper, we'll use the chat model to process
-    // For now, we'll simulate with a direct transcription approach
-    
-    // Use Lovable AI for transcription enhancement
+    // First, transcribe using Whisper through OpenAI API
     const transcribeResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
@@ -144,8 +140,7 @@ serve(async (req) => {
       rawTranscript = whisperResult.text;
       safeLog('info', 'Whisper transcription completed');
     } else {
-      // Fallback: Use Lovable AI to process audio description
-      // This won't work for actual audio, so we need a different approach
+      // Fallback: Return error if Whisper API is unavailable
       console.log('Whisper not available, checking for alternative...');
       
       // For demo purposes, return an error asking for OpenAI key
@@ -161,7 +156,7 @@ serve(async (req) => {
       );
     }
 
-    // If medical enhancement is requested, use GPT-4 (preferred) or Lovable AI (fallback)
+    // If medical enhancement is requested, use GPT-4
     let finalText = rawTranscript;
     let enhancementModel = 'none';
 
@@ -192,43 +187,14 @@ serve(async (req) => {
 
           if (gptResponse.ok) {
             const gptResult = await gptResponse.json();
-            finalText = gptResult.choices?.[0]?.message?.content || rawTranscript;
+          finalText = gptResult.choices?.[0]?.message?.content || rawTranscript;
             enhancementModel = 'gpt-4o-mini';
             safeLog('info', 'GPT-4 enhancement completed');
           } else {
-            console.log('GPT-4 enhancement failed, falling back to Lovable AI');
+            console.log('GPT-4 enhancement failed');
           }
         } catch (err) {
           console.error('GPT-4 enhancement error:', err);
-        }
-      }
-
-      // Fallback to Lovable AI if GPT-4 didn't work
-      if (enhancementModel === 'none' && LOVABLE_API_KEY) {
-        const enhanceResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: requestedModel || 'google/gemini-3-flash-preview',
-            messages: [
-              { role: 'system', content: MEDICAL_ENHANCEMENT_PROMPT },
-              { role: 'user', content: rawTranscript }
-            ],
-            temperature: 0.1,
-            max_completion_tokens: 2000,
-          }),
-        });
-
-        if (enhanceResponse.ok) {
-          const enhanceResult = await enhanceResponse.json();
-          finalText = enhanceResult.choices?.[0]?.message?.content || rawTranscript;
-          enhancementModel = 'gemini-3-flash';
-           safeLog('info', 'Lovable AI enhancement completed');
-        } else {
-          console.error('Enhancement failed, using raw transcription');
         }
       }
     }

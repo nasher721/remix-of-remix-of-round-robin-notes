@@ -4,7 +4,7 @@
 
 **Round Robin Notes** is a clinical documentation and patient rounding application for ICU/hospital workflows. It enables team-based patient management with clinical decision support, real-time collaboration, and comprehensive data export capabilities.
 
-Built on the Lovable platform with React, TypeScript, Supabase, and Tailwind CSS.
+Deployed on Vercel with React, TypeScript, Supabase, and Tailwind CSS.
 
 ## Tech Stack
 

@@ -316,9 +316,9 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      safeLog('error', "LOVABLE_API_KEY not configured");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+    if (!OPENAI_API_KEY) {
+      safeLog('error', "OPENAI_API_KEY not configured");
       return new Response(
         JSON.stringify({ success: false, error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
@@ -483,14 +483,14 @@ SYSTEM MAPPING GUIDANCE:
       userContent = `Parse the following Epic Handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Parse content into the appropriate system categories:\n\n${pdfContent}`;
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: requestedModel || "google/gemini-2.5-flash",
+        model: requestedModel || "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },

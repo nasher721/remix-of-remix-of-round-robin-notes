@@ -89,19 +89,16 @@ export type AIFeatureCategory = typeof AI_FEATURE_CATEGORIES[number]['key'];
 
 export type AIFeatureModels = Partial<Record<AIFeatureCategory, string>>;
 
-// Supported models that can be used in edge functions via Lovable AI gateway
+// Supported models that can be used in edge functions via OpenAI API
 export const GATEWAY_MODELS = [
   { value: '__default__', label: 'Use default' },
-  { value: 'google/gemini-3-flash-preview', label: 'Gemini 3 Flash (fast)' },
-  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash (balanced)' },
-  { value: 'google/gemini-2.5-pro', label: 'Gemini 2.5 Pro (best quality)' },
-  { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro (next-gen)' },
-  { value: 'openai/gpt-5-mini', label: 'GPT-5 Mini (balanced)' },
-  { value: 'openai/gpt-5', label: 'GPT-5 (best quality)' },
-  { value: 'openai/gpt-5-nano', label: 'GPT-5 Nano (fast)' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini (fast)' },
+  { value: 'gpt-4o', label: 'GPT-4o (balanced)' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo (high quality)' },
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (economic)' },
 ] as const;
 
-export const DEFAULT_GATEWAY_MODEL = 'google/gemini-3-flash-preview';
+export const DEFAULT_GATEWAY_MODEL = 'gpt-4o-mini';
 
 // Patient filter state enum
 export enum PatientFilterType {

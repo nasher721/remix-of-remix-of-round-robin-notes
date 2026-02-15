@@ -13,14 +13,10 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:3000',
-  // Lovable preview/production
-  'https://lovable.dev',
-  // Production - Round Robin Notes
-  'https://qrlonfgafvyfqqtsasfc.lovable.app',
-  'https://remix-of-remix-of-round-robin-notes.lovable.app',
+  // Production - add your Vercel domain here
+  // 'https://your-app.vercel.app',
   // Supabase dashboard (for testing)
   'https://supabase.com',
-  'https://qrlonfgafvyfqqtsasfc.supabase.co',
 ];
 
 /**
@@ -58,9 +54,7 @@ export function getCorsHeaders(request: Request): Record<string, string> {
   
   // Check if origin is allowed
   const isAllowed = origin && (
-    // Allow any *.lovable.app subdomain (preview, published, etc.)
-    origin.endsWith('.lovable.app') ||
-    // Check explicit allowlist for non-Lovable origins
+    // Check explicit allowlist
     allowedOrigins.some(allowed => 
       origin === allowed || origin.startsWith(allowed + '/')
     )
