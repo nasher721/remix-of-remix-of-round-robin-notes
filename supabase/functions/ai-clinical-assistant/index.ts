@@ -328,6 +328,9 @@ serve(async (req) => {
 
     safeLog('info', `Processing ${feature} request with ${userMessage.length} chars of input`);
 
+    let result: string | null | undefined = null;
+    let modelUsed = '';
+
     // Determine which model to use
     const defaultGatewayModel = requestedModel || 'google/gemini-3-flash-preview';
     const isGatewayModel = requestedModel && (requestedModel.startsWith('google/') || requestedModel.startsWith('openai/'));

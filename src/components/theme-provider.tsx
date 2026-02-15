@@ -1,5 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react"
-import { ThemeProvider as NextThemesProvider } from "next-themes"
+import * as React from "react"
 
 type Theme = "dark" | "light" | "system"
 
@@ -19,32 +18,60 @@ const initialState: ThemeProviderState = {
     setTheme: () => null,
 }
 
-const ThemeProviderContext = createContext<ThemeProviderState>(initialState)
+const ThemeProviderContext = React.createContext<ThemeProviderState>(initialState)
+
+function getSystemTheme(): "dark" | "light" {
+    if (typeof window === "undefined") return "light"
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+}
 
 export function ThemeProvider({
     children,
     defaultTheme = "system",
     storageKey = "vite-ui-theme",
-    ...props
 }: ThemeProviderProps) {
+    const [theme, setTheme] = React.useState<Theme>(
+        () => (typeof window !== "undefined" ? localStorage.getItem(storageKey) as Theme : null) || defaultTheme
+    )
+
+    React.useEffect(() => {
+        const root = window.document.documentElement
+        root.classList.remove("light", "dark")
+        const resolved = theme === "system" ? getSystemTheme() : theme
+        root.classList.add(resolved)
+    }, [theme])
+
+    React.useEffect(() => {
+        if (theme === "system") {
+            const mql = window.matchMedia("(prefers-color-scheme: dark)")
+            const handler = () => {
+                const root = window.document.documentElement
+                root.classList.remove("light", "dark")
+                root.classList.add(getSystemTheme())
+            }
+            mql.addEventListener("change", handler)
+            return () => mql.removeEventListener("change", handler)
+        }
+    }, [theme])
+
+    const value = React.useMemo(() => ({
+        theme,
+        setTheme: (t: Theme) => {
+            localStorage.setItem(storageKey, t)
+            setTheme(t)
+        },
+    }), [theme, storageKey])
+
     return (
-        <NextThemesProvider
-            attribute="class"
-            defaultTheme={defaultTheme}
-            enableSystem
-            disableTransitionOnChange
-            {...props}
-        >
+        <ThemeProviderContext.Provider value={value}>
             {children}
-        </NextThemesProvider>
+        </ThemeProviderContext.Provider>
     )
 }
 
 export const useTheme = () => {
-    const context = useContext(ThemeProviderContext)
-
+    const context = React.useContext(ThemeProviderContext)
     if (context === undefined)
         throw new Error("useTheme must be used within a ThemeProvider")
-
     return context
 }
