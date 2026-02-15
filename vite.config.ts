@@ -13,8 +13,12 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Force ALL React imports to resolve to the exact same copy
+      "react": path.resolve(__dirname, "node_modules/react"),
+      "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
+      "react/jsx-runtime": path.resolve(__dirname, "node_modules/react/jsx-runtime"),
+      "react/jsx-dev-runtime": path.resolve(__dirname, "node_modules/react/jsx-dev-runtime"),
     },
-    // Dedupe React and related packages to prevent multiple instances during HMR
     dedupe: [
       "react",
       "react-dom",
@@ -25,7 +29,6 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   optimizeDeps: {
-    // Force pre-bundle React and related packages to avoid HMR issues
     include: [
       "react",
       "react-dom",
