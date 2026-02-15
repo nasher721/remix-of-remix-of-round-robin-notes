@@ -15,10 +15,25 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
     // Dedupe React and related packages to prevent multiple instances during HMR
-    dedupe: ["react", "react-dom", "@tanstack/react-query"],
+    dedupe: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "@tanstack/react-query",
+    ],
   },
   optimizeDeps: {
     // Force pre-bundle React and related packages to avoid HMR issues
-    include: ["react", "react-dom", "react/jsx-runtime", "@tanstack/react-query"],
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react/jsx-runtime",
+      "react/jsx-dev-runtime",
+      "@tanstack/react-query",
+    ],
+    force: true, // Force re-optimization to clear stale cache
   },
 }));
