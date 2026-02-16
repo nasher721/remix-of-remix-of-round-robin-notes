@@ -24,7 +24,7 @@ export function useCacheWarming() {
     if (user?.id && isHydrated) {
       warmCaches();
     }
-  }, [user?.id, isHydrated]);
+  }, [user?.id, isHydrated, warmCaches]);
   
   // Persist cache before page unload
   useEffect(() => {

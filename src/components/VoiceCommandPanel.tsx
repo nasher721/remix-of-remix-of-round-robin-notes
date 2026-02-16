@@ -109,6 +109,7 @@ export function VoiceCommandPanel({ onCommand, className }: VoiceCommandPanelPro
     return () => {
       recognitionRef.current?.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.continuous, settings.interimResults, settings.language]);
 
   const processCommand = (text: string) => {

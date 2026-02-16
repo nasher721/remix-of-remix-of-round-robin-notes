@@ -217,7 +217,7 @@ export function usePatientTodos(patientId: string | null) {
     } finally {
       setGenerating(false);
     }
-  }, [patientId, user, toast]);
+  }, [patientId, user, toast, getModelForFeature]);
 
   const getTodosBySection = useCallback((section: string | null) => {
     return todos.filter(t => t.section === section);

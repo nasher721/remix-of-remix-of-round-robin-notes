@@ -583,6 +583,7 @@ export const ImagePasteEditor = ({
         }
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autotexts]);
 
   const openLightbox = (index: number) => {

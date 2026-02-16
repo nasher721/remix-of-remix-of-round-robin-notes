@@ -207,7 +207,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         localStorage.removeItem(STORAGE_KEYS.AI_FEATURE_MODELS);
       }
     }
-  }, [resetRouter]);
+  }, []);
 
   // Sync settings to database with debounce
   const syncSettingsToDb = React.useCallback(async (visibility: SectionVisibility, appPreferences: AppPreferences) => {

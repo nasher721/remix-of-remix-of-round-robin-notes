@@ -77,9 +77,9 @@ export function parseLabValues(labText: string): Record<string, number> {
   const values: Record<string, number> = {};
 
   const patterns = [
-    { name: 'potassium', regex: /k[\+:]?\s*([\d.]+)/i },
-    { name: 'sodium', regex: /na[\+:]?\s*([\d.]+)/i },
-    { name: 'hemoglobin', regex: /hg?b[\:]?\s*([\d.]+)/i },
+    { name: 'potassium', regex: /k[+:]?\s*([\d.]+)/i },
+    { name: 'sodium', regex: /na[+:]?\s*([\d.]+)/i },
+    { name: 'hemoglobin', regex: /hg?b[:]?\s*([\d.]+)/i },
     { name: 'platelets', regex: /plt[s]?\s*[:/]?\s*(\d+)/i },
     { name: 'wbc', regex: /wbc\s*[:/]?\s*([\d.]+)/i },
     { name: 'creatinine', regex: /cr\s*[:/]?\s*([\d.]+)/i },

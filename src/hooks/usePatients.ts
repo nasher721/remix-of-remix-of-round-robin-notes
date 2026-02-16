@@ -241,7 +241,7 @@ export const usePatients = () => {
       // Revert on error by fetching fresh data
       fetchPatients();
     }
-  }, [user, fetchPatients]);
+  }, [user, fetchPatients, notifications]);
 
   const removePatient = React.useCallback(async (id: string) => {
     if (!user) return;
@@ -363,7 +363,7 @@ export const usePatients = () => {
       console.error("Error collapsing all patients:", error);
       fetchPatients(); // Revert on error
     }
-  }, [user, fetchPatients]);
+  }, [user, fetchPatients, notifications]);
 
   const importPatients = React.useCallback(async (patientsToImport: Array<{
     name: string;

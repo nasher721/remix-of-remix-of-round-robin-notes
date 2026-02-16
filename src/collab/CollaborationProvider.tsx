@@ -60,6 +60,7 @@ export function CollaborationProvider({
   const docRef = useRef<Y.Doc | null>(null);
 
   useEffect(() => {
+    const currentUserId = userIdRef.current;
     const doc = new Y.Doc();
     docRef.current = doc;
 
@@ -91,7 +92,7 @@ export function CollaborationProvider({
     return () => {
       clearInterval(cleanupInterval);
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      removeCursor(newStore, userIdRef.current);
+      removeCursor(newStore, currentUserId);
       doc.destroy();
     };
   }, [roomPrefix]);

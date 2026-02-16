@@ -127,7 +127,7 @@ const generateSampleLabs = (patient: Patient): LabTrendData[] => {
 };
 
 export function MobileLabTrends({ patient, onViewDetails, className }: MobileLabTrendsProps) {
-  const labs = React.useMemo(() => generateSampleLabs(patient), [patient.id]);
+  const labs = React.useMemo(() => generateSampleLabs(patient), [patient]);
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -244,7 +244,7 @@ interface InlineLabTrendsProps {
 }
 
 export function InlineLabTrends({ patient, onClick }: InlineLabTrendsProps) {
-  const labs = React.useMemo(() => generateSampleLabs(patient).slice(0, 4), [patient.id]);
+  const labs = React.useMemo(() => generateSampleLabs(patient).slice(0, 4), [patient]);
   const abnormalCount = labs.filter(l => {
     const latest = l.values[l.values.length - 1]?.value ?? 0;
     return latest < l.normalLow || latest > l.normalHigh;

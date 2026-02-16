@@ -294,7 +294,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     localStorage.setItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID, selectedTemplateId);
   }, [selectedTemplateId]);
 
-  const handleUpdateSettings = (newSettings: Partial<PrintSettingsType>) => {
+  const handleUpdateSettings = React.useCallback((newSettings: Partial<PrintSettingsType>) => {
     setSettings(prev => {
       const updated = { ...prev, ...newSettings };
       // Save changes to localStorage
@@ -316,12 +316,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
       return updated;
     });
-  };
+  }, []);
 
-  const handleUpdateColumns = (newColumns: ColumnConfig[]) => {
+  const handleUpdateColumns = React.useCallback((newColumns: ColumnConfig[]) => {
     setSettings(prev => ({ ...prev, columns: newColumns }));
     localStorage.setItem('printColumnPrefs', JSON.stringify(newColumns));
-  };
+  }, []);
 
   const applyTemplateSettings = React.useCallback((template: ReturnType<typeof getTemplateById>) => {
     if (!template) return;

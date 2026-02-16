@@ -253,7 +253,7 @@ export const useBatchCourseGenerator = () => {
     }
 
     return results;
-  }, []);
+  }, [getModelForFeature]);
 
   // Backwards compatible wrapper for course generation
   const generateBatchCourses = React.useCallback(async (

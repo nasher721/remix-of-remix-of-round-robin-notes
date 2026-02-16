@@ -105,7 +105,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps): JSX.Eleme
       unsubscribe();
       stopReplication();
     };
-  }, [isInitialized, user?.id]);
+  }, [isInitialized, user]);
 
   // Handle logout - reset database
   useEffect(() => {

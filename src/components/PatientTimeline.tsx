@@ -97,7 +97,7 @@ export function PatientTimeline({
   React.useEffect(() => {
     const dates = Array.from(groupedEvents.keys()).slice(0, 3);
     setExpandedDates(new Set(dates));
-  }, [events]);
+  }, [events, groupedEvents]);
 
   const toggleDate = (date: string) => {
     setExpandedDates(prev => {

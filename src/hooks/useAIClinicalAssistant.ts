@@ -186,7 +186,7 @@ export const useAIClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast]);
+  }, [onSuccess, onError, toast, getModelForFeature]);
 
   // Convenience methods
   const smartExpand = useCallback(

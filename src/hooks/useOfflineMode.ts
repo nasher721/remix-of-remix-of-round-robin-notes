@@ -49,7 +49,7 @@ export function useOfflineMode() {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, []);
+  }, [triggerSync]);
   
   // Subscribe to queue changes
   useEffect(() => {
