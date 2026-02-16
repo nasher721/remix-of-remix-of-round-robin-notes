@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { z } from "zod";
-import { supabase } from "@/integrations/supabase/client";
+// Removed direct supabase import to avoid potential cycles
 
 const authSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -124,6 +124,7 @@ const Auth = () => {
     const label = provider === "google" ? "Google" : "Apple";
     setLoading(true);
     try {
+      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {

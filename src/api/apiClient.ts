@@ -122,4 +122,5 @@ class AbortSignalProxy {
   }
 }
 
-export const { apiFetch } = createApiClient();
+const client = createApiClient();
+export const apiFetch = client.apiFetch;
