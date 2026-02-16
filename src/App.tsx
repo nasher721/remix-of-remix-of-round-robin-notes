@@ -9,10 +9,12 @@ import { IBCCProvider } from "@/contexts/IBCCContext";
 import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import PrintExportTest from "./pages/PrintExportTest";
-import FHIRCallback from "./pages/FHIRCallback";
+
+// Lazy-load secondary routes to reduce initial bundle
+const Auth = React.lazy(() => import("./pages/Auth"));
+const FHIRCallback = React.lazy(() => import("./pages/FHIRCallback"));
+const PrintExportTest = React.lazy(() => import("./pages/PrintExportTest"));
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -48,15 +50,17 @@ function App(): React.ReactElement {
                   <Sonner />
                   <BrowserRouter>
                     <SkipToContent />
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/auth" element={<Auth />} />
-                      <Route path="/fhir/callback" element={<FHIRCallback />} />
-                      {import.meta.env.DEV && (
-                        <Route path="/__print-export-test" element={<PrintExportTest />} />
-                      )}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
+                    <React.Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/auth" element={<Auth />} />
+                        <Route path="/fhir/callback" element={<FHIRCallback />} />
+                        {import.meta.env.DEV && (
+                          <Route path="/__print-export-test" element={<PrintExportTest />} />
+                        )}
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </React.Suspense>
                   </BrowserRouter>
                 </TooltipProvider>
               </ClinicalGuidelinesProvider>

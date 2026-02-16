@@ -273,7 +273,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
       
       mediaRecorder.stop();
     });
-  }, [enhanceMedical, onTranscript, toast, stopAudioAnalysis]);
+  }, [enhanceMedical, onTranscript, toast, stopAudioAnalysis, getModelForFeature]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) {

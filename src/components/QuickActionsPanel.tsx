@@ -363,6 +363,7 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, patient]);
 
   return (

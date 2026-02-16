@@ -69,7 +69,7 @@ export const useIntervalEventsGenerator = () => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, []);
+  }, [getModelForFeature]);
 
   const cancelGeneration = useCallback(() => {
     if (abortControllerRef.current) {
