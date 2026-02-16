@@ -132,7 +132,7 @@ export const PROTOCOLS: ProtocolChecklist[] = [
   },
 ];
 
-export function suggestProtocols(patient: any): ProtocolChecklist[] {
+export function suggestProtocols(patient: { clinicalSummary?: string; intervalEvents?: string; labs?: string; imaging?: string; systems?: Record<string, string> }): ProtocolChecklist[] {
   const text = [
     patient.clinicalSummary || '',
     patient.intervalEvents || '',

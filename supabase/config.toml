@@ -1,7 +1,37 @@
 project_id = "qrlonfgafvyfqqtsasfc"
 
+# All Edge Functions require JWT authentication (defense-in-depth).
+# Functions also perform internal auth via authenticateRequest() in _shared/auth.ts.
+
+[functions.ai-clinical-assistant]
+verify_jwt = true
+
+[functions.check-drug-interactions]
+verify_jwt = true
+
+[functions.format-medications]
+verify_jwt = true
+
 [functions.generate-daily-summary]
-verify_jwt = false
+verify_jwt = true
+
+[functions.generate-interval-events]
+verify_jwt = true
+
+[functions.generate-patient-course]
+verify_jwt = true
+
+[functions.generate-todos]
+verify_jwt = true
 
 [functions.parse-handoff]
-verify_jwt = false
+verify_jwt = true
+
+[functions.parse-single-patient]
+verify_jwt = true
+
+[functions.transcribe-audio]
+verify_jwt = true
+
+[functions.transform-text]
+verify_jwt = true

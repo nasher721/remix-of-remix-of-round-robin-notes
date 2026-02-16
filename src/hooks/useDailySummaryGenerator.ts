@@ -89,7 +89,7 @@ export const useDailySummaryGenerator = () => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, []);
+  }, [getModelForFeature]);
 
   const cancelGeneration = useCallback(() => {
     if (abortControllerRef.current) {

@@ -2,9 +2,12 @@
  * Load PDF.js from CDN and extract text/images
  */
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PdfJsLib = any;
+
 declare global {
     interface Window {
-        pdfjsLib: any;
+        pdfjsLib: PdfJsLib;
     }
 }
 
@@ -36,7 +39,7 @@ export const extractPdfText = async (file: File): Promise<string> => {
         const textContent = await page.getTextContent();
 
         const pageText = textContent.items
-            .map((item: any) => item.str)
+            .map((item: { str: string }) => item.str)
             .join(" ");
 
         fullText += pageText + "\n\n--- Page Break ---\n\n";

@@ -503,9 +503,10 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
 
   // Cleanup auto-save timer
   React.useEffect(() => {
+    const timerRef = autoSaveTimerRef;
     return () => {
-      if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
       }
     };
   }, []);

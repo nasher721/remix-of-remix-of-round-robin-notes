@@ -578,7 +578,7 @@ SYSTEM MAPPING GUIDANCE:
         // Remove incomplete array item
         repaired = repaired.replace(/,\s*\[[^\]]*$/, '');
         // Remove trailing comma before closing
-        repaired = repaired.replace(/,(\s*[\]\}])/g, '$1');
+        repaired = repaired.replace(/,(\s*[\]}])/g, '$1');
 
         // Calculate missing closers after cleanup
         const finalOpenBraces = (repaired.match(/\{/g) || []).length;
@@ -605,7 +605,7 @@ SYSTEM MAPPING GUIDANCE:
           // Repair Strategy 2: Try to extract just the patients array
           const patientsMatch = jsonStr.match(/"patients"\s*:\s*\[([\s\S]*)/);
           if (patientsMatch) {
-            let patientsContent = patientsMatch[1];
+            const patientsContent = patientsMatch[1];
 
             // Find complete patient objects by matching balanced braces
             const patients: ParsedPatient[] = [];

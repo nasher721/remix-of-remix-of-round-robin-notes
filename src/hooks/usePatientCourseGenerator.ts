@@ -82,7 +82,7 @@ export const usePatientCourseGenerator = () => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, []);
+  }, [getModelForFeature]);
 
   const cancelGeneration = React.useCallback(() => {
     if (abortControllerRef.current) {

@@ -181,7 +181,7 @@ export const useTextTransform = () => {
     } finally {
       setIsTransforming(false);
     }
-  }, []);
+  }, [getModelForFeature]);
 
   return {
     transformText,

@@ -393,6 +393,7 @@ export const RichTextEditor = ({
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showAutocomplete, autocompleteOptions, selectedIndex, autotexts]);
 
   const handleKeyUp = React.useCallback((e: React.KeyboardEvent) => {
