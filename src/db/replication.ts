@@ -1,11 +1,7 @@
 import { replicateSupabase } from 'rxdb/plugins/replication-supabase';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { getDatabase, PatientDocType } from './database';
-
-// Supabase configuration
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
 
 // Replication state for UI
 export interface ReplicationState {
@@ -50,7 +46,7 @@ const activeReplications: Map<string, any> = new Map();
  * Start Supabase replication for a user
  */
 export async function startReplication(userId: string): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
+  if (!hasSupabaseConfig) {
     console.error('[RxDB] Missing Supabase configuration');
     return;
   }
@@ -59,16 +55,13 @@ export async function startReplication(userId: string): Promise<void> {
   await stopReplication();
 
   const db = await getDatabase();
-  
-  // Create Supabase client
-  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // Create replication
   const replication = replicateSupabase<PatientDocType>({
     collection: db.patients,
-    client: supabaseClient as SupabaseClient,
+    client: supabase as SupabaseClient,
     tableName: 'patients',
-    replicationIdentifier: `patients-${SUPABASE_URL}`,
+    replicationIdentifier: `patients-${(supabase as any).supabaseUrl || 'default'}`,
     live: true,
     pull: {
       batchSize: 100,
