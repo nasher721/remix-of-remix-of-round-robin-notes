@@ -17,6 +17,11 @@ export { getCorsHeaders as corsHeaders } from './cors.ts';
 export { errorResponse as createErrorResponse } from './cors.ts';
 export { handleOptions as createCorsResponse } from './cors.ts';
 
+export {
+  MissingAPIKeyError,
+  LLMProviderError,
+} from './llm-client.ts';
+
 export function safeLog(level: 'info' | 'warn' | 'error', message: string, data?: Record<string, unknown>): void {
   const sanitizedData = data ? sanitizeForLogging(data) : undefined;
   console.log(JSON.stringify({

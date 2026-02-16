@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, LLMProviderError } from '../_shared/mod.ts';
 import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 // AI Feature types
@@ -334,6 +334,9 @@ serve(async (req) => {
       safeLog('info', `LLM response received: ${result?.length || 0} chars`);
     } catch (err) {
       safeLog('error', `LLM error: ${err}`);
+      if (err instanceof MissingAPIKeyError) {
+        throw err;
+      }
       throw new Error('Failed to get AI response');
     }
 
@@ -370,6 +373,12 @@ serve(async (req) => {
 
   } catch (error) {
     safeLog('error', `AI Clinical Assistant error: ${error}`);
+    if (error instanceof MissingAPIKeyError) {
+      return new Response(
+        JSON.stringify({ success: false, error: error.message }),
+        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
     const errorMessage = error instanceof Error ? error.message : 'AI processing failed';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),

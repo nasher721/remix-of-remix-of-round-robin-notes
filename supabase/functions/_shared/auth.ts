@@ -66,9 +66,12 @@ export async function authenticateRequest(
   const token = authHeader.replace('Bearer ', '');
   
   try {
-    const { data, error } = await supabaseClient.auth.getClaims(token);
+    // Use getUser() for server-side validation - this actually verifies
+    // with the Supabase Auth server that the session is still valid
+    // (unlike getClaims() which only does local JWT validation)
+    const { data, error } = await supabaseClient.auth.getUser(token);
     
-    if (error || !data?.claims) {
+    if (error || !data?.user) {
       return {
         error: errorResponse(
           req,
@@ -79,8 +82,8 @@ export async function authenticateRequest(
     }
 
     return {
-      userId: data.claims.sub as string,
-      email: data.claims.email as string | undefined,
+      userId: data.user.id,
+      email: data.user.email,
     };
   } catch (err) {
     console.error('Auth error:', err);

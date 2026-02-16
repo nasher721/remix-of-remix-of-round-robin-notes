@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError } from '../_shared/mod.ts';
 import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 interface Todo {
@@ -258,6 +258,13 @@ RULES:
 
   } catch (error) {
     safeLog('error', `Generate daily summary error: ${error}`);
+    // Handle missing API key configuration
+    if (error instanceof MissingAPIKeyError) {
+      return new Response(
+        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
+        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate daily summary';
     return new Response(
       JSON.stringify({ error: errorMessage }),
