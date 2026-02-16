@@ -66,9 +66,9 @@ export async function authenticateRequest(
   const token = authHeader.replace('Bearer ', '');
   
   try {
-    const { data, error } = await supabaseClient.auth.getClaims(token);
-    
-    if (error || !data?.claims) {
+    const { data: { user }, error } = await supabaseClient.auth.getUser(token);
+
+    if (error || !user) {
       return {
         error: errorResponse(
           req,
@@ -79,8 +79,8 @@ export async function authenticateRequest(
     }
 
     return {
-      userId: data.claims.sub as string,
-      email: data.claims.email as string | undefined,
+      userId: user.id,
+      email: user.email,
     };
   } catch (err) {
     console.error('Auth error:', err);

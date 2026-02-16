@@ -1,4 +1,4 @@
-project_id = "qrlonfgafvyfqqtsasfc"
+project_id = "zsavxqvnseqxusfwdovu"
 
 # All Edge Functions require JWT authentication (defense-in-depth).
 # Functions also perform internal auth via authenticateRequest() in _shared/auth.ts.

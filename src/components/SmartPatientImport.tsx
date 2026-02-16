@@ -86,7 +86,13 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
       });
 
       if (error) {
-        throw error;
+        // FunctionsFetchError = network/CORS failure (function may not be deployed)
+        const isFetchError = error.name === 'FunctionsFetchError';
+        throw new Error(
+          isFetchError
+            ? 'Could not reach the Edge Function. Please verify it is deployed and try again.'
+            : (error.message || 'Edge Function request failed')
+        );
       }
 
       if (data?.error) {
