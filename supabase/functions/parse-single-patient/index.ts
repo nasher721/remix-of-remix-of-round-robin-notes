@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { getLLMConfig } from '../_shared/llm-client.ts';
 
 interface PatientSystems {
   neuro: string;
@@ -37,7 +38,7 @@ interface ParsedPatient {
  */
 function convertLineBreaks(text: string): string {
   if (!text) return '';
-  
+
   return text
     // Convert <BR> markers to actual newlines
     .replace(/<BR>/g, '\n')
@@ -76,9 +77,18 @@ serve(async (req) => {
       );
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      safeLog('error', "OPENAI_API_KEY is not configured");
+    // Infer provider preference from model name
+    let preferredProvider: 'openai' | 'gemini' | 'grok' | undefined;
+    if (requestedModel) {
+      if (requestedModel.startsWith('gpt')) preferredProvider = 'openai';
+      else if (requestedModel.startsWith('gemini')) preferredProvider = 'gemini';
+      else if (requestedModel.startsWith('llama') || requestedModel.startsWith('mixtral')) preferredProvider = 'grok';
+    }
+
+    const config = getLLMConfig(preferredProvider);
+
+    if (!config.apiKey) {
+      safeLog('error', "No valid LLM API key found");
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
@@ -134,17 +144,19 @@ MEDICATION FORMATTING RULES:
 INPUT:
 ${content}`;
 
-    safeLog('info', "Calling AI gateway for single patient parsing...");
+    safeLog('info', `Calling AI gateway for single patient parsing using provider: ${config.provider}...`);
 
-    // Use gpt-4o for better instruction following
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    // Use gpt-4o for better instruction following, or fallback to config default
+    const modelToUse = requestedModel || (config.provider === 'openai' ? 'gpt-4o' : config.defaultModel);
+
+    const response = await fetch(`${config.baseURL}/chat/completions`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Authorization": `Bearer ${config.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: requestedModel || "gpt-4o",
+        model: modelToUse,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -175,20 +187,20 @@ ${content}`;
                   skinLines: { type: "string", description: "ALL skin/lines content with <BR> for line breaks" },
                   dispo: { type: "string", description: "ALL disposition content with <BR> for line breaks" },
                   medicationsRaw: { type: "string", description: "Raw medication text from input" },
-                  medicationsInfusions: { 
-                    type: "array", 
+                  medicationsInfusions: {
+                    type: "array",
                     items: { type: "string" },
-                    description: "Continuous infusion medications with rates (e.g., Norepinephrine 5 mcg/min)" 
+                    description: "Continuous infusion medications with rates (e.g., Norepinephrine 5 mcg/min)"
                   },
-                  medicationsScheduled: { 
-                    type: "array", 
+                  medicationsScheduled: {
+                    type: "array",
                     items: { type: "string" },
-                    description: "Regularly scheduled medications (e.g., Metoprolol 25 mg PO BID)" 
+                    description: "Regularly scheduled medications (e.g., Metoprolol 25 mg PO BID)"
                   },
-                  medicationsPrn: { 
-                    type: "array", 
+                  medicationsPrn: {
+                    type: "array",
                     items: { type: "string" },
-                    description: "As-needed medications (e.g., Morphine 2 mg IV PRN)" 
+                    description: "As-needed medications (e.g., Morphine 2 mg IV PRN)"
                   }
                 },
                 required: ["name", "bed", "clinicalSummary", "intervalEvents", "imaging", "labs", "neuro", "cv", "resp", "renalGU", "gi", "endo", "heme", "infectious", "skinLines", "dispo", "medicationsRaw", "medicationsInfusions", "medicationsScheduled", "medicationsPrn"],
@@ -204,7 +216,7 @@ ${content}`;
     if (!response.ok) {
       const errorText = await response.text();
       safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
@@ -217,7 +229,7 @@ ${content}`;
           { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
         );
       }
-      
+
       return new Response(
         JSON.stringify({ error: "Failed to process clinical notes" }),
         { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
@@ -225,12 +237,12 @@ ${content}`;
     }
 
     const aiResponse = await response.json();
-    
+
     safeLog('info', "AI response received, parsing...");
     safeLog('info', `Full AI response: ${JSON.stringify(aiResponse, null, 2)}`);
 
     let parsedData: any;
-    
+
     // Check for tool call response
     const toolCall = aiResponse.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
@@ -242,7 +254,7 @@ ${content}`;
         safeLog('error', `Failed to parse tool call arguments: ${e}`);
       }
     }
-    
+
     // Fallback to content parsing if tool call didn't work
     if (!parsedData) {
       const aiContent = aiResponse.choices?.[0]?.message?.content;
@@ -278,7 +290,7 @@ ${content}`;
           .replace(/\n/g, '\\n')
           .replace(/\r/g, '')
           .replace(/\t/g, '  ');
-        
+
         try {
           parsedData = JSON.parse(repaired);
         } catch {
