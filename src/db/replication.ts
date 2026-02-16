@@ -1,7 +1,7 @@
 import { replicateSupabase } from 'rxdb/plugins/replication-supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getDatabase, PatientDocType } from './database';
-import { supabase, hasSupabaseConfig } from '@/integrations/supabase/client';
+import { supabase, hasSupabaseConfig, supabaseUrl } from '@/integrations/supabase/client';
 
 // Replication state for UI
 export interface ReplicationState {
@@ -61,7 +61,7 @@ export async function startReplication(userId: string): Promise<void> {
     collection: db.patients,
     client: supabase as SupabaseClient,
     tableName: 'patients',
-    replicationIdentifier: `patients-${(supabase as any).supabaseUrl || 'default'}`,
+    replicationIdentifier: `patients-${supabaseUrl || 'default'}`,
     live: true,
     pull: {
       batchSize: 100,

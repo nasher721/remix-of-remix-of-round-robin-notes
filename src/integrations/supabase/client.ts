@@ -19,10 +19,10 @@ if (!hasSupabaseConfig) {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-const resolvedUrl = hasSupabaseConfig ? SUPABASE_URL : "http://localhost";
+export const supabaseUrl = hasSupabaseConfig ? SUPABASE_URL : "http://localhost";
 const resolvedKey = hasSupabaseConfig ? SUPABASE_KEY : "invalid-key";
 
-export const supabase = createClient<Database>(resolvedUrl, resolvedKey, {
+export const supabase = createClient<Database>(supabaseUrl, resolvedKey, {
   auth: {
     storage: createSafeStorage(),
     persistSession: true,
