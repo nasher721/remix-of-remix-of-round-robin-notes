@@ -245,7 +245,7 @@ ${content}`;
     
     // Fallback to content parsing if tool call didn't work
     if (!parsedData) {
-      let aiContent = aiResponse.choices?.[0]?.message?.content;
+      const aiContent = aiResponse.choices?.[0]?.message?.content;
       if (!aiContent) {
         safeLog('error', "No content in AI response");
         return new Response(
@@ -272,7 +272,7 @@ ${content}`;
       } catch (parseError) {
         safeLog('error', `JSON parse error: ${parseError}`);
         // Try to repair common JSON issues
-        let repaired = jsonStr
+        const repaired = jsonStr
           .replace(/,\s*}/g, '}')
           .replace(/,\s*]/g, ']')
           .replace(/\n/g, '\\n')

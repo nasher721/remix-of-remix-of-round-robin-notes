@@ -13,8 +13,8 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:3000',
-  // Production - add your Vercel domain here
-  // 'https://your-app.vercel.app',
+  // Production Vercel deployments
+  'https://remix-of-remix-of-round-robin-notes.vercel.app',
   // Supabase dashboard (for testing)
   'https://supabase.com',
 ];
@@ -55,9 +55,11 @@ export function getCorsHeaders(request: Request): Record<string, string> {
   // Check if origin is allowed
   const isAllowed = origin && (
     // Check explicit allowlist
-    allowedOrigins.some(allowed => 
+    allowedOrigins.some(allowed =>
       origin === allowed || origin.startsWith(allowed + '/')
-    )
+    ) ||
+    // Allow Vercel preview deployments (*.vercel.app)
+    /^https:\/\/[a-z0-9-]+-nasher721s-projects\.vercel\.app$/.test(origin)
   );
   
   // SECURITY: If origin is not allowed, return NO CORS headers
