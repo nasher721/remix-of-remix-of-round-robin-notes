@@ -1,5 +1,18 @@
 // deno-lint-ignore-file
-import { corsHeaders } from './mod.ts';
+
+export class MissingAPIKeyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MissingAPIKeyError';
+  }
+}
+
+export class LLMProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LLMProviderError';
+  }
+}
 
 export interface LLMConfig {
   apiKey: string;
@@ -116,7 +129,7 @@ export async function callLLM(
   const config = getLLMConfig(preferredProvider);
 
   if (!config.apiKey) {
-    throw new Error('No valid LLM API key found (checked OPENAI_API_KEY, GEMINI_API_KEY, GROK_API_KEY)');
+    throw new MissingAPIKeyError('No LLM API key configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to your Supabase project secrets.');
   }
 
   // Map requested model to provider-specific model if needed
@@ -162,7 +175,7 @@ export async function callLLM(
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`LLM Error (${config.provider}): ${response.status} ${errorText}`);
-    throw new Error(`LLM provider error: ${response.status} ${errorText}`);
+    throw new LLMProviderError(`LLM provider error (${config.provider}): ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
