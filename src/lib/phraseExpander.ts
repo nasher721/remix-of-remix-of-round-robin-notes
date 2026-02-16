@@ -122,8 +122,8 @@ export const calculateFormula = (
       return null;
     }
 
-    // eslint-disable-next-line no-eval
-    const result = eval(expression);
+    // Use Function constructor instead of eval for safer math-only evaluation
+    const result = new Function(`"use strict"; return (${expression});`)();
     return typeof result === 'number' && !isNaN(result) ? Math.round(result * 100) / 100 : null;
   } catch (error) {
     console.error('Formula calculation error:', error);
