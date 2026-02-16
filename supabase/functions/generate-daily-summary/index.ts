@@ -1,8 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
-
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 interface Todo {
   content: string;
@@ -62,13 +61,9 @@ serve(async (req) => {
       todos,
       existingIntervalEvents,
       model: requestedModel,
-    } = await req.json();
+     } = await req.json();
 
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
-    }
-
-    const todayFormatted = new Date().toLocaleDateString('en-US', { 
+    const todayFormatted = new Date().toLocaleDateString('en-US', {
       weekday: 'short', 
       month: 'short', 
       day: 'numeric' 
@@ -215,47 +210,27 @@ RULES:
 5. Highlight any changes from previous status
 6. Output ONLY the formatted summary block`;
 
-    const userPrompt = `Generate a comprehensive daily summary for ${patientName || 'this patient'}:\n\n${patientContext.join('\n\n')}`;
+     const userPrompt = `Generate a comprehensive daily summary for ${patientName || 'this patient'}:\n\n${patientContext.join('\n\n')}`;
 
     safeLog('info', `Generating daily summary for ${patientName}: ${patientContext.length} sections, ${pendingTodos.length} pending todos`);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    let summary: string | null | undefined = null;
+    try {
+      summary = await callLLM(systemPrompt, userPrompt, {
         model: requestedModel || 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
-      
-      if (response.status === 429) {
+        temperature: 0.4,
+      });
+      safeLog('info', `LLM summary received: ${summary?.length || 0} characters`);
+    } catch (err) {
+      safeLog('error', `LLM error: ${err}`);
+      if (err instanceof Error && (err.message.includes('429') || err.message.includes('Rate limit'))) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
           { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw err;
     }
-
-    const data = await response.json();
-    const summary = data.choices?.[0]?.message?.content?.trim();
 
     if (!summary) {
       throw new Error('No response from AI');

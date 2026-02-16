@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 // AI Feature types
 type AIFeature =
@@ -25,6 +26,17 @@ interface ClinicalContext {
     prn?: string[];
   };
 }
+
+// Feature-specific temperatures
+const FEATURE_TEMPERATURES: Record<AIFeature, number> = {
+  smart_expand: 0.5,
+  differential_diagnosis: 0.4,
+  documentation_check: 0.3,
+  soap_format: 0.4,
+  assessment_plan: 0.4,
+  clinical_summary: 0.3,
+  medical_correction: 0.3,
+};
 
 // System prompts for each feature
 const SYSTEM_PROMPTS: Record<AIFeature, string> = {
@@ -175,17 +187,6 @@ RULES:
 OUTPUT: Return only the corrected text.`,
 };
 
-// Temperature settings for each feature
-const FEATURE_TEMPERATURES: Record<AIFeature, number> = {
-  smart_expand: 0.2,
-  differential_diagnosis: 0.3,
-  documentation_check: 0.2,
-  soap_format: 0.1,
-  assessment_plan: 0.3,
-  clinical_summary: 0.3,
-  medical_correction: 0.1,
-};
-
 function stripHtml(text: string): string {
   return text?.replace(/<[^>]*>/g, '').trim() || '';
 }
@@ -292,13 +293,6 @@ serve(async (req) => {
       throw new Error('Feature type is required');
     }
 
-    // Get API key
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured. Please set OPENAI_API_KEY in your Supabase secrets.');
-    }
-
     // Build the user message
     let userMessage = '';
 
@@ -330,57 +324,21 @@ serve(async (req) => {
     let result: string | null | undefined = null;
     let modelUsed = '';
 
-    // Determine which model to use
-    const defaultGatewayModel = requestedModel || 'google/gemini-3-flash-preview';
-    const isGatewayModel = requestedModel && (requestedModel.startsWith('google/') || requestedModel.startsWith('openai/'));
-
-    // Try OpenAI GPT-4 first (preferred for clinical reasoning) - only if no gateway model requested
-    if (OPENAI_API_KEY && !isGatewayModel) {
-      try {
-        // Use GPT-4o for complex tasks, GPT-4o-mini for simpler ones
-        const isComplexTask = ['differential_diagnosis', 'assessment_plan', 'documentation_check'].includes(feature);
-        const model = isComplexTask ? 'gpt-4o' : 'gpt-4o-mini';
-
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage }
-            ],
-            temperature,
-            max_completion_tokens: 4000,
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          result = data.choices?.[0]?.message?.content;
-          modelUsed = model;
-          safeLog('info', `GPT response received: ${result?.length || 0} chars`);
-        } else {
-          const errorText = await response.text();
-          safeLog('error', `OpenAI API error: ${response.status} - ${errorText}`);
-
-          if (response.status === 429) {
-            return new Response(
-              JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-              { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-            );
-          }
-        }
-      } catch (err) {
-        safeLog('error', `OpenAI API error: ${err}`);
-      }
+    try {
+      result = await callLLM(systemPrompt, userMessage, {
+        model: requestedModel,
+        temperature,
+        jsonMode: ['differential_diagnosis', 'documentation_check', 'soap_format', 'assessment_plan'].includes(feature),
+      });
+      modelUsed = getLLMConfig().provider;
+      safeLog('info', `LLM response received: ${result?.length || 0} chars`);
+    } catch (err) {
+      safeLog('error', `LLM error: ${err}`);
+      throw new Error('Failed to get AI response');
     }
 
     if (!result) {
-      throw new Error('Failed to get AI response from OpenAI');
+      throw new Error('No response from AI');
     }
 
     // Parse JSON response for structured features

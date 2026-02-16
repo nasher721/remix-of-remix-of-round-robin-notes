@@ -4,7 +4,8 @@ import { getDatabase, PatientDocType } from './database';
 
 // Supabase configuration
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Replication state for UI
 export interface ReplicationState {
@@ -49,7 +50,7 @@ const activeReplications: Map<string, any> = new Map();
  * Start Supabase replication for a user
  */
 export async function startReplication(userId: string): Promise<void> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error('[RxDB] Missing Supabase configuration');
     return;
   }
@@ -60,7 +61,7 @@ export async function startReplication(userId: string): Promise<void> {
   const db = await getDatabase();
   
   // Create Supabase client
-  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
   // Create replication
   const replication = replicateSupabase<PatientDocType>({

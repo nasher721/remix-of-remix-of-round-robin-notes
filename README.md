@@ -18,7 +18,7 @@ Round Robin Notes enables team-based patient management with clinical decision s
 
 ### Prerequisites
 
-- Node.js 18+ (recommended: use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+- Node.js 20+ (recommended: use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
 - npm or bun
 
 ### Installation
@@ -45,7 +45,7 @@ Create a `.env` file based on `.env.example`:
 
 ```env
 VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 ```
 
 ## Available Scripts
@@ -67,7 +67,7 @@ npm test           # Run tests
 2. Import the project in [Vercel](https://vercel.com)
 3. Add environment variables in Vercel dashboard:
    - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` (preferred) or `VITE_SUPABASE_ANON_KEY` (legacy)
 4. Deploy!
 
 ### Supabase Edge Functions

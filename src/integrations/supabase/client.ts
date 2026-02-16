@@ -5,9 +5,10 @@ import { apiFetch } from '@/api/apiClient';
 import { createSafeStorage } from '@/utils/safeStorage';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
+const SUPABASE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
-export const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
+export const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_KEY);
 
 if (!hasSupabaseConfig) {
   console.warn(
@@ -19,7 +20,7 @@ if (!hasSupabaseConfig) {
 // import { supabase } from "@/integrations/supabase/client";
 
 const resolvedUrl = hasSupabaseConfig ? SUPABASE_URL : "http://localhost";
-const resolvedKey = hasSupabaseConfig ? SUPABASE_PUBLISHABLE_KEY : "invalid-key";
+const resolvedKey = hasSupabaseConfig ? SUPABASE_KEY : "invalid-key";
 
 export const supabase = createClient<Database>(resolvedUrl, resolvedKey, {
   auth: {
