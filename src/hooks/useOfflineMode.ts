@@ -18,7 +18,27 @@ export function useOfflineMode() {
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
+  // Trigger manual sync (declared before useEffect that references it)
+  const triggerSync = useCallback(async () => {
+    if (!isOnline || isSyncing) return;
+
+    setIsSyncing(true);
+    setSyncProgress(null);
+
+    try {
+      const result = await syncService.syncAll((progress) => {
+        setSyncProgress(progress);
+      });
+
+      if (result.completed > 0) {
+        setLastSyncTime(Date.now());
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isOnline, isSyncing]);
+
   // Handle online/offline status
   useEffect(() => {
     const handleOnline = () => {
@@ -31,17 +51,17 @@ export function useOfflineMode() {
         triggerSync();
       }, 1000);
     };
-    
+
     const handleOffline = () => {
       setIsOnline(false);
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-    
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -50,47 +70,27 @@ export function useOfflineMode() {
       }
     };
   }, [triggerSync]);
-  
+
   // Subscribe to queue changes
   useEffect(() => {
     // Initial load
     setPendingMutations(offlineQueue.getQueue());
-    
+
     const unsubscribe = offlineQueue.subscribe((queue) => {
       setPendingMutations(queue);
     });
-    
+
     return unsubscribe;
   }, []);
-  
+
   // Subscribe to sync progress
   useEffect(() => {
     const unsubscribe = syncService.subscribeProgress((progress) => {
       setSyncProgress(progress);
     });
-    
+
     return unsubscribe;
   }, []);
-  
-  // Trigger manual sync
-  const triggerSync = useCallback(async () => {
-    if (!isOnline || isSyncing) return;
-    
-    setIsSyncing(true);
-    setSyncProgress(null);
-    
-    try {
-      const result = await syncService.syncAll((progress) => {
-        setSyncProgress(progress);
-      });
-      
-      if (result.completed > 0) {
-        setLastSyncTime(Date.now());
-      }
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [isOnline, isSyncing]);
   
   // Queue a mutation
   const queueMutation = useCallback((
