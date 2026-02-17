@@ -1,5 +1,7 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, LayoutGroup, useReducedMotion } from 'framer-motion';
+import { fadeInDown, scaleIn, staggerContainer, staggerItem, transitions } from '@/lib/animations';
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { VirtualizedPatientList } from "./VirtualizedPatientList";
@@ -174,10 +176,17 @@ export const DesktopDashboard = ({
     return "All patients";
   }, [filter]);
 
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <div className="min-h-screen bg-background" id="main-content">
       {/* Header - Modern Glass Effect */}
-      <header className="sticky top-0 z-50 border-b border-border/20 bg-card/95 backdrop-blur-xl no-print">
+      <motion.header
+        className="sticky top-0 z-50 border-b border-border/20 bg-card/95 backdrop-blur-xl no-print"
+        initial={shouldReduceMotion ? false : { opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={transitions.smooth}
+      >
         <div className="container mx-auto px-fluid-md lg:px-fluid-lg h-14 flex items-center justify-between gap-fluid-sm">
           {/* Logo & Title */}
           <div className="flex items-center gap-3 group cursor-pointer">
@@ -226,10 +235,15 @@ export const DesktopDashboard = ({
             </Button>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* Action Bar - Streamlined Toolbar */}
-      <div className="border-b border-border/20 bg-card/60 backdrop-blur-sm no-print">
+      <motion.div
+        className="border-b border-border/20 bg-card/60 backdrop-blur-sm no-print"
+        initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ ...transitions.smooth, delay: 0.1 }}
+      >
         <div className="container mx-auto px-fluid-md lg:px-fluid-lg py-2">
           <div className="flex items-center justify-between gap-fluid-xs flex-wrap">
             {/* Primary Actions Group */}
@@ -325,7 +339,7 @@ export const DesktopDashboard = ({
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Search, Filter & Settings Bar */}
       <div className="container mx-auto px-fluid-md lg:px-fluid-lg pt-4 pb-3 no-print">
@@ -342,19 +356,29 @@ export const DesktopDashboard = ({
                 className="pl-10 h-9 bg-card/60 border-border/30 focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-white/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
               />
             </div>
-            <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl">
-              {Object.values(PatientFilterType).map((f) => (
-                <Button
-                  key={f}
-                  variant={filter === f ? 'default' : 'ghost'}
-                  onClick={() => setFilter(f)}
-                  size="sm"
-                  className={`h-8 text-xs rounded-md ${filter === f ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  {f === PatientFilterType.All ? 'All' : f === PatientFilterType.Filled ? 'With Notes' : 'Empty'}
-                </Button>
-              ))}
-            </div>
+            <LayoutGroup>
+              <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl">
+                {Object.values(PatientFilterType).map((f) => (
+                  <Button
+                    key={f}
+                    variant={filter === f ? 'default' : 'ghost'}
+                    onClick={() => setFilter(f)}
+                    size="sm"
+                    className={`h-8 text-xs rounded-md relative ${filter === f ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                  >
+                    {filter === f && (
+                      <motion.div
+                        layoutId="activeFilter"
+                        className="absolute inset-0 bg-primary rounded-md"
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        style={{ zIndex: -1 }}
+                      />
+                    )}
+                    {f === PatientFilterType.All ? 'All' : f === PatientFilterType.Filled ? 'With Notes' : 'Empty'}
+                  </Button>
+                ))}
+              </div>
+            </LayoutGroup>
 
             {/* Sort Control */}
             <div className="flex items-center gap-1.5 bg-card/40 rounded-xl px-2">
@@ -452,7 +476,13 @@ export const DesktopDashboard = ({
       {/* Patient Cards */}
       <div className="container mx-auto px-fluid-md lg:px-fluid-lg pb-12 pr-16 transition-all duration-300">
         {filteredPatients.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
+          <motion.div
+            className="flex flex-col items-center justify-center py-20 text-center"
+            variants={shouldReduceMotion ? undefined : scaleIn}
+            initial="hidden"
+            animate="visible"
+            transition={{ ...transitions.spring, delay: 0.15 }}
+          >
             <div className="mb-8 relative">
               <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full scale-150" />
               <div className="relative bg-card rounded-3xl p-6 border border-border/20">
@@ -473,7 +503,7 @@ export const DesktopDashboard = ({
                 Add First Patient
               </Button>
             )}
-          </div>
+          </motion.div>
         ) : (
           <VirtualizedPatientList
             patients={filteredPatients}
@@ -526,6 +556,6 @@ export const DesktopDashboard = ({
       <GuidelinesPanel />
 
       <ContextAwareHelp />
-    </div>
+    </div >
   );
 };

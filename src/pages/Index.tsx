@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from 'framer-motion';
 import { useAuth } from "@/hooks/useAuth";
 import { usePatients } from "@/hooks/usePatients";
 import { useCloudAutotexts } from "@/hooks/useAutotexts";
@@ -175,7 +176,15 @@ function IndexContent(): React.ReactElement | null {
 
   if (authLoading || patientsLoading) {
     return (
-      <div className="min-h-screen bg-background" role="status" aria-live="polite" aria-busy="true">
+      <motion.div
+        className="min-h-screen bg-background"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
         <div className="flex items-center justify-center py-8">
           <div className="text-center space-y-4">
             <div className="relative mx-auto w-12 h-12">
@@ -191,7 +200,7 @@ function IndexContent(): React.ReactElement | null {
         <div className="container mx-auto px-6 pb-8">
           <PatientListSkeleton count={3} />
         </div>
-      </div>
+      </motion.div>
     );
   }
 
