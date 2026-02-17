@@ -181,3 +181,110 @@ export async function callLLM(
   const data = await response.json();
   return data.choices[0].message.content;
 }
+
+export interface StreamOptions {
+  model?: string;
+  temperature?: number;
+  maxTokens?: number;
+  onToken?: (token: string) => void;
+}
+
+export async function* streamLLM(
+  systemPrompt: string,
+  userPrompt: string,
+  options: StreamOptions = {}
+): AsyncGenerator<string, void, unknown> {
+  let preferredProvider: 'openai' | 'gemini' | 'grok' | undefined;
+  if (options.model) {
+    if (options.model.startsWith('gpt')) preferredProvider = 'openai';
+    else if (options.model.startsWith('gemini')) preferredProvider = 'gemini';
+    else if (options.model.startsWith('llama') || options.model.startsWith('mixtral')) preferredProvider = 'grok';
+  }
+
+  const config = getLLMConfig(preferredProvider);
+
+  if (!config.apiKey) {
+    throw new MissingAPIKeyError('No LLM API key configured.');
+  }
+
+  let model = options.model || config.defaultModel;
+  if (config.provider === 'gemini' && model.startsWith('gpt')) {
+    model = 'gemini-1.5-flash';
+  }
+  if (config.provider === 'grok' && model.startsWith('gpt')) {
+    model = 'llama3-70b-8192';
+  }
+
+  const body = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    temperature: options.temperature ?? 0.3,
+    max_tokens: options.maxTokens,
+    stream: true
+  };
+
+  const response = await fetch(`${config.baseURL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new LLMProviderError(`LLM streaming error (${config.provider}): ${response.status} - ${errorText}`);
+  }
+
+  if (!response.body) {
+    throw new LLMProviderError('No response body for streaming');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith('data: ')) continue;
+      
+      const data = trimmed.slice(6);
+      if (data === '[DONE]') return;
+
+      try {
+        const parsed = JSON.parse(data);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) {
+          options.onToken?.(content);
+          yield content;
+        }
+      } catch {
+        // Skip malformed JSON chunks
+      }
+    }
+  }
+}
+
+export async function streamLLMToString(
+  systemPrompt: string,
+  userPrompt: string,
+  options: StreamOptions = {}
+): Promise<string> {
+  let result = '';
+  for await (const chunk of streamLLM(systemPrompt, userPrompt, options)) {
+    result += chunk;
+  }
+  return result;
+}

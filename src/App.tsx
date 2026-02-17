@@ -18,6 +18,7 @@ const PrintExportTest = React.lazy(() => import("./pages/PrintExportTest"));
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
+import { OfflineSyncIndicator } from "@/components/offline/OfflineSyncIndicator";
 
 // Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({

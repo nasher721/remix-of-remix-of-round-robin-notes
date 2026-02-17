@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, LLMProviderError, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
-import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
+import { callLLM, getLLMConfig, streamLLM } from '../_shared/llm-client.ts';
 
 // AI Feature types
 type AIFeature =
@@ -281,6 +281,7 @@ serve(async (req) => {
       context?: ClinicalContext;
       customPrompt?: string;
       model?: string;
+      stream?: boolean;
     }>(req);
     if (!bodyResult.valid) {
       return bodyResult.response;
@@ -291,6 +292,7 @@ serve(async (req) => {
       context,
       customPrompt,
       model: requestedModel,
+      stream: shouldStream,
     } = bodyResult.data;
 
     if (!feature) {
@@ -324,6 +326,37 @@ serve(async (req) => {
     const temperature = FEATURE_TEMPERATURES[feature] || 0.3;
 
     safeLog('info', `Processing ${feature} request with ${userMessage.length} chars of input`);
+
+    if (shouldStream) {
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          try {
+            for await (const chunk of streamLLM(systemPrompt, userMessage, {
+              model: requestedModel,
+              temperature,
+            })) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ chunk })}\n\n`));
+            }
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+            controller.close();
+          } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Streaming failed';
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorMessage })}\n\n`));
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          ...corsHeaders(req),
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
 
     let result: string | null | undefined = null;
     let modelUsed = '';

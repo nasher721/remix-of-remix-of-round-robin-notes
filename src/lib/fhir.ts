@@ -8,7 +8,7 @@ export interface FHIRBundle {
 }
 
 export interface FHIRBundleEntry {
-  resource: FHIRPatient | FHIRObservation | FHIRMedicationRequest | FHIRCondition;
+  resource: FHIRPatient | FHIRObservation | FHIRMedicationRequest | FHIRCondition | FHIRProcedure | FHIREncounter | FHIRDiagnosticReport;
 }
 
 export interface FHIRPatient {
@@ -106,6 +106,92 @@ export interface FHIRCondition {
     reference: string;
   };
   onsetDateTime?: string;
+}
+
+export interface FHIRProcedure {
+  resourceType: 'Procedure';
+  id?: string;
+  status: 'preparation' | 'in-progress' | 'not-done' | 'on-hold' | 'stopped' | 'completed' | 'entered-in-error' | 'unknown';
+  code: {
+    coding: Array<{
+      system: string;
+      code: string;
+      display?: string;
+    }>;
+    text?: string;
+  };
+  subject: {
+    reference: string;
+  };
+  performedDateTime?: string;
+  performedPeriod?: {
+    start?: string;
+    end?: string;
+  };
+}
+
+export interface FHIREncounter {
+  resourceType: 'Encounter';
+  id?: string;
+  status: 'planned' | 'arrived' | 'triaged' | 'in-progress' | 'onleave' | 'finished' | 'cancelled' | 'entered-in-error' | 'unknown';
+  class: {
+    system: string;
+    code: string;
+    display?: string;
+  };
+  type?: Array<{
+    coding: Array<{
+      system: string;
+      code: string;
+      display?: string;
+    }>;
+    text?: string;
+  }>;
+  subject?: {
+    reference: string;
+  };
+  period?: {
+    start?: string;
+    end?: string;
+  };
+  reasonCode?: Array<{
+    coding: Array<{
+      system: string;
+      code: string;
+      display?: string;
+    }>;
+    text?: string;
+  }>;
+}
+
+export interface FHIRDiagnosticReport {
+  resourceType: 'DiagnosticReport';
+  id?: string;
+  status: 'registered' | 'partial' | 'preliminary' | 'final' | 'amended' | 'corrected' | 'appended' | 'cancelled' | 'entered-in-error' | 'unknown';
+  category?: Array<{
+    coding: Array<{
+      system: string;
+      code: string;
+      display?: string;
+    }>;
+  }>;
+  code: {
+    coding: Array<{
+      system: string;
+      code: string;
+      display?: string;
+    }>;
+    text?: string;
+  };
+  subject?: {
+    reference: string;
+  };
+  effectiveDateTime?: string;
+  issued?: string;
+  result?: Array<{
+    reference: string;
+  }>;
+  conclusion?: string;
 }
 
 export function patientToFHIR(patient: Patient): FHIRBundle {
