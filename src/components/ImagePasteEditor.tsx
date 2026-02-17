@@ -1,9 +1,11 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   Bold, Italic, List, ImageIcon, Loader2, Maximize2, Highlighter,
   Indent, Outdent, Palette, Undo2, Redo2, FileText, ImagePlus, ClipboardList,
-  Pencil, Eraser, Square, Circle, ArrowUpRight, Type
+  Pencil, Eraser, Square, Circle, ArrowUpRight, Type, Strikethrough,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
+  Superscript, Subscript, Search, Table as TableIcon, ListOrdered
 } from "lucide-react";
 import {
   Popover,
@@ -29,6 +31,9 @@ import { AITextTools } from "./AITextTools";
 import { PhrasePicker, PhraseFormDialog } from "./phrases";
 import { usePhraseExpansion } from "@/hooks/usePhraseExpansion";
 import { useClinicalPhrases } from "@/hooks/useClinicalPhrases";
+import { useEditorKeyboardShortcuts } from "@/hooks/useEditorKeyboardShortcuts";
+import { EditorFindReplace } from "./EditorFindReplace";
+import { EditorStatusBar } from "./EditorStatusBar";
 import type { Patient } from "@/types/patient";
 import { Slider } from "@/components/ui/slider";
 
@@ -43,6 +48,16 @@ const textColors = [
   { name: "Purple", value: "hsl(265 70% 55%)", cssVar: "" },
   { name: "Pink", value: "hsl(330 80% 60%)", cssVar: "" },
   { name: "Gray", value: "hsl(var(--muted-foreground))", cssVar: "--muted-foreground" },
+];
+
+const highlightColors = [
+  { name: "None", value: "" },
+  { name: "Yellow", value: "#fef08a" },
+  { name: "Green", value: "#bbf7d0" },
+  { name: "Blue", value: "#bfdbfe" },
+  { name: "Pink", value: "#fbcfe8" },
+  { name: "Orange", value: "#fed7aa" },
+  { name: "Purple", value: "#e9d5ff" },
 ];
 
 // Annotation color options using HSL values aligned with design system
@@ -100,10 +115,10 @@ const updateImageAtIndex = (html: string, index: number, newUrl: string): string
   return container.innerHTML;
 };
 
-export const ImagePasteEditor = ({ 
-  value, 
-  onChange, 
-  placeholder = "Enter text or paste images...", 
+export const ImagePasteEditor = ({
+  value,
+  onChange,
+  placeholder = "Enter text or paste images...",
   className,
   autotexts = defaultAutotexts,
   fontSize = 14,
@@ -137,27 +152,34 @@ export const ImagePasteEditor = ({
   const redoRef = React.useRef<ImageData[]>([]);
   const [historySize, setHistorySize] = React.useState(0);
   const [redoSize, setRedoSize] = React.useState(0);
-  
+
+  // Find & replace state
+  const [findReplaceMode, setFindReplaceMode] = React.useState<"find" | "replace" | null>(null);
+  // Table picker state
+  const [showTablePicker, setShowTablePicker] = React.useState(false);
+  const [tableHover, setTableHover] = React.useState({ rows: 0, cols: 0 });
+
+
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
-  
+
   // Clinical phrase system
   const { folders } = useClinicalPhrases();
-  
+
   // Insert phrase content handler
   const insertPhraseContent = React.useCallback((content: string) => {
     if (!editorRef.current) return;
-    
+
     const selection = window.getSelection();
-    const range = selection && selection.rangeCount > 0 
-      ? selection.getRangeAt(0) 
+    const range = selection && selection.rangeCount > 0
+      ? selection.getRangeAt(0)
       : null;
-    
+
     let contentHtml = content;
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(content);
     }
-    
+
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
       const temp = document.createElement('div');
@@ -173,12 +195,12 @@ export const ImagePasteEditor = ({
     } else {
       editorRef.current.innerHTML += contentHtml;
     }
-    
+
     isInternalUpdate.current = true;
     onChange(editorRef.current.innerHTML);
     editorRef.current.focus();
   }, [onChange, effectiveChangeTracking]);
-  
+
   // Use phrase expansion hook
   const {
     phrases,
@@ -202,18 +224,18 @@ export const ImagePasteEditor = ({
   // Handle dictation transcript insertion
   const handleDictationTranscript = React.useCallback((text: string) => {
     if (!editorRef.current) return;
-    
+
     const selection = window.getSelection();
-    const range = selection && selection.rangeCount > 0 
-      ? selection.getRangeAt(0) 
+    const range = selection && selection.rangeCount > 0
+      ? selection.getRangeAt(0)
       : null;
-    
+
     // Create content with optional change tracking
     let contentHtml = text;
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
     }
-    
+
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
       const temp = document.createElement('div');
@@ -230,7 +252,7 @@ export const ImagePasteEditor = ({
       // Insert at end if no selection
       editorRef.current.innerHTML += ' ' + contentHtml + ' ';
     }
-    
+
     isInternalUpdate.current = true;
     onChange(editorRef.current.innerHTML);
     editorRef.current.focus();
@@ -245,6 +267,49 @@ export const ImagePasteEditor = ({
     }
   }, [onChange]);
 
+  // Insert link helper
+  const handleInsertLink = React.useCallback(() => {
+    const selection = window.getSelection();
+    const selectedText = selection && !selection.isCollapsed ? selection.toString() : "";
+    const url = window.prompt("Enter URL:", "https://");
+    if (url) {
+      if (selectedText) {
+        execCommand("createLink", url);
+      } else {
+        const linkText = window.prompt("Link text:", url) || url;
+        const link = `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+        execCommand("insertHTML", link);
+      }
+    }
+  }, [execCommand]);
+
+  // Insert table helper
+  const insertTable = React.useCallback((rows: number, cols: number) => {
+    if (!editorRef.current) return;
+    let html = '<table><tbody>';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) {
+        if (r === 0) {
+          html += '<th>&nbsp;</th>';
+        } else {
+          html += '<td>&nbsp;</td>';
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table><br>';
+    execCommand("insertHTML", html);
+    setShowTablePicker(false);
+  }, [execCommand]);
+
+  // Keyboard shortcut hook
+  const { handleShortcut } = useEditorKeyboardShortcuts({
+    execCommand,
+    onFindReplace: (mode) => setFindReplaceMode(mode),
+    onInsertLink: handleInsertLink,
+  });
+
   // Use native event listener for beforeinput (more reliable than React's onBeforeInput)
   React.useEffect(() => {
     const editor = editorRef.current;
@@ -252,18 +317,18 @@ export const ImagePasteEditor = ({
 
     const handleBeforeInput = (e: InputEvent) => {
       if (!effectiveChangeTracking?.enabled || !e.data) return;
-      
+
       // Handle insertText only - paste is handled separately
       if (e.inputType === 'insertText') {
         e.preventDefault();
-        
+
         const markedHtml = effectiveChangeTracking.wrapWithMarkup(e.data);
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
-        
+
         const range = selection.getRangeAt(0);
         range.deleteContents();
-        
+
         const temp = document.createElement('div');
         temp.innerHTML = markedHtml;
         const fragment = document.createDocumentFragment();
@@ -271,12 +336,12 @@ export const ImagePasteEditor = ({
           fragment.appendChild(temp.firstChild);
         }
         range.insertNode(fragment);
-        
+
         // Move cursor after inserted content
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
-        
+
         isInternalUpdate.current = true;
         onChange(editor.innerHTML);
       }
@@ -290,15 +355,15 @@ export const ImagePasteEditor = ({
     if (editorRef.current) {
       isInternalUpdate.current = true;
       let html = editorRef.current.innerHTML;
-      
+
       // Apply underline formatting for #text: pattern
       const formattedHtml = applyUnderlineFormatting(html);
       if (formattedHtml !== html) {
         const selection = window.getSelection();
-        
+
         editorRef.current.innerHTML = formattedHtml;
         html = formattedHtml;
-        
+
         if (selection && editorRef.current.childNodes.length > 0) {
           const newRange = document.createRange();
           newRange.selectNodeContents(editorRef.current);
@@ -307,7 +372,7 @@ export const ImagePasteEditor = ({
           selection.addRange(newRange);
         }
       }
-      
+
       onChange(html);
     }
   }, [onChange]);
@@ -324,11 +389,11 @@ export const ImagePasteEditor = ({
 
     try {
       setIsUploading(true);
-      
+
       // Create unique filename
       const fileExt = file.type.split('/')[1] || 'png';
       const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-      
+
       const { data, error } = await supabase.storage
         .from('patient-images')
         .upload(fileName, file, {
@@ -377,7 +442,7 @@ export const ImagePasteEditor = ({
 
   const insertImage = (url: string) => {
     if (!editorRef.current) return;
-    
+
     const img = document.createElement('img');
     img.src = url;
     img.style.maxWidth = '100%';
@@ -385,7 +450,7 @@ export const ImagePasteEditor = ({
     img.style.borderRadius = '4px';
     img.style.margin = '4px 0';
     img.className = 'inline-block';
-    
+
     // Insert at cursor or at end
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
@@ -399,7 +464,7 @@ export const ImagePasteEditor = ({
     } else {
       editorRef.current.appendChild(img);
     }
-    
+
     isInternalUpdate.current = true;
     onChange(editorRef.current.innerHTML);
   };
@@ -448,14 +513,14 @@ export const ImagePasteEditor = ({
       const text = e.clipboardData?.getData('text/plain');
       if (text) {
         e.preventDefault();
-        
+
         const markedHtml = effectiveChangeTracking.wrapWithMarkup(text);
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
-        
+
         const range = selection.getRangeAt(0);
         range.deleteContents();
-        
+
         const temp = document.createElement('div');
         temp.innerHTML = markedHtml;
         const fragment = document.createDocumentFragment();
@@ -463,11 +528,11 @@ export const ImagePasteEditor = ({
           fragment.appendChild(temp.firstChild);
         }
         range.insertNode(fragment);
-        
+
         range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
-        
+
         if (editorRef.current) {
           isInternalUpdate.current = true;
           onChange(editorRef.current.innerHTML);
@@ -503,34 +568,34 @@ export const ImagePasteEditor = ({
   const getCurrentWord = (): { word: string; range: Range | null } => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return { word: "", range: null };
-    
+
     const range = selection.getRangeAt(0);
     if (!range.collapsed) return { word: "", range: null };
-    
+
     const node = range.startContainer;
     if (node.nodeType !== Node.TEXT_NODE) return { word: "", range: null };
-    
+
     const text = node.textContent || "";
     const offset = range.startOffset;
-    
+
     let start = offset;
     while (start > 0 && /\S/.test(text[start - 1])) start--;
-    
+
     const word = text.substring(start, offset);
-    
+
     const wordRange = document.createRange();
     wordRange.setStart(node, start);
     wordRange.setEnd(node, offset);
-    
+
     return { word, range: wordRange };
   };
 
   const replaceCurrentWord = (replacement: string) => {
     const { range } = getCurrentWord();
     if (!range) return;
-    
+
     range.deleteContents();
-    
+
     // Apply change tracking markup if enabled
     let content: Node;
     if (effectiveChangeTracking?.enabled) {
@@ -544,9 +609,9 @@ export const ImagePasteEditor = ({
     } else {
       content = document.createTextNode(replacement + " ");
     }
-    
+
     range.insertNode(content);
-    
+
     const selection = window.getSelection();
     if (selection) {
       const newRange = document.createRange();
@@ -555,14 +620,19 @@ export const ImagePasteEditor = ({
       selection.removeAllRanges();
       selection.addRange(newRange);
     }
-    
+
     if (editorRef.current) {
       isInternalUpdate.current = true;
       onChange(editorRef.current.innerHTML);
     }
   };
 
+
+
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+    // Check keyboard shortcuts first
+    if (handleShortcut(e)) return;
+
     if (e.key === " " || e.key === "Tab") {
       const { word } = getCurrentWord();
       if (word) {
@@ -572,7 +642,7 @@ export const ImagePasteEditor = ({
           replaceCurrentWord(autotext.expansion);
           return;
         }
-        
+
         if (e.key === " ") {
           const corrected = medicalDictionary[word.toLowerCase()];
           if (corrected) {
@@ -583,8 +653,8 @@ export const ImagePasteEditor = ({
         }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autotexts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autotexts, handleShortcut]);
 
   const openLightbox = (index: number) => {
     setLightboxIndex(index);
@@ -876,13 +946,13 @@ export const ImagePasteEditor = ({
       isInternalUpdate.current = false;
       return;
     }
-    
+
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       const selection = window.getSelection();
       const hadFocus = document.activeElement === editorRef.current;
-      
+
       editorRef.current.innerHTML = value;
-      
+
       if (hadFocus && selection && editorRef.current.childNodes.length > 0) {
         const range = document.createRange();
         range.selectNodeContents(editorRef.current);
@@ -901,6 +971,20 @@ export const ImagePasteEditor = ({
         className
       )}
     >
+      {/* Find & Replace Panel */}
+      {findReplaceMode && (
+        <EditorFindReplace
+          editorRef={editorRef as React.RefObject<HTMLDivElement>}
+          mode={findReplaceMode}
+          onClose={() => setFindReplaceMode(null)}
+          onChange={() => {
+            if (editorRef.current) {
+              isInternalUpdate.current = true;
+              onChange(editorRef.current.innerHTML);
+            }
+          }}
+        />
+      )}
       {/* Toolbar */}
       <div className="flex items-center gap-1 p-1.5 border-b border-border bg-muted/30 flex-wrap">
         <Button
@@ -924,6 +1008,325 @@ export const ImagePasteEditor = ({
           <Redo2 className="h-3 w-3" />
         </Button>
         <div className="w-px h-4 bg-border mx-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('bold')}
+          title="Bold"
+          className="h-6 w-6 p-0"
+        >
+          <Bold className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('italic')}
+          title="Italic"
+          className="h-6 w-6 p-0"
+        >
+          <Italic className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('strikeThrough')}
+          title="Strikethrough"
+          className="h-6 w-6 p-0"
+        >
+          <Strikethrough className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('superscript')}
+          title="Superscript"
+          className="h-6 w-6 p-0"
+        >
+          <Superscript className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('subscript')}
+          title="Subscript"
+          className="h-6 w-6 p-0"
+        >
+          <Subscript className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Heading selector */}
+        <select
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "p") {
+              execCommand("formatBlock", "<p>");
+            } else {
+              execCommand("formatBlock", `<${val}>`);
+            }
+          }}
+          defaultValue="p"
+          className="h-6 px-1 text-[10px] bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring w-20"
+          title="Heading level"
+        >
+          <option value="p">Normal</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="h4">Heading 4</option>
+        </select>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('insertUnorderedList')}
+          title="Bullet List"
+          className="h-6 w-6 p-0"
+        >
+          <List className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('insertOrderedList')}
+          title="Numbered List"
+          className="h-6 w-6 p-0"
+        >
+          <ListOrdered className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('outdent')}
+          title="Decrease Indent"
+          className="h-6 w-6 p-0"
+        >
+          <Outdent className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('indent')}
+          title="Increase Indent"
+          className="h-6 w-6 p-0"
+        >
+          <Indent className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Alignment */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyLeft')}
+          title="Align Left"
+          className="h-6 w-6 p-0"
+        >
+          <AlignLeft className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyCenter')}
+          title="Align Center"
+          className="h-6 w-6 p-0"
+        >
+          <AlignCenter className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyRight')}
+          title="Align Right"
+          className="h-6 w-6 p-0"
+        >
+          <AlignRight className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyFull')}
+          title="Justify"
+          className="h-6 w-6 p-0"
+        >
+          <AlignJustify className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Text Color"
+              className="h-6 w-6 p-0"
+            >
+              <Palette className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="grid grid-cols-3 gap-1">
+              {textColors.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => {
+                    if (color.value) {
+                      execCommand('foreColor', color.value);
+                    } else {
+                      execCommand('removeFormat');
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                    !color.value && "border border-dashed border-muted-foreground/30"
+                  )}
+                  title={color.name}
+                >
+                  <span
+                    className="w-4 h-4 rounded-full border border-border"
+                    style={{ backgroundColor: color.value || 'transparent' }}
+                  />
+                  <span className="text-foreground">{color.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Highlight Color */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Highlight Color"
+              className="h-6 w-6 p-0"
+            >
+              <Highlighter className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="grid grid-cols-4 gap-1">
+              {highlightColors.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => {
+                    if (color.value) {
+                      execCommand('hiliteColor', color.value);
+                    } else {
+                      execCommand('hiliteColor', 'transparent');
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                    !color.value && "border border-dashed border-muted-foreground/30"
+                  )}
+                  title={color.name}
+                >
+                  <span
+                    className="w-4 h-4 rounded border border-border"
+                    style={{ backgroundColor: color.value || 'transparent' }}
+                  />
+                  <span className="text-foreground">{color.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Insert link */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleInsertLink}
+          title="Insert Link (Ctrl+K)"
+          className="h-6 w-6 p-0"
+        >
+          <Link2 className="h-3 w-3" />
+        </Button>
+
+        {/* Insert horizontal rule */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('insertHorizontalRule')}
+          title="Horizontal Rule"
+          className="h-6 w-6 p-0"
+        >
+          <Minus className="h-3 w-3" />
+        </Button>
+
+        {/* Insert table */}
+        <Popover open={showTablePicker} onOpenChange={setShowTablePicker}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Insert Table"
+              className="h-6 w-6 p-0"
+            >
+              <TableIcon className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="text-xs text-muted-foreground mb-1">
+              {tableHover.rows > 0 ? `${tableHover.rows} × ${tableHover.cols}` : "Select size"}
+            </div>
+            <div className="grid grid-cols-6 gap-0.5">
+              {Array.from({ length: 6 }, (_, r) =>
+                Array.from({ length: 6 }, (_, c) => (
+                  <button
+                    key={`${r}-${c}`}
+                    className={cn(
+                      "w-4 h-4 border border-border rounded-[2px] transition-colors",
+                      r < tableHover.rows && c < tableHover.cols
+                        ? "bg-primary/30 border-primary/50"
+                        : "bg-muted/30 hover:bg-muted/60"
+                    )}
+                    onMouseEnter={() => setTableHover({ rows: r + 1, cols: c + 1 })}
+                    onMouseLeave={() => setTableHover({ rows: 0, cols: 0 })}
+                    onClick={() => insertTable(r + 1, c + 1)}
+                  />
+                ))
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Find */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
+          title="Find & Replace (Ctrl+F)"
+          className="h-6 w-6 p-0"
+        >
+          <Search className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+
         <Button
           type="button"
           variant="ghost"
@@ -975,6 +1378,139 @@ export const ImagePasteEditor = ({
         >
           <Indent className="h-3 w-3" />
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('strikeThrough')}
+          title="Strikethrough"
+          className="h-6 w-6 p-0"
+        >
+          <Strikethrough className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Heading selector */}
+        <select
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "p") {
+              execCommand("formatBlock", "<p>");
+            } else {
+              execCommand("formatBlock", `<${val}>`);
+            }
+          }}
+          defaultValue="p"
+          className="h-6 px-1 text-[10px] bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring w-20"
+          title="Heading level"
+        >
+          <option value="p">Normal</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="h4">Heading 4</option>
+        </select>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Alignment */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyLeft')}
+          title="Align Left"
+          className="h-6 w-6 p-0"
+        >
+          <AlignLeft className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyCenter')}
+          title="Align Center"
+          className="h-6 w-6 p-0"
+        >
+          <AlignCenter className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyRight')}
+          title="Align Right"
+          className="h-6 w-6 p-0"
+        >
+          <AlignRight className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('strikeThrough')}
+          title="Strikethrough"
+          className="h-6 w-6 p-0"
+        >
+          <Strikethrough className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Heading selector */}
+        <select
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "p") {
+              execCommand("formatBlock", "<p>");
+            } else {
+              execCommand("formatBlock", `<${val}>`);
+            }
+          }}
+          defaultValue="p"
+          className="h-6 px-1 text-[10px] bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring w-20"
+          title="Heading level"
+        >
+          <option value="p">Normal</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="h4">Heading 4</option>
+        </select>
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Alignment */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyLeft')}
+          title="Align Left"
+          className="h-6 w-6 p-0"
+        >
+          <AlignLeft className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyCenter')}
+          title="Align Center"
+          className="h-6 w-6 p-0"
+        >
+          <AlignCenter className="h-3 w-3" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyRight')}
+          title="Align Right"
+          className="h-6 w-6 p-0"
+        >
+          <AlignRight className="h-3 w-3" />
+        </Button>
+        <div className="w-px h-4 bg-border mx-1" />
+
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -1015,6 +1551,112 @@ export const ImagePasteEditor = ({
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Highlight Color */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Highlight Color"
+              className="h-6 w-6 p-0"
+            >
+              <Highlighter className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="grid grid-cols-4 gap-1">
+              {highlightColors.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => {
+                    if (color.value) {
+                      execCommand('hiliteColor', color.value);
+                    } else {
+                      execCommand('hiliteColor', 'transparent');
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                    !color.value && "border border-dashed border-muted-foreground/30"
+                  )}
+                  title={color.name}
+                >
+                  <span
+                    className="w-4 h-4 rounded border border-border"
+                    style={{ backgroundColor: color.value || 'transparent' }}
+                  />
+                  <span className="text-foreground">{color.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <div className="w-px h-4 bg-border mx-1" />
+
+        {/* Insert link */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleInsertLink}
+          title="Insert Link (Ctrl+K)"
+          className="h-6 w-6 p-0"
+        >
+          <Link2 className="h-3 w-3" />
+        </Button>
+
+        {/* Insert table */}
+        <Popover open={showTablePicker} onOpenChange={setShowTablePicker}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Insert Table"
+              className="h-6 w-6 p-0"
+            >
+              <TableIcon className="h-3 w-3" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="text-xs text-muted-foreground mb-1">
+              {tableHover.rows > 0 ? `${tableHover.rows} × ${tableHover.cols}` : "Select size"}
+            </div>
+            <div className="grid gap-0.5" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+              {Array.from({ length: 6 }, (_, r) =>
+                Array.from({ length: 6 }, (_, c) => (
+                  <button
+                    key={`${r}-${c}`}
+                    className={cn(
+                      "w-4 h-4 border border-border rounded-[2px] transition-colors",
+                      r < tableHover.rows && c < tableHover.cols
+                        ? "bg-primary/30 border-primary/50"
+                        : "bg-muted/30 hover:bg-muted/60"
+                    )}
+                    onMouseEnter={() => setTableHover({ rows: r + 1, cols: c + 1 })}
+                    onMouseLeave={() => setTableHover({ rows: 0, cols: 0 })}
+                    onClick={() => insertTable(r + 1, c + 1)}
+                  />
+                ))
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Find */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
+          title="Find & Replace (Ctrl+F)"
+          className="h-6 w-6 p-0"
+        >
+          <Search className="h-3 w-3" />
+        </Button>
         <div className="w-px h-4 bg-border mx-1" />
         <div className="flex items-center gap-1 text-[10px] text-primary-foreground/70">
           <ImageIcon className="h-3 w-3" />
@@ -1073,7 +1715,7 @@ export const ImagePasteEditor = ({
               }
               const range = selection.getRangeAt(0);
               range.deleteContents();
-              
+
               let content: Node;
               if (effectiveChangeTracking?.enabled) {
                 const markedHtml = effectiveChangeTracking.wrapWithMarkup(newText);
@@ -1086,17 +1728,17 @@ export const ImagePasteEditor = ({
               } else {
                 content = document.createTextNode(newText);
               }
-              
+
               range.insertNode(content);
               range.collapse(false);
               selection.removeAllRanges();
               selection.addRange(range);
-              
+
               isInternalUpdate.current = true;
               onChange(editorRef.current!.innerHTML);
             }}
           />
-          <DictationButton 
+          <DictationButton
             onTranscript={handleDictationTranscript}
             size="sm"
             className="h-6 w-6"
@@ -1160,15 +1802,19 @@ export const ImagePasteEditor = ({
             event.target.value = '';
           }
         }}
+        aria-label="Upload images"
       />
 
+      <EditorStatusBar html={value} />
+
+      {/* Autocomplete dropdown */}
       {/* Thumbnail Gallery */}
       {imageUrls.length > 0 && (
         <div className="p-2 border-b border-border bg-muted/30">
           <div className="flex items-center gap-1 mb-1.5">
             <Maximize2 className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground font-medium">
-        {imageUrls.length} image{imageUrls.length > 1 ? 's' : ''} - Click to enlarge
+              {imageUrls.length} image{imageUrls.length > 1 ? 's' : ''} - Click to enlarge
             </span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1208,7 +1854,7 @@ export const ImagePasteEditor = ({
           </div>
         </div>
       )}
-      
+
       {/* Editor with scroll container - relative positioning ensures proper document flow */}
       <div
         className="max-h-[300px] editor-scroll-container relative"

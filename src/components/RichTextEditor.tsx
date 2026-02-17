@@ -2,7 +2,9 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
-  Indent, Outdent, Palette, Undo2, Redo2, FileText
+  Indent, Outdent, Palette, Undo2, Redo2, FileText, Strikethrough,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
+  Superscript, Subscript, Search, Table as TableIcon
 } from "lucide-react";
 import {
   Popover,
@@ -18,6 +20,9 @@ import { DocumentImport } from "./DocumentImport";
 import { PhrasePicker, PhraseFormDialog } from "./phrases";
 import { usePhraseExpansion } from "@/hooks/usePhraseExpansion";
 import { useClinicalPhrases } from "@/hooks/useClinicalPhrases";
+import { useEditorKeyboardShortcuts } from "@/hooks/useEditorKeyboardShortcuts";
+import { EditorFindReplace } from "./EditorFindReplace";
+import { EditorStatusBar } from "./EditorStatusBar";
 import type { Patient } from "@/types/patient";
 
 const textColors = [
@@ -30,6 +35,16 @@ const textColors = [
   { name: "Purple", value: "#8b5cf6" },
   { name: "Pink", value: "#ec4899" },
   { name: "Gray", value: "#6b7280" },
+];
+
+const highlightColors = [
+  { name: "None", value: "" },
+  { name: "Yellow", value: "#fef08a" },
+  { name: "Green", value: "#bbf7d0" },
+  { name: "Blue", value: "#bfdbfe" },
+  { name: "Pink", value: "#fbcfe8" },
+  { name: "Orange", value: "#fed7aa" },
+  { name: "Purple", value: "#e9d5ff" },
 ];
 
 // Rich text editor with formatting, autotexts, and optional change tracking
@@ -71,6 +86,11 @@ export const RichTextEditor = ({
   const isInternalUpdate = React.useRef(false);
   // Per-editor toggle: null means follow global setting, false means disabled for this editor
   const [localMarkingDisabled, setLocalMarkingDisabled] = React.useState(false);
+  // Find & replace state
+  const [findReplaceMode, setFindReplaceMode] = React.useState<"find" | "replace" | null>(null);
+  // Table picker state
+  const [showTablePicker, setShowTablePicker] = React.useState(false);
+  const [tableHover, setTableHover] = React.useState({ rows: 0, cols: 0 });
 
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
@@ -347,7 +367,53 @@ export const RichTextEditor = ({
     setShowAutocomplete(false);
   };
 
+  // Insert link helper
+  const handleInsertLink = React.useCallback(() => {
+    const selection = window.getSelection();
+    const selectedText = selection && !selection.isCollapsed ? selection.toString() : "";
+    const url = window.prompt("Enter URL:", "https://");
+    if (url) {
+      if (selectedText) {
+        execCommand("createLink", url);
+      } else {
+        const linkText = window.prompt("Link text:", url) || url;
+        const link = `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+        execCommand("insertHTML", link);
+      }
+    }
+  }, [execCommand]);
+
+  // Insert table helper
+  const insertTable = React.useCallback((rows: number, cols: number) => {
+    if (!editorRef.current) return;
+    let html = '<table><tbody>';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) {
+        if (r === 0) {
+          html += '<th>&nbsp;</th>';
+        } else {
+          html += '<td>&nbsp;</td>';
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table><br>';
+    execCommand("insertHTML", html);
+    setShowTablePicker(false);
+  }, [execCommand]);
+
+  // Keyboard shortcut hook
+  const { handleShortcut } = useEditorKeyboardShortcuts({
+    execCommand,
+    onFindReplace: (mode) => setFindReplaceMode(mode),
+    onInsertLink: handleInsertLink,
+  });
+
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
+    // Check keyboard shortcuts first
+    if (handleShortcut(e)) return;
+
     // Handle autocomplete navigation
     if (showAutocomplete && autocompleteOptions.length > 0) {
       if (e.key === "ArrowDown") {
@@ -394,7 +460,7 @@ export const RichTextEditor = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAutocomplete, autocompleteOptions, selectedIndex, autotexts]);
+  }, [showAutocomplete, autocompleteOptions, selectedIndex, autotexts, handleShortcut]);
 
   const handleKeyUp = React.useCallback((e: React.KeyboardEvent) => {
     // Don't show autocomplete for navigation/modifier keys
@@ -472,6 +538,21 @@ export const RichTextEditor = ({
 
   return (
     <div className={cn("border-2 border-border rounded-md bg-card relative h-auto", className)}>
+      {/* Find & Replace Panel */}
+      {findReplaceMode && (
+        <EditorFindReplace
+          editorRef={editorRef as React.RefObject<HTMLDivElement>}
+          mode={findReplaceMode}
+          onClose={() => setFindReplaceMode(null)}
+          onChange={() => {
+            if (editorRef.current) {
+              isInternalUpdate.current = true;
+              onChange(editorRef.current.innerHTML);
+            }
+          }}
+        />
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/50 flex-wrap">
         <Button
@@ -495,6 +576,8 @@ export const RichTextEditor = ({
           <Redo2 className="h-3.5 w-3.5" />
         </Button>
         <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Text formatting */}
         <Button
           type="button"
           variant="ghost"
@@ -525,13 +608,67 @@ export const RichTextEditor = ({
         >
           <Underline className="h-3.5 w-3.5" />
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('strikeThrough')}
+          title="Strikethrough (Ctrl+Shift+X)"
+          className="h-7 w-7 p-0"
+        >
+          <Strikethrough className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('superscript')}
+          title="Superscript"
+          className="h-7 w-7 p-0"
+        >
+          <Superscript className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('subscript')}
+          title="Subscript"
+          className="h-7 w-7 p-0"
+        >
+          <Subscript className="h-3.5 w-3.5" />
+        </Button>
         <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Heading selector */}
+        <select
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "p") {
+              execCommand("formatBlock", "<p>");
+            } else {
+              execCommand("formatBlock", `<${val}>`);
+            }
+          }}
+          defaultValue="p"
+          className="h-7 px-1 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+          title="Heading level"
+        >
+          <option value="p">Normal</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="h4">Heading 4</option>
+        </select>
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Lists */}
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={() => execCommand('insertUnorderedList')}
-          title="Bullet List"
+          title="Bullet List (Ctrl+Shift+8)"
           className="h-7 w-7 p-0"
         >
           <List className="h-3.5 w-3.5" />
@@ -541,12 +678,14 @@ export const RichTextEditor = ({
           variant="ghost"
           size="sm"
           onClick={() => execCommand('insertOrderedList')}
-          title="Numbered List"
+          title="Numbered List (Ctrl+Shift+7)"
           className="h-7 w-7 p-0"
         >
           <ListOrdered className="h-3.5 w-3.5" />
         </Button>
         <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Indent */}
         <Button
           type="button"
           variant="ghost"
@@ -568,6 +707,51 @@ export const RichTextEditor = ({
           <Indent className="h-3.5 w-3.5" />
         </Button>
         <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Alignment */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyLeft')}
+          title="Align Left"
+          className="h-7 w-7 p-0"
+        >
+          <AlignLeft className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyCenter')}
+          title="Align Center"
+          className="h-7 w-7 p-0"
+        >
+          <AlignCenter className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyRight')}
+          title="Align Right"
+          className="h-7 w-7 p-0"
+        >
+          <AlignRight className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyFull')}
+          title="Justify"
+          className="h-7 w-7 p-0"
+        >
+          <AlignJustify className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Text color */}
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -608,8 +792,127 @@ export const RichTextEditor = ({
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Highlight / background color */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Highlight Color"
+              className="h-7 w-7 p-0"
+            >
+              <Highlighter className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="grid grid-cols-4 gap-1">
+              {highlightColors.map((color) => (
+                <button
+                  key={color.name}
+                  onClick={() => {
+                    if (color.value) {
+                      execCommand('hiliteColor', color.value);
+                    } else {
+                      execCommand('hiliteColor', 'transparent');
+                    }
+                  }}
+                  className={cn(
+                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                    !color.value && "border border-dashed border-muted-foreground/30"
+                  )}
+                  title={color.name}
+                >
+                  <span
+                    className="w-4 h-4 rounded border border-border"
+                    style={{ backgroundColor: color.value || 'transparent' }}
+                  />
+                  <span className="text-foreground">{color.name}</span>
+                </button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
         <div className="w-px h-5 bg-border mx-1" />
-        <div className="flex items-center gap-2 ml-2">
+
+        {/* Insert link */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleInsertLink}
+          title="Insert Link (Ctrl+K)"
+          className="h-7 w-7 p-0"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+        </Button>
+
+        {/* Insert horizontal rule */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('insertHorizontalRule')}
+          title="Horizontal Rule"
+          className="h-7 w-7 p-0"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </Button>
+
+        {/* Insert table */}
+        <Popover open={showTablePicker} onOpenChange={setShowTablePicker}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              title="Insert Table"
+              className="h-7 w-7 p-0"
+            >
+              <TableIcon className="h-3.5 w-3.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-2" align="start">
+            <div className="text-xs text-muted-foreground mb-1">
+              {tableHover.rows > 0 ? `${tableHover.rows} × ${tableHover.cols}` : "Select size"}
+            </div>
+            <div className="grid gap-0.5" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+              {Array.from({ length: 6 }, (_, r) =>
+                Array.from({ length: 6 }, (_, c) => (
+                  <button
+                    key={`${r}-${c}`}
+                    className={cn(
+                      "w-5 h-5 border border-border rounded-[2px] transition-colors",
+                      r < tableHover.rows && c < tableHover.cols
+                        ? "bg-primary/30 border-primary/50"
+                        : "bg-muted/30 hover:bg-muted/60"
+                    )}
+                    onMouseEnter={() => setTableHover({ rows: r + 1, cols: c + 1 })}
+                    onMouseLeave={() => setTableHover({ rows: 0, cols: 0 })}
+                    onClick={() => insertTable(r + 1, c + 1)}
+                  />
+                ))
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Find */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
+          title="Find & Replace (Ctrl+F)"
+          className="h-7 w-7 p-0"
+        >
+          <Search className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Font size */}
+        <div className="flex items-center gap-2">
           <Type className="h-3.5 w-3.5 text-muted-foreground" />
           <select
             value={fontSizeRef.current}
@@ -757,6 +1060,9 @@ export const RichTextEditor = ({
           suppressContentEditableWarning
         />
       </div>
+
+      {/* Status bar */}
+      <EditorStatusBar html={value} />
 
       {/* Autocomplete dropdown */}
       {showAutocomplete && autocompleteOptions.length > 0 && (
