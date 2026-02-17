@@ -22,7 +22,7 @@ export function DesktopAIModelSettingsDialog() {
           AI Models
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>AI Models</DialogTitle>
           <DialogDescription>

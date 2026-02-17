@@ -478,7 +478,7 @@ function ProtocolSelector({
           Add Protocol
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Protocol</DialogTitle>
         </DialogHeader>
