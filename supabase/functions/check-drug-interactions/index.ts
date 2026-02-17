@@ -7,6 +7,8 @@ import {
   handleOptions,
   safeLog,
   RATE_LIMITS,
+  parseAndValidateBody,
+  safeErrorMessage,
 } from '../_shared/mod.ts';
 
 interface DrugInteractionRequest {
@@ -41,14 +43,14 @@ const OPENFDA_API_KEY = Deno.env.get('OPENFDA_API_KEY');
 function getOpenFDAUrl(drugName: string): string {
   const encodedDrug = encodeURIComponent(drugName);
   const apiKeyParam = OPENFDA_API_KEY ? `&api_key=${OPENFDA_API_KEY}` : '';
-  
+
   return `${OPENFDA_BASE_URL}?search=openfda.brand_name:"${encodedDrug}"+openfda.generic_name:"${encodedDrug}"&limit=1${apiKeyParam}`;
 }
 
 async function fetchDrugInfo(drugName: string): Promise<OpenFDAResult | null> {
   try {
     const response = await fetch(getOpenFDAUrl(drugName));
-    
+
     if (!response.ok) {
       if (response.status === 404) return null;
       if (response.status === 429) {
@@ -56,13 +58,13 @@ async function fetchDrugInfo(drugName: string): Promise<OpenFDAResult | null> {
       }
       throw new Error(`OpenFDA API error: ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
+
     if (data.results && data.results.length > 0) {
       return data.results[0] as OpenFDAResult;
     }
-    
+
     return null;
   } catch (error) {
     console.error(`Error fetching drug info for ${drugName}:`, error);
@@ -73,14 +75,14 @@ async function fetchDrugInfo(drugName: string): Promise<OpenFDAResult | null> {
 function findDrugMentions(text: string, drugNames: string[]): string[] {
   const found: string[] = [];
   const lowerText = text.toLowerCase();
-  
+
   for (const drug of drugNames) {
     const lowerDrug = drug.toLowerCase();
     if (lowerText.includes(lowerDrug) || lowerText.includes(lowerDrug.replace(/\s+/g, ''))) {
       found.push(drug);
     }
   }
-  
+
   return found;
 }
 
@@ -89,7 +91,7 @@ function extractInteractionDescription(
   otherDrug: string
 ): string | null {
   if (!sections || sections.length === 0) return null;
-  
+
   for (const section of sections) {
     if (section.toLowerCase().includes(otherDrug.toLowerCase())) {
       const sentences = section.split(/[.!?]+/).filter(s => s.trim());
@@ -104,7 +106,7 @@ function extractInteractionDescription(
       }
     }
   }
-  
+
   return null;
 }
 
@@ -113,25 +115,25 @@ async function checkInteraction(
   drug2: string
 ): Promise<DrugInteraction | null> {
   const drug1Info = await fetchDrugInfo(drug1);
-  
+
   if (!drug1Info) return null;
-  
+
   const sections = [
     { field: drug1Info.boxed_warning, severity: 'critical' as const },
     { field: drug1Info.contraindications, severity: 'high' as const },
     { field: drug1Info.warnings, severity: 'moderate' as const },
     { field: drug1Info.drug_interactions, severity: 'low' as const },
   ];
-  
+
   for (const { field, severity } of sections) {
     if (!field) continue;
-    
+
     for (const section of field) {
       const mentions = findDrugMentions(section, [drug2]);
-      
+
       if (mentions.length > 0) {
         const description = extractInteractionDescription(field, drug2);
-        
+
         if (description) {
           return {
             drug1,
@@ -144,7 +146,7 @@ async function checkInteraction(
       }
     }
   }
-  
+
   return null;
 }
 
@@ -168,17 +170,20 @@ serve(async (req) => {
   safeLog('info', 'Drug interaction check request', { userIdPrefix: authResult.userId.slice(0, 8) });
 
   try {
-    const body = await req.json();
-    const { medications } = body as DrugInteractionRequest;
+    const bodyResult = await parseAndValidateBody<{ medications?: string[] }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { medications } = bodyResult.data;
 
     if (!Array.isArray(medications) || medications.length < 2) {
       return new Response(
-        JSON.stringify({ 
-          error: 'At least 2 medications required to check for interactions' 
+        JSON.stringify({
+          error: 'At least 2 medications required to check for interactions'
         }),
-        { 
-          status: 400, 
-          headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
         }
       );
     }
@@ -190,12 +195,12 @@ serve(async (req) => {
 
     if (normalizedMeds.length < 2) {
       return new Response(
-        JSON.stringify({ 
-          error: 'At least 2 valid medication names required' 
+        JSON.stringify({
+          error: 'At least 2 valid medication names required'
         }),
-        { 
-          status: 400, 
-          headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
         }
       );
     }
@@ -206,12 +211,12 @@ serve(async (req) => {
     for (let i = 0; i < normalizedMeds.length; i++) {
       for (let j = i + 1; j < normalizedMeds.length; j++) {
         const pairKey = [normalizedMeds[i], normalizedMeds[j]].sort().join('|');
-        
+
         if (seenPairs.has(pairKey)) continue;
         seenPairs.add(pairKey);
 
         const interaction = await checkInteraction(normalizedMeds[i], normalizedMeds[j]);
-        
+
         if (interaction) {
           interactions.push(interaction);
         }
@@ -230,23 +235,23 @@ serve(async (req) => {
         checkedCount: normalizedMeds.length,
         disclaimer: 'This information is for reference only and should not replace professional medical advice. Data sourced from FDA drug labeling.',
       }),
-      { 
-        status: 200, 
-        headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
+      {
+        status: 200,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
       }
     );
 
   } catch (error) {
     safeLog('error', 'Drug interaction check error', { errorMessage: (error as Error).message });
-    
+
     return new Response(
-      JSON.stringify({ 
-        error: (error as Error).message || 'An unexpected error occurred',
+      JSON.stringify({
+        error: safeErrorMessage(error, 'An unexpected error occurred'),
         success: false,
       }),
-      { 
-        status: 500, 
-        headers: {       ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
+      {
+        status: 500,
+        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
       }
     );
   }

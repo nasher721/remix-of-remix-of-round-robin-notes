@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -17,20 +17,21 @@ serve(async (req) => {
     }
     const userId = authResult.userId;
     safeLog('info', `Authenticated request from user: ${userId}`);
-    
+
     // Rate limiting check
     const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { systems, existingIntervalEvents, patientName, model: requestedModel } = await req.json();
+    const bodyResult = await parseAndValidateBody<{ systems?: Record<string, string>; existingIntervalEvents?: string; patientName?: string; model?: string }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { systems, existingIntervalEvents, patientName, model: requestedModel } = bodyResult.data;
 
     if (!systems || typeof systems !== 'object') {
-      return new Response(
-        JSON.stringify({ error: 'Missing required field: systems' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return createErrorResponse(req, 'Missing required field: systems', 400);
     }
 
     if (!OPENAI_API_KEY) {
@@ -66,14 +67,14 @@ serve(async (req) => {
     if (systemSummaries.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No system data to summarize. Add content to system reviews first.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
 
-    const today = new Date().toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    const today = new Date().toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
     });
 
     const systemPrompt = `You are a medical documentation expert specializing in creating concise interval event summaries for ICU/hospital patients. Generate a brief daily summary using standard medical abbreviations and shorthand.
@@ -126,7 +127,7 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
     if (!response.ok) {
       const errorText = await response.text();
       safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
@@ -139,7 +140,7 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
           { status: 402, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
-      
+
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
@@ -159,10 +160,6 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
 
   } catch (error) {
     safeLog('error', `Generate interval events error: ${error}`);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to generate interval events';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate interval events'), 500);
   }
 });

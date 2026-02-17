@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage } from '../_shared/mod.ts';
 import { getLLMConfig } from '../_shared/llm-client.ts';
 
 interface PatientSystems {
@@ -68,13 +68,15 @@ serve(async (req) => {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { content, model: requestedModel } = await req.json();
+    const bodyResult = await parseAndValidateBody<{ content?: string; model?: string }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { content, model: requestedModel } = bodyResult.data;
 
-    if (!content || typeof content !== 'string') {
-      return new Response(
-        JSON.stringify({ error: "Content is required" }),
-        { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+    const contentCheck = requireString(content, 'content');
+    if (typeof contentCheck === 'object' && 'error' in contentCheck) {
+      return createErrorResponse(req, contentCheck.error, 400);
     }
 
     // Infer provider preference from model name
@@ -367,9 +369,6 @@ ${content}`;
 
   } catch (error) {
     safeLog('error', `Error in parse-single-patient: ${error}`);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'Failed to parse patient data'), 500);
   }
 });

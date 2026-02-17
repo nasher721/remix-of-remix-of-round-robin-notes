@@ -51,7 +51,7 @@ export const STANDARD_HEADERS = [
 export function getCorsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get('origin') || request.headers.get('referer')?.split('/').slice(0, 3).join('/');
   const allowedOrigins = getAllowedOrigins();
-  
+
   // Check if origin is allowed
   const isAllowed = origin && (
     // Check explicit allowlist
@@ -61,21 +61,30 @@ export function getCorsHeaders(request: Request): Record<string, string> {
     // Allow Vercel preview deployments (*.vercel.app)
     /^https:\/\/[a-z0-9-]+-nasher721s-projects\.vercel\.app$/.test(origin)
   );
-  
+
   // SECURITY: If origin is not allowed, return NO CORS headers
   // Browser will block the request. This prevents cross-origin PHI exposure.
   if (!isAllowed) {
     return {
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      // Intentionally NO Access-Control-Allow-Origin - browser blocks request
+      // Security headers still apply even for blocked origins
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Cache-Control': 'no-store',
     };
   }
-  
+
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Headers': STANDARD_HEADERS,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Max-Age': '86400', // 24 hours
+    // Security headers
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   };
 }
 

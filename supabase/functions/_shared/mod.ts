@@ -35,7 +35,7 @@ export function safeLog(level: 'info' | 'warn' | 'error', message: string, data?
 function sanitizeForLogging(data: Record<string, unknown>): Record<string, unknown> {
   const redactedKeys = ['password', 'token', 'secret', 'ssn', 'dob', 'mrn', 'patient_name', 'diagnosis', 'transcript'];
   const sanitized: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(data)) {
     const lowerKey = key.toLowerCase();
     if (redactedKeys.some(k => lowerKey.includes(k))) {
@@ -46,7 +46,7 @@ function sanitizeForLogging(data: Record<string, unknown>): Record<string, unkno
       sanitized[key] = value;
     }
   }
-  
+
   return sanitized;
 }
 
@@ -58,4 +58,18 @@ export {
   type RateLimitResult,
 } from './rate-limit.ts';
 
-
+export {
+  parseAndValidateBody,
+  requireString,
+  optionalString,
+  requireEnum,
+  validateStringArray,
+  validateImageArray,
+  safeErrorMessage,
+  requireMethod,
+  ALLOWED_TRANSFORM_TYPES,
+  ALLOWED_TODO_SECTIONS,
+  MAX_JSON_PAYLOAD_BYTES,
+  MAX_MEDIA_PAYLOAD_BYTES,
+  type ValidationResult,
+} from './input-validation.ts';

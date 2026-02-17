@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, LLMProviderError } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, LLMProviderError, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
 import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 // AI Feature types
@@ -265,7 +265,7 @@ serve(async (req) => {
     }
     const userId = authResult.userId;
     safeLog('info', `Authenticated request from user: ${userId}`);
-    
+
     // Rate limiting check
     const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
@@ -275,19 +275,23 @@ serve(async (req) => {
       );
     }
 
+    const bodyResult = await parseAndValidateBody<{
+      feature?: AIFeature;
+      text?: string;
+      context?: ClinicalContext;
+      customPrompt?: string;
+      model?: string;
+    }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
     const {
       feature,
       text,
       context,
       customPrompt,
       model: requestedModel,
-    }: {
-      feature: AIFeature;
-      text?: string;
-      context?: ClinicalContext;
-      customPrompt?: string;
-      model?: string;
-    } = await req.json();
+    } = bodyResult.data;
 
     if (!feature) {
       throw new Error('Feature type is required');
@@ -379,10 +383,6 @@ serve(async (req) => {
         { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
-    const errorMessage = error instanceof Error ? error.message : 'AI processing failed';
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'AI processing failed'), 500);
   }
 });

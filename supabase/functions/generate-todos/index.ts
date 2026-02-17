@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -20,8 +20,12 @@ serve(async (req) => {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { patientData, section, model: requestedModel } = await req.json();
-    
+    const bodyResult = await parseAndValidateBody<{ patientData?: Record<string, unknown>; section?: string; model?: string }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { patientData, section, model: requestedModel } = bodyResult.data;
+
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not configured");
@@ -46,7 +50,7 @@ Systems Review: ${JSON.stringify(patientData.systems || {}, null, 2)}
       // Generate todos for specific section
       const sectionNames: Record<string, string> = {
         clinical_summary: "Clinical Summary",
-        interval_events: "Interval Events", 
+        interval_events: "Interval Events",
         imaging: "Imaging",
         labs: "Labs",
         cv: "Cardiovascular",
@@ -60,9 +64,9 @@ Systems Review: ${JSON.stringify(patientData.systems || {}, null, 2)}
         skinLines: "Skin/Lines",
         dispo: "Disposition"
       };
-      
+
       const sectionName = sectionNames[section] || section;
-      
+
       if (section === "clinical_summary") {
         contextData = patientData.clinicalSummary || "";
       } else if (section === "interval_events") {
@@ -74,7 +78,7 @@ Systems Review: ${JSON.stringify(patientData.systems || {}, null, 2)}
       } else if (patientData.systems && patientData.systems[section]) {
         contextData = patientData.systems[section];
       }
-      
+
       prompt = `Based on this ${sectionName} information, generate actionable to-do items specific to this area. Focus on follow-ups, pending tasks, and important items to address.`;
     }
 
@@ -128,7 +132,7 @@ Do not include explanations or markdown, just the JSON array.`
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "[]";
-    
+
     // Parse the JSON array from the response
     let todos: string[] = [];
     try {
@@ -153,9 +157,6 @@ Do not include explanations or markdown, just the JSON array.`
 
   } catch (error) {
     safeLog('error', `Error generating todos: ${error}`);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate todos'), 500);
   }
 });

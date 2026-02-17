@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage } from '../_shared/mod.ts';
 
 interface MedicationCategories {
   infusions: string[];
@@ -27,13 +27,15 @@ serve(async (req) => {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { medications, model: requestedModel } = await req.json();
+    const bodyResult = await parseAndValidateBody<{ medications?: string; model?: string }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { medications, model: requestedModel } = bodyResult.data;
 
-      if (!medications || typeof medications !== "string") {
-      return new Response(
-        JSON.stringify({ error: "Medications text is required" }),
-        { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+    const medsCheck = requireString(medications, 'medications');
+    if (typeof medsCheck === 'object' && 'error' in medsCheck) {
+      return createErrorResponse(req, medsCheck.error, 400);
     }
 
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -203,9 +205,6 @@ Each array contains formatted medication strings.`;
     });
   } catch (error) {
     safeLog('error', `Error in format-medications: ${error}`);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'Failed to format medications'), 500);
   }
 });

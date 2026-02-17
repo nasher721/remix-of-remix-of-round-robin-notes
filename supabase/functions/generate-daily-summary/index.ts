@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
 import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 interface Todo {
@@ -50,8 +50,23 @@ serve(async (req) => {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { 
-      patientName, 
+    const bodyResult = await parseAndValidateBody<{
+      patientName?: string;
+      clinicalSummary?: string;
+      intervalEvents?: string;
+      imaging?: string;
+      labs?: string;
+      systems?: PatientSystems;
+      medications?: PatientMedications;
+      todos?: Todo[];
+      existingIntervalEvents?: string;
+      model?: string;
+    }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const {
+      patientName,
       clinicalSummary,
       intervalEvents,
       imaging,
@@ -61,18 +76,18 @@ serve(async (req) => {
       todos,
       existingIntervalEvents,
       model: requestedModel,
-     } = await req.json();
+    } = bodyResult.data;
 
     const todayFormatted = new Date().toLocaleDateString('en-US', {
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
     });
 
-    const tomorrowFormatted = new Date(Date.now() + 86400000).toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
+    const tomorrowFormatted = new Date(Date.now() + 86400000).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
     });
 
     // Build comprehensive patient context
@@ -150,15 +165,15 @@ serve(async (req) => {
     // Categorize todos by urgency
     const todayKeywords = ['today', 'now', 'asap', 'stat', 'urgent'];
     const tomorrowKeywords = ['tomorrow', 'am', 'morning', 'f/u'];
-    
-    const todayTodos = pendingTodos.filter(t => 
+
+    const todayTodos = pendingTodos.filter(t =>
       todayKeywords.some(kw => t.content.toLowerCase().includes(kw))
     );
-    const tomorrowTodos = pendingTodos.filter(t => 
+    const tomorrowTodos = pendingTodos.filter(t =>
       tomorrowKeywords.some(kw => t.content.toLowerCase().includes(kw)) &&
       !todayKeywords.some(kw => t.content.toLowerCase().includes(kw))
     );
-    const otherTodos = pendingTodos.filter(t => 
+    const otherTodos = pendingTodos.filter(t =>
       !todayKeywords.some(kw => t.content.toLowerCase().includes(kw)) &&
       !tomorrowKeywords.some(kw => t.content.toLowerCase().includes(kw))
     );
@@ -210,7 +225,7 @@ RULES:
 5. Highlight any changes from previous status
 6. Output ONLY the formatted summary block`;
 
-     const userPrompt = `Generate a comprehensive daily summary for ${patientName || 'this patient'}:\n\n${patientContext.join('\n\n')}`;
+    const userPrompt = `Generate a comprehensive daily summary for ${patientName || 'this patient'}:\n\n${patientContext.join('\n\n')}`;
 
     safeLog('info', `Generating daily summary for ${patientName}: ${patientContext.length} sections, ${pendingTodos.length} pending todos`);
 
@@ -265,11 +280,7 @@ RULES:
         { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
-    const errorMessage = error instanceof Error ? error.message : 'Failed to generate daily summary';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate daily summary'), 500);
   }
 });
 

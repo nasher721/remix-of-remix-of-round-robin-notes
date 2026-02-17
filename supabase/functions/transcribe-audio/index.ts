@@ -1,27 +1,32 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { 
-  authenticateRequest, 
-  corsHeaders, 
+import {
+  authenticateRequest,
+  corsHeaders,
   createErrorResponse,
   checkRateLimit,
   createCorsResponse,
-  safeLog
+  safeLog,
+  RATE_LIMITS,
+  parseAndValidateBody,
+  requireString,
+  safeErrorMessage,
+  MAX_MEDIA_PAYLOAD_BYTES,
 } from "../_shared/mod.ts";
 
 // Process base64 in chunks to prevent memory issues
 function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Array {
   const chunks: Uint8Array[] = [];
   let position = 0;
-  
+
   while (position < base64String.length) {
     const chunk = base64String.slice(position, position + chunkSize);
     const binaryChunk = atob(chunk);
     const bytes = new Uint8Array(binaryChunk.length);
-    
+
     for (let i = 0; i < binaryChunk.length; i++) {
       bytes[i] = binaryChunk.charCodeAt(i);
     }
-    
+
     chunks.push(bytes);
     position += chunkSize;
   }
@@ -95,10 +100,22 @@ serve(async (req) => {
     }
     safeLog('info', 'Authenticated transcription request');
 
-    const { audio, mimeType = 'audio/webm', enhanceMedical = true, model: requestedModel } = await req.json();
-    
-    if (!audio) {
-      throw new Error('No audio data provided');
+    // Rate limiting - transcription is expensive
+    const rateLimit = checkRateLimit(req, RATE_LIMITS.transcription, authResult.userId);
+    if (!rateLimit.allowed) {
+      return rateLimit.response ?? createErrorResponse(req, 'Rate limit exceeded', 429);
+    }
+
+    // Parse and validate input
+    const bodyResult = await parseAndValidateBody<{ audio?: string; mimeType?: string; enhanceMedical?: boolean; model?: string }>(req, { maxBytes: MAX_MEDIA_PAYLOAD_BYTES });
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { audio, mimeType = 'audio/webm', enhanceMedical = true, model: requestedModel } = bodyResult.data;
+
+    const audioCheck = requireString(audio, 'audio');
+    if (typeof audioCheck === 'object' && 'error' in audioCheck) {
+      return createErrorResponse(req, audioCheck.error, 400);
     }
 
     console.log('Received audio data, processing...');
@@ -108,7 +125,7 @@ serve(async (req) => {
     // Process audio in chunks
     const binaryAudio = processBase64Chunks(audio);
     console.log('Processed audio size:', binaryAudio.length, 'bytes');
-    
+
     // Prepare form data for Whisper API with enhanced medical prompting
     const formData = new FormData();
     const blob = new Blob([binaryAudio.buffer as ArrayBuffer], { type: mimeType });
@@ -133,7 +150,7 @@ serve(async (req) => {
     });
 
     let rawTranscript = '';
-    
+
     // If OpenAI key is available, use Whisper
     if (transcribeResponse.ok) {
       const whisperResult = await transcribeResponse.json();
@@ -142,17 +159,12 @@ serve(async (req) => {
     } else {
       // Fallback: Return error if Whisper API is unavailable
       console.log('Whisper not available, checking for alternative...');
-      
+
       // For demo purposes, return an error asking for OpenAI key
-      return new Response(
-        JSON.stringify({ 
-          error: 'Audio transcription requires OPENAI_API_KEY secret to be configured for Whisper API access.',
-          needsApiKey: true 
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+      return createErrorResponse(
+        req,
+        'Audio transcription requires OPENAI_API_KEY secret to be configured for Whisper API access.',
+        400
       );
     }
 
@@ -187,7 +199,7 @@ serve(async (req) => {
 
           if (gptResponse.ok) {
             const gptResult = await gptResponse.json();
-          finalText = gptResult.choices?.[0]?.message?.content || rawTranscript;
+            finalText = gptResult.choices?.[0]?.message?.content || rawTranscript;
             enhancementModel = 'gpt-4o-mini';
             safeLog('info', 'GPT-4 enhancement completed');
           } else {
@@ -206,18 +218,11 @@ serve(async (req) => {
         enhanced: enhanceMedical && finalText !== rawTranscript,
         enhancementModel: enhancementModel !== 'none' ? enhancementModel : undefined
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
     );
 
   } catch (error: unknown) {
-    console.error('Transcription error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(
-      JSON.stringify({ error: message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    safeLog('error', 'Transcription error');
+    return createErrorResponse(req, safeErrorMessage(error, 'Transcription failed'), 500);
   }
 });

@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, parseAndValidateBody, requireString, requireEnum, safeErrorMessage, ALLOWED_TRANSFORM_TYPES } from '../_shared/mod.ts';
 import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 serve(async (req) => {
@@ -21,13 +21,20 @@ serve(async (req) => {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { text, transformType, customPrompt, model: requestedModel } = await req.json();
+    // Parse and validate input
+    const bodyResult = await parseAndValidateBody<{ text?: string; transformType?: string; customPrompt?: string; model?: string }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { text, transformType, customPrompt, model: requestedModel } = bodyResult.data;
 
-    if (!text || !transformType) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: text and transformType' }),
-        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-      );
+    const textCheck = requireString(text, 'text');
+    if (typeof textCheck === 'object' && 'error' in textCheck) {
+      return createErrorResponse(req, textCheck.error, 400);
+    }
+    const typeCheck = requireEnum(transformType, 'transformType', ALLOWED_TRANSFORM_TYPES);
+    if (typeof typeCheck === 'object' && 'error' in typeCheck) {
+      return createErrorResponse(req, typeCheck.error, 400);
     }
 
     let systemPrompt = '';
@@ -116,10 +123,7 @@ Output ONLY the rewritten text in medical shorthand. No explanations.`;
         { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
       );
     }
-    const errorMessage = error instanceof Error ? error.message : 'Failed to transform text';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    const errorMessage = safeErrorMessage(error, 'Failed to transform text');
+    return createErrorResponse(req, errorMessage, 500);
   }
 });

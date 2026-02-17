@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MAX_MEDIA_PAYLOAD_BYTES } from '../_shared/mod.ts';
 
 interface PatientSystems {
   neuro: string;
@@ -307,7 +307,11 @@ serve(async (req) => {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { pdfContent, images, model: requestedModel } = await req.json();
+    const bodyResult = await parseAndValidateBody<{ pdfContent?: string; images?: string[]; model?: string }>(req, { maxBytes: MAX_MEDIA_PAYLOAD_BYTES });
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { pdfContent, images, model: requestedModel } = bodyResult.data;
 
     if (!pdfContent && (!images || images.length === 0)) {
       return new Response(
@@ -698,10 +702,6 @@ SYSTEM MAPPING GUIDANCE:
     );
   } catch (error) {
     console.error("Parse handoff error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'Failed to parse handoff document'), 500);
   }
 });

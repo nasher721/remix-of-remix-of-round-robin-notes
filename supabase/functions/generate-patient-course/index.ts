@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -44,11 +44,11 @@ serve(async (req) => {
       return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
     }
 
-    const { patientData, existingCourse, model: requestedModel } = await req.json() as {
-      patientData: PatientData;
-      existingCourse?: string;
-      model?: string;
-    };
+    const bodyResult = await parseAndValidateBody<{ patientData?: PatientData; existingCourse?: string; model?: string }>(req);
+    if (!bodyResult.valid) {
+      return bodyResult.response;
+    }
+    const { patientData, existingCourse, model: requestedModel } = bodyResult.data;
 
     if (!patientData) {
       return new Response(
@@ -63,22 +63,22 @@ serve(async (req) => {
 
     // Build comprehensive patient data summary
     const patientContent: string[] = [];
-    
+
     if (patientData.clinicalSummary) {
       const cleanSummary = patientData.clinicalSummary.replace(/<[^>]*>/g, '').trim();
       if (cleanSummary) patientContent.push(`Clinical Summary: ${cleanSummary}`);
     }
-    
+
     if (patientData.intervalEvents) {
       const cleanEvents = patientData.intervalEvents.replace(/<[^>]*>/g, '').trim();
       if (cleanEvents) patientContent.push(`Interval Events:\n${cleanEvents}`);
     }
-    
+
     if (patientData.imaging) {
       const cleanImaging = patientData.imaging.replace(/<[^>]*>/g, '').trim();
       if (cleanImaging) patientContent.push(`Imaging: ${cleanImaging}`);
     }
-    
+
     if (patientData.labs) {
       const cleanLabs = patientData.labs.replace(/<[^>]*>/g, '').trim();
       if (cleanLabs) patientContent.push(`Labs: ${cleanLabs}`);
@@ -176,7 +176,7 @@ Output ONLY the formatted course summary. No explanations or headers outside the
     if (!response.ok) {
       const errorText = await response.text();
       safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
-      
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
@@ -189,7 +189,7 @@ Output ONLY the formatted course summary. No explanations or headers outside the
           { status: 402, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
         );
       }
-      
+
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
@@ -209,10 +209,6 @@ Output ONLY the formatted course summary. No explanations or headers outside the
 
   } catch (error) {
     safeLog('error', `Generate patient course error: ${error}`);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to generate patient course';
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate patient course'), 500);
   }
 });
