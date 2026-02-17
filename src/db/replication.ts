@@ -38,9 +38,16 @@ function updateState(updates: Partial<ReplicationState>): void {
   stateHandlers.forEach(handler => handler(currentState));
 }
 
-// Active replication instances (using any to avoid generic type issues)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const activeReplications: Map<string, any> = new Map();
+interface RxDBReplication {
+  cancel: () => Promise<void>;
+  reSync: () => void;
+  active$: { subscribe: (cb: (active: boolean) => void) => { unsubscribe: () => void } };
+  error$: { subscribe: (cb: (error: Error) => void) => { unsubscribe: () => void } };
+  received$: { subscribe: (cb: (doc: unknown) => void) => { unsubscribe: () => void } };
+  sent$: { subscribe: (cb: () => void) => { unsubscribe: () => void } };
+}
+
+const activeReplications: Map<string, RxDBReplication> = new Map();
 
 /**
  * Start Supabase replication for a user

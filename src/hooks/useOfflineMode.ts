@@ -9,6 +9,12 @@ export interface OfflineState {
   isSyncing: boolean;
   syncProgress: SyncProgress | null;
   lastSyncTime: number | null;
+  skippedMutations: Array<{
+    id: string;
+    mutation: QueuedMutation;
+    reason: string;
+    serverTimestamp?: string;
+  }>;
 }
 
 export function useOfflineMode() {
@@ -17,6 +23,12 @@ export function useOfflineMode() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+  const [skippedMutations, setSkippedMutations] = useState<Array<{
+    id: string;
+    mutation: QueuedMutation;
+    reason: string;
+    serverTimestamp?: string;
+  }>>([]);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Trigger manual sync (declared before useEffect that references it)
@@ -25,6 +37,8 @@ export function useOfflineMode() {
 
     setIsSyncing(true);
     setSyncProgress(null);
+    // Clear skipped mutations on new sync attempt
+    setSkippedMutations([]);
 
     try {
       const result = await syncService.syncAll((progress) => {
@@ -34,10 +48,29 @@ export function useOfflineMode() {
       if (result.completed > 0) {
         setLastSyncTime(Date.now());
       }
+      
+      // Capture skipped/conflicted mutations from sync results
+      const skipped = result.results
+        .filter(r => r.skipped)
+        .map(r => {
+          const mutation = pendingMutations.find(m => m.id === r.mutationId);
+          return {
+            id: r.mutationId,
+            mutation: mutation!,
+            reason: 'Conflict detected - server data is newer',
+          };
+        })
+        .filter(s => s.mutation);
+      
+      if (skipped.length > 0) {
+        setSkippedMutations(skipped);
+      }
+    } catch (err) {
+      console.error('[OfflineSync] Sync failed:', err);
     } finally {
       setIsSyncing(false);
     }
-  }, [isOnline, isSyncing]);
+  }, [isOnline, isSyncing, pendingMutations]);
 
   // Handle online/offline status
   useEffect(() => {
@@ -118,6 +151,7 @@ export function useOfflineMode() {
     isSyncing,
     syncProgress,
     lastSyncTime,
+    skippedMutations,
     triggerSync,
     queueMutation,
     clearQueue,

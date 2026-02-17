@@ -15,6 +15,7 @@ export interface SyncResult {
   success: boolean;
   mutationId: string;
   error?: string;
+  skipped?: boolean;
 }
 
 const QUEUE_STORAGE_KEY = 'offline-mutation-queue';

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels } from '@/constants/config';
+import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels, type Theme } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,9 +10,10 @@ import { resetRouter } from '@/services/llm';
 export type SortBy = 'number' | 'room' | 'name';
 
 interface SettingsContextType {
-  // Font size
   globalFontSize: number;
   setGlobalFontSize: (size: number) => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
 
   // Todos visibility
   todosAlwaysVisible: boolean;
@@ -88,6 +89,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   const [sortBy, setSortByState] = React.useState<SortBy>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.PATIENT_SORT_BY);
     return (saved as SortBy) || DEFAULT_CONFIG.DEFAULT_SORT_BY;
+  });
+
+  const [theme, setThemeState] = React.useState<Theme>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.THEME) as Theme | null;
+    return saved || DEFAULT_CONFIG.DEFAULT_THEME;
   });
 
   const [showLabFishbones, setShowLabFishbonesState] = React.useState(() => {
@@ -364,6 +370,21 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setShowLabFishbonesState(show);
   }, []);
 
+  const setTheme = React.useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
+    
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    
+    if (newTheme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(newTheme);
+    }
+  }, []);
+
   const setSelectedSpecialty = React.useCallback((specialtyId: string | null) => {
     setSelectedSpecialtyState(specialtyId);
     if (specialtyId) {
@@ -433,9 +454,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setSectionVisibilityState(DEFAULT_SECTION_VISIBILITY);
   }, []);
 
-  const value: SettingsContextType = {
+  const value: SettingsContextType = React.useMemo(() => ({
     globalFontSize,
     setGlobalFontSize,
+    theme,
+    setTheme,
     todosAlwaysVisible,
     setTodosAlwaysVisible,
     sortBy,
@@ -458,7 +481,34 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setAiFeatureModel,
     getModelForFeature,
     isSyncingSettings,
-  };
+  }), [
+    globalFontSize,
+    theme,
+    todosAlwaysVisible,
+    sortBy,
+    showLabFishbones,
+    sectionVisibility,
+    selectedSpecialty,
+    aiProvider,
+    aiModel,
+    aiCredentials,
+    aiFeatureModels,
+    isSyncingSettings,
+    setGlobalFontSize,
+    setTheme,
+    setTodosAlwaysVisible,
+    setSortBy,
+    setShowLabFishbones,
+    setSelectedSpecialty,
+    isFeatureEnabledForRole,
+    setAiModel,
+    resetAiModel,
+    setAiCredential,
+    setAiFeatureModel,
+    getModelForFeature,
+    setSectionVisibility,
+    resetSectionVisibility,
+  ]);
 
   return (
     <SettingsContext.Provider value={value}>

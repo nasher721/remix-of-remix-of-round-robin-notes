@@ -2,6 +2,7 @@
 export const STORAGE_KEYS = {
   // Settings
   GLOBAL_FONT_SIZE: 'globalFontSize',
+  THEME: 'theme',
   TODOS_ALWAYS_VISIBLE: 'todosAlwaysVisible',
   PATIENT_SORT_BY: 'patientSortBy',
   SHOW_LAB_FISHBONES: 'showLabFishbones',
@@ -60,6 +61,7 @@ export const DEFAULT_CONFIG = {
   PRINT_ORIENTATION: 'portrait' as const,
   SYSTEMS_REVIEW_COLUMN_COUNT: 2,
   DEFAULT_SORT_BY: 'room' as const,
+  DEFAULT_THEME: 'system' as const,
   DEFAULT_AI_PROVIDER: 'openai' as const,
   DEFAULT_AI_MODEL: 'gpt-4o-mini' as const,
   SHOW_LAB_FISHBONES: true,
@@ -71,6 +73,8 @@ export const DEFAULT_CONFIG = {
   PRINT_ALTERNATE_ROW_COLORS: true,
   PRINT_COMPACT_MODE: false,
 } as const;
+
+export type Theme = 'light' | 'dark' | 'system';
 
 // AI feature categories for per-feature model customization
 export const AI_FEATURE_CATEGORIES = [

@@ -1,4 +1,4 @@
-import { Wifi, WifiOff, Cloud, RefreshCw, Trash2, Clock } from 'lucide-react';
+import { Wifi, WifiOff, Cloud, RefreshCw, Trash2, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -27,6 +27,7 @@ export function OfflineIndicator() {
     lastSyncTime,
     triggerSync,
     clearQueue,
+    skippedMutations,
   } = useOfflineMode();
   
   // Don't show anything if online with no pending changes
@@ -176,6 +177,53 @@ export function OfflineIndicator() {
                     )}
                   </div>
                 </ScrollArea>
+              </div>
+            </>
+          )}
+          
+          {/* Skipped/Conflicted Mutations */}
+          {skippedMutations.length > 0 && (
+            <>
+              <Separator />
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-yellow-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    Conflicts ({skippedMutations.length})
+                  </span>
+                </div>
+                
+                <ScrollArea className="h-24">
+                  <div className="space-y-1">
+                    {skippedMutations.map((skipped) => (
+                      <div
+                        key={skipped.id}
+                        className="flex items-center justify-between py-1 px-2 rounded bg-yellow-50 dark:bg-yellow-950/30 text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant="outline"
+                            className="h-4 px-1 text-[10px] border-yellow-500 text-yellow-700"
+                          >
+                            {skipped.mutation.operation}
+                          </Badge>
+                          <span className="text-muted-foreground">
+                            {skipped.mutation.type}
+                          </span>
+                        </div>
+                        <span className="text-yellow-600 text-[10px]">
+                          Server newer
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                
+                <p className="text-xs text-muted-foreground">
+                  These changes were skipped because server data was newer. 
+                  Your local changes are still saved locally.
+                </p>
               </div>
             </>
           )}

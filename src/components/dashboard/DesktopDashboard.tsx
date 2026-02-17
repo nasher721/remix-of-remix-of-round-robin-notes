@@ -20,6 +20,7 @@ import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
 import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard, CensusBadge } from "@/components/UnitCensusDashboard";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { PresenceIndicator } from "@/components/PresenceIndicator";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
@@ -208,6 +209,7 @@ export const DesktopDashboard = ({
 
           {/* Right - Profile */}
           <div className="flex items-center gap-3">
+            <PresenceIndicator />
             <div className="text-right hidden sm:block">
               <p className="text-xs font-medium leading-none text-card-foreground">{user.email}</p>
               <p className="text-[10px] text-card-foreground/50">Physician</p>
