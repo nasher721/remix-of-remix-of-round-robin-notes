@@ -26,6 +26,7 @@ import { PresenceIndicator } from "@/components/PresenceIndicator";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
+import { LiveRegion } from "@/components/LiveRegion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -179,7 +180,7 @@ export const DesktopDashboard = ({
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <div className="min-h-screen bg-background" id="main-content">
+    <div className="min-h-screen bg-background" id="main-content" role="main">
       {/* Header - Modern Glass Effect */}
       <motion.header
         className="sticky top-0 z-50 border-b border-border/20 bg-card/95 backdrop-blur-xl no-print"
@@ -203,14 +204,14 @@ export const DesktopDashboard = ({
           {/* Center - Stats Pill */}
           <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full text-xs font-medium text-card-foreground/70">
             <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
               <span className="text-card-foreground font-semibold">{patients.length}</span>
               <span>patients</span>
             </div>
-            <div className="h-3 w-px bg-white/20" />
+            <div className="h-3 w-px bg-white/20" aria-hidden="true" />
             <OfflineIndicator />
-            <div className="h-3 w-px bg-white/20" />
-            <Clock className="h-3 w-3" />
+            <div className="h-3 w-px bg-white/20" aria-hidden="true" />
+            <Clock className="h-3 w-3" aria-hidden="true" />
             <span>
               {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
             </span>
@@ -229,9 +230,9 @@ export const DesktopDashboard = ({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-card-foreground/60 hover:text-red-400 hover:bg-red-400/10 rounded-full transition-colors"
-              title="Sign Out"
+              aria-label="Sign out"
             >
-              <LogOut className="h-3.5 w-3.5" />
+              <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </div>
         </div>
@@ -245,7 +246,7 @@ export const DesktopDashboard = ({
         transition={{ ...transitions.smooth, delay: 0.1 }}
       >
         <div className="container mx-auto px-fluid-md lg:px-fluid-lg py-2">
-          <div className="flex items-center justify-between gap-fluid-xs flex-wrap">
+          <div className="flex items-center justify-between gap-fluid-xs flex-wrap" role="toolbar" aria-label="Patient actions">
             {/* Primary Actions Group */}
             <div className="flex items-center gap-1.5 p-1 bg-white/8 rounded-xl border border-white/10 shadow-sm">
               <Button onClick={onAddPatient} size="sm" className="gap-1.5 h-8 font-medium bg-white text-card rounded-lg shadow-sm hover:bg-white/90 font-semibold">
@@ -263,7 +264,7 @@ export const DesktopDashboard = ({
             {/* Clinical Tools Group */}
             <div className="flex items-center gap-1.5 p-1 bg-white/8 rounded-xl border border-white/10 shadow-sm">
               <div className="flex items-center gap-1 px-2 text-emerald-400">
-                <Stethoscope className="h-3.5 w-3.5" />
+                <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
                 <span className="text-xs font-semibold hidden md:inline">Clinical</span>
               </div>
               <div className="w-px h-5 bg-border/40" />
@@ -346,24 +347,26 @@ export const DesktopDashboard = ({
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           {/* Search & Filter */}
           <div className="flex flex-1 gap-2.5 items-center w-full lg:w-auto">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" />
+            <div className="relative flex-1 max-w-sm" role="search">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" aria-hidden="true" />
               <Input
                 ref={searchInputRef}
                 placeholder="Search patients... (Ctrl+K)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search patients"
                 className="pl-10 h-9 bg-card/60 border-border/30 focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-white/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
               />
             </div>
             <LayoutGroup>
-              <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl">
+              <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl" role="group" aria-label="Filter patients">
                 {Object.values(PatientFilterType).map((f) => (
                   <Button
                     key={f}
                     variant={filter === f ? 'default' : 'ghost'}
                     onClick={() => setFilter(f)}
                     size="sm"
+                    aria-pressed={filter === f}
                     className={`h-8 text-xs rounded-md relative ${filter === f ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     {filter === f && (
@@ -382,9 +385,9 @@ export const DesktopDashboard = ({
 
             {/* Sort Control */}
             <div className="flex items-center gap-1.5 bg-card/40 rounded-xl px-2">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/60" />
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'number' | 'room' | 'name')}>
-                <SelectTrigger className="w-28 h-8 bg-transparent border-0 text-xs shadow-none focus:ring-0">
+                <SelectTrigger className="w-28 h-8 bg-transparent border-0 text-xs shadow-none focus:ring-0" aria-label="Sort patients by">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -399,8 +402,8 @@ export const DesktopDashboard = ({
           {/* Right controls */}
           <div className="flex items-center gap-2">
             {/* Font Size Control */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-card/40 rounded-xl">
-              <Type className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-card/40 rounded-xl" role="group" aria-label="Font size controls">
+              <Type className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
               <div className="flex items-center gap-1.5">
                 <Button
                   variant="ghost"
@@ -408,8 +411,9 @@ export const DesktopDashboard = ({
                   className="h-6 w-6 rounded"
                   onClick={() => setGlobalFontSize(Math.max(10, globalFontSize - 2))}
                   disabled={globalFontSize <= 10}
+                  aria-label="Decrease font size"
                 >
-                  <span className="text-sm font-medium">-</span>
+                  <span className="text-sm font-medium" aria-hidden="true">-</span>
                 </Button>
                 <Slider
                   value={[globalFontSize]}
@@ -418,6 +422,7 @@ export const DesktopDashboard = ({
                   step={1}
                   className="w-16"
                   onValueChange={(v) => setGlobalFontSize(v[0])}
+                  aria-label={`Font size: ${globalFontSize} pixels`}
                 />
                 <Button
                   variant="ghost"
@@ -425,11 +430,12 @@ export const DesktopDashboard = ({
                   className="h-6 w-6 rounded"
                   onClick={() => setGlobalFontSize(Math.min(24, globalFontSize + 2))}
                   disabled={globalFontSize >= 24}
+                  aria-label="Increase font size"
                 >
-                  <span className="text-sm font-medium">+</span>
+                  <span className="text-sm font-medium" aria-hidden="true">+</span>
                 </Button>
               </div>
-              <span className="text-[10px] font-mono text-muted-foreground/60 w-7">{globalFontSize}px</span>
+              <span className="text-[10px] font-mono text-muted-foreground/60 w-7" aria-hidden="true">{globalFontSize}px</span>
             </div>
 
             {/* Section Visibility Panel */}
@@ -457,7 +463,7 @@ export const DesktopDashboard = ({
         <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted-foreground/70">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-card/40">
-              <Users className="h-3 w-3 text-emerald-400" />
+              <Users className="h-3 w-3 text-emerald-400" aria-hidden="true" />
               {filteredPatients.length} of {patients.length}
             </Badge>
             {searchQuery && (
@@ -467,9 +473,10 @@ export const DesktopDashboard = ({
             )}
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" aria-hidden="true" />
             <span>Synced {lastSaved.toLocaleTimeString()}</span>
           </div>
+          <LiveRegion message={`Showing ${filteredPatients.length} of ${patients.length} patients. Last synced ${lastSaved.toLocaleTimeString()}`} />
         </div>
       </div>
 

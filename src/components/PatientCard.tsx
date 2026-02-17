@@ -115,8 +115,9 @@ const PatientCardComponent = ({
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <motion.div
+    <motion.article
       className="print-avoid-break bg-card rounded-2xl border border-border/30 shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden"
+      aria-label={`Patient: ${patient.name || 'Unnamed'}`}
       variants={shouldReduceMotion ? undefined : cardHover}
       initial="rest"
       whileHover="hover"
@@ -136,12 +137,14 @@ const PatientCardComponent = ({
               placeholder="Patient Name"
               value={patient.name}
               onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
+              aria-label="Patient name"
               className="max-w-[200px] font-medium bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground transition-all duration-200"
             />
             <Input
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
+              aria-label="Bed or room number"
               className="max-w-[100px] bg-white/8 border border-white/10 hover:border-white/20 focus:border-white/30 focus:ring-2 focus:ring-white/10 rounded-xl px-3 h-8 text-sm text-card-foreground transition-all duration-200"
             />
             {/* Patient Status Badges */}
@@ -168,9 +171,9 @@ const PatientCardComponent = ({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-muted-foreground/70 hover:text-foreground hover:bg-secondary/60"
-                title="View change history"
+                aria-label="View change history"
               >
-                <History className="h-3.5 w-3.5" />
+                <History className="h-3.5 w-3.5" aria-hidden="true" />
               </Button>
             }
           />
@@ -179,27 +182,29 @@ const PatientCardComponent = ({
             size="icon"
             onClick={() => onToggleCollapse(patient.id)}
             className="h-8 w-8 text-muted-foreground/70 hover:text-foreground hover:bg-secondary/60"
-            title={patient.collapsed ? "Expand" : "Collapse"}
+            aria-label={patient.collapsed ? "Expand patient card" : "Collapse patient card"}
+            aria-expanded={!patient.collapsed}
+            aria-controls={`patient-body-${patient.id}`}
           >
-            {patient.collapsed ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+            {patient.collapsed ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />}
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onDuplicate(patient.id)}
             className="h-8 w-8 text-muted-foreground/70 hover:text-foreground hover:bg-secondary/60"
-            title="Duplicate"
+            aria-label="Duplicate patient"
           >
-            <Copy className="h-3.5 w-3.5" />
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onRemove(patient.id)}
             className="h-8 w-8 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/5"
-            title="Remove"
+            aria-label="Remove patient"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -208,6 +213,7 @@ const PatientCardComponent = ({
         {!patient.collapsed && (
           <motion.div
             key="card-body"
+            id={`patient-body-${patient.id}`}
             variants={shouldReduceMotion ? undefined : collapseVariants}
             initial="closed"
             animate="open"
@@ -239,7 +245,7 @@ const PatientCardComponent = ({
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                        <FileText className="h-3.5 w-3.5 text-card-foreground/70" />
+                        <FileText className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
                       </div>
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Clinical Summary</h3>
                       {patient.clinicalSummary && (
@@ -264,9 +270,9 @@ const PatientCardComponent = ({
                         size="sm"
                         onClick={() => addTimestamp('clinicalSummary')}
                         className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
-                        title="Add timestamp"
+                        aria-label="Add timestamp to clinical summary"
                       >
-                        <Clock className="h-3 w-3" />
+                        <Clock className="h-3 w-3" aria-hidden="true" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -301,7 +307,7 @@ const PatientCardComponent = ({
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                        <Calendar className="h-3.5 w-3.5 text-card-foreground/70" />
+                        <Calendar className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
                       </div>
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Interval Events</h3>
                       {patient.intervalEvents && (
@@ -317,9 +323,9 @@ const PatientCardComponent = ({
                           size="sm"
                           onClick={isGeneratingEvents ? cancelGeneration : cancelSummary}
                           className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          title="Cancel generation"
+                          aria-label="Cancel generation"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3 w-3" aria-hidden="true" />
                           <span className="ml-1 text-xs">Cancel</span>
                         </Button>
                       ) : (
@@ -329,9 +335,9 @@ const PatientCardComponent = ({
                             size="sm"
                             onClick={handleGenerateIntervalEvents}
                             className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                            title="Generate from Systems (AI)"
+                            aria-label="Generate interval events from systems using AI"
                           >
-                            <Sparkles className="h-3 w-3" />
+                            <Sparkles className="h-3 w-3" aria-hidden="true" />
                             <span className="ml-1 text-xs">Generate</span>
                           </Button>
                           <Button
@@ -339,9 +345,9 @@ const PatientCardComponent = ({
                             size="sm"
                             onClick={handleGenerateDailySummary}
                             className="h-7 px-2 text-warning hover:text-warning hover:bg-warning/10"
-                            title="Summarize today's changes & todos (AI)"
+                            aria-label="Summarize today's changes and todos using AI"
                           >
-                            <ClipboardList className="h-3 w-3" />
+                            <ClipboardList className="h-3 w-3" aria-hidden="true" />
                             <span className="ml-1 text-xs">Summary</span>
                           </Button>
                         </>
@@ -366,9 +372,9 @@ const PatientCardComponent = ({
                         size="sm"
                         onClick={() => addTimestamp('intervalEvents')}
                         className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
-                        title="Add timestamp"
+                        aria-label="Add timestamp to interval events"
                       >
-                        <Clock className="h-3 w-3" />
+                        <Clock className="h-3 w-3" aria-hidden="true" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -406,7 +412,7 @@ const PatientCardComponent = ({
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                            <ImageIcon className="h-3.5 w-3.5 text-card-foreground/70" />
+                            <ImageIcon className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
                           </div>
                           <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Imaging</h3>
                           {patient.imaging && (
@@ -436,9 +442,9 @@ const PatientCardComponent = ({
                             size="sm"
                             onClick={() => addTimestamp('imaging')}
                             className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
-                            title="Add timestamp"
+                            aria-label="Add timestamp to imaging"
                           >
-                            <Clock className="h-3 w-3" />
+                            <Clock className="h-3 w-3" aria-hidden="true" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -475,7 +481,7 @@ const PatientCardComponent = ({
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
                           <div className="h-5 w-5 rounded flex items-center justify-center bg-white/8">
-                            <TestTube className="h-3.5 w-3.5 text-card-foreground/70" />
+                            <TestTube className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
                           </div>
                           <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Labs</h3>
                           {patient.labs && (
@@ -568,7 +574,7 @@ const PatientCardComponent = ({
         open={showSystemsConfig}
         onOpenChange={setShowSystemsConfig}
       />
-    </motion.div>
+    </motion.article>
   );
 };
 
