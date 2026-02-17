@@ -178,7 +178,7 @@ export const DesktopDashboard = ({
     <div className="min-h-screen bg-background" id="main-content">
       {/* Header - Modern Glass Effect */}
       <header className="sticky top-0 z-50 border-b border-border/20 bg-card/95 backdrop-blur-xl no-print">
-        <div className="container mx-auto px-6 h-14 flex items-center justify-between gap-6">
+        <div className="container mx-auto px-fluid-md lg:px-fluid-lg h-14 flex items-center justify-between gap-fluid-sm">
           {/* Logo & Title */}
           <div className="flex items-center gap-3 group cursor-pointer">
             <div className="relative flex items-center justify-center h-8 w-8">
@@ -186,7 +186,7 @@ export const DesktopDashboard = ({
               <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-8 w-auto relative z-10" />
             </div>
             <div>
-              <h1 className="text-base font-semibold tracking-tight leading-none text-card-foreground">Rolling Rounds</h1>
+              <h1 className="text-fluid-sm font-semibold tracking-tight leading-none text-card-foreground">Rolling Rounds</h1>
               <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase mt-0.5">Professional</p>
             </div>
           </div>
@@ -230,8 +230,8 @@ export const DesktopDashboard = ({
 
       {/* Action Bar - Streamlined Toolbar */}
       <div className="border-b border-border/20 bg-card/60 backdrop-blur-sm no-print">
-        <div className="container mx-auto px-6 py-2">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="container mx-auto px-fluid-md lg:px-fluid-lg py-2">
+          <div className="flex items-center justify-between gap-fluid-xs flex-wrap">
             {/* Primary Actions Group */}
             <div className="flex items-center gap-1.5 p-1 bg-white/8 rounded-xl border border-white/10 shadow-sm">
               <Button onClick={onAddPatient} size="sm" className="gap-1.5 h-8 font-medium bg-white text-card rounded-lg shadow-sm hover:bg-white/90 font-semibold">
@@ -328,7 +328,7 @@ export const DesktopDashboard = ({
       </div>
 
       {/* Search, Filter & Settings Bar */}
-      <div className="container mx-auto px-6 pt-4 pb-3 no-print">
+      <div className="container mx-auto px-fluid-md lg:px-fluid-lg pt-4 pb-3 no-print">
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           {/* Search & Filter */}
           <div className="flex flex-1 gap-2.5 items-center w-full lg:w-auto">
@@ -409,9 +409,9 @@ export const DesktopDashboard = ({
             </div>
 
             {/* Section Visibility Panel */}
-              <SectionVisibilityPanel />
+            <SectionVisibilityPanel />
 
-              <DesktopAIModelSettingsDialog />
+            <DesktopAIModelSettingsDialog />
 
             {/* Todos Always Visible Toggle */}
             <Button
@@ -450,7 +450,7 @@ export const DesktopDashboard = ({
       </div>
 
       {/* Patient Cards */}
-      <div className="container mx-auto px-6 pb-12 pr-16 transition-all duration-300">
+      <div className="container mx-auto px-fluid-md lg:px-fluid-lg pb-12 pr-16 transition-all duration-300">
         {filteredPatients.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div className="mb-8 relative">
