@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { offlineQueue, QueuedMutation } from '@/lib/offline/offlineQueue';
 import { syncService, SyncProgress } from '@/lib/offline/syncService';
+import { useOnlineStatus } from './useOnlineStatus';
 
 export interface OfflineState {
   isOnline: boolean;
@@ -18,7 +19,7 @@ export interface OfflineState {
 }
 
 export function useOfflineMode() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const isOnline = useOnlineStatus();
   const [pendingMutations, setPendingMutations] = useState<QueuedMutation[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
@@ -48,7 +49,7 @@ export function useOfflineMode() {
       if (result.completed > 0) {
         setLastSyncTime(Date.now());
       }
-      
+
       // Capture skipped/conflicted mutations from sync results
       const skipped = result.results
         .filter(r => r.skipped)
@@ -61,7 +62,7 @@ export function useOfflineMode() {
           };
         })
         .filter(s => s.mutation);
-      
+
       if (skipped.length > 0) {
         setSkippedMutations(skipped);
       }
@@ -72,10 +73,9 @@ export function useOfflineMode() {
     }
   }, [isOnline, isSyncing, pendingMutations]);
 
-  // Handle online/offline status
+  // Auto-sync when coming back online
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
+    if (isOnline) {
       // Debounce sync to avoid rapid reconnection issues
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
@@ -83,26 +83,18 @@ export function useOfflineMode() {
       syncTimeoutRef.current = setTimeout(() => {
         triggerSync();
       }, 1000);
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
+    } else {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [triggerSync]);
+  }, [isOnline, triggerSync]);
 
   // Subscribe to queue changes
   useEffect(() => {
@@ -124,26 +116,26 @@ export function useOfflineMode() {
 
     return unsubscribe;
   }, []);
-  
+
   // Queue a mutation
   const queueMutation = useCallback((
     mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'retryCount' | 'maxRetries'>
   ): string => {
     return offlineQueue.enqueue(mutation);
   }, []);
-  
+
   // Clear pending mutations
   const clearQueue = useCallback(() => {
     offlineQueue.clear();
   }, []);
-  
+
   // Check if a specific entity has pending changes
   const hasPendingChanges = useCallback((entityId: string, table: string): boolean => {
     return pendingMutations.some(
       m => m.entityId === entityId && m.table === table
     );
   }, [pendingMutations]);
-  
+
   return {
     isOnline,
     pendingCount: pendingMutations.length,

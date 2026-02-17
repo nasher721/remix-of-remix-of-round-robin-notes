@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 export type AIWorkflowStep = {
   id: string;
@@ -33,7 +33,7 @@ export function useAIWorkflow(): UseAIWorkflowReturn {
   const [results, setResults] = useState<AIWorkflowResult[]>([]);
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [cancelled, setCancelled] = useState(false);
+  const cancelledRef = useRef(false);
 
   const callEdgeFunction = useCallback(async (
     functionName: string,
@@ -62,13 +62,13 @@ export function useAIWorkflow(): UseAIWorkflowReturn {
     setProgress(0);
     setResults([]);
     setError(null);
-    setCancelled(false);
+    cancelledRef.current = false;
 
     const stepResults: Map<string, AIWorkflowResult> = new Map();
     const completedSteps: Set<string> = new Set();
 
     for (let i = 0; i < steps.length; i++) {
-      if (cancelled) {
+      if (cancelledRef.current) {
         setStatus('failed');
         setError('Workflow cancelled');
         break;
@@ -170,10 +170,10 @@ export function useAIWorkflow(): UseAIWorkflowReturn {
     setCurrentStep(null);
     setStatus('completed');
     return Array.from(stepResults.values());
-  }, [callEdgeFunction, cancelled]);
+  }, [callEdgeFunction]);
 
   const cancel = useCallback(() => {
-    setCancelled(true);
+    cancelledRef.current = true;
   }, []);
 
   return {

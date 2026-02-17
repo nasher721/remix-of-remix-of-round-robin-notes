@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import type { User } from '@supabase/supabase-js';
 
 interface PresenceUser {
   id: string;
@@ -14,6 +15,18 @@ interface PresenceUser {
 interface PresenceState {
   users: PresenceUser[];
   totalOnline: number;
+}
+
+/** Build the payload sent to Supabase presence tracking. */
+function buildTrackPayload(user: User, page: string = 'dashboard') {
+  return {
+    id: user.id,
+    email: user.email || '',
+    name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous',
+    avatar_url: user.user_metadata?.avatar_url || null,
+    lastSeen: Date.now(),
+    currentPage: page,
+  };
 }
 
 /**
@@ -69,39 +82,22 @@ export function usePresence(channelId: string = 'global') {
         });
         setIsConnected(true);
       })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      .on('presence', { event: 'join' }, ({ key }) => {
         console.log('User joined:', key);
       })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      .on('presence', { event: 'leave' }, ({ key }) => {
         console.log('User left:', key);
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Track presence with user info
-          await presenceChannel.track({
-            id: user.id,
-            email: user.email || '',
-            name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous',
-            avatar_url: user.user_metadata?.avatar_url || null,
-            lastSeen: Date.now(),
-            currentPage: 'dashboard',
-          });
+          await presenceChannel.track(buildTrackPayload(user));
         }
       });
 
     // Update presence periodically to show activity
-    const updatePresence = async () => {
-      await presenceChannel.track({
-        id: user.id,
-        email: user.email || '',
-        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous',
-        avatar_url: user.user_metadata?.avatar_url || null,
-        lastSeen: Date.now(),
-        currentPage: 'dashboard',
-      });
-    };
-
-    const interval = setInterval(updatePresence, 30000); // Every 30 seconds
+    const interval = setInterval(async () => {
+      await presenceChannel.track(buildTrackPayload(user));
+    }, 30000);
 
     return () => {
       clearInterval(interval);
@@ -113,16 +109,9 @@ export function usePresence(channelId: string = 'global') {
 
   const updatePage = useCallback(async (page: string) => {
     if (!user) return;
-    
+
     const presenceChannel = supabase.channel(channel);
-    await presenceChannel.track({
-      id: user.id,
-      email: user.email || '',
-      name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous',
-      avatar_url: user.user_metadata?.avatar_url || null,
-      lastSeen: Date.now(),
-      currentPage: page,
-    });
+    await presenceChannel.track(buildTrackPayload(user, page));
   }, [user, channel]);
 
   return {
@@ -138,3 +127,4 @@ export function usePresence(channelId: string = 'global') {
 export function usePatientPresence(patientId: string) {
   return usePresence(`patient-${patientId}`);
 }
+

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
+import { useOnlineStatus } from "./useOnlineStatus";
 
 /**
  * Monitors network connectivity and shows toast notifications
@@ -7,41 +8,40 @@ import { toast } from "sonner";
  * Suppresses the initial mount to avoid a false "back online" on page load.
  */
 export function useNetworkStatus() {
+  const isOnline = useOnlineStatus();
   const hasBeenOffline = useRef(false);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
-    const handleOffline = () => {
+    // Skip the very first render to avoid false "back online" on page load
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      // If already offline on mount, show the notification
+      if (!isOnline) {
+        hasBeenOffline.current = true;
+        toast.warning("You are offline", {
+          description: "Changes will be saved locally and synced when you reconnect.",
+          duration: Infinity,
+          id: "network-status",
+        });
+      }
+      return;
+    }
+
+    if (!isOnline) {
       hasBeenOffline.current = true;
       toast.warning("You are offline", {
         description: "Changes will be saved locally and synced when you reconnect.",
         duration: Infinity,
         id: "network-status",
       });
-    };
-
-    const handleOnline = () => {
-      // Only show "back online" if user was actually offline during this session
-      if (hasBeenOffline.current) {
-        hasBeenOffline.current = false;
-        toast.success("Back online", {
-          description: "Your connection has been restored. Syncing changes...",
-          duration: 4000,
-          id: "network-status",
-        });
-      }
-    };
-
-    window.addEventListener("offline", handleOffline);
-    window.addEventListener("online", handleOnline);
-
-    // If already offline on mount, show the notification
-    if (!navigator.onLine) {
-      handleOffline();
+    } else if (hasBeenOffline.current) {
+      hasBeenOffline.current = false;
+      toast.success("Back online", {
+        description: "Your connection has been restored. Syncing changes...",
+        duration: 4000,
+        id: "network-status",
+      });
     }
-
-    return () => {
-      window.removeEventListener("offline", handleOffline);
-      window.removeEventListener("online", handleOnline);
-    };
-  }, []);
+  }, [isOnline]);
 }
