@@ -299,10 +299,11 @@ export const DesktopDashboard = ({
                 onClick={() => setShowPhraseManager(true)}
                 variant="ghost"
                 size="sm"
+                aria-label="Manage clinical phrases"
                 className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
               >
-                <FileText className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-xs">Phrases</span>
+                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline text-xs" aria-hidden="true">Phrases</span>
               </Button>
             </div>
 
@@ -312,30 +313,31 @@ export const DesktopDashboard = ({
                 onClick={onCollapseAll}
                 variant="ghost"
                 size="sm"
+                aria-label={patients.every(p => p.collapsed) ? 'Expand all patients' : 'Collapse all patients'}
                 className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
                 disabled={patients.length === 0}
               >
-                <ChevronsUpDown className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline text-xs">
+                <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden lg:inline text-xs" aria-hidden="true">
                   {patients.every(p => p.collapsed) ? 'Expand' : 'Collapse'}
                 </span>
               </Button>
-              <Button onClick={() => setShowComparisonModal(true)} variant="ghost" size="sm" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                <Users className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline text-xs">Compare</span>
+              <Button onClick={() => setShowComparisonModal(true)} variant="ghost" size="sm" aria-label="Compare patients" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
+                <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden lg:inline text-xs" aria-hidden="true">Compare</span>
               </Button>
-              <Button onClick={handlePrint} variant="ghost" size="sm" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                <Printer className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline text-xs">Print</span>
+              <Button onClick={handlePrint} variant="ghost" size="sm" aria-label="Print or export notes" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
+                <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden lg:inline text-xs" aria-hidden="true">Print</span>
               </Button>
-              <Button onClick={handleExport} variant="ghost" size="sm" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                <Download className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline text-xs">Export</span>
+              <Button onClick={handleExport} variant="ghost" size="sm" aria-label="Export patient data as JSON" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
+                <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden lg:inline text-xs" aria-hidden="true">Export</span>
               </Button>
-              <div className="w-px h-4 bg-border/40 mx-0.5" />
-              <Button onClick={handleClearAll} variant="ghost" size="sm" className="gap-1.5 h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline text-xs">Clear</span>
+              <div className="w-px h-4 bg-border/40 mx-0.5" aria-hidden="true" />
+              <Button onClick={handleClearAll} variant="ghost" size="sm" aria-label="Clear all patients" className="gap-1.5 h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden lg:inline text-xs" aria-hidden="true">Clear</span>
               </Button>
             </div>
           </div>
@@ -448,10 +450,12 @@ export const DesktopDashboard = ({
               variant={todosAlwaysVisible ? "default" : "ghost"}
               size="sm"
               onClick={() => setTodosAlwaysVisible(!todosAlwaysVisible)}
+              aria-label={todosAlwaysVisible ? "Hide todos panel" : "Show todos panel"}
+              aria-pressed={todosAlwaysVisible}
               className={`gap-1.5 h-8 text-xs ${!todosAlwaysVisible ? 'text-muted-foreground hover:text-foreground' : ''}`}
             >
-              <ListTodo className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Todos</span>
+              <ListTodo className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline" aria-hidden="true">Todos</span>
             </Button>
 
             {/* Specialty / Role Selector */}
@@ -476,7 +480,13 @@ export const DesktopDashboard = ({
             <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" aria-hidden="true" />
             <span>Synced {lastSaved.toLocaleTimeString()}</span>
           </div>
-          <LiveRegion message={`Showing ${filteredPatients.length} of ${patients.length} patients. Last synced ${lastSaved.toLocaleTimeString()}`} />
+          <LiveRegion
+            message={
+              searchQuery
+                ? `Search results: ${filteredPatients.length} of ${patients.length} patients match "${searchQuery}"`
+                : `Showing ${filteredPatients.length} of ${patients.length} patients. Last synced ${lastSaved.toLocaleTimeString()}`
+            }
+          />
         </div>
       </div>
 
