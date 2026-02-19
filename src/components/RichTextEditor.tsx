@@ -554,16 +554,17 @@ export const RichTextEditor = ({
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b border-border bg-muted/50 flex-wrap">
+      <div role="toolbar" aria-label="Text formatting" className="flex items-center gap-1 p-2 border-b border-border bg-muted/50 flex-wrap">
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={() => execCommand('undo')}
           title="Undo (Ctrl+Z)"
+          aria-label="Undo (Ctrl+Z)"
           className="h-7 w-7 p-0"
         >
-          <Undo2 className="h-3.5 w-3.5" />
+          <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -571,11 +572,12 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('redo')}
           title="Redo (Ctrl+Y)"
+          aria-label="Redo (Ctrl+Y)"
           className="h-7 w-7 p-0"
         >
-          <Redo2 className="h-3.5 w-3.5" />
+          <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Text formatting */}
         <Button
@@ -584,9 +586,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('bold')}
           title="Bold (Ctrl+B)"
+          aria-label="Bold (Ctrl+B)"
           className="h-7 w-7 p-0"
         >
-          <Bold className="h-3.5 w-3.5" />
+          <Bold className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -594,9 +597,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('italic')}
           title="Italic (Ctrl+I)"
+          aria-label="Italic (Ctrl+I)"
           className="h-7 w-7 p-0"
         >
-          <Italic className="h-3.5 w-3.5" />
+          <Italic className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -604,9 +608,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('underline')}
           title="Underline (Ctrl+U)"
+          aria-label="Underline (Ctrl+U)"
           className="h-7 w-7 p-0"
         >
-          <Underline className="h-3.5 w-3.5" />
+          <Underline className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -614,9 +619,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('strikeThrough')}
           title="Strikethrough (Ctrl+Shift+X)"
+          aria-label="Strikethrough (Ctrl+Shift+X)"
           className="h-7 w-7 p-0"
         >
-          <Strikethrough className="h-3.5 w-3.5" />
+          <Strikethrough className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -624,9 +630,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('superscript')}
           title="Superscript"
+          aria-label="Superscript"
           className="h-7 w-7 p-0"
         >
-          <Superscript className="h-3.5 w-3.5" />
+          <Superscript className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -634,11 +641,12 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('subscript')}
           title="Subscript"
+          aria-label="Subscript"
           className="h-7 w-7 p-0"
         >
-          <Subscript className="h-3.5 w-3.5" />
+          <Subscript className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Heading selector */}
         <select
@@ -651,6 +659,7 @@ export const RichTextEditor = ({
             }
           }}
           defaultValue="p"
+          aria-label="Heading level"
           className="h-7 px-1 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
           title="Heading level"
         >
@@ -669,9 +678,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('insertUnorderedList')}
           title="Bullet List (Ctrl+Shift+8)"
+          aria-label="Bullet list (Ctrl+Shift+8)"
           className="h-7 w-7 p-0"
         >
-          <List className="h-3.5 w-3.5" />
+          <List className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -679,11 +689,12 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('insertOrderedList')}
           title="Numbered List (Ctrl+Shift+7)"
+          aria-label="Numbered list (Ctrl+Shift+7)"
           className="h-7 w-7 p-0"
         >
-          <ListOrdered className="h-3.5 w-3.5" />
+          <ListOrdered className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Indent */}
         <Button
@@ -692,9 +703,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('outdent')}
           title="Decrease Indent"
+          aria-label="Decrease indent"
           className="h-7 w-7 p-0"
         >
-          <Outdent className="h-3.5 w-3.5" />
+          <Outdent className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -702,11 +714,12 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('indent')}
           title="Increase Indent"
+          aria-label="Increase indent"
           className="h-7 w-7 p-0"
         >
-          <Indent className="h-3.5 w-3.5" />
+          <Indent className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Alignment */}
         <Button
@@ -715,9 +728,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('justifyLeft')}
           title="Align Left"
+          aria-label="Align left"
           className="h-7 w-7 p-0"
         >
-          <AlignLeft className="h-3.5 w-3.5" />
+          <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -725,9 +739,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('justifyCenter')}
           title="Align Center"
+          aria-label="Align center"
           className="h-7 w-7 p-0"
         >
-          <AlignCenter className="h-3.5 w-3.5" />
+          <AlignCenter className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -735,9 +750,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('justifyRight')}
           title="Align Right"
+          aria-label="Align right"
           className="h-7 w-7 p-0"
         >
-          <AlignRight className="h-3.5 w-3.5" />
+          <AlignRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <Button
           type="button"
@@ -745,11 +761,12 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('justifyFull')}
           title="Justify"
+          aria-label="Justify text"
           className="h-7 w-7 p-0"
         >
-          <AlignJustify className="h-3.5 w-3.5" />
+          <AlignJustify className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Text color */}
         <Popover>
@@ -759,13 +776,14 @@ export const RichTextEditor = ({
               variant="ghost"
               size="sm"
               title="Text Color"
+              aria-label="Text color"
               className="h-7 w-7 p-0"
             >
-              <Palette className="h-3.5 w-3.5" />
+              <Palette className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="start">
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 gap-1" role="group" aria-label="Text colors">
               {textColors.map((color) => (
                 <button
                   key={color.name}
@@ -781,10 +799,12 @@ export const RichTextEditor = ({
                     !color.value && "border border-dashed border-muted-foreground/30"
                   )}
                   title={color.name}
+                  aria-label={`Text color ${color.name}`}
                 >
                   <span
                     className="w-4 h-4 rounded-full border border-border"
                     style={{ backgroundColor: color.value || 'transparent' }}
+                    aria-hidden="true"
                   />
                   <span className="text-foreground">{color.name}</span>
                 </button>
@@ -801,13 +821,14 @@ export const RichTextEditor = ({
               variant="ghost"
               size="sm"
               title="Highlight Color"
+              aria-label="Highlight color"
               className="h-7 w-7 p-0"
             >
-              <Highlighter className="h-3.5 w-3.5" />
+              <Highlighter className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="start">
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-4 gap-1" role="group" aria-label="Highlight colors">
               {highlightColors.map((color) => (
                 <button
                   key={color.name}
@@ -823,10 +844,12 @@ export const RichTextEditor = ({
                     !color.value && "border border-dashed border-muted-foreground/30"
                   )}
                   title={color.name}
+                  aria-label={`Highlight ${color.name}`}
                 >
                   <span
                     className="w-4 h-4 rounded border border-border"
                     style={{ backgroundColor: color.value || 'transparent' }}
+                    aria-hidden="true"
                   />
                   <span className="text-foreground">{color.name}</span>
                 </button>
@@ -834,7 +857,7 @@ export const RichTextEditor = ({
             </div>
           </PopoverContent>
         </Popover>
-        <div className="w-px h-5 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Insert link */}
         <Button
@@ -843,9 +866,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={handleInsertLink}
           title="Insert Link (Ctrl+K)"
+          aria-label="Insert link (Ctrl+K)"
           className="h-7 w-7 p-0"
         >
-          <Link2 className="h-3.5 w-3.5" />
+          <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
 
         {/* Insert horizontal rule */}
@@ -855,9 +879,10 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => execCommand('insertHorizontalRule')}
           title="Horizontal Rule"
+          aria-label="Insert horizontal rule"
           className="h-7 w-7 p-0"
         >
-          <Minus className="h-3.5 w-3.5" />
+          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
 
         {/* Insert table */}
@@ -868,20 +893,28 @@ export const RichTextEditor = ({
               variant="ghost"
               size="sm"
               title="Insert Table"
+              aria-label="Insert table"
+              aria-haspopup="true"
               className="h-7 w-7 p-0"
             >
-              <TableIcon className="h-3.5 w-3.5" />
+              <TableIcon className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-2" align="start">
-            <div className="text-xs text-muted-foreground mb-1">
+            <div className="text-xs text-muted-foreground mb-1" aria-live="polite" aria-atomic="true">
               {tableHover.rows > 0 ? `${tableHover.rows} × ${tableHover.cols}` : "Select size"}
             </div>
-            <div className="grid gap-0.5" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+            <div
+              className="grid gap-0.5"
+              style={{ gridTemplateColumns: "repeat(6, 1fr)" }}
+              role="grid"
+              aria-label="Table size picker"
+            >
               {Array.from({ length: 6 }, (_, r) =>
                 Array.from({ length: 6 }, (_, c) => (
                   <button
                     key={`${r}-${c}`}
+                    aria-label={`${r + 1} rows by ${c + 1} columns`}
                     className={cn(
                       "w-5 h-5 border border-border rounded-[2px] transition-colors",
                       r < tableHover.rows && c < tableHover.cols
@@ -905,20 +938,23 @@ export const RichTextEditor = ({
           size="sm"
           onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
           title="Find & Replace (Ctrl+F)"
+          aria-label="Find and replace (Ctrl+F)"
+          aria-pressed={!!findReplaceMode}
           className="h-7 w-7 p-0"
         >
-          <Search className="h-3.5 w-3.5" />
+          <Search className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
         <div className="w-px h-5 bg-border mx-1" />
 
         {/* Font size */}
         <div className="flex items-center gap-2">
-          <Type className="h-3.5 w-3.5 text-muted-foreground" />
+          <Type className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           <select
             value={fontSizeRef.current}
             onChange={(e) => handleFontSizeChange([parseInt(e.target.value)])}
             className="h-7 px-2 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
             title="Font size"
+            aria-label="Font size"
           >
             {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24].map((size) => (
               <option key={size} value={size}>{size}px</option>
@@ -1040,6 +1076,9 @@ export const RichTextEditor = ({
       <div className="max-h-[300px] editor-scroll-container relative">
         <div
           ref={editorRef}
+          role="textbox"
+          aria-multiline="true"
+          aria-label={section ? `${section} notes` : placeholder}
           contentEditable
           className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative whitespace-pre-wrap text-card-foreground"
           style={{ fontSize: `${fontSizeRef.current}px` }}
@@ -1066,13 +1105,18 @@ export const RichTextEditor = ({
 
       {/* Autocomplete dropdown */}
       {showAutocomplete && autocompleteOptions.length > 0 && (
-        <div
-          className="absolute z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden"
+        <ul
+          role="listbox"
+          aria-label="Autotext suggestions"
+          className="absolute z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden list-none m-0 p-0"
           style={{ top: autocompletePosition.top, left: autocompletePosition.left, minWidth: 200 }}
         >
           {autocompleteOptions.map((option, index) => (
-            <div
+            <li
               key={option.shortcut}
+              role="option"
+              aria-selected={index === selectedIndex}
+              id={`autotext-option-${index}`}
               className={cn(
                 "px-3 py-2 cursor-pointer text-sm flex items-center gap-2",
                 index === selectedIndex ? "bg-primary text-primary-foreground" : "hover:bg-muted"
@@ -1085,12 +1129,12 @@ export const RichTextEditor = ({
             >
               <span className="font-mono text-xs bg-muted/50 px-1 rounded">{option.shortcut}</span>
               <span className="truncate">{option.expansion}</span>
-            </div>
+            </li>
           ))}
-          <div className="px-3 py-1 text-xs text-muted-foreground border-t bg-muted/30">
+          <li className="px-3 py-1 text-xs text-muted-foreground border-t bg-muted/30" aria-hidden="true">
             Tab/Enter to insert • Esc to close
-          </div>
-        </div>
+          </li>
+        </ul>
       )}
 
       {/* Phrase Form Dialog */}

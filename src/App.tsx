@@ -51,7 +51,18 @@ function App(): React.ReactElement {
                   <Sonner />
                   <BrowserRouter>
                     <SkipToContent />
-                    <React.Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+                    <React.Suspense fallback={
+                      <div
+                        className="flex items-center justify-center h-screen"
+                        role="status"
+                        aria-live="polite"
+                        aria-busy="true"
+                        aria-label="Loading page"
+                      >
+                        <span className="sr-only">Loading page, please wait…</span>
+                        <span aria-hidden="true">Loading...</span>
+                      </div>
+                    }>
                       <Routes>
                         <Route path="/" element={<Index />} />
                         <Route path="/auth" element={<Auth />} />
