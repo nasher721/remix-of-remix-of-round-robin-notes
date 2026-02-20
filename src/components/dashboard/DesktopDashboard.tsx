@@ -11,9 +11,12 @@ import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DesktopSpecialtySelector } from "@/components/settings/DesktopSpecialtySelector";
 import { DesktopAIModelSettingsDialog } from "@/components/settings/DesktopAIModelSettingsDialog";
 import { PatientNavigator } from "./PatientNavigator";
@@ -238,313 +241,235 @@ export const DesktopDashboard = ({
         </div>
       </motion.header>
 
-      {/* Action Bar - Streamlined Toolbar */}
-      <motion.div
-        className="border-b border-border/20 bg-card/60 backdrop-blur-sm no-print"
-        initial={shouldReduceMotion ? false : { opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ ...transitions.smooth, delay: 0.1 }}
-      >
-        <div className="container mx-auto px-fluid-md lg:px-fluid-lg py-2">
-          <div className="flex items-center justify-between gap-fluid-xs flex-wrap" role="toolbar" aria-label="Patient actions">
-            {/* Primary Actions Group */}
-            <div className="flex items-center gap-1.5 p-1 bg-white/8 rounded-xl border border-white/10 shadow-sm">
-              <Button onClick={onAddPatient} size="sm" className="gap-1.5 h-8 font-medium bg-white text-card rounded-lg shadow-sm hover:bg-white/90 font-semibold">
-                <Plus className="h-3.5 w-3.5" />
-                Add Patient
-              </Button>
-              <div className="w-px h-5 bg-border/50" />
-              <SmartPatientImport onImportPatient={onAddPatientWithData} />
-              <EpicHandoffImport
-                existingBeds={patients.map(p => p.bed)}
-                onImportPatients={onImportPatients}
-              />
-            </div>
+      {/* Main Content Area - 3 Column Layout */}
+      <div className="h-[calc(100vh-6rem)] w-full no-print">
+        <ResizablePanelGroup direction="horizontal" className="h-full items-stretch">
 
-            {/* Clinical Tools Group */}
-            <div className="flex items-center gap-1.5 p-1 bg-white/8 rounded-xl border border-white/10 shadow-sm">
-              <div className="flex items-center gap-1 px-2 text-emerald-400">
-                <Stethoscope className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="text-xs font-semibold hidden md:inline">Clinical</span>
+          {/* COLUMN 1: Tools Dashboard */}
+          <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="bg-secondary/10 border-r border-border/20 flex flex-col">
+            <ScrollArea className="flex-1 p-fluid-sm">
+              <div className="space-y-6">
+
+                {/* Global Tools Section */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Global Tools</h3>
+                  <div className="space-y-2">
+                    <UnitCensusDashboard patients={patients} />
+                    <LabTrendingPanel patients={patients} />
+                    <ContextAwareHelp />
+                  </div>
+                </div>
+
+                {/* Patient Actions Section */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Patient Actions</h3>
+                  <div className="space-y-2">
+                    <Button onClick={onAddPatient} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/20">
+                      <Plus className="h-4 w-4" /> Add Patient
+                    </Button>
+                    <SmartPatientImport onImportPatient={onAddPatientWithData} />
+                    <EpicHandoffImport existingBeds={patients.map(p => p.bed)} onImportPatients={onImportPatients} />
+                  </div>
+                </div>
+
+                {/* Clinical Intelligence Section */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Clinical Intelligence</h3>
+                  <div className="space-y-2">
+                    <ClinicalRiskCalculator />
+                    <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
+                  </div>
+                </div>
+
+                {/* Patient Navigator */}
+                <div className="space-y-3 pt-4 border-t border-border/20">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Navigation</h3>
+                  <PatientNavigator
+                    patients={filteredPatients}
+                    onScrollToPatient={(id) => {
+                      const element = document.getElementById(`patient-card-${id}`);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+                        setTimeout(() => element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 1000);
+                      }
+                    }}
+                  />
+                </div>
               </div>
-              <div className="w-px h-5 bg-border/40" />
-              <UnitCensusDashboard patients={patients} />
-              <LabTrendingPanel patients={patients} />
-              <ClinicalRiskCalculator />
-              <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
-            </div>
+            </ScrollArea>
+          </ResizablePanel>
 
-            {/* Tools Group */}
-            <div className="flex items-center gap-1.5">
-              <ChangeTrackingControls
-                enabled={changeTracking.enabled}
-                color={changeTracking.color}
-                styles={changeTracking.styles}
-                onToggleEnabled={changeTracking.toggleEnabled}
-                onColorChange={changeTracking.setColor}
-                onToggleStyle={changeTracking.toggleStyle}
-              />
-              <div className="w-px h-5 bg-border/40" />
-              <AutotextManager
-                autotexts={autotexts}
-                templates={templates}
-                customDictionary={customDictionary}
-                onAddAutotext={onAddAutotext}
-                onRemoveAutotext={onRemoveAutotext}
-                onAddTemplate={onAddTemplate}
-                onRemoveTemplate={onRemoveTemplate}
-                onImportDictionary={onImportDictionary}
-              />
-              <Button
-                onClick={() => setShowPhraseManager(true)}
-                variant="ghost"
-                size="sm"
-                aria-label="Manage clinical phrases"
-                className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
-              >
-                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline text-xs" aria-hidden="true">Phrases</span>
-              </Button>
-            </div>
+          <ResizableHandle withHandle className="bg-border/30 hover:bg-primary/30 active:bg-primary transition-colors" />
 
-            {/* View Options Group */}
-            <div className="flex items-center gap-0.5 ml-auto">
-              <Button
-                onClick={onCollapseAll}
-                variant="ghost"
-                size="sm"
-                aria-label={patients.every(p => p.collapsed) ? 'Expand all patients' : 'Collapse all patients'}
-                className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
-                disabled={patients.length === 0}
-              >
-                <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden lg:inline text-xs" aria-hidden="true">
-                  {patients.every(p => p.collapsed) ? 'Expand' : 'Collapse'}
-                </span>
-              </Button>
-              <Button onClick={() => setShowComparisonModal(true)} variant="ghost" size="sm" aria-label="Compare patients" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                <Users className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden lg:inline text-xs" aria-hidden="true">Compare</span>
-              </Button>
-              <Button onClick={handlePrint} variant="ghost" size="sm" aria-label="Print or export notes" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden lg:inline text-xs" aria-hidden="true">Print</span>
-              </Button>
-              <Button onClick={handleExport} variant="ghost" size="sm" aria-label="Export patient data as JSON" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                <Download className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden lg:inline text-xs" aria-hidden="true">Export</span>
-              </Button>
-              <div className="w-px h-4 bg-border/40 mx-0.5" aria-hidden="true" />
-              <Button onClick={handleClearAll} variant="ghost" size="sm" aria-label="Clear all patients" className="gap-1.5 h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden lg:inline text-xs" aria-hidden="true">Clear</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+          {/* COLUMN 2: Patient Workspace (Main) */}
+          <ResizablePanel defaultSize={55} minSize={40} className="flex flex-col bg-background relative">
+            <div className="p-fluid-md pb-0">
+              <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-Fluid-sm">
+                {/* Search & Filter */}
+                <div className="flex flex-1 gap-2.5 items-center w-full lg:w-auto">
+                  <div className="relative flex-1 max-w-sm" role="search">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" aria-hidden="true" />
+                    <Input
+                      ref={searchInputRef}
+                      placeholder="Search patients... (Ctrl+K)"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      aria-label="Search patients"
+                      className="pl-10 h-9 bg-card/60 border-border/30 focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-white/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  <LayoutGroup>
+                    <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl" role="group" aria-label="Filter patients">
+                      {Object.values(PatientFilterType).map((f) => (
+                        <Button
+                          key={f}
+                          variant={filter === f ? 'default' : 'ghost'}
+                          onClick={() => setFilter(f)}
+                          size="sm"
+                          aria-pressed={filter === f}
+                          className={`h-8 text-xs rounded-md relative ${filter === f ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          {filter === f && (
+                            <motion.div
+                              layoutId="activeFilter"
+                              className="absolute inset-0 bg-primary rounded-md"
+                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                              style={{ zIndex: -1 }}
+                            />
+                          )}
+                          {f === PatientFilterType.All ? 'All' : f === PatientFilterType.Filled ? 'With Notes' : 'Empty'}
+                        </Button>
+                      ))}
+                    </div>
+                  </LayoutGroup>
 
-      {/* Search, Filter & Settings Bar */}
-      <div className="container mx-auto px-fluid-md lg:px-fluid-lg pt-4 pb-3 no-print">
-        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-          {/* Search & Filter */}
-          <div className="flex flex-1 gap-2.5 items-center w-full lg:w-auto">
-            <div className="relative flex-1 max-w-sm" role="search">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" aria-hidden="true" />
-              <Input
-                ref={searchInputRef}
-                placeholder="Search patients... (Ctrl+K)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search patients"
-                className="pl-10 h-9 bg-card/60 border-border/30 focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-white/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-            <LayoutGroup>
-              <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl" role="group" aria-label="Filter patients">
-                {Object.values(PatientFilterType).map((f) => (
+                  {/* Sort Control */}
+                  <div className="flex items-center gap-1.5 bg-card/40 rounded-xl px-2">
+                    <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
+                    <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'number' | 'room' | 'name')}>
+                      <SelectTrigger className="w-28 h-8 bg-transparent border-0 text-xs shadow-none focus:ring-0" aria-label="Sort patients by">
+                        <SelectValue placeholder="Sort by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="number">Order Added</SelectItem>
+                        <SelectItem value="room">Room</SelectItem>
+                        <SelectItem value="name">Name</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Right controls */}
+                <div className="flex items-center gap-2">
+                  <SectionVisibilityPanel />
+                  <DesktopAIModelSettingsDialog />
+
+                  {/* Tools Dropdown triggers that were top bar */}
+                  <AutotextManager
+                    autotexts={autotexts}
+                    templates={templates}
+                    customDictionary={customDictionary}
+                    onAddAutotext={onAddAutotext}
+                    onRemoveAutotext={onRemoveAutotext}
+                    onAddTemplate={onAddTemplate}
+                    onRemoveTemplate={onRemoveTemplate}
+                    onImportDictionary={onImportDictionary}
+                  />
                   <Button
-                    key={f}
-                    variant={filter === f ? 'default' : 'ghost'}
-                    onClick={() => setFilter(f)}
+                    onClick={() => setShowPhraseManager(true)}
+                    variant="ghost"
                     size="sm"
-                    aria-pressed={filter === f}
-                    className={`h-8 text-xs rounded-md relative ${filter === f ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    aria-label="Manage clinical phrases"
+                    className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
                   >
-                    {filter === f && (
-                      <motion.div
-                        layoutId="activeFilter"
-                        className="absolute inset-0 bg-primary rounded-md"
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                        style={{ zIndex: -1 }}
-                      />
-                    )}
-                    {f === PatientFilterType.All ? 'All' : f === PatientFilterType.Filled ? 'With Notes' : 'Empty'}
+                    <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline text-xs" aria-hidden="true">Phrases</span>
                   </Button>
-                ))}
+                </div>
               </div>
-            </LayoutGroup>
 
-            {/* Sort Control */}
-            <div className="flex items-center gap-1.5 bg-card/40 rounded-xl px-2">
-              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'number' | 'room' | 'name')}>
-                <SelectTrigger className="w-28 h-8 bg-transparent border-0 text-xs shadow-none focus:ring-0" aria-label="Sort patients by">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="number">Order Added</SelectItem>
-                  <SelectItem value="room">Room</SelectItem>
-                  <SelectItem value="name">Name</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Right controls */}
-          <div className="flex items-center gap-2">
-            {/* Font Size Control */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-card/40 rounded-xl" role="group" aria-label="Font size controls">
-              <Type className="h-3.5 w-3.5 text-muted-foreground/60" aria-hidden="true" />
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 rounded"
-                  onClick={() => setGlobalFontSize(Math.max(10, globalFontSize - 2))}
-                  disabled={globalFontSize <= 10}
-                  aria-label="Decrease font size"
-                >
-                  <span className="text-sm font-medium" aria-hidden="true">-</span>
-                </Button>
-                <Slider
-                  value={[globalFontSize]}
-                  min={10}
-                  max={24}
-                  step={1}
-                  className="w-16"
-                  onValueChange={(v) => setGlobalFontSize(v[0])}
-                  aria-label={`Font size: ${globalFontSize} pixels`}
+              {/* Status bar */}
+              <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted-foreground/70 pb-3 border-b border-border/20">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-card/40">
+                    <Users className="h-3 w-3 text-emerald-400" aria-hidden="true" />
+                    {filteredPatients.length} of {patients.length}
+                  </Badge>
+                  {searchQuery && (
+                    <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5">
+                      Searching &ldquo;{searchQuery}&rdquo;
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" aria-hidden="true" />
+                  <span>Synced {lastSaved.toLocaleTimeString()}</span>
+                </div>
+                <LiveRegion
+                  message={
+                    searchQuery
+                      ? `Search results: ${filteredPatients.length} of ${patients.length} patients match "${searchQuery}"`
+                      : `Showing ${filteredPatients.length} of ${patients.length} patients. Last synced ${lastSaved.toLocaleTimeString()}`
+                  }
                 />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 rounded"
-                  onClick={() => setGlobalFontSize(Math.min(24, globalFontSize + 2))}
-                  disabled={globalFontSize >= 24}
-                  aria-label="Increase font size"
+              </div>
+            </div>
+
+            <ScrollArea className="flex-1 px-fluid-md pt-4 pb-12">
+              {filteredPatients.length === 0 ? (
+                <motion.div
+                  className="flex flex-col items-center justify-center py-20 text-center"
+                  variants={shouldReduceMotion ? undefined : scaleIn}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ ...transitions.spring, delay: 0.15 }}
                 >
-                  <span className="text-sm font-medium" aria-hidden="true">+</span>
-                </Button>
-              </div>
-              <span className="text-[10px] font-mono text-muted-foreground/60 w-7" aria-hidden="true">{globalFontSize}px</span>
+                  <div className="mb-8 relative">
+                    <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full scale-150" />
+                    <div className="relative bg-card rounded-3xl p-6 border border-border/20">
+                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-40" />
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2 text-foreground">
+                    {patients.length === 0 ? 'Ready to Start Rounds' : 'No patients match your filter'}
+                  </h3>
+                  <p className="text-muted-foreground text-sm mb-8 max-w-xs leading-relaxed">
+                    {patients.length === 0
+                      ? 'Add your first patient to begin documenting rounds.'
+                      : 'Try adjusting your search or filter criteria.'}
+                  </p>
+                  {patients.length === 0 && (
+                    <Button onClick={onAddPatient} size="lg" className="gap-2 rounded-2xl shadow-md hover:shadow-lg bg-card text-card-foreground transition-shadow">
+                      <Plus className="h-4 w-4" />
+                      Add First Patient
+                    </Button>
+                  )}
+                </motion.div>
+              ) : (
+                <VirtualizedPatientList
+                  patients={filteredPatients}
+                  autotexts={autotexts}
+                  onUpdatePatient={onUpdatePatient}
+                  onRemovePatient={onRemovePatient}
+                  onDuplicatePatient={onDuplicatePatient}
+                  onToggleCollapse={onToggleCollapse}
+                />
+              )}
+            </ScrollArea>
+          </ResizablePanel>
+
+          <ResizableHandle withHandle className="bg-border/30 hover:bg-primary/30 active:bg-primary transition-colors" />
+
+          {/* COLUMN 3: Clinical Reference */}
+          <ResizablePanel defaultSize={25} minSize={20} maxSize={40} className="bg-secondary/5 flex flex-col relative border-l border-border/20">
+            <div className="absolute inset-0">
+              <IBCCPanel />
             </div>
+          </ResizablePanel>
 
-            {/* Section Visibility Panel */}
-            <SectionVisibilityPanel />
-
-            <DesktopAIModelSettingsDialog />
-
-            {/* Todos Always Visible Toggle */}
-            <Button
-              variant={todosAlwaysVisible ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setTodosAlwaysVisible(!todosAlwaysVisible)}
-              aria-label={todosAlwaysVisible ? "Hide todos panel" : "Show todos panel"}
-              aria-pressed={todosAlwaysVisible}
-              className={`gap-1.5 h-8 text-xs ${!todosAlwaysVisible ? 'text-muted-foreground hover:text-foreground' : ''}`}
-            >
-              <ListTodo className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden sm:inline" aria-hidden="true">Todos</span>
-            </Button>
-
-            {/* Specialty / Role Selector */}
-            <DesktopSpecialtySelector />
-          </div>
-        </div>
-
-        {/* Status bar */}
-        <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted-foreground/70">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-card/40">
-              <Users className="h-3 w-3 text-emerald-400" aria-hidden="true" />
-              {filteredPatients.length} of {patients.length}
-            </Badge>
-            {searchQuery && (
-              <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5">
-                Searching &ldquo;{searchQuery}&rdquo;
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" aria-hidden="true" />
-            <span>Synced {lastSaved.toLocaleTimeString()}</span>
-          </div>
-          <LiveRegion
-            message={
-              searchQuery
-                ? `Search results: ${filteredPatients.length} of ${patients.length} patients match "${searchQuery}"`
-                : `Showing ${filteredPatients.length} of ${patients.length} patients. Last synced ${lastSaved.toLocaleTimeString()}`
-            }
-          />
-        </div>
+        </ResizablePanelGroup>
       </div>
-
-      {/* Patient Cards */}
-      <div className="container mx-auto px-fluid-md lg:px-fluid-lg pb-12 pr-16 transition-all duration-300">
-        {filteredPatients.length === 0 ? (
-          <motion.div
-            className="flex flex-col items-center justify-center py-20 text-center"
-            variants={shouldReduceMotion ? undefined : scaleIn}
-            initial="hidden"
-            animate="visible"
-            transition={{ ...transitions.spring, delay: 0.15 }}
-          >
-            <div className="mb-8 relative">
-              <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full scale-150" />
-              <div className="relative bg-card rounded-3xl p-6 border border-border/20">
-                <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-40" />
-              </div>
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-foreground">
-              {patients.length === 0 ? 'Ready to Start Rounds' : 'No patients match your filter'}
-            </h3>
-            <p className="text-muted-foreground text-sm mb-8 max-w-xs leading-relaxed">
-              {patients.length === 0
-                ? 'Add your first patient to begin documenting rounds.'
-                : 'Try adjusting your search or filter criteria.'}
-            </p>
-            {patients.length === 0 && (
-              <Button onClick={onAddPatient} size="lg" className="gap-2 rounded-2xl shadow-md hover:shadow-lg bg-card text-card-foreground transition-shadow">
-                <Plus className="h-4 w-4" />
-                Add First Patient
-              </Button>
-            )}
-          </motion.div>
-        ) : (
-          <VirtualizedPatientList
-            patients={filteredPatients}
-            autotexts={autotexts}
-            onUpdatePatient={onUpdatePatient}
-            onRemovePatient={onRemovePatient}
-            onDuplicatePatient={onDuplicatePatient}
-            onToggleCollapse={onToggleCollapse}
-          />
-        )}
-      </div>
-
-      <PatientNavigator
-        patients={filteredPatients}
-        onScrollToPatient={(id) => {
-          const element = document.getElementById(`patient-card-${id}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // Optional: Flash effect
-            element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
-            setTimeout(() => element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 1000);
-          }
-        }}
-      />
 
       <PrintExportModal
         open={showPrintModal}
@@ -566,13 +491,6 @@ export const DesktopDashboard = ({
         onOpenChange={setShowPhraseManager}
       />
 
-      {/* IBCC Clinical Reference Panel */}
-      <IBCCPanel />
-
-      {/* Clinical Guidelines Panel */}
-      <GuidelinesPanel />
-
-      <ContextAwareHelp />
     </div >
   );
 };

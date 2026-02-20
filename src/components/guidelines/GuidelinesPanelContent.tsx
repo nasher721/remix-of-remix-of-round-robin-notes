@@ -97,7 +97,7 @@ function GuidelinesPanelContent() {
   // Show guideline detail view if a guideline is selected
   if (activeGuideline) {
     return (
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-card border-l border-border shadow-xl flex flex-col animate-fade-in">
+      <div className="h-full w-full bg-card flex flex-col animate-fade-in relative z-10">
         <GuidelineDetailView
           guideline={activeGuideline}
           isBookmarked={isBookmarked(activeGuideline.id)}
@@ -113,19 +113,16 @@ function GuidelinesPanelContent() {
   const availableOrgs = GUIDELINE_ORGANIZATIONS.slice(0, 8); // Show top organizations
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border shadow-xl flex flex-col animate-fade-in">
+    <div className="h-full w-full bg-card flex flex-col animate-fade-in relative z-10">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">Clinical Guidelines</h2>
+          <h2 className="font-semibold text-sm">Clinical Guidelines</h2>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="Keyboard: Ctrl+G">
             <Keyboard className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={closePanel} className="h-8 w-8">
-            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>

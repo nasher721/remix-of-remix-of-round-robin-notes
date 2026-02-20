@@ -17,13 +17,13 @@ import { IBCCChapterView } from './IBCCChapterView';
 import { cn } from '@/lib/utils';
 
 // Memoized Chapter Card for better list performance
-const ChapterCard = memo(function ChapterCard({ 
-  chapter, 
-  onClick, 
+const ChapterCard = memo(function ChapterCard({
+  chapter,
+  onClick,
   isBookmarked,
-  matchedKeywords 
-}: { 
-  chapter: IBCCChapter; 
+  matchedKeywords
+}: {
+  chapter: IBCCChapter;
   onClick: () => void;
   isBookmarked: boolean;
   matchedKeywords?: string[];
@@ -92,7 +92,7 @@ function IBCCPanelContent() {
   // Show chapter view if a chapter is selected
   if (activeChapter) {
     return (
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-2xl bg-card border-l border-border shadow-xl flex flex-col animate-fade-in">
+      <div className="h-full w-full bg-card flex flex-col animate-fade-in relative z-10">
         <IBCCChapterView
           chapter={activeChapter}
           isBookmarked={isBookmarked(activeChapter.id)}
@@ -106,19 +106,16 @@ function IBCCPanelContent() {
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border shadow-xl flex flex-col animate-fade-in">
+    <div className="h-full w-full bg-card flex flex-col animate-fade-in relative z-10">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border bg-secondary/30">
         <div className="flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-primary" />
-          <h2 className="font-semibold">IBCC Reference</h2>
+          <h2 className="font-semibold text-sm">Clinical Reference</h2>
         </div>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="Keyboard: Ctrl+I">
             <Keyboard className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={closePanel} className="h-8 w-8">
-            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -189,20 +186,20 @@ function IBCCPanelContent() {
           /* Tabs: Browse / Bookmarks / Recent */
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1">
             <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
-              <TabsTrigger 
-                value="browse" 
+              <TabsTrigger
+                value="browse"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
                 Browse
               </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="bookmarks"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >
                 <Star className="h-3 w-3 mr-1" />
                 Bookmarks
               </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="recent"
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
               >

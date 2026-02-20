@@ -38,7 +38,7 @@ export function IBCCChapterView({
   const hasContent = hasChapterContent(chapter.id);
 
   return (
-    <>
+    <div className="h-full w-full bg-card flex flex-col animate-fade-in relative z-20">
       {/* Header */}
       <div className="flex items-center gap-2 p-4 border-b border-border bg-secondary/30">
         <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
@@ -85,7 +85,7 @@ export function IBCCChapterView({
               {content.treatmentAlgorithm && <TreatmentAlgorithm steps={content.treatmentAlgorithm} />}
               {content.medications && <MedicationCards medications={content.medications} />}
               {content.pitfalls && <PitfallsAlert pitfalls={content.pitfalls} />}
-              
+
               {/* Differential Diagnosis */}
               {content.differentialDiagnosis && content.differentialDiagnosis.length > 0 && (
                 <div className="p-3 bg-secondary/50 rounded-lg">
@@ -167,7 +167,7 @@ export function IBCCChapterView({
           </div>
         </div>
       </ScrollArea>
-    </>
+    </div>
   );
 }
 
@@ -179,7 +179,7 @@ function CalculatorWidget({ calculator }: { calculator: ClinicalCalculator }) {
   const handleInputChange = (id: string, value: number | string) => {
     const newInputs = { ...inputs, [id]: value };
     setInputs(newInputs);
-    
+
     // Calculate result
     try {
       const calcResult = calculator.formula(newInputs);
@@ -270,7 +270,7 @@ function ChecklistWidget({ checklist }: { checklist: ProtocolChecklist }) {
 
       {/* Progress bar */}
       <div className="h-1.5 bg-secondary rounded-full mb-4 overflow-hidden">
-        <div 
+        <div
           className="h-full bg-primary transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
@@ -283,8 +283,8 @@ function ChecklistWidget({ checklist }: { checklist: ProtocolChecklist }) {
             onClick={() => toggleItem(item.id)}
             className={cn(
               "flex items-start gap-2 p-2 rounded cursor-pointer transition-colors",
-              completed.has(item.id) 
-                ? "bg-success/10" 
+              completed.has(item.id)
+                ? "bg-success/10"
                 : "hover:bg-secondary/50"
             )}
           >

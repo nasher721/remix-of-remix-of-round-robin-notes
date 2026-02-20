@@ -186,7 +186,7 @@ export function GuidelineDetailView({
   const [expandedSections, setExpandedSections] = useState<string[]>(['recommendations']);
 
   return (
-    <>
+    <div className="h-full w-full bg-card flex flex-col animate-fade-in relative z-20">
       {/* Header */}
       <div className="flex items-center gap-2 p-4 border-b border-border bg-secondary/30">
         <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
@@ -351,6 +351,6 @@ export function GuidelineDetailView({
           </div>
         </div>
       </ScrollArea>
-    </>
+    </div>
   );
 }

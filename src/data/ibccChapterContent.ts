@@ -2104,6 +2104,1003 @@ export const CHAPTER_CONTENT: Record<string, IBCCChapterContent> = {
       'Pneumothorax',
     ],
   },
+
+  // ============================================
+  // TOXICOLOGY - ACETAMINOPHEN TOXICITY
+  // ============================================
+  acetaminophen: {
+    keyPearls: [
+      {
+        id: 'cmin-pearl-1',
+        text: 'Calculate time since ingestion. The Rumack-Matthew nomogram is only valid for acute, single ingestions between 4 and 24 hours.',
+        importance: 'critical',
+        category: 'Assessment',
+      },
+      {
+        id: 'cmin-pearl-2',
+        text: 'Do not delay N-acetylcysteine (NAC) while waiting for levels if suspicion is high or ingestion was >8 hours ago.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'cmin-pearl-3',
+        text: 'Massive ingestions (>30-40g) or co-ingestions with anticholinergics may require altered NAC protocols or hemodialysis.',
+        importance: 'high',
+        category: 'Treatment',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'cmin-dx-1',
+        title: 'Toxic Dose Thresholds',
+        criteria: [
+          { id: 'dx-1-1', text: 'Acute: >150 mg/kg or ~7.5g in adults', required: true },
+          { id: 'dx-1-2', text: 'Chronic: >4 g/day for >2 days in healthy adults', required: true },
+        ],
+      },
+      {
+        id: 'cmin-dx-2',
+        title: 'Rumack-Matthew Nomogram Use',
+        criteria: [
+          { id: 'dx-2-1', text: 'Single acute ingestion', value: 'Required' },
+          { id: 'dx-2-2', text: 'Level drawn at least 4 hours post-ingestion', value: 'Required' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'cmin-tx-1',
+        phase: 'Immediate',
+        title: 'Initial Assessment',
+        timing: '0-2 hours',
+        actions: [
+          { id: 'tx-1-1', text: 'Obtain acetaminophen level, AST/ALT, bilirubin, PT/INR, BMP', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Determine exact time and formulation (extended release?) of ingestion', priority: 'immediate' },
+        ],
+      },
+      {
+        id: 'cmin-tx-2',
+        phase: 'Antidote Therapy',
+        title: 'N-Acetylcysteine Administration',
+        timing: 'Based on nomogram',
+        actions: [
+          { id: 'tx-2-1', text: 'If level above treatment line: Start IV NAC (21-hr protocol)', priority: 'immediate' },
+          { id: 'tx-2-2', text: 'If unknown time or high suspicion: Start NAC empirically', priority: 'immediate' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'cmin-med-1',
+        name: 'N-Acetylcysteine (IV)',
+        genericName: 'acetylcysteine',
+        category: 'first-line',
+        indication: 'Acetaminophen overdose',
+        dosing: [
+          { route: 'IV', dose: '150 mg/kg over 1h, then 50 mg/kg over 4h, then 100 mg/kg over 16h', notes: 'Consider simplified 2-bag protocol if available' },
+        ],
+        sideEffects: ['Anaphylactoid reaction (treat with antihistamines)'],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'cmin-pit-1',
+        title: 'Improper Nomogram Use',
+        description: 'Using the nomogram for chronic ingestions or <4 hours post-ingestion.',
+        consequence: 'False reassurance and missed toxicity.',
+        prevention: 'Apply nomogram strictly to acute ingestions starting at hour 4.',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // TOXICOLOGY - OPIOID OVERDOSE
+  // ============================================
+  'opioid-overdose': {
+    keyPearls: [
+      {
+        id: 'opioid-pearl-1',
+        text: 'Naloxone goal is spontaneous respirations, NOT full awakening. Given the short half-life of naloxone, watch for resedation.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'opioid-pearl-2',
+        text: 'Fentanyl and synthetic analogs may require significantly larger doses of naloxone.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'opioid-pearl-3',
+        text: 'Prepare for acute withdrawal and agitation upon reversal. Do not fully restrain before giving naloxone if possible to avoid rhabdomyolysis.',
+        importance: 'high',
+        category: 'Complications',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'opioid-dx-1',
+        title: 'Opioid Toxidrome',
+        criteria: [
+          { id: 'dx-1-1', text: 'Respiratory depression (RR <12)', required: true, value: 'RR <12' },
+          { id: 'dx-1-2', text: 'Miosis (pinpoint pupils)', required: true },
+          { id: 'dx-1-3', text: 'Altered mental status/CNS depression', required: true },
+        ],
+        notes: 'Note: Meperidine, propoxyphene, and tramadol may not cause miosis. Co-ingestions may alter toxidrome.',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'opioid-tx-1',
+        phase: 'Immediate',
+        title: 'Resuscitation',
+        timing: '0-5 minutes',
+        actions: [
+          { id: 'tx-1-1', text: 'Assess airway and breathing; bag-valve-mask ventilate if apneic', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Administer Naloxone 0.4mg IV or 2mg IN', priority: 'immediate' },
+        ],
+      },
+      {
+        id: 'opioid-tx-2',
+        phase: 'Stabilization',
+        title: 'Observation & Re-dosing',
+        timing: '5-60 minutes',
+        actions: [
+          { id: 'tx-2-1', text: 'Observe for return of respiratory drive; titrate naloxone up to 2-10mg for methadone/fentanyl', priority: 'urgent' },
+          { id: 'tx-2-2', text: 'If continuous naloxone needed, consider drip at 2/3 of total bolus dose per hour', priority: 'routine' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'opioid-med-1',
+        name: 'Naloxone',
+        genericName: 'naloxone',
+        category: 'first-line',
+        indication: 'Opioid-induced respiratory depression',
+        dosing: [
+          { route: 'IV', dose: '0.4 - 2.0 mg every 2-3 minutes PRN', notes: 'Start low (0.04 mg) if known chronic user to avoid severe withdrawal' },
+        ],
+        sideEffects: ['Acute opioid withdrawal syndrome', 'Agitation', 'Pulmonary edema (rare)'],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'opioid-pit-1',
+        title: 'Targeting full alertness',
+        description: 'Giving excessive naloxone to achieve GCS 15.',
+        consequence: 'Precipitated severe withdrawal, vomiting, aspiration, and combative behavior.',
+        prevention: 'Titrate naloxone strictly to respiratory drive (RR >12).',
+        severity: 'major',
+      },
+    ],
+  },
+
+  // ============================================
+  // TOXICOLOGY - ALCOHOL WITHDRAWAL
+  // ============================================
+  'alcohol-withdrawal': {
+    keyPearls: [
+      {
+        id: 'etoh-pearl-1',
+        text: 'Symptom-triggered therapy (CIWA-Ar) is standard for mild-moderate withdrawal, but front-loading with diazepam may be needed for severe cases.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'etoh-pearl-2',
+        text: 'Always administer thiamine 100-500mg IV to prevent Wernicke encephalopathy before or concurrent with glucose.',
+        importance: 'critical',
+        category: 'Prophylaxis',
+      },
+      {
+        id: 'etoh-pearl-3',
+        text: 'Benzodiazepine refractory withdrawal may require phenobarbital or dexmedetomidine.',
+        importance: 'high',
+        category: 'Refractory',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'etoh-dx-1',
+        title: 'Withdrawal Staging',
+        criteria: [
+          { id: 'dx-1-1', text: 'Minor (6-36h): Tremor, tachycardia, hypertension, diaphoresis', value: 'Minor' },
+          { id: 'dx-1-2', text: 'Withdrawal Seizures (12-48h): Generalized tonic-clonic', value: 'Seizures' },
+          { id: 'dx-1-3', text: 'Alcoholic Hallucinosis (12-48h): Visual/auditory with intact sensorium', value: 'Hallucinosis' },
+          { id: 'dx-1-4', text: 'Delirium Tremens (48-96h): Autonomic instability, confusion, fever', value: 'DTs' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'etoh-tx-1',
+        phase: 'Initial',
+        title: 'Prophylaxis & Assessment',
+        timing: '0-2 hours',
+        actions: [
+          { id: 'tx-1-1', text: 'Assess CIWA-Ar score', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Administer Thiamine, Folate, and Multivitamin IV', priority: 'urgent' },
+          { id: 'tx-1-3', text: 'Correct magnesium and potassium deficits', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'etoh-tx-2',
+        phase: 'Treatment',
+        title: 'Symptom Management',
+        timing: 'Ongoing',
+        actions: [
+          { id: 'tx-2-1', text: 'CIWA >8: Diazepam 5-10mg IV or Lorazepam 1-2mg IV', priority: 'urgent', details: 'Repeat based on protocol' },
+          { id: 'tx-2-2', text: 'Severe/DTs: Front-load with Diazepam 10-20mg IV q10min until calm', priority: 'immediate' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'etoh-med-1',
+        name: 'Diazepam',
+        genericName: 'diazepam',
+        category: 'first-line',
+        indication: 'Severe alcohol withdrawal',
+        dosing: [
+          { route: 'IV', dose: '10-20 mg q10-20min until symptoms controlled', notes: 'Long half-life provides auto-taper' },
+        ],
+        sideEffects: ['Sedation', 'Respiratory depression'],
+        contraindications: ['Severe liver failure (use Lorazepam instead)'],
+      },
+      {
+        id: 'etoh-med-2',
+        name: 'Lorazepam',
+        genericName: 'lorazepam',
+        category: 'first-line',
+        indication: 'Withdrawal in elderly or hepatic failure',
+        dosing: [
+          { route: 'IV', dose: '1-4 mg q10-20min until symptoms controlled', notes: 'No active metabolites' },
+        ],
+      },
+      {
+        id: 'etoh-med-3',
+        name: 'Phenobarbital',
+        genericName: 'phenobarbital',
+        category: 'second-line',
+        indication: 'Benzodiazepine-refractory withdrawal',
+        dosing: [
+          { route: 'IV', dose: '10 mg/kg lean body weight single dose', notes: 'Consider intubation' },
+        ],
+        sideEffects: ['Profound sedation', 'Respiratory failure', 'Hypotension'],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'etoh-pit-1',
+        title: 'Underdosing Benzodiazepines',
+        description: 'Using small oral divided doses for patients in active DTs.',
+        consequence: 'Progression to severe agitation, seizures, and death.',
+        prevention: 'Use IV loading protocols for severe withdrawal.',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // NEPHROLOGY - HYPERKALEMIA
+  // ============================================
+  hyperkalemia: {
+    keyPearls: [
+      {
+        id: 'hk-pearl-1',
+        text: 'ECG changes dictate the need for calcium. If QRS is wide or sine wave pattern forms, give calcium immediately to stabilize myocardium.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'hk-pearl-2',
+        text: 'Calcium does not lower potassium levels; it only protects the heart. You must follow up with shifting and eliminating agents.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'hk-pearl-3',
+        text: 'Insulin + Dextrose is the most reliable rapid shifter. Albuterol and Bicarbonate are adjunctive.',
+        importance: 'high',
+        category: 'Treatment',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'hk-dx-1',
+        title: 'Severity Based on Serum K+',
+        criteria: [
+          { id: 'dx-1-1', text: 'Mild: 5.5 - 5.9 mEq/L', value: 'Mild' },
+          { id: 'dx-1-2', text: 'Moderate: 6.0 - 6.4 mEq/L', value: 'Moderate' },
+          { id: 'dx-1-3', text: 'Severe: ≥ 6.5 mEq/L or ANY value with ECG changes', value: 'Severe' },
+        ],
+      },
+      {
+        id: 'hk-dx-2',
+        title: 'ECG Changes Progression',
+        criteria: [
+          { id: 'dx-2-1', text: 'Peaked T waves (earliest sign)', value: 'ECG' },
+          { id: 'dx-2-2', text: 'PR prolongation and loss of P waves', value: 'ECG' },
+          { id: 'dx-2-3', text: 'QRS widening', value: 'ECG' },
+          { id: 'dx-2-4', text: 'Sine wave pattern (pre-arrest)', value: 'ECG' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'hk-tx-1',
+        phase: 'Immediate',
+        title: 'Stabilize Myocardium (if ECG changes)',
+        timing: '0-5 minutes',
+        actions: [
+          { id: 'tx-1-1', text: 'Administer Calcium Gluconate (1-2 amps IV) or Calcium Chloride (1 amp via central line)', priority: 'immediate' },
+        ],
+      },
+      {
+        id: 'hk-tx-2',
+        phase: 'Shift Potassium',
+        title: 'Intracellular Shifting',
+        timing: '10-30 minutes',
+        actions: [
+          { id: 'tx-2-1', text: 'Regular Insulin 10 units IV + 50mL D50 (if BG < 250)', priority: 'immediate', details: 'Dose reduce insulin to 5 units in severe renal failure to prevent late hypoglycemia' },
+          { id: 'tx-2-2', text: 'Albuterol nebulized (10-20 mg) - high dose required', priority: 'urgent' },
+          { id: 'tx-2-3', text: 'Sodium Bicarbonate (only effectively shifts if patient is significantly acidotic)', priority: 'routine' },
+        ],
+      },
+      {
+        id: 'hk-tx-3',
+        phase: 'Elimination',
+        title: 'Remove Potassium',
+        timing: 'Ongoing',
+        actions: [
+          { id: 'tx-3-1', text: 'Loop diuretics (Furosemide) if patient makes urine', priority: 'routine' },
+          { id: 'tx-3-2', text: 'GI binders (Lokelma or Veltassa) - slow onset', priority: 'routine' },
+          { id: 'tx-3-3', text: 'Emergent Hemodialysis for refractory or severely symptomatic cases', priority: 'urgent' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'hk-med-1',
+        name: 'Calcium Gluconate',
+        genericName: 'calcium gluconate',
+        category: 'first-line',
+        indication: 'Cardioprotection in hyperkalemia',
+        dosing: [
+          { route: 'IV', dose: '1-2 grams over 5-10 minutes', notes: 'Contains ~4.6mEq elemental calcium per gram. Can give peripherally.' },
+        ],
+        monitoringParameters: ['ECG', 'Resolution of peaked T/wide QRS'],
+      },
+      {
+        id: 'hk-med-2',
+        name: 'Calcium Chloride',
+        genericName: 'calcium chloride',
+        category: 'first-line',
+        indication: 'Cardioprotection (severe/arrest)',
+        dosing: [
+          { route: 'IV', dose: '1 gram over 5-10 minutes', notes: 'Contains ~13.6mEq elemental calcium. Central access preferred due to tissue necrosis risk.' },
+        ],
+      },
+      {
+        id: 'hk-med-3',
+        name: 'Regular Insulin + Dextrose',
+        genericName: 'insulin regular',
+        category: 'first-line',
+        indication: 'Potassium shifting',
+        dosing: [
+          { route: 'IV', dose: '10 units IV regular insulin + 1 amp D50 (50mL)', notes: 'Use 5 units if renal failure or low body weight to avoid severe hypoglycemia' },
+        ],
+        sideEffects: ['Hypoglycemia (monitor closely for 6 hours)'],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'hk-pit-1',
+        title: 'Failure to Monitor Blood Glucose',
+        description: 'Using 10 units of insulin without follow-up glucose checks.',
+        consequence: 'Profound delayed hypoglycemia, especially in ESRD patients.',
+        prevention: 'Check fingerstick glucose q1hr x6 hours after IV insulin. Consider 5 units for ESKD.',
+        severity: 'major',
+      },
+      {
+        id: 'hk-pit-2',
+        title: 'Bicarbonate Monotherapy',
+        description: 'Relying exclusively on sodium bicarbonate ampules to shift potassium.',
+        consequence: 'Ineffective shifting. Bicarbonate alone is a very poor shifter unless the patient has severe metabolic acidosis.',
+        prevention: 'Always use Insulin+Dextrose as the primary shifting mechanism.',
+        severity: 'major',
+      },
+    ],
+  },
+
+  // ============================================
+  // NEPHROLOGY - HYPONATREMIA
+  // ============================================
+  hyponatremia: {
+    keyPearls: [
+      {
+        id: 'hyna-pearl-1',
+        text: 'Symptomatic vs Asymptomatic: Seizures, coma, or severe confusion dictate emergency treatment with hypertonic saline (3%), regardless of volume status.',
+        importance: 'critical',
+        category: 'Assessment',
+      },
+      {
+        id: 'hyna-pearl-2',
+        text: 'Rate of Correction: Do not exceed 8 mEq/L per 24 hours to prevent Osmotic Demyelination Syndrome (ODS).',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'hyna-pearl-3',
+        text: 'Volume status (hypovolemic, euvolemic, hypervolemic) directs the long-term management strategy.',
+        importance: 'high',
+        category: 'Assessment',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'hyna-dx-1',
+        title: 'Classification by Serum Osmolality',
+        criteria: [
+          { id: 'dx-1-1', text: 'Isotonic (Pseudohyponatremia): High lipids or proteins', value: 'Isotonic' },
+          { id: 'dx-1-2', text: 'Hypertonic: Hyperglycemia or mannitol', value: 'Hypertonic' },
+          { id: 'dx-1-3', text: 'Hypotonic: True hyponatremia. Proceeds to volume assessment.', value: 'Hypotonic' },
+        ],
+      },
+      {
+        id: 'hyna-dx-2',
+        title: 'Classification by Volume Status',
+        criteria: [
+          { id: 'dx-2-1', text: 'Hypovolemic: Diuretics, GI losses, bleeding. High urine osmolality, low urine sodium.', value: 'Hypovolemic' },
+          { id: 'dx-2-2', text: 'Euvolemic: SIADH, hypothyroidism, psychogenic polydipsia.', value: 'Euvolemic' },
+          { id: 'dx-2-3', text: 'Hypervolemic: CHF, Cirrhosis, Nephrotic Syndrome.', value: 'Hypervolemic' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'hyna-tx-1',
+        phase: 'Severe Symptoms',
+        title: 'Emergency Resuscitation',
+        timing: '0-2 hours',
+        actions: [
+          { id: 'tx-1-1', text: 'Give 100-150 mL 3% NaCl IV bolus over 10-20 minutes', priority: 'immediate', details: 'Repeat x1 or x2 until symptoms stop (e.g. seizures)' },
+          { id: 'tx-1-2', text: 'Goal is acute rise of only 4-6 mEq/L to arrest severe symptoms. Check sodium every 2 hours.', priority: 'immediate' },
+        ],
+      },
+      {
+        id: 'hyna-tx-2',
+        phase: 'Definitive',
+        title: 'Status-Specific Therapy',
+        timing: 'Ongoing',
+        actions: [
+          { id: 'tx-2-1', text: 'Hypovolemic: Normal Saline (0.9% NaCl) to restore volume. Watch for rapid auto-correction once euvolemic.', priority: 'routine' },
+          { id: 'tx-2-2', text: 'Euvolemic (SIADH): Fluid restriction (e.g. <1L/day), consider urea or loop diuretics + salt tabs.', priority: 'routine' },
+          { id: 'tx-2-3', text: 'Hypervolemic: Fluid/salt restriction, optimize CHF/cirrhosis therapy (diuretics).', priority: 'routine' },
+        ],
+      },
+      {
+        id: 'hyna-tx-3',
+        phase: 'Rescue',
+        title: 'Overcorrection Rescue',
+        timing: 'If Na rises > 8mEq/24hr',
+        actions: [
+          { id: 'tx-3-1', text: 'Start D5W infusion to lower sodium', priority: 'urgent' },
+          { id: 'tx-3-2', text: 'Administer Desmopressin (DDAVP) 1-2 mcg IV/SC to halt free water clearance', priority: 'urgent' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'hyna-med-1',
+        name: '3% Sodium Chloride',
+        genericName: 'hypertonic saline',
+        category: 'first-line',
+        indication: 'Severe symptomatic hyponatremia',
+        dosing: [
+          { route: 'IV', dose: '100-150 mL bolus', notes: 'Use peripheral or central line. Do NOT use as continuous maintenance drip without expert consultation.' },
+        ],
+        sideEffects: ['Osmotic demyelination (if overcorrected over 24-48h)'],
+      },
+      {
+        id: 'hyna-med-2',
+        name: 'Desmopressin (DDAVP)',
+        genericName: 'desmopressin',
+        category: 'rescue',
+        indication: 'Prevention of overly rapid correction (overcorrection rescue or proactive clamp)',
+        dosing: [
+          { route: 'IV', dose: '1-2 mcg', notes: 'Clamps urine output. Requires matched fluid replacement.' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'hyna-pit-1',
+        title: 'Rapid Auto-Correction',
+        description: 'Normal Saline given to a hypovolemic patient turns off the ADH drive, causing massive free water diuresis.',
+        consequence: 'Rapid rise in sodium exceeding safe limits, risking ODS.',
+        prevention: 'Monitor urine output closely. If profound diuresis begins, check Na every 2 hours and prepare D5W / DDAVP.',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // NEUROLOGY - ISCHEMIC STROKE
+  // ============================================
+  'ischemic-stroke': {
+    keyPearls: [
+      {
+        id: 'stroke-pearl-1',
+        text: 'Time is brain. Rapid assessment, non-contrast CT head, and consideration for tPA/thrombectomy within minutes of arrival.',
+        importance: 'critical',
+        category: 'Assessment',
+      },
+      {
+        id: 'stroke-pearl-2',
+        text: 'Do not treat blood pressure unless >185/110 if giving tPA, or >220/120 if permissive hypertension strategy is used.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'stroke-pearl-3',
+        text: 'Large Vessel Occlusion (LVO) needs rapid identification (CTA head/neck) for endovascular thrombectomy (EVT) window (up to 24 hours in some cases).',
+        importance: 'high',
+        category: 'Treatment',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'stroke-dx-1',
+        title: 'Stroke Scales',
+        criteria: [
+          { id: 'dx-1-1', text: 'NIHSS: Quantifies severity (0-42)', value: 'NIHSS' },
+          { id: 'dx-1-2', text: 'VAN or LAMS: Prehospital/ED screens for Large Vessel Occlusion', value: 'LVO Screen' },
+        ],
+      },
+      {
+        id: 'stroke-dx-2',
+        title: 'Imaging Timelines',
+        criteria: [
+          { id: 'dx-2-1', text: 'Non-contrast CT Head: within 20-25 mins (rule out bleed)', value: 'Immediate' },
+          { id: 'dx-2-2', text: 'CTA Head & Neck: if LVO suspected, immediately follows non-con CT', value: 'Immediate' },
+          { id: 'dx-2-3', text: 'CT Perfusion: extended window EVT evaluation (6-24 hrs)', value: 'Advanced' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'stroke-tx-1',
+        phase: 'Immediate',
+        title: 'Acute Evaluation',
+        timing: '0-20 minutes',
+        actions: [
+          { id: 'tx-1-1', text: 'Assess ABCs, point-of-care glucose (rule out hypoglycemia)', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Determine Last Known Well time precisely', priority: 'immediate' },
+          { id: 'tx-1-3', text: 'Stat Non-Con CT Head + CTA Head/Neck', priority: 'immediate' },
+        ],
+      },
+      {
+        id: 'stroke-tx-2',
+        phase: 'Reperfusion',
+        title: 'Thrombolysis & Thrombectomy',
+        timing: '0-4.5 hours (tPA) / up to 24h (EVT)',
+        actions: [
+          { id: 'tx-2-1', text: 'Alteplase or Tenecteplase if within 4.5h and no exclusions (BP <185/110)', priority: 'immediate' },
+          { id: 'tx-2-2', text: 'Consult neuro-interventional for Mechanical Thrombectomy (EVT) if LVO identified', priority: 'immediate' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'stroke-med-1',
+        name: 'Alteplase (IV tPA)',
+        genericName: 'alteplase',
+        category: 'first-line',
+        indication: 'Acute ischemic stroke <4.5 hours',
+        dosing: [
+          { route: 'IV', dose: '0.9 mg/kg (max 90mg). 10% as bolus, 90% over 1 hour.', notes: 'Strict BP control <180/105 during and after.' },
+        ],
+        sideEffects: ['Bleeding (symptomatic ICH risk ~6%)', 'Orolingual angioedema'],
+        contraindications: ['Active bleeding', 'Recent neurosurgery', 'Severe head trauma <3mo', 'BP >185/110'],
+      },
+      {
+        id: 'stroke-med-2',
+        name: 'Tenecteplase',
+        genericName: 'tenecteplase',
+        category: 'first-line',
+        indication: 'Acute ischemic stroke (increasingly favored alternative to Alteplase)',
+        dosing: [
+          { route: 'IV', dose: '0.25 mg/kg single bolus (max 25mg)', notes: 'Especially favored prior to EVT' },
+        ],
+      },
+      {
+        id: 'stroke-med-3',
+        name: 'Labetalol / Nicardipine / Clevidipine',
+        genericName: 'varies',
+        category: 'adjunct',
+        indication: 'BP management before/after tPA or for permissive hypertension (>220/120)',
+        dosing: [
+          { route: 'IV', dose: 'Titrated drops or IV push (e.g., Labetalol 10-20mg IV push)', notes: 'Smooth control preferred to avoid hypotension' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'stroke-pit-1',
+        title: 'Over-treating Blood Pressure',
+        description: 'Aggressively dropping blood pressure in a patient NOT receiving tPA.',
+        consequence: 'Worsening of the ischemic penumbra, extending the stroke.',
+        prevention: 'Allow permissive hypertension up to 220/120 unless there are other absolute indications to lower BP (e.g., aortic dissection, heart failure).',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // NEUROLOGY - INTRACEREBRAL HEMORRHAGE (ICH)
+  // ============================================
+  ich: {
+    keyPearls: [
+      {
+        id: 'ich-pearl-1',
+        text: 'Reversal of anticoagulants is the highest priority. Time is tissue; hematoma expansion occurs rapidly in the first few hours.',
+        importance: 'critical',
+        category: 'Reversal',
+      },
+      {
+        id: 'ich-pearl-2',
+        text: 'Maintain strict BP control (Target SBP < 140) to minimize hematoma expansion, smoothly and without large fluctuations.',
+        importance: 'critical',
+        category: 'Hemodynamics',
+      },
+      {
+        id: 'ich-pearl-3',
+        text: 'Elevate head of bed to 30 degrees, maintain normothermia, and manage ICP if signs of herniation appear.',
+        importance: 'high',
+        category: 'Neuro-ICU',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'ich-dx-1',
+        title: 'Imaging',
+        criteria: [
+          { id: 'dx-1-1', text: 'Non-Con CT: hyperdense collection within brain parenchyma', value: 'Diagnostic' },
+          { id: 'dx-1-2', text: 'CTA: "Spot sign" indicates active bleeding and high risk for expansion', value: 'Prognostic' },
+        ],
+      },
+      {
+        id: 'ich-dx-2',
+        title: 'ICH Score (0-6)',
+        criteria: [
+          { id: 'dx-2-1', text: 'GCS (3-4 = 2 pts, 5-12 = 1 pt)', value: 'Clinical' },
+          { id: 'dx-2-2', text: 'Volume > 30mL (1 pt)', value: 'Radiologic' },
+          { id: 'dx-2-3', text: 'IVH present (1 pt)', value: 'Radiologic' },
+          { id: 'dx-2-4', text: 'Infratentorial origin (1 pt)', value: 'Radiologic' },
+          { id: 'dx-2-5', text: 'Age > 80 (1 pt)', value: 'Demographic' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'ich-tx-1',
+        phase: 'Immediate',
+        title: 'Reversal & BP Control',
+        timing: '0-30 minutes',
+        actions: [
+          { id: 'tx-1-1', text: 'Ascertain anticoagulant use immediately and give specific reversal agent (PCC, Andexanet alfa, Idarucizumab)', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Start titratable IV antihypertensive (Nicardipine or Clevidipine infusion) to maintain SBP < 140', priority: 'immediate' },
+          { id: 'tx-1-3', text: 'Consult Neurosurgery for possible EVD (if IVH/hydrocephalus) or evacuation (cerebellar)', priority: 'urgent' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'ich-med-1',
+        name: '4-Factor PCC (Kcentra)',
+        genericName: 'prothrombin complex concentrate',
+        category: 'first-line',
+        indication: 'Warfarin reversal',
+        dosing: [
+          { route: 'IV', dose: 'Weight and INR-based dosing (e.g. 50 units/kg if INR >6)', notes: 'Administer with Vitamin K 10mg IV' },
+        ],
+      },
+      {
+        id: 'ich-med-2',
+        name: 'Nicardipine',
+        genericName: 'nicardipine',
+        category: 'first-line',
+        indication: 'BP control in ICH',
+        dosing: [
+          { route: 'IV', dose: '5 mg/hr, titrate by 2.5 mg/hr q5-15 min to goal, max 15 mg/hr', notes: 'Smooth onset/offset' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'ich-pit-1',
+        title: 'Waiting for Coags',
+        description: 'Delaying PCC while waiting for an INR to return in a reliable historian known to be on warfarin.',
+        consequence: 'Hematoma expansion and irreversible neurological deficit.',
+        prevention: 'Give PCC empirically if suspicion/history is strong and bleeding is life-threatening.',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // NEUROLOGY - SUBARACHNOID HEMORRHAGE (SAH)
+  // ============================================
+  sah: {
+    keyPearls: [
+      {
+        id: 'sah-pearl-1',
+        text: '"Worst headache of life" (thunderclap) is the hallmark. Protect the airway early if mental status declines.',
+        importance: 'critical',
+        category: 'Assessment',
+      },
+      {
+        id: 'sah-pearl-2',
+        text: 'The major threats: Rebleeding (first 24h), Hydrocephalus (early), and Vasospasm (days 3-14).',
+        importance: 'critical',
+        category: 'Complications',
+      },
+      {
+        id: 'sah-pearl-3',
+        text: 'Nimodipine neuroprotection should be started early once aneurysmal source is suspected to improve outcomes (doesn\'t prevent angiographic vasospasm, but improves clinical outcome).',
+        importance: 'high',
+        category: 'Treatment',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'sah-dx-1',
+        title: 'Diagnosis',
+        criteria: [
+          { id: 'dx-1-1', text: 'Non-Con CT Head (highly sensitive < 6h)', value: 'CT' },
+          { id: 'dx-1-2', text: 'Lumbar Puncture (Xanthochromia) if CT negative but high suspicion (typically > 12h from onset)', value: 'LP' },
+          { id: 'dx-1-3', text: 'CTA Brain/Neck to identify aneurysm or source', value: 'CTA' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'sah-tx-1',
+        phase: 'Immediate',
+        title: 'Prevent Rebleeding & Aneurysm Targeting',
+        timing: '0-12 hours',
+        actions: [
+          { id: 'tx-1-1', text: 'Strict BP control (SBP < 160 or MAP < 110) prior to securing aneurysm', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Consult neurosurgery / neuro-interventional for coiling or clipping', priority: 'immediate' },
+          { id: 'tx-1-3', text: 'Pain control (fentanyl/morphine) to prevent BP spikes', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'sah-tx-2',
+        phase: 'Neuro-ICU',
+        title: 'Complication Management',
+        timing: 'Days 1-14',
+        actions: [
+          { id: 'tx-2-1', text: 'Nimodipine 60mg Q4H for 21 days', priority: 'routine' },
+          { id: 'tx-2-2', text: 'Watch for hyponatremia (cerebral salt wasting) and treat with isotonic or hypertonic fluids (AVOID restriction)', priority: 'urgent' },
+          { id: 'tx-2-3', text: 'EVD for hydrocephalus if indicated', priority: 'urgent' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'sah-med-1',
+        name: 'Nimodipine',
+        genericName: 'nimodipine',
+        category: 'first-line',
+        indication: 'Neuroprotection post-SAH',
+        dosing: [
+          { route: 'PO', dose: '60 mg PO/NG every 4 hours for 21 days', notes: 'Never give IV. Can cause hypotension.' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'sah-pit-1',
+        title: 'Hyponatremia Fluid Restriction',
+        description: 'Treating hyponatremia in SAH (cerebral salt wasting) with fluid restriction instead of volume repletion.',
+        consequence: 'Hypovolemia precipitates delayed cerebral ischemia (DCI) / vasospasm.',
+        prevention: 'Treat with euvolemia or hypervolemia using isotonic/hypertonic saline.',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // ENDOCRINE - THYROID STORM
+  // ============================================
+  'thyroid-storm': {
+    keyPearls: [
+      {
+        id: 'storm-pearl-1',
+        text: 'Thyroid storm is a clinical diagnosis (Burch-Wartofsky score), not a laboratory one. Do not wait for thyroid panel results to start treatment if suspicion is high.',
+        importance: 'critical',
+        category: 'Diagnosis',
+      },
+      {
+        id: 'storm-pearl-2',
+        text: 'Treatment order matters: 1. Beta blockade (Propranolol), 2. Thionamides (PTU or Methimazole), 3. Iodine (Wait 1 hr AFTER thionamide), 4. Steroids.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'storm-pearl-3',
+        text: 'Avoid Aspirin for fever control, as it can displace thyroid hormone from binding proteins and worsen the storm. Use acetaminophen.',
+        importance: 'high',
+        category: 'Supportive',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'storm-dx-1',
+        title: 'Burch-Wartofsky Point Scale (BWPS)',
+        criteria: [
+          { id: 'dx-1-1', text: 'Temperature (>99°F to >104°F; up to 30 pts)', value: 'Temp' },
+          { id: 'dx-1-2', text: 'CNS Effects (Agitation to Coma; up to 30 pts)', value: 'CNS' },
+          { id: 'dx-1-3', text: 'GI/Hepatic Dysfunction (Nausea to Jaundice; up to 20 pts)', value: 'GI' },
+          { id: 'dx-1-4', text: 'Cardiovascular (Tachycardia, AFib, CHF; up to 25 pts)', value: 'CV' },
+          { id: 'dx-1-5', text: 'Precipitant History (0 or 10 pts)', value: 'Trigger' },
+        ],
+        notes: 'Score ≥ 45: Highly suggestive of Storm. 25-44: Impending Storm. < 25: Unlikely.',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'storm-tx-1',
+        phase: 'Immediate',
+        title: 'Adrenergic Blockade & Synthesis Blockade',
+        timing: '0-1 hour',
+        actions: [
+          { id: 'tx-1-1', text: 'Propranolol 1-2 mg IV slowly or 60-80 mg PO (blocks T4->T3 conversion and sympathetic tone)', priority: 'immediate', details: 'Target HR < 90' },
+          { id: 'tx-1-2', text: 'PTU 500-1000 mg PO/PR loading dose OR Methimazole 20-30 mg PO/PR', priority: 'immediate', details: 'Blocks new synthesis' },
+        ],
+      },
+      {
+        id: 'storm-tx-2',
+        phase: 'Delayed',
+        title: 'Release Blockade & Steroids',
+        timing: '1-6 hours (Wait 1hr after PTU/MMI)',
+        actions: [
+          { id: 'tx-2-1', text: 'Lugol\'s Iodine (10 drops PO) OR SSKI (5 drops PO) to halt release of pre-formed hormone', priority: 'urgent', details: 'CRITICAL: Must give AFTER thionamide to avoid fueling storm (Jod-Basedow effect)' },
+          { id: 'tx-2-2', text: 'Hydrocortisone 100 mg IV q8h (blocks T4->T3 conversion and treats relative adrenal insufficiency)', priority: 'urgent' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'storm-med-1',
+        name: 'Propranolol',
+        genericName: 'propranolol',
+        category: 'first-line',
+        indication: 'Sympathetic hyperactivity and T4-T3 conversion block',
+        dosing: [
+          { route: 'PO', dose: '60-80 mg q4-6h', notes: 'Preferred route if patient can tolerate.' },
+          { route: 'IV', dose: '1-2 mg slow push, repeated PRN', notes: 'Use with caution if patient is in decompensated heart failure.' },
+        ],
+      },
+      {
+        id: 'storm-med-2',
+        name: 'Propylthiouracil (PTU)',
+        genericName: 'propylthiouracil',
+        category: 'first-line',
+        indication: 'Thyroid storm (blocks synthesis and T4->T3 conversion) favored over methimazole in severe storm and 1st trimester pregnancy.',
+        dosing: [
+          { route: 'PO', dose: '500-1000 mg load, then 250 mg q4h', notes: 'BBW for severe hepatotoxicity.' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'storm-pit-1',
+        title: 'Iodine First',
+        description: 'Giving iodine before the thionamide (PTU/Methimazole).',
+        consequence: 'Provides excess substrate for new thyroid hormone synthesis (Wolf-Chaikoff failure / Jod-Basedow), worsening storm.',
+        prevention: 'Always wait 1 hour after the thionamide is given before administering Iodine.',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // ENDOCRINE - MYXEDEMA COMA
+  // ============================================
+  'myxedema-coma': {
+    keyPearls: [
+      {
+        id: 'myx-pearl-1',
+        text: 'True myxedema coma is often a presentation of severe untreated hypothyroidism plus a precipitating stressor (infection, cold, drugs, MI).',
+        importance: 'critical',
+        category: 'Assessment',
+      },
+      {
+        id: 'myx-pearl-2',
+        text: 'Always cover for adrenal insufficiency before or alongside giving thyroid hormone to prevent precipitating adrenal crisis.',
+        importance: 'critical',
+        category: 'Treatment',
+      },
+      {
+        id: 'myx-pearl-3',
+        text: 'Passive rewarming is safer than active rapid rewarming, which can cause severe vasodilation and shock in these volume-depleted patients.',
+        importance: 'high',
+        category: 'Supportive',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'myx-dx-1',
+        title: 'Hallmarks of Myxedema',
+        criteria: [
+          { id: 'dx-1-1', text: 'Altered Mental Status (lethargy to coma)', value: 'CNS' },
+          { id: 'dx-1-2', text: 'Hypothermia (core temp often < 35°C / 95°F)', value: 'Temp' },
+          { id: 'dx-1-3', text: 'Bradycardia, Hypotension, Hypoventilation', value: 'Vitals' },
+          { id: 'dx-1-4', text: 'Hyponatremia and Hypoglycemia', value: 'Labs' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'myx-tx-1',
+        phase: 'Immediate',
+        title: 'Steroids & Hormone Replacement',
+        timing: '0-2 hours',
+        actions: [
+          { id: 'tx-1-1', text: 'Hydrocortisone 100 mg IV (stress dose) to prevent adrenal crisis', priority: 'immediate' },
+          { id: 'tx-1-2', text: 'Levothyroxine (T4) 200-400 mcg IV loading dose', priority: 'immediate' },
+          { id: 'tx-1-3', text: 'Consider Liothyronine (T3) 5-20 mcg IV in severe or comatose cases', priority: 'urgent', details: 'Risk of arrhythmias/ischemia; use caution in elderly or CAD' },
+        ],
+      },
+      {
+        id: 'myx-tx-2',
+        phase: 'Supportive',
+        title: 'Identify Trigger & Support',
+        timing: 'Ongoing',
+        actions: [
+          { id: 'tx-2-1', text: 'Broad-spectrum antibiotics after cultures (infection is most common trigger)', priority: 'urgent' },
+          { id: 'tx-2-2', text: 'Passive rewarming (blankets) in a warm room', priority: 'routine' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'myx-med-1',
+        name: 'Levothyroxine (T4)',
+        genericName: 'levothyroxine',
+        category: 'first-line',
+        indication: 'Severe Hypothyroidism / Myxedema',
+        dosing: [
+          { route: 'IV', dose: '200-400 mcg IV load', notes: 'Then 50-100 mcg daily IV until taking PO. IV dose is ~75% of PO.' },
+        ],
+      },
+      {
+        id: 'myx-med-2',
+        name: 'Hydrocortisone',
+        genericName: 'hydrocortisone sodium succinate',
+        category: 'first-line',
+        indication: 'Empiric coverage for adrenal insufficiency',
+        dosing: [
+          { route: 'IV', dose: '100 mg q8h', notes: 'Administer BEFORE or WITH thyroid hormone.' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'myx-pit-1',
+        title: 'Thyroid Hormone Without Steroids',
+        description: 'Giving IV levothyroxine to a patient with unrecognized concomitant adrenal insufficiency (e.g., panhypopituitarism or autoimmune polyendocrine syndrome).',
+        consequence: 'Thyroid hormone increases metabolic rate and cortisol clearance, precipitating fulminant adrenal crisis and cardiovascular collapse.',
+        prevention: 'Always administer stress-dose hydrocortisone before or immediately with thyroid replacement in myxedema coma.',
+        severity: 'critical',
+      },
+    ],
+  },
 };
 
 /**
