@@ -49,7 +49,7 @@ function convertLineBreaks(text: string): string {
     .replace(/\r/g, '\n');
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
@@ -243,6 +243,7 @@ ${content}`;
     safeLog('info', "AI response received, parsing...");
     safeLog('info', `Full AI response: ${JSON.stringify(aiResponse, null, 2)}`);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let parsedData: any;
 
     // Check for tool call response

@@ -6,13 +6,15 @@ import { Search, ChevronRight, User, Hash, ChevronsLeft, ChevronsRight } from "l
 import { Patient } from "@/types/patient";
 import { Input } from "@/components/ui/input";
 
+import { useDashboard } from "@/contexts/DashboardContext";
+
 interface PatientNavigatorProps {
-    patients: Patient[];
     onScrollToPatient: (id: string) => void;
     className?: string;
 }
 
-export function PatientNavigator({ patients, onScrollToPatient, className }: PatientNavigatorProps) {
+export function PatientNavigator({ onScrollToPatient, className }: PatientNavigatorProps) {
+    const { filteredPatients: patients } = useDashboard();
     const [isOpen, setIsOpen] = React.useState(true);
     const [filter, setFilter] = React.useState("");
 

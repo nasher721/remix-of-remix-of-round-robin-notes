@@ -3,14 +3,7 @@ import { PatientCard } from "@/components/PatientCard";
 import type { Patient } from "@/types/patient";
 import type { AutoText } from "@/types/autotext";
 
-interface VirtualizedPatientListProps {
-  patients: Patient[];
-  autotexts: AutoText[];
-  onUpdatePatient: (id: string, field: string, value: unknown) => void;
-  onRemovePatient: (id: string) => void;
-  onDuplicatePatient: (id: string) => void;
-  onToggleCollapse: (id: string) => void;
-}
+import { useDashboard } from "@/contexts/DashboardContext";
 
 /**
  * Patient list component that renders all patient cards.
@@ -20,14 +13,16 @@ interface VirtualizedPatientListProps {
  * that makes accurate height measurement unreliable. The trade-off of
  * rendering all cards is acceptable for typical patient list sizes (10-30 patients).
  */
-export const VirtualizedPatientList = React.memo(({
-  patients,
-  autotexts,
-  onUpdatePatient,
-  onRemovePatient,
-  onDuplicatePatient,
-  onToggleCollapse,
-}: VirtualizedPatientListProps) => {
+export const VirtualizedPatientList = React.memo(() => {
+  const {
+    filteredPatients: patients,
+    autotexts,
+    onUpdatePatient,
+    onRemovePatient,
+    onDuplicatePatient,
+    onToggleCollapse
+  } = useDashboard();
+
   // Stable callback for remove with confirmation
   const handleRemove = React.useCallback((id: string) => {
     if (confirm('Remove this patient from rounds?')) {

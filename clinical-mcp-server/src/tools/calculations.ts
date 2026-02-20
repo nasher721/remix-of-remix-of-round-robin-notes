@@ -42,11 +42,11 @@ Returns:
         },
         async ({ score_type, params }) => {
             let resultStr = "";
-            let output: any = {};
+            let output: Record<string, unknown> = {};
 
             try {
                 switch (score_type) {
-                    case "bmi":
+                    case "bmi": {
                         if (!params.weight_kg || !params.height_cm) {
                             throw new Error("Missing weight_kg or height_cm for BMI calculation");
                         }
@@ -58,8 +58,9 @@ Returns:
                         output = { bmi, category };
                         resultStr = `BMI: ${bmi.toFixed(1)} (${category})`;
                         break;
+                    }
 
-                    case "anion_gap":
+                    case "anion_gap": {
                         if (!params.sodium || !params.chloride || !params.bicarbonate) {
                             throw new Error("Missing parameters for Anion Gap");
                         }
@@ -68,8 +69,9 @@ Returns:
                         output = { anion_gap: ag, interpretation: ag_interpretation };
                         resultStr = `Anion Gap: ${ag.toFixed(1)} mEq/L (${ag_interpretation})`;
                         break;
+                    }
 
-                    case "corrected_calcium":
+                    case "corrected_calcium": {
                         if (!params.measured_calcium || !params.albumin) {
                             throw new Error("Missing parameters for Corrected Calcium");
                         }
@@ -77,15 +79,16 @@ Returns:
                         output = { corrected_calcium: corrected };
                         resultStr = `Corrected Calcium: ${corrected.toFixed(2)} mg/dL`;
                         break;
+                    }
                 }
 
                 return {
                     content: [{ type: "text", text: resultStr }],
                     structuredContent: output
                 };
-            } catch (e: any) {
+            } catch (e: unknown) {
                 return {
-                    content: [{ type: "text", text: `Error calculating score: ${e.message}` }]
+                    content: [{ type: "text", text: `Error calculating score: ${e instanceof Error ? e.message : String(e)}` }]
                 };
             }
         }

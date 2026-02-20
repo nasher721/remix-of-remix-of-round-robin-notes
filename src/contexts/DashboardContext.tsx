@@ -31,6 +31,7 @@ interface DashboardContextType {
     onUpdatePatient: (id: string, field: string, value: unknown) => void;
     onRemovePatient: (id: string) => void;
     onDuplicatePatient: (id: string) => void;
+    onToggleCollapse: (id: string) => void;
     onCollapseAll: () => void;
     onClearAll: () => void;
     onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;

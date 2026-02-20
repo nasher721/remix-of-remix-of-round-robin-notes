@@ -4,6 +4,7 @@ import { motion, LayoutGroup, useReducedMotion } from 'framer-motion';
 import { fadeInDown, scaleIn, staggerContainer, staggerItem, transitions } from '@/lib/animations';
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
+import { useDashboard } from "@/contexts/DashboardContext";
 import { VirtualizedPatientList } from "./VirtualizedPatientList";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
@@ -64,65 +65,36 @@ import { PatientFilterType } from "@/constants/config";
 import type { PatientTodo } from "@/types/todo";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
-interface DesktopDashboardProps {
-  user: { email?: string };
-  patients: Patient[];
-  filteredPatients: Patient[];
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  filter: PatientFilterType;
-  setFilter: (filter: PatientFilterType) => void;
-  autotexts: AutoText[];
-  templates: Template[];
-  customDictionary: Record<string, string>;
-  todosMap: Record<string, PatientTodo[]>;
-  onAddPatient: () => void;
-  onAddPatientWithData: (data: Partial<Patient>) => Promise<void>;
-  onUpdatePatient: (id: string, field: string, value: unknown) => void;
-  onRemovePatient: (id: string) => void;
-  onDuplicatePatient: (id: string) => void;
-  onToggleCollapse: (id: string) => void;
-  onCollapseAll: () => void;
-  onClearAll: () => void;
-  onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
-  onAddAutotext: (shortcut: string, expansion: string, category: string) => Promise<boolean>;
-  onRemoveAutotext: (shortcut: string) => Promise<void>;
-  onAddTemplate: (name: string, content: string, category: string) => Promise<boolean>;
-  onRemoveTemplate: (id: string) => Promise<void>;
-  onImportDictionary: (entries: Record<string, string>) => Promise<boolean | void>;
-  onSignOut: () => void;
-  lastSaved: Date;
-}
-
-export const DesktopDashboard = ({
-  user,
-  patients,
-  filteredPatients,
-  searchQuery,
-  setSearchQuery,
-  filter,
-  setFilter,
-  autotexts,
-  templates,
-  customDictionary,
-  todosMap,
-  onAddPatient,
-  onAddPatientWithData,
-  onUpdatePatient,
-  onRemovePatient,
-  onDuplicatePatient,
-  onToggleCollapse,
-  onCollapseAll,
-  onClearAll,
-  onImportPatients,
-  onAddAutotext,
-  onRemoveAutotext,
-  onAddTemplate,
-  onRemoveTemplate,
-  onImportDictionary,
-  onSignOut,
-  lastSaved,
-}: DesktopDashboardProps) => {
+export const DesktopDashboard = () => {
+  const {
+    user,
+    patients,
+    filteredPatients,
+    searchQuery,
+    setSearchQuery,
+    filter,
+    setFilter,
+    autotexts,
+    templates,
+    customDictionary,
+    todosMap,
+    onAddPatient,
+    onAddPatientWithData,
+    onUpdatePatient,
+    onRemovePatient,
+    onDuplicatePatient,
+    onToggleCollapse,
+    onCollapseAll,
+    onClearAll,
+    onImportPatients,
+    onAddAutotext,
+    onRemoveAutotext,
+    onAddTemplate,
+    onRemoveTemplate,
+    onImportDictionary,
+    onSignOut,
+    lastSaved,
+  } = useDashboard();
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
   const changeTracking = useChangeTracking();
@@ -285,7 +257,6 @@ export const DesktopDashboard = ({
                 <div className="space-y-3 pt-4 border-t border-border/20">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Navigation</h3>
                   <PatientNavigator
-                    patients={filteredPatients}
                     onScrollToPatient={(id) => {
                       const element = document.getElementById(`patient-card-${id}`);
                       if (element) {
@@ -447,14 +418,7 @@ export const DesktopDashboard = ({
                   )}
                 </motion.div>
               ) : (
-                <VirtualizedPatientList
-                  patients={filteredPatients}
-                  autotexts={autotexts}
-                  onUpdatePatient={onUpdatePatient}
-                  onRemovePatient={onRemovePatient}
-                  onDuplicatePatient={onDuplicatePatient}
-                  onToggleCollapse={onToggleCollapse}
-                />
+                <VirtualizedPatientList />
               )}
             </ScrollArea>
           </ResizablePanel>

@@ -288,7 +288,7 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
   return result;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders(req) });
   }
@@ -473,6 +473,7 @@ SYSTEM MAPPING GUIDANCE:
 - Include relevant imaging and labs WITHIN each system section, not separately`;
 
     // Build message content based on whether we have images or text
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let userContent: any;
     if (images && images.length > 0) {
       // Vision-based OCR: send images to the model

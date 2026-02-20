@@ -127,6 +127,7 @@ function IndexContent(): React.ReactElement | null {
     onUpdatePatient: handleUpdatePatient,
     onRemovePatient: handleRemovePatient,
     onDuplicatePatient: handleDuplicatePatient,
+    onToggleCollapse: handleToggleCollapse,
     onCollapseAll: collapseAll,
     onClearAll: clearAll,
     onImportPatients: importPatients,
@@ -158,6 +159,7 @@ function IndexContent(): React.ReactElement | null {
     handleUpdatePatient,
     handleRemovePatient,
     handleDuplicatePatient,
+    handleToggleCollapse,
     collapseAll,
     clearAll,
     importPatients,
@@ -219,35 +221,9 @@ function IndexContent(): React.ReactElement | null {
 
   // Desktop Layout
   return (
-    <DesktopDashboard
-      user={user}
-      patients={patients}
-      filteredPatients={filteredPatients}
-      searchQuery={searchQuery}
-      setSearchQuery={setSearchQuery}
-      filter={filter}
-      setFilter={setFilter}
-      autotexts={autotexts}
-      templates={templates}
-      customDictionary={customDictionary}
-      todosMap={todosMap}
-      onAddPatient={handleAddPatient}
-      onAddPatientWithData={addPatientWithData}
-      onUpdatePatient={handleUpdatePatient}
-      onRemovePatient={handleRemovePatient}
-      onDuplicatePatient={handleDuplicatePatient}
-      onToggleCollapse={handleToggleCollapse}
-      onCollapseAll={collapseAll}
-      onClearAll={clearAll}
-      onImportPatients={importPatients}
-      onAddAutotext={addAutotext}
-      onRemoveAutotext={removeAutotext}
-      onAddTemplate={addTemplate}
-      onRemoveTemplate={removeTemplate}
-      onImportDictionary={importDictionary}
-      onSignOut={handleSignOut}
-      lastSaved={lastSaved}
-    />
+    <DashboardProvider {...dashboardContextValue}>
+      <DesktopDashboard />
+    </DashboardProvider>
   );
 }
 
