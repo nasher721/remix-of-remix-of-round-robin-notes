@@ -23,6 +23,7 @@ import { DesktopAIModelSettingsDialog } from "@/components/settings/DesktopAIMod
 import { PatientNavigator } from "./PatientNavigator";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
+import { TimelineDialog } from "../tools/timeline/TimelineDialog";
 import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard, CensusBadge } from "@/components/UnitCensusDashboard";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -249,6 +250,7 @@ export const DesktopDashboard = () => {
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Clinical Intelligence</h3>
                   <div className="space-y-2">
                     <ClinicalRiskCalculator />
+                    <TimelineDialog />
                     <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
                   </div>
                 </div>

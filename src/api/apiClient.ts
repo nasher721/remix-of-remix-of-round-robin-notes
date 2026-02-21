@@ -40,9 +40,10 @@ const createRequestKey = (url: string, init?: RequestInit): string => {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
-  const apiFetch = async (url: string, init: ApiFetchOptions = {}): Promise<Response> => {
+  const apiFetch = async (url: URL | RequestInfo, init: ApiFetchOptions = {}): Promise<Response> => {
+    const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : (url as Request).url;
     // Use longer timeout for edge function calls (AI/OCR can take minutes)
-    const isEdgeFunction = url.includes('/functions/v1/');
+    const isEdgeFunction = urlString.includes('/functions/v1/');
     const {
       timeoutMs = isEdgeFunction ? EDGE_FUNCTION_TIMEOUT_MS : DEFAULT_TIMEOUT_MS,
       retryCount = isEdgeFunction ? 0 : DEFAULT_RETRY_COUNT,
@@ -51,7 +52,7 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
       ...requestInit
     } = init;
 
-    const requestKey = createRequestKey(url, requestInit);
+    const requestKey = createRequestKey(urlString, requestInit);
     if (dedupe && inflightRequests.has(requestKey)) {
       const inflight = inflightRequests.get(requestKey);
       if (inflight) {
@@ -67,13 +68,13 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
         : controller.signal;
 
       try {
-        const response = await fetchImpl(url, { ...requestInit, signal });
+        const response = await fetchImpl(urlString, { ...requestInit, signal });
         return response;
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
-          throw normalizeError(new Error("Request timed out"), url);
+          throw normalizeError(new Error("Request timed out"), urlString);
         }
-        throw normalizeError(error, url);
+        throw normalizeError(error, urlString);
       } finally {
         globalThis.clearTimeout(timeoutId);
       }
@@ -86,7 +87,7 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
         try {
           return await executeFetch();
         } catch (error) {
-          lastError = normalizeError(error, url);
+          lastError = normalizeError(error, urlString);
           if (attempt >= retryCount) {
             throw lastError;
           }
@@ -96,7 +97,7 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
           attempt += 1;
         }
       }
-      throw lastError ?? normalizeError(new Error("Request failed"), url);
+      throw lastError ?? normalizeError(new Error("Request failed"), urlString);
     })();
 
     if (dedupe) {

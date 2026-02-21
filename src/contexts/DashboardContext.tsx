@@ -7,7 +7,7 @@ import { PatientFilterType } from "@/constants/config";
 
 interface DashboardContextType {
     // Data
-    user: { email?: string };
+    user: { email?: string } | null;
     patients: Patient[];
     filteredPatients: Patient[];
     autotexts: AutoText[];
