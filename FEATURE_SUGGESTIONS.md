@@ -1,241 +1,165 @@
-# Feature Suggestions for Round Robin Notes
+# Feature Suggestions: Taking Round Robin Notes to the Next Level
 
-A comprehensive list of proposed features to enhance this clinical documentation and patient rounding application.
+After a thorough code review of the entire codebase — types, hooks, services, edge functions, contexts, and component architecture — here are 5 features that would have the highest impact on clinical workflows and differentiate this application from existing rounding tools.
 
----
-
-## 1. Team Collaboration Features
-
-### Real-time Collaborative Editing
-- **Multi-user presence indicators**: Show which team members are currently viewing/editing each patient
-- **Live cursor positions**: Display where colleagues are working in real-time
-- **Conflict resolution**: Smart merging when multiple users edit the same field simultaneously
-
-### Handoff & Shift Management
-- **Structured shift handoffs**: Dedicated workflow for end-of-shift patient handoffs with sign-off confirmations
-- **Handoff templates**: Customizable SBAR (Situation, Background, Assessment, Recommendation) templates
-- **Handoff history**: Track who handed off to whom with timestamps and notes
-- **Shift scheduling integration**: Know which team member is responsible for each patient per shift
-
-### Comments & Annotations
-- **Inline comments**: Add discussion threads to specific fields or sections
-- **@mentions**: Tag team members for attention on specific items
-- **Comment resolution**: Mark discussions as resolved with audit trail
+These suggestions are grounded in what the code already has, what's partially built, and where the biggest gaps exist.
 
 ---
 
-## 2. Clinical Decision Support
+## 1. Real-Time Collaborative Editing (Complete the CRDT Integration)
 
-### Smart Alerts & Notifications
-- **Critical value alerts**: Flag abnormal lab values that exceed thresholds (e.g., K+ > 6.0, Hgb < 7)
-- **Medication interaction warnings**: Alert on potential drug-drug interactions
-- **Allergy cross-checking**: Warn when medications match patient allergies
-- **Trending alerts**: Notify when vitals/labs show concerning trends over time
+### The Opportunity
 
-### Protocol Checklists
-- **Evidence-based bundles**: Sepsis bundle, VAP prevention, CAUTI prevention checklists
-- **Auto-populated checklists**: Generate relevant checklists based on patient diagnosis/conditions
-- **Compliance tracking**: Track completion rates for quality improvement
+The infrastructure is already partially built: `usePresence.ts` tracks who's online and which patient/field they're viewing, cursor position types exist in `src/types/collaboration.ts`, and Yjs + y-indexeddb dependencies are already installed. But the actual CRDT-based concurrent editing isn't wired into patient fields. Right now, the last write wins — which means two attendings updating the same patient's respiratory assessment during rounds will silently overwrite each other.
 
-### Risk Scoring Integration
-- **Automated risk calculators**: APACHE II, SOFA, qSOFA, CURB-65, Wells criteria auto-calculated from patient data
-- **Score trending**: Visualize how risk scores change over time
-- **Prognosis estimation**: Display expected outcomes based on validated models
+### What to Build
 
----
+- **Yjs document binding** for each patient record, with per-field `Y.Text` instances for the 10 system fields, clinical summary, interval events, imaging, and labs
+- **Awareness protocol** showing colored cursors and selections in real-time (the `UserPresence.color` and `CursorPosition` types already exist)
+- **Supabase Realtime** as the sync transport (already configured in the project) with y-indexeddb for local persistence
+- **Conflict-free merge** — CRDT eliminates the need for the current server-wins conflict resolution in `syncService.ts`, which today silently drops edits
 
-## 3. Enhanced Data Visualization
+### Why This Matters
 
-### Patient Timeline
-- **Longitudinal view**: Interactive timeline showing all events, interventions, and changes
-- **Event markers**: Procedures, medication changes, consultant notes, imaging studies
-- **Zoom & filter**: Focus on specific time ranges or event types
+ICU rounding is inherently a team activity. The attending, fellow, pharmacist, and nurse often need to update the same patient simultaneously. Without real-time sync, teams fall back to verbal corrections ("I already changed that") or discover lost updates hours later. This is the single feature that would most fundamentally change how teams interact with the app.
 
-### Lab Trending Charts
-- **Multi-lab overlay**: Compare multiple lab values on the same chart (e.g., Cr vs BUN)
-- **Normal range bands**: Visual indication of normal vs abnormal ranges
-- **Predictive trending**: AI-powered prediction of where values might go
+### Key Files to Modify
 
-### Vital Signs Dashboard
-- **Real-time vitals display**: Integration with bedside monitors where available
-- **Hemodynamic trends**: MAP, CVP, cardiac output visualization
-- **Ventilator parameter tracking**: FiO2, PEEP, tidal volume trends
+- `src/hooks/patients/usePatientMutations.ts` — replace direct Supabase writes with Yjs document updates
+- `src/hooks/usePresence.ts` — integrate Yjs awareness protocol
+- `src/lib/offline/syncEngine.ts` — CRDT subsumes the conflict detection logic
+- New: `src/lib/crdt/` module wrapping Yjs document management and Supabase transport
 
 ---
 
-## 4. AI-Powered Enhancements
+## 2. Clinical Deterioration Early Warning System
 
-### Smart Documentation Assistant
-- **Auto-complete suggestions**: Context-aware text predictions based on patient data
-- **Note summarization**: AI-generated daily progress note summaries
-- **Problem list generation**: Automatically suggest active problems from clinical data
+### The Opportunity
 
-### Voice Intelligence
-- **Enhanced dictation**: Medical terminology recognition with specialty-specific vocabulary
-- **Voice commands**: "Add patient", "Show IBCC sepsis chapter", "Mark todo complete"
-- **Ambient listening mode**: Passive capture of bedside conversations (with consent) for documentation
+The app already has risk scoring (SOFA, qSOFA, NEWS2, CURB-65, Wells), lab trending with delta tracking, critical lab thresholds in `src/types/alerts.ts`, and an acuity classification system. But these are all **point-in-time snapshots**. There's no system that watches trends over time and proactively alerts the team when a patient's trajectory is heading toward deterioration.
 
-### Clinical Reasoning Support
-- **Differential diagnosis suggestions**: AI-generated differentials based on presentation
-- **Workup recommendations**: Suggested diagnostic tests based on suspected diagnoses
-- **Literature references**: Automatically link to relevant PubMed articles or UpToDate
+### What to Build
 
----
+- **Trend analysis engine** that tracks lab values, risk scores, and clinical text changes across rounding sessions — flag when Na is dropping 3 mEq/day, when creatinine has doubled in 48 hours, or when the respiratory section text changed from "weaning" to "escalating support"
+- **AI-powered clinical text analysis** using the existing `ai-clinical-assistant` edge function to parse free-text system assessments for deterioration signals (new vasopressor mentions, escalating FiO2, worsening mental status language)
+- **Configurable alert rules** extending the existing `CriticalLabThreshold` and `VitalThreshold` types to support rate-of-change triggers, not just absolute thresholds
+- **Deterioration dashboard widget** showing a unit-wide heatmap of patient trajectories — green (improving), yellow (stable), red (deteriorating) — alongside the existing `UnitMetrics` census view
+- **Push notifications** via the existing `Notification` type infrastructure for critical trajectory changes, even when the app is backgrounded (service worker already registered)
 
-## 5. Integration Capabilities
+### Why This Matters
 
-### EHR Integration
-- **FHIR API support**: Standardized healthcare data exchange with Epic, Cerner, etc.
-- **Real-time lab sync**: Automatic lab value updates from hospital systems
-- **Medication reconciliation**: Sync medication lists bidirectionally
-- **Order integration**: View and potentially place orders from the app
+Failure to rescue — the inability to recognize and respond to clinical deterioration — is a leading cause of preventable ICU deaths. Most EHR early warning systems only look at vitals. This app has a unique advantage: it contains the clinical team's own assessment language, which captures nuance ("patient looks worse despite stable vitals") that structured data misses. An early warning system that combines quantitative trends with NLP on clinical narratives would be genuinely novel.
 
-### External Services
-- **Pharmacy system integration**: Real-time medication verification
-- **Radiology PACS viewer**: Embedded image viewing for CT, X-ray, MRI
-- **Microbiology results**: Culture and sensitivity tracking with antibiogram reference
+### Key Files to Modify
 
-### Communication Tools
-- **Secure messaging**: HIPAA-compliant in-app messaging between team members
-- **Pager/call integration**: One-click calling to consultants, pharmacy, lab
-- **Family communication log**: Track discussions with patient families
+- `src/types/alerts.ts` — add trend-based alert rules and trajectory types
+- `src/hooks/usePatients.ts` — persist historical snapshots for trend analysis
+- New: `src/services/deteriorationEngine.ts` — trend calculation and alert generation
+- New: `supabase/functions/analyze-deterioration/` — edge function for NLP on clinical text trends
+- `src/components/dashboard/` — deterioration heatmap widget
 
 ---
 
-## 6. Mobile Experience Improvements
+## 3. Automated Shift Handoff Generation
 
-### Offline-First Architecture
-- **Full offline capability**: All core features work without internet
-- **Smart sync**: Prioritized syncing when connection restored
-- **Conflict resolution UI**: Clear interface for resolving sync conflicts
+### The Opportunity
 
-### Mobile-Specific Features
-- **Quick capture mode**: Rapid note entry optimized for bedside use
-- **Barcode scanning**: Scan patient wristbands for quick access
-- **Camera integration**: Photo documentation of wounds, rashes, lines
-- **Haptic feedback**: Tactile confirmation for critical actions
+The handoff types are comprehensive (`HandoffData`, `SBARNote`, `IfThenPlan` in `src/types/handoff.ts`), handoff templates exist, and the `parse-handoff` edge function can parse incoming handoff text. But handoff **generation** from existing patient data is manual. The clinician has to re-synthesize information that already exists across the patient's clinical summary, interval events, system assessments, pending todos, and medication changes.
 
-### Wearable Support
-- **Apple Watch/WearOS companion**: Quick patient info at a glance
-- **Critical alerts on wrist**: Push notifications for urgent items
+### What to Build
 
----
+- **One-click handoff generation** that pulls from all existing patient data:
+  - **Situation**: Auto-populated from clinical summary + bed + age + active problems
+  - **Background**: Synthesized from interval events and clinical course (using the existing `generate-patient-course` edge function)
+  - **Assessment**: Derived from the most recent system reviews, risk scores, and acuity level
+  - **Recommendation**: Generated from pending todos, pending labs/imaging, active protocols, and if-then plans
+- **Change-aware handoff**: Use the `ChangeTrackingContext` and `patient_field_history` to highlight what changed during the current shift — these are the items most critical for the receiving team
+- **Handoff session workflow**: Track who handed off to whom, with sign-off confirmation, using the existing `HandoffSession` types
+- **Structured if-then plans**: AI-suggested anticipatory guidance based on clinical context ("If K > 6.0, then give kayexalate and recheck in 2h; call renal if >6.5")
+- **Handoff quality scoring**: Compare generated handoffs against SBAR completeness criteria and flag missing elements
 
-## 7. Reporting & Analytics
+### Why This Matters
 
-### Individual Reports
-- **Daily summary reports**: Auto-generated end-of-day patient summaries
-- **Procedure logs**: Track all procedures performed with outcomes
-- **Billing assistance**: Capture billable diagnoses and procedures
+Handoff failures cause an estimated 80% of serious medical errors during care transitions (Joint Commission). Clinicians spend 15-30 minutes per shift manually creating handoff documents by re-reading and summarizing data that's already in the app. Auto-generating a complete, structured handoff from existing data would save significant time and reduce the risk of omitting critical information. The change-tracking integration is the key differentiator — surfacing what's new since the last handoff is exactly what the receiving clinician needs.
 
-### Unit-Level Analytics
-- **Census dashboard**: Real-time bed occupancy and patient flow
-- **Acuity tracking**: Unit-wide patient acuity distribution
-- **Length of stay metrics**: Track and benchmark LOS against targets
+### Key Files to Modify
 
-### Quality Metrics
-- **Quality indicator tracking**: Core measures, HAI rates, mortality
-- **Compliance dashboards**: Protocol adherence visualization
-- **Benchmarking**: Compare unit performance against standards
+- New: `supabase/functions/generate-handoff/` — AI-powered handoff synthesis edge function
+- `src/hooks/` — new `useHandoffGenerator.ts` hook
+- `src/components/` — handoff review/edit UI before finalizing
+- `src/types/handoff.ts` — add quality scoring and session tracking types (some already exist)
 
 ---
 
-## 8. Template & Workflow Automation
+## 4. Voice-Powered Bedside Rounding Mode
 
-### Smart Templates
-- **Condition-specific templates**: Pre-built templates for common diagnoses (DKA, STEMI, Sepsis)
-- **Dynamic sections**: Templates that show/hide sections based on patient data
-- **Team-shared templates**: Share and discover templates across your organization
+### The Opportunity
 
-### Workflow Automation
-- **Automated todo generation**: AI suggests tasks based on patient status
-- **Reminder scheduling**: Time-based reminders (e.g., "Recheck K+ in 4 hours")
-- **Task delegation**: Assign and track tasks to specific team members
-- **Escalation workflows**: Auto-escalate overdue or critical items
+Voice command types are fully defined in `src/types/voiceCommands.ts` with 20+ commands across 6 categories (navigation, patient, editing, reference, action, system), complete with wake word support ("hey rounds"), confidence thresholds, and voice feedback. The `transcribe-audio` edge function already handles speech-to-text. But none of this is wired into the UI — it's all type definitions with no implementation.
 
-### Documentation Efficiency
-- **Smart defaults**: Pre-populate fields with common values
-- **Copy-forward intelligence**: Smart carry-forward that updates changed values
-- **Macro recorder**: Record and replay complex documentation sequences
+### What to Build
 
----
+- **Rounding mode**: A dedicated full-screen mode optimized for bedside use — large fonts, high contrast, simplified layout showing one patient at a time with the most critical information (clinical summary, active meds, recent labs, pending todos)
+- **Voice navigation**: "Next patient", "Go to bed 12", "Show labs" — hands-free navigation through the patient list using the Web Speech Recognition API
+- **Voice-to-field dictation**: "Update respiratory" activates dictation for the respiratory system field, with the existing `transcribe-audio` edge function handling transcription and `transform-text` for medical text enhancement
+- **Voice-triggered AI**: "Summarize this patient", "Generate handoff", "What are the pending tasks" — invoke existing AI features by voice
+- **Ambient clinical listening** (stretch goal): Continuous low-power listening during rounds that auto-captures key phrases and maps them to the correct patient fields — "let's increase the norepinephrine to 0.15 mics per kilo per minute" gets parsed and offered as a suggested medication update
 
-## 9. Education & Training
+### Why This Matters
 
-### Learning Integration
-- **Case-based learning**: Link patient scenarios to educational resources
-- **Simulation mode**: Practice documentation without affecting real data
-- **Competency tracking**: Track exposure to various conditions and procedures
+During bedside rounds, clinicians are wearing gloves, examining patients, and managing lines and equipment. They can't easily type on a laptop or phone. Voice interaction removes the barrier between clinical decision-making at the bedside and documentation. The app already has dictation infrastructure — extending it to full voice control of the rounding workflow would make it the first rounding app truly designed for bedside use rather than desk use.
 
-### Reference Enhancements
-- **IBCC updates notification**: Alert when referenced chapters are updated
-- **Personalized learning**: Suggest IBCC chapters based on your patients
-- **Quick reference cards**: Downloadable pocket cards for common protocols
+### Key Files to Modify
 
-### Onboarding
-- **Interactive tutorials**: Guided tours for new users
-- **Role-based training**: Different training paths for attendings, residents, APPs
-- **Documentation tips**: Context-aware suggestions for better documentation
+- New: `src/hooks/useVoiceCommands.ts` — implement the command recognition engine (types already defined)
+- New: `src/hooks/useVoiceRounding.ts` — rounding mode state machine
+- New: `src/components/rounding/RoundingMode.tsx` — bedside-optimized UI
+- `src/hooks/useAIClinicalAssistant.ts` — add voice-triggered entry points
+- `src/types/voiceCommands.ts` — already complete, just needs implementation
 
 ---
 
-## 10. Security & Compliance
+## 5. Cross-Patient Intelligence and Unit-Wide Pattern Detection
 
-### Audit & Compliance
-- **Comprehensive audit logs**: Track all access and modifications
-- **Access reports**: Generate compliance reports for auditors
-- **Unusual access detection**: Flag potentially inappropriate access patterns
+### The Opportunity
 
-### Privacy Controls
-- **Break-the-glass**: Extra authentication for sensitive patients
-- **Auto-logout**: Configurable session timeouts
-- **Screen masking**: Quick privacy mode for bedside rounding
+The app manages patients individually. Each patient has their own system reviews, labs, medications, and assessments. But ICU teams think at two levels: the individual patient and the unit as a whole. The existing `UnitMetrics` type tracks census-level numbers (total patients, ventilated, on vasopressors), but there's no intelligence layer that looks across patients to find patterns, risks, and optimization opportunities.
 
-### Data Protection
-- **End-to-end encryption**: Encrypt all patient data at rest and in transit
-- **HIPAA compliance dashboard**: Track compliance status
-- **Data retention policies**: Configurable retention and deletion rules
+### What to Build
 
----
+- **Infection cluster detection**: When multiple patients on the same unit develop new fevers, rising WBC counts, or new antibiotic starts within a short window, flag a potential outbreak. Cross-reference the infectious disease system notes across patients using NLP to identify shared organisms or resistance patterns.
+- **Medication interaction matrix**: The `check-drug-interactions` edge function works per-patient. Extend it to flag unit-wide antibiotic stewardship concerns — are there redundant broad-spectrum antibiotics across the unit? Is there a pattern of missed de-escalation opportunities?
+- **Resource forecasting**: Based on current patient acuity trends and historical patterns, predict likely resource needs for the next shift — "3 patients trending toward intubation, 1 likely discharge, current vent capacity is X"
+- **Quality metric correlation**: Connect the existing quality metrics (VAP rate, CAUTI rate, CLABSI rate, falls) to specific protocol compliance data — "VAP bundle compliance dropped to 70% this week; 2 new VAP cases correlate with missed oral care documentation"
+- **Rounding efficiency analytics**: Track how long the team spends per patient, which systems generate the most discussion (measured by text volume changes), and where documentation is consistently incomplete — help teams optimize their rounding process
 
-## Implementation Priority Matrix
+### Why This Matters
 
-| Feature | Impact | Effort | Priority |
-|---------|--------|--------|----------|
-| Critical value alerts | High | Medium | P1 |
-| Shift handoff workflow | High | Medium | P1 |
-| Lab trending charts | High | Low | P1 |
-| Real-time collaboration | High | High | P2 |
-| Voice commands | Medium | Medium | P2 |
-| Patient timeline | Medium | Medium | P2 |
-| EHR integration (FHIR) | High | High | P2 |
-| Protocol checklists | Medium | Low | P2 |
-| Offline-first architecture | Medium | High | P3 |
-| Wearable support | Low | Medium | P3 |
-| Analytics dashboards | Medium | Medium | P3 |
+Individual patient care is necessary but not sufficient for ICU quality. The highest-performing ICUs actively monitor unit-wide patterns — infection trends, antibiotic stewardship, protocol compliance, and resource utilization. Today, these analyses happen in retrospective quality meetings weeks after the fact. Surfacing them in real-time during daily operations would shift quality improvement from reactive to proactive. No existing rounding tool does this because no other tool has the structured clinical data at the granularity this app captures.
+
+### Key Files to Modify
+
+- New: `src/services/unitIntelligence.ts` — cross-patient analysis engine
+- New: `supabase/functions/analyze-unit-patterns/` — server-side pattern detection
+- `src/types/dashboard.ts` — extend `UnitMetrics` with intelligence outputs
+- `src/components/dashboard/` — unit intelligence dashboard panel
+- `src/hooks/` — new `useUnitIntelligence.ts` hook
 
 ---
 
-## Technical Considerations
+## Priority Ranking
 
-### Architecture Recommendations
-1. **WebSocket infrastructure**: For real-time collaboration features
-2. **Background sync workers**: For offline-first capabilities
-3. **Plugin architecture**: Allow third-party integrations
-4. **Feature flags**: Gradual rollout of new features
+| # | Feature | Clinical Impact | Build Effort | Risk | Existing Infrastructure |
+|---|---------|----------------|--------------|------|------------------------|
+| 1 | Real-Time Collaborative Editing | Very High | Medium | Medium | Yjs installed, presence types built, cursor tracking typed |
+| 2 | Clinical Deterioration Early Warning | Very High | High | Low | Risk scores, lab deltas, alert thresholds, notification types exist |
+| 3 | Automated Shift Handoff Generation | High | Medium | Low | Handoff types complete, AI edge functions exist, change tracking works |
+| 4 | Voice-Powered Bedside Rounding | High | High | Medium | Voice command types fully defined, transcription edge function exists |
+| 5 | Cross-Patient Unit Intelligence | High | High | Medium | Unit metrics types exist, per-patient AI analysis works |
 
-### Performance Optimizations
-1. **Virtual scrolling**: Already implemented, continue optimizing for large datasets
-2. **Lazy loading**: Load IBCC chapters and large datasets on demand
-3. **Image optimization**: Compress and cache embedded images
-4. **Query optimization**: Implement GraphQL for efficient data fetching
-
-### Security Enhancements
-1. **Row-level security**: Leverage Supabase RLS for patient data isolation
-2. **Token refresh**: Implement silent token refresh for long sessions
-3. **Biometric auth**: Support Face ID/Touch ID on mobile devices
+Features 1 and 3 have the fastest path to value because the underlying infrastructure (Yjs, presence tracking, handoff types, AI edge functions) already exists. Features 2 and 5 deliver the most clinical differentiation. Feature 4 creates the most visceral demo moment but has the highest dependency on browser API maturity.
 
 ---
 
-*Generated: 2026-01-27*
-*For: Round Robin Notes Clinical Documentation App*
+*Generated: 2026-02-22*
+*Based on: Full codebase review of Round Robin Notes (625+ components, 35+ hooks, 12 edge functions, 21 type files)*
