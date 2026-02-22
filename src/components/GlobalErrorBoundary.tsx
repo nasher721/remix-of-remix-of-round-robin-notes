@@ -1,6 +1,7 @@
 import * as React from "react";
 import { AlertTriangle, RefreshCw, Copy, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { recordTelemetryEvent } from "@/lib/observability/telemetry";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -23,6 +24,9 @@ export class GlobalErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Uncaught application error:", error, errorInfo);
+    recordTelemetryEvent('render_error', error, {
+      componentStack: errorInfo.componentStack?.slice(0, 1000),
+    });
   }
 
   handleReload = () => {

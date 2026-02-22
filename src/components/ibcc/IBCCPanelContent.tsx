@@ -11,8 +11,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIBCCState } from '@/contexts/IBCCContext';
-import { IBCC_CATEGORIES, MEDICAL_SYSTEM_MAP } from '@/data/ibccContent';
-import type { IBCCChapter, MedicalSystem } from '@/types/ibcc';
+import { useLazyData } from '@/lib/lazyData';
+import type { IBCCChapter, IBCCCategory, MedicalSystem } from '@/types/ibcc';
 import { IBCCChapterView } from './IBCCChapterView';
 import { cn } from '@/lib/utils';
 
@@ -86,6 +86,14 @@ function IBCCPanelContent() {
     getCalculatorsForChapter,
     getChecklistsForChapter,
   } = useIBCCState();
+
+  // Lazy-load category/system config
+  const { data: ibccConfig } = useLazyData(
+    () => import('@/data/ibccContent'),
+    (mod) => ({ categories: mod.IBCC_CATEGORIES, systemMap: mod.MEDICAL_SYSTEM_MAP }),
+  );
+  const IBCC_CATEGORIES: IBCCCategory[] = ibccConfig?.categories ?? [];
+  const MEDICAL_SYSTEM_MAP: Record<string, { label: string; icon: string }> = ibccConfig?.systemMap ?? {};
 
   const [activeTab, setActiveTab] = useState<'browse' | 'bookmarks' | 'recent'>('browse');
 

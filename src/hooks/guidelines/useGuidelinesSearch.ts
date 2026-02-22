@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { ClinicalGuideline, GuidelineSearchResult, MedicalSpecialty } from '@/types/clinicalGuidelines';
-import { CLINICAL_GUIDELINES, GUIDELINE_KEYWORD_MAP } from '@/data/clinicalGuidelinesData';
+import { useLazyData } from '@/lib/lazyData';
 
 interface UseGuidelinesSearchOptions {
   debounceMs?: number;
@@ -20,6 +20,11 @@ interface UseGuidelinesSearchReturn {
 }
 
 export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOptions = {}): UseGuidelinesSearchReturn {
+  // Lazy-load guidelines data
+  const { data: guidelinesModule } = useLazyData(
+    () => import('@/data/clinicalGuidelinesData'),
+    (mod) => ({ guidelines: mod.CLINICAL_GUIDELINES, keywordMap: mod.GUIDELINE_KEYWORD_MAP }),
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -44,12 +49,15 @@ export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOpt
   const searchResults = useMemo(() => {
     if (!debouncedQuery.trim()) return [];
 
+    const allGuidelines = guidelinesModule?.guidelines ?? [];
+    const keywordMap = guidelinesModule?.keywordMap ?? {};
+
     const query = debouncedQuery.toLowerCase().trim();
     const queryWords = query.split(/\s+/);
 
     // Expand query with keyword mappings
     const expandedTerms = new Set<string>(queryWords);
-    Object.entries(GUIDELINE_KEYWORD_MAP).forEach(([key, synonyms]) => {
+    Object.entries(keywordMap).forEach(([key, synonyms]) => {
       if (queryWords.some(w => key.toLowerCase().includes(w) || synonyms.some(s => s.toLowerCase().includes(w)))) {
         expandedTerms.add(key.toLowerCase());
         synonyms.forEach(s => expandedTerms.add(s.toLowerCase()));
@@ -58,7 +66,7 @@ export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOpt
 
     const results: GuidelineSearchResult[] = [];
 
-    CLINICAL_GUIDELINES.forEach(guideline => {
+    allGuidelines.forEach(guideline => {
       let score = 0;
       const matchedKeywords: string[] = [];
       let matchedInTitle = false;
@@ -128,7 +136,7 @@ export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOpt
 
     // Sort by relevance score descending
     return results.sort((a, b) => b.relevanceScore - a.relevanceScore);
-  }, [debouncedQuery]);
+  }, [debouncedQuery, guidelinesModule]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');

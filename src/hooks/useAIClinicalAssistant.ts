@@ -12,6 +12,9 @@ import type {
   ClinicalContext,
 } from '@/lib/openai-config';
 import { stripHtml } from '@/lib/openai-config';
+import { withTimeout, TIMEOUT_DEFAULTS } from '@/lib/requestTimeout';
+import { recordTelemetryEvent } from '@/lib/observability/telemetry';
+import { sanitizeClinicalContext } from '@/lib/piiSanitizer';
 
 interface UseAIClinicalAssistantOptions {
   onSuccess?: (result: unknown, feature: AIFeature) => void;
@@ -141,15 +144,24 @@ export const useAIClinicalAssistant = (
         }
       }
 
-      const { data, error: fnError } = await supabase.functions.invoke('ai-clinical-assistant', {
-        body: {
-          feature,
-          text,
-          context: finalContext,
-          customPrompt,
-          model: getModelForFeature('clinical_assistant'),
-        },
-      });
+      // Sanitize PII before sending to AI
+      const sanitizedContext = finalContext
+        ? sanitizeClinicalContext(finalContext as Record<string, unknown>).sanitized
+        : undefined;
+
+      const { data, error: fnError } = await withTimeout(
+        supabase.functions.invoke('ai-clinical-assistant', {
+          body: {
+            feature,
+            text,
+            context: sanitizedContext,
+            customPrompt,
+            model: getModelForFeature('clinical_assistant'),
+          },
+        }),
+        TIMEOUT_DEFAULTS.aiEdgeFunction,
+        `AI ${feature}`,
+      );
 
       if (fnError) {
         throw new Error(fnError.message || 'AI processing failed');
@@ -174,6 +186,8 @@ export const useAIClinicalAssistant = (
       const message = err instanceof Error ? err.message : 'AI processing failed';
       setError(message);
       onError?.(message);
+
+      recordTelemetryEvent('ai_error', message, { feature });
 
       toast({
         title: 'AI Processing Failed',

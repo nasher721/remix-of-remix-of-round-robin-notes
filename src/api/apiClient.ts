@@ -1,3 +1,6 @@
+import { recordTelemetryEvent } from "@/lib/observability/telemetry";
+import { getCircuitBreaker, CircuitOpenError } from "@/lib/circuitBreaker";
+
 export type ApiError = {
   name: "ApiError";
   message: string;
@@ -39,6 +42,20 @@ const createRequestKey = (url: string, init?: RequestInit): string => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Derive a circuit breaker name from a URL (group by host + path prefix). */
+function circuitNameFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (url.includes('/functions/v1/')) {
+      const fnName = url.split('/functions/v1/')[1]?.split('?')[0] ?? 'edge';
+      return `edge:${fnName}`;
+    }
+    return `api:${parsed.host}`;
+  } catch {
+    return 'api:unknown';
+  }
+}
+
 export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
   const apiFetch = async (url: URL | RequestInfo, init: ApiFetchOptions = {}): Promise<Response> => {
     const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : (url as Request).url;
@@ -51,6 +68,20 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
       dedupe = !isEdgeFunction,
       ...requestInit
     } = init;
+
+    // Circuit breaker — reject immediately if the service is known to be down
+    const cbName = circuitNameFromUrl(urlString);
+    const cb = getCircuitBreaker(cbName, {
+      failureThreshold: isEdgeFunction ? 3 : 5,
+      resetTimeoutMs: isEdgeFunction ? 60_000 : 30_000,
+    });
+
+    if (!cb.canExecute()) {
+      throw normalizeError(
+        new CircuitOpenError(cbName, cb.remainingCooldownMs()),
+        urlString,
+      );
+    }
 
     const requestKey = createRequestKey(urlString, requestInit);
     if (dedupe && inflightRequests.has(requestKey)) {
@@ -80,7 +111,7 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
       }
     };
 
-    const requestPromise = (async () => {
+    const requestPromise = cb.execute(async () => {
       let attempt = 0;
       let lastError: ApiError | null = null;
       while (attempt <= retryCount) {
@@ -89,6 +120,12 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
         } catch (error) {
           lastError = normalizeError(error, urlString);
           if (attempt >= retryCount) {
+            const category = lastError.message.includes('timed out') ? 'network_error' : 'api_error';
+            recordTelemetryEvent(category, lastError.message, {
+              url: urlString,
+              status: lastError.status,
+              attempts: attempt + 1,
+            });
             throw lastError;
           }
           const backoff = retryDelayMs * Math.pow(2, attempt);
@@ -98,7 +135,7 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
         }
       }
       throw lastError ?? normalizeError(new Error("Request failed"), urlString);
-    })();
+    });
 
     if (dedupe) {
       inflightRequests.set(requestKey, requestPromise);

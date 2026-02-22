@@ -2,6 +2,10 @@ import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { initGlobalErrorCapture } from "@/lib/observability/telemetry";
+
+// Initialize telemetry early to capture all errors
+initGlobalErrorCapture();
 
 // Register service worker outside of React to avoid HMR issues
 if ('serviceWorker' in navigator) {
@@ -28,10 +32,6 @@ const rootElement = document.getElementById("root");
 if (!rootElement) {
   console.error("Root element not found");
 } else {
-  window.addEventListener("unhandledrejection", (event) => {
-    console.error("Unhandled promise rejection:", event.reason);
-  });
-
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <App />

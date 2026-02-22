@@ -19,6 +19,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
 import { OfflineSyncIndicator } from "@/components/offline/OfflineSyncIndicator";
+import { preloadClinicalData } from "@/lib/lazyData";
+
+// Preload clinical data in background after initial render
+preloadClinicalData();
 
 // Create stable QueryClient outside component to survive HMR - v2
 const queryClient = new QueryClient({

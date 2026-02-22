@@ -5,13 +5,19 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { IBCCChapter } from '@/types/ibcc';
-import { IBCC_CHAPTERS } from '@/data/ibccContent';
+import { useLazyData } from '@/lib/lazyData';
 
 const BOOKMARKS_KEY = 'ibcc_bookmarks';
 const RECENT_KEY = 'ibcc_recent';
 const MAX_RECENT = 10;
 
 export function useIBCCBookmarks() {
+  // Lazy-load IBCC chapters
+  const { data: ibccChapters } = useLazyData(
+    () => import('@/data/ibccContent'),
+    (mod) => mod.IBCC_CHAPTERS,
+  );
+
   const [bookmarkIds, setBookmarkIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(BOOKMARKS_KEY);
@@ -61,14 +67,16 @@ export function useIBCCBookmarks() {
 
   // Memoized chapter lists
   const bookmarkedChapters = useMemo(() => {
-    return IBCC_CHAPTERS.filter(c => bookmarkIds.includes(c.id));
-  }, [bookmarkIds]);
+    const chapters = ibccChapters ?? [];
+    return chapters.filter(c => bookmarkIds.includes(c.id));
+  }, [bookmarkIds, ibccChapters]);
 
   const recentChapters = useMemo(() => {
+    const chapters = ibccChapters ?? [];
     return recentIds
-      .map(id => IBCC_CHAPTERS.find(c => c.id === id))
+      .map(id => chapters.find(c => c.id === id))
       .filter((c): c is IBCCChapter => c !== undefined);
-  }, [recentIds]);
+  }, [recentIds, ibccChapters]);
 
   const clearRecent = useCallback(() => {
     setRecentIds([]);
