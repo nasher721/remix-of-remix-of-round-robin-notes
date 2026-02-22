@@ -14,6 +14,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { sanitizeClinicalContext } from '@/lib/piiSanitizer';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/contexts/SettingsContext';
 import type { Patient } from '@/types/patient';
@@ -401,24 +402,29 @@ export const useLLMClinicalAssistant = (
     setLastFeature(feature);
 
     try {
-      const finalContext = patient ? patientToContext(patient) : context;
+      const rawContext = patient ? patientToContext(patient) : context;
 
-      if (!text && !finalContext) {
+      if (!text && !rawContext) {
         throw new Error('No text or patient data provided');
       }
 
-      if (finalContext && !text) {
+      if (rawContext && !text) {
         const hasContent =
-          finalContext.clinicalSummary ||
-          finalContext.intervalEvents ||
-          finalContext.labs ||
-          finalContext.imaging ||
-          Object.values(finalContext.systems || {}).some((v) => v && stripHtml(v).trim());
+          rawContext.clinicalSummary ||
+          rawContext.intervalEvents ||
+          rawContext.labs ||
+          rawContext.imaging ||
+          Object.values(rawContext.systems || {}).some((v) => v && stripHtml(v).trim());
 
         if (!hasContent) {
           throw new Error('No clinical data available. Please add patient information first.');
         }
       }
+
+      // Sanitize PII before sending to AI providers
+      const finalContext = rawContext
+        ? sanitizeClinicalContext(rawContext as Record<string, unknown>).sanitized as ClinicalContext
+        : undefined;
 
       // Try the new LLM router first
       const router = getLLMRouter();

@@ -1,11 +1,12 @@
 /**
  * Clinical Guidelines Context Provider
  * Centralized state management for clinical guidelines lookup
+ * Uses lazy loading for large data files to reduce initial bundle size
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, ReactNode } from 'react';
 import type { ClinicalGuideline, MedicalSpecialty, GuidelineSearchResult } from '@/types/clinicalGuidelines';
-import { CLINICAL_GUIDELINES } from '@/data/clinicalGuidelinesData';
+import { loadGuidelinesData } from '@/lib/lazyData';
 import { useGuidelinesSearch, useGuidelinesBookmarks, useGuidelinesKeyboard } from '@/hooks/guidelines';
 import { SPECIALTY_MAP, GUIDELINE_ORGANIZATIONS as ORG_LIST } from '@/types/clinicalGuidelines';
 
@@ -48,6 +49,9 @@ interface ClinicalGuidelinesContextValue {
   getGuidelineById: (id: string) => ClinicalGuideline | undefined;
   getGuidelinesBySpecialty: (specialty: MedicalSpecialty) => ClinicalGuideline[];
   getGuidelinesByOrganization: (orgId: string) => ClinicalGuideline[];
+
+  // Loading state for lazy data
+  isDataLoaded: boolean;
 }
 
 const ClinicalGuidelinesContext = createContext<ClinicalGuidelinesContextValue | null>(null);
@@ -57,6 +61,20 @@ interface ClinicalGuidelinesProviderProps {
 }
 
 export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProviderProps) {
+  // Lazy-loaded data
+  const [guidelines, setGuidelines] = useState<ClinicalGuideline[]>([]);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  useEffect(() => {
+    loadGuidelinesData().then((mod) => {
+      setGuidelines(mod.CLINICAL_GUIDELINES);
+      setIsDataLoaded(true);
+    }).catch((err) => {
+      console.error('[ClinicalGuidelinesProvider] Failed to load guidelines data:', err);
+      setIsDataLoaded(true); // Allow app to continue even if data fails
+    });
+  }, []);
+
   // Panel visibility
   const [isOpen, setIsOpen] = useState(false);
   const [activeGuideline, setActiveGuideline] = useState<ClinicalGuideline | null>(null);
@@ -109,29 +127,29 @@ export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProvi
 
   // Memoized filtered guidelines
   const filteredGuidelines = useMemo(() => {
-    let guidelines = CLINICAL_GUIDELINES;
+    let filtered = guidelines;
     if (activeSpecialty) {
-      guidelines = guidelines.filter(g => g.specialty === activeSpecialty);
+      filtered = filtered.filter(g => g.specialty === activeSpecialty);
     }
     if (activeOrganization) {
-      guidelines = guidelines.filter(g => g.organization.id === activeOrganization);
+      filtered = filtered.filter(g => g.organization.id === activeOrganization);
     }
     // Sort by year descending (most recent first)
-    return guidelines.sort((a, b) => b.year - a.year);
-  }, [activeSpecialty, activeOrganization]);
+    return filtered.sort((a, b) => b.year - a.year);
+  }, [guidelines, activeSpecialty, activeOrganization]);
 
   // Data accessors
   const getGuidelineById = useCallback((id: string) => {
-    return CLINICAL_GUIDELINES.find(g => g.id === id);
-  }, []);
+    return guidelines.find(g => g.id === id);
+  }, [guidelines]);
 
   const getGuidelinesBySpecialty = useCallback((specialty: MedicalSpecialty) => {
-    return CLINICAL_GUIDELINES.filter(g => g.specialty === specialty);
-  }, []);
+    return guidelines.filter(g => g.specialty === specialty);
+  }, [guidelines]);
 
   const getGuidelinesByOrganization = useCallback((orgId: string) => {
-    return CLINICAL_GUIDELINES.filter(g => g.organization.id === orgId);
-  }, []);
+    return guidelines.filter(g => g.organization.id === orgId);
+  }, [guidelines]);
 
   const value: ClinicalGuidelinesContextValue = useMemo(() => ({
     // Panel state
@@ -166,12 +184,13 @@ export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProvi
     isBookmarked: bookmarks.isBookmarked,
 
     // Data accessors
-    allGuidelines: CLINICAL_GUIDELINES,
+    allGuidelines: guidelines,
     specialties: SPECIALTY_MAP,
     organizations: ORG_LIST,
     getGuidelineById,
     getGuidelinesBySpecialty,
     getGuidelinesByOrganization,
+    isDataLoaded,
   }), [
     isOpen, togglePanel, openPanel, closePanel,
     activeGuideline, viewGuideline, closeGuideline,
@@ -179,6 +198,7 @@ export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProvi
     activeSpecialty, activeOrganization, handleSetActiveSpecialty, handleSetActiveOrganization, filteredGuidelines,
     bookmarks.bookmarkedGuidelines, bookmarks.recentGuidelines, bookmarks.toggleBookmark, bookmarks.isBookmarked,
     getGuidelineById, getGuidelinesBySpecialty, getGuidelinesByOrganization,
+    guidelines, isDataLoaded,
   ]);
 
   return (
