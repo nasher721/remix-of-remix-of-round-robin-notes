@@ -44,6 +44,7 @@ import { AIClinicalAssistant } from "@/components/AIClinicalAssistant";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { AutoText } from "@/types/autotext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
+import { MobileDictationBar } from "./MobileDictationBar";
 
 interface MobilePatientDetailProps {
   patient: Patient;
@@ -624,6 +625,13 @@ export const MobilePatientDetail = ({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      {/* Dragon Medical One-style floating dictation bar */}
+      <MobileDictationBar
+        patient={patient}
+        onFieldUpdate={onUpdate}
+        enabledSystemKeys={enabledSystems.map((s) => s.key)}
+      />
     </div>
   );
 };

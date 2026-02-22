@@ -12,3 +12,5 @@ export { MobileLabTrends, InlineLabTrends } from "./MobileLabTrends";
 export { MobileHandoff, HandoffSummary } from "./MobileHandoff";
 export { MobileAnalytics } from "./MobileAnalytics";
 export { MobileBatchCourseGenerator, MobileBatchCourseButton } from "./MobileBatchCourseGenerator";
+export { MobileDictationBar } from "./MobileDictationBar";
+export type { MobileDictationBarProps } from "./MobileDictationBar";
