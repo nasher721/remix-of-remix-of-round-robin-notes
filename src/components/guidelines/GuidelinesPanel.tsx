@@ -12,6 +12,20 @@ import { useClinicalGuidelinesState } from '@/contexts/ClinicalGuidelinesContext
 const GuidelinesPanelContent = React.lazy(() => import('./GuidelinesPanelContent'));
 
 function GuidelinesPanelComponent() {
+  const { isOpen, togglePanel } = useClinicalGuidelinesState();
+
+  if (!isOpen) {
+    return (
+      <Button
+        onClick={togglePanel}
+        className="fixed left-4 bottom-20 z-50 h-12 w-12 rounded-full shadow-lg bg-secondary hover:bg-secondary/90 border border-border transition-all hover:scale-105"
+        title="Clinical Guidelines (Ctrl+G)"
+      >
+        <FileText className="h-5 w-5 text-foreground" />
+      </Button>
+    );
+  }
+
   return (
     <Suspense
       fallback={

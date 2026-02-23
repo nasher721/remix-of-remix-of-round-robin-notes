@@ -19,7 +19,7 @@ interface ErrorFallbackProps {
 
 function ErrorFallback({ error, resetErrorBoundary }: ErrorFallbackProps) {
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border shadow-xl flex items-center justify-center p-6">
+    <div className="h-full w-full bg-card flex items-center justify-center p-6">
       <div className="flex flex-col items-center gap-4 text-center">
         <AlertTriangle className="h-10 w-10 text-destructive" />
         <div>

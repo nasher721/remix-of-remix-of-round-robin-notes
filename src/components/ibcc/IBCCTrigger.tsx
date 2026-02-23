@@ -22,7 +22,7 @@ export function IBCCTrigger({ onClick, hasContextSuggestions, suggestionCount = 
           <Button
             onClick={onClick}
             className={cn(
-              "fixed right-4 bottom-4 z-40 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
+              "fixed left-4 bottom-4 z-40 h-14 w-14 rounded-full shadow-lg transition-all duration-300",
               "bg-primary hover:bg-primary-dark hover:scale-105",
               hasContextSuggestions && "ring-2 ring-warning ring-offset-2 ring-offset-background"
             )}
@@ -42,7 +42,7 @@ export function IBCCTrigger({ onClick, hasContextSuggestions, suggestionCount = 
             )}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left" className="flex flex-col gap-1">
+        <TooltipContent side="right" className="flex flex-col gap-1">
           <span className="font-medium">IBCC Clinical Reference</span>
           <span className="text-xs text-muted-foreground">Press Ctrl+I to open</span>
           {hasContextSuggestions && (

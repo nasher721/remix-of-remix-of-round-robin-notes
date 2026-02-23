@@ -270,10 +270,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
               await supabase
                 .from('user_settings')
                 .upsert({
-                    user_id: user.id,
-                    section_visibility: parsed,
-                    app_preferences: localPreferences as unknown as Json,
-                  },
+                  user_id: user.id,
+                  section_visibility: parsed,
+                  app_preferences: localPreferences as unknown as Json,
+                },
                   { onConflict: 'user_id' }
                 );
             } catch {
@@ -283,10 +283,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
             await supabase
               .from('user_settings')
               .upsert({
-                  user_id: user.id,
-                  section_visibility: DEFAULT_SECTION_VISIBILITY as unknown as Json,
-                  app_preferences: localPreferences as unknown as Json,
-                },
+                user_id: user.id,
+                section_visibility: DEFAULT_SECTION_VISIBILITY as unknown as Json,
+                app_preferences: localPreferences as unknown as Json,
+              },
                 { onConflict: 'user_id' }
               );
           }
@@ -339,7 +339,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   // Persist section visibility to local storage and sync to DB with debounce
   React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
-    
+
     // Debounce DB sync to avoid too many requests
     if (user && initialSyncDone.current) {
       if (syncTimeoutRef.current) {
@@ -352,7 +352,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         });
       }, 1000);
     }
-  }, [sectionVisibility, user, buildAppPreferences, syncSettingsToDb]);
+  }, [sectionVisibility, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(size);
@@ -373,10 +373,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   const setTheme = React.useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
-    
+
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
-    
+
     if (newTheme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       root.classList.add(systemTheme);

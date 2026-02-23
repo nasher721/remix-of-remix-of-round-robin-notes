@@ -13,10 +13,23 @@ interface PatientNavigatorProps {
     className?: string;
 }
 
+const NAVIGATOR_OPEN_KEY = 'patientNavigatorOpen';
+
 export function PatientNavigator({ onScrollToPatient, className }: PatientNavigatorProps) {
     const { filteredPatients: patients } = useDashboard();
-    const [isOpen, setIsOpen] = React.useState(true);
+    const [isOpen, setIsOpen] = React.useState(() => {
+        const saved = localStorage.getItem(NAVIGATOR_OPEN_KEY);
+        return saved !== null ? saved === 'true' : true;
+    });
     const [filter, setFilter] = React.useState("");
+
+    const handleToggleOpen = React.useCallback(() => {
+        setIsOpen(prev => {
+            const next = !prev;
+            localStorage.setItem(NAVIGATOR_OPEN_KEY, String(next));
+            return next;
+        });
+    }, []);
 
     const filteredPatients = React.useMemo(() => {
         if (!filter) return patients;
@@ -42,7 +55,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
             <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={handleToggleOpen}
                 className="absolute -left-3 top-4 h-6 w-6 rounded-full bg-card border border-border/30 shadow-md z-50 hover:bg-white/10"
             >
                 {isOpen ? <ChevronsRight className="h-3 w-3" /> : <ChevronsLeft className="h-3 w-3" />}
