@@ -266,13 +266,26 @@ export function PrintSettings({
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="show-timestamp">Show Timestamp</Label>
-              <p className="text-xs text-muted-foreground">Include the generated date</p>
+              <p className="text-xs text-muted-foreground">Include the generated date &amp; time</p>
             </div>
             <Switch
               id="show-timestamp"
               checked={settings.showTimestamp}
               onCheckedChange={(checked) => onUpdateSettings({ showTimestamp: checked })}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="physician-name">Physician / Team Name</Label>
+            <input
+              id="physician-name"
+              type="text"
+              placeholder="e.g. Dr. Smith — ICU Team A"
+              value={settings.physicianName || ''}
+              onChange={(e) => onUpdateSettings({ physicianName: e.target.value })}
+              className="w-full px-3 py-1.5 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground">Appears in the printed header</p>
           </div>
 
           <div className="flex items-center justify-between">

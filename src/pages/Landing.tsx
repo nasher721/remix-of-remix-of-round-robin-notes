@@ -93,13 +93,11 @@ const Landing: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="landing-page min-h-screen relative overflow-y-auto overflow-x-hidden transition-colors duration-[1500ms] ease-in-out scroll-smooth"
-      style={{ backgroundColor: "#eef4f9" }}
+      className="landing-page min-h-screen relative overflow-y-auto overflow-x-hidden transition-colors duration-[1500ms] ease-in-out scroll-smooth bg-background"
     >
       {/* Video intro overlay */}
       <div
-        className={`intro-container fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-[800ms] ease-out ${showContent ? "opacity-0 invisible pointer-events-none" : ""}`}
-        style={{ backgroundColor: "#eef4f9" }}
+        className={`intro-container fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-[800ms] ease-out bg-background ${showContent ? "opacity-0 invisible pointer-events-none" : ""}`}
       >
         <video
           ref={videoRef}
@@ -123,57 +121,44 @@ const Landing: React.FC = () => {
 
       {/* Hero section with parallax */}
       <div
-        className={`poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
-        style={isActive ? { background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" } : {}}
+        className={`poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-all duration-[1000ms] ease-in ${isActive ? "bg-gradient-to-br from-primary/90 via-medical-blue/80 to-primary/90" : "bg-background"} ${showContent ? "opacity-100" : ""}`}
       >
         {/* Parallax background circles */}
         <div
-          className="bg-circle absolute rounded-full bg-white/5 z-0"
-          style={{
-            width: "300px", height: "300px", top: "-100px", right: "-50px",
-            transform: `translateY(${parallaxSlow}px)`,
-            transition: "transform 0.1s linear",
-          }}
+          className="bg-circle absolute rounded-full bg-white/5 z-0 w-[300px] h-[300px] -top-[100px] -right-[50px] transition-transform duration-100 ease-linear"
+          style={{ transform: `translateY(${parallaxSlow}px)` }}
         />
         <div
-          className="bg-circle absolute rounded-full bg-white/5"
-          style={{
-            width: "200px", height: "200px", bottom: "100px", left: "-50px",
-            transform: `translateY(${-parallaxMed}px)`,
-            transition: "transform 0.1s linear",
-          }}
+          className="bg-circle absolute rounded-full bg-white/5 w-[200px] h-[200px] bottom-[100px] -left-[50px] transition-transform duration-100 ease-linear"
+          style={{ transform: `translateY(${-parallaxMed}px)` }}
         />
         <div
-          className="bg-circle absolute rounded-full bg-white/5"
-          style={{
-            width: "150px", height: "150px", top: "50%", right: "-30px",
-            transform: `translateY(${parallaxSlow}px)`,
-            transition: "transform 0.1s linear",
-          }}
+          className="bg-circle absolute rounded-full bg-white/5 w-[150px] h-[150px] top-1/2 -right-[30px] transition-transform duration-100 ease-linear"
+          style={{ transform: `translateY(${parallaxSlow}px)` }}
         />
 
         {/* Parallax floating icons */}
         <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ top: "15%", left: "10%", transform: `translateY(${-parallaxFast}px)`, transition: "transform 0.1s linear" }}
+          className="floating-icon absolute text-white/10 text-[30px] z-[1] top-[15%] left-[10%] transition-transform duration-100 ease-linear"
+          style={{ transform: `translateY(${-parallaxFast}px)` }}
         >
           <span className="material-icons">local_hospital</span>
         </span>
         <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ top: "25%", right: "15%", transform: `translateY(${-parallaxMed}px)`, transition: "transform 0.1s linear" }}
+          className="floating-icon absolute text-white/10 text-[30px] z-[1] top-[25%] right-[15%] transition-transform duration-100 ease-linear"
+          style={{ transform: `translateY(${-parallaxMed}px)` }}
         >
           <span className="material-icons">medical_services</span>
         </span>
         <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ bottom: "25%", left: "12%", transform: `translateY(${parallaxSlow}px)`, transition: "transform 0.1s linear" }}
+          className="floating-icon absolute text-white/10 text-[30px] z-[1] bottom-[25%] left-[12%] transition-transform duration-100 ease-linear"
+          style={{ transform: `translateY(${parallaxSlow}px)` }}
         >
           <span className="material-icons">health_and_safety</span>
         </span>
         <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ bottom: "30%", right: "10%", transform: `translateY(${parallaxMed}px)`, transition: "transform 0.1s linear" }}
+          className="floating-icon absolute text-white/10 text-[30px] z-[1] bottom-[30%] right-[10%] transition-transform duration-100 ease-linear"
+          style={{ transform: `translateY(${parallaxMed}px)` }}
         >
           <span className="material-icons">monitor_heart</span>
         </span>
@@ -223,18 +208,16 @@ const Landing: React.FC = () => {
         {/* Title section with staggered parallax */}
         <div className="title-section text-center relative z-10 -mt-5">
           <h1
-            className={`main-title font-[Montserrat] text-[56px] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            className={`main-title font-heading text-[56px] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-md transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
             style={{
-              fontFamily: "'Montserrat', sans-serif",
               transform: isActive ? `translateY(${-parallaxSlow * 0.15}px)` : undefined,
             }}
           >
             Rolling Rounds
           </h1>
           <p
-            className={`subtitle text-[1.2rem] font-light text-white/90 mb-7.5 transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            className={`subtitle text-[1.2rem] font-sans font-light text-white/90 mb-7.5 transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
             style={{
-              fontFamily: "'Poppins', sans-serif",
               transform: isActive ? `translateY(${-parallaxSlow * 0.1}px)` : undefined,
             }}
           >
@@ -260,7 +243,7 @@ const Landing: React.FC = () => {
         <div className={`cta-section mt-10 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
           <button
             onClick={handleLaunchPortal}
-            className="cta-button bg-white text-[#1976D2] px-12 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer outline-none"
+            className="cta-button bg-white text-primary px-12 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-lg hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl transition-all border-none cursor-pointer outline-none"
           >
             <span>Launch Portal</span>
             <span className="material-icons">login</span>

@@ -1,4 +1,4 @@
-import type { Patient } from "@/types/patient";
+import type { Patient, PatientMedications } from "@/types/patient";
 import type { PatientTodo } from "@/types/todo";
 import type { ColumnConfig } from "./types";
 import { columnCombinations } from "./constants";
@@ -6,6 +6,34 @@ import { stripHtml as baseStripHtml, sanitizeAndCleanStyles } from "@/lib/saniti
 
 // Re-export strip HTML for backward compatibility
 export const stripHtml = baseStripHtml;
+
+// Format structured medications into display text
+export const formatMedicationsText = (meds: PatientMedications | undefined): string => {
+  if (!meds) return '';
+  const parts: string[] = [];
+  if (meds.infusions?.length) parts.push(`Infusions: ${meds.infusions.join(', ')}`);
+  if (meds.scheduled?.length) parts.push(`Scheduled: ${meds.scheduled.join(', ')}`);
+  if (meds.prn?.length) parts.push(`PRN: ${meds.prn.join(', ')}`);
+  if (parts.length === 0 && meds.rawText) return meds.rawText;
+  return parts.join('\n');
+};
+
+// Format structured medications into HTML for print
+export const formatMedicationsHtml = (meds: PatientMedications | undefined): string => {
+  if (!meds) return '';
+  const sections: string[] = [];
+  if (meds.infusions?.length) {
+    sections.push(`<div class="med-section"><strong>Infusions:</strong> ${meds.infusions.join(', ')}</div>`);
+  }
+  if (meds.scheduled?.length) {
+    sections.push(`<div class="med-section"><strong>Scheduled:</strong> ${meds.scheduled.join(', ')}</div>`);
+  }
+  if (meds.prn?.length) {
+    sections.push(`<div class="med-section"><strong>PRN:</strong> ${meds.prn.join(', ')}</div>`);
+  }
+  if (sections.length === 0 && meds.rawText) return meds.rawText;
+  return sections.join('');
+};
 
 // Clean inline font styles from HTML while preserving structure AND sanitizing against XSS
 export const cleanInlineStyles = sanitizeAndCleanStyles;
@@ -27,7 +55,7 @@ export const formatTodosForDisplay = (todos: PatientTodo[]): string => {
 
 export const formatTodosHtml = (todos: PatientTodo[]): string => {
   if (todos.length === 0) return '<span class="empty">No todos</span>';
-  return `<ul class="todos-list">${todos.map(t => 
+  return `<ul class="todos-list">${todos.map(t =>
     `<li class="todo-item ${t.completed ? 'completed' : ''}">
       <span class="todo-checkbox">${t.completed ? '☑' : '☐'}</span>
       <span class="todo-content">${t.content}</span>
@@ -41,6 +69,7 @@ export const getCellValue = (patient: Patient, field: string, patientNotes: Reco
   if (field === "intervalEvents") return patient.intervalEvents;
   if (field === "imaging") return patient.imaging;
   if (field === "labs") return patient.labs;
+  if (field === "medications") return formatMedicationsText(patient.medications);
   if (field === "notes") return patientNotes[patient.id] || "";
   if (field.startsWith("systems.")) {
     const systemKey = field.replace("systems.", "") as keyof typeof patient.systems;
@@ -61,14 +90,14 @@ export const isColumnCombined = (columnKey: string, combinedColumns: string[]): 
 
 // Get combined content for a patient
 export const getCombinedContent = (
-  patient: Patient, 
-  combinationKey: string, 
+  patient: Patient,
+  combinationKey: string,
   columns: ColumnConfig[],
   patientNotes: Record<string, string>
 ): string => {
   const combination = columnCombinations.find(c => c.key === combinationKey);
   if (!combination) return '';
-  
+
   const sections: string[] = [];
   combination.columns.forEach(colKey => {
     const value = getCellValue(patient, colKey, patientNotes);
@@ -77,6 +106,6 @@ export const getCombinedContent = (
       sections.push(`<div class="combined-section"><strong>${label}:</strong> ${cleanInlineStyles(value)}</div>`);
     }
   });
-  
+
   return sections.join('');
 };

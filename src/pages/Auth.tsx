@@ -152,12 +152,18 @@ const Auth = () => {
   return (
     <main className="min-h-screen w-full flex" aria-labelledby="auth-heading">
       {/* Left Panel - Hero/Branding (Desktop only) */}
-      <div className="hidden lg:flex w-[45%] bg-[hsl(180,10%,10%)] relative overflow-hidden items-center justify-center p-12">
-        <div className="absolute inset-0 bg-gradient-to-br from-[hsl(160,20%,40%)]/10 via-transparent to-[hsl(160,10%,30%)]/10 z-0" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[hsl(160,15%,45%)]/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-80 h-80 bg-[hsl(160,10%,35%)]/5 rounded-full blur-3xl" />
+      <div className="hidden lg:flex w-[45%] bg-primary/5 relative overflow-hidden items-center justify-center p-12">
+        {/* Modern Clinical Mesh Gradient */}
+        <div className="absolute inset-0 opacity-40">
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/20 blur-[100px] animate-pulse duration-[8000ms]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-medical-blue/20 blur-[120px] animate-pulse duration-[10000ms] delay-[2000ms]" />
+          <div className="absolute top-[20%] right-[10%] w-[40%] h-[40%] rounded-full bg-medical-green/10 blur-[80px]" />
+        </div>
 
-        <div className="relative z-10 text-white space-y-8 max-w-md">
+        {/* Noise overlay for texture */}
+        <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
+
+        <div className="relative z-10 space-y-8 max-w-md">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-white/8 rounded-2xl backdrop-blur-sm border border-white/10">
               <img src={rollingRoundsLogo} alt="Logo" className="h-8 w-8 brightness-0 invert" />
@@ -174,21 +180,24 @@ const Auth = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-4">
-            <div className="p-4 bg-white/[0.03] backdrop-blur-sm border border-white/[0.05] rounded-2xl transition-colors hover:bg-white/[0.05]">
-              <h3 className="font-semibold text-sm mb-1.5">Smart Tracking</h3>
-              <p className="text-[hsl(160,6%,45%)] text-xs leading-relaxed">Automated patient status updates and history.</p>
+            <div className="p-4 bg-background/50 backdrop-blur-md border border-border/40 rounded-2xl shadow-sm transition-all hover:shadow-md hover:border-primary/20">
+              <h3 className="font-semibold text-sm mb-1.5 text-foreground">Smart Tracking</h3>
+              <p className="text-muted-foreground text-xs leading-relaxed">Automated patient status updates and history.</p>
             </div>
-            <div className="p-4 bg-white/[0.03] backdrop-blur-sm border border-white/[0.05] rounded-2xl transition-colors hover:bg-white/[0.05]">
-              <h3 className="font-semibold text-sm mb-1.5">Secure & Safe</h3>
-              <p className="text-[hsl(160,6%,45%)] text-xs leading-relaxed">HIPAA compliant data protection.</p>
+            <div className="p-4 bg-background/50 backdrop-blur-md border border-border/40 rounded-2xl shadow-sm transition-all hover:shadow-md hover:border-primary/20">
+              <h3 className="font-semibold text-sm mb-1.5 text-foreground">Secure & Safe</h3>
+              <p className="text-muted-foreground text-xs leading-relaxed">Enterprise-grade HIPAA compliant architecture.</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Right Panel - Auth Form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 bg-background">
-        <div className="w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl space-y-7">
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 bg-background/50 relative">
+        {/* Subtle background glow behind the card */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="relative w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl ring-1 ring-border/50 border border-border/50 space-y-7 z-10 transition-all">
           <div className="text-center lg:text-left space-y-2">
             <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
             <h2 id="auth-heading" className="text-2xl font-bold tracking-tight text-card-foreground">

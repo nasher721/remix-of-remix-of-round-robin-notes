@@ -2,7 +2,7 @@ import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
-import { stripHtml, formatTodosForDisplay } from './utils';
+import { stripHtml, formatTodosForDisplay, formatMedicationsText } from './utils';
 import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, parseColor } from '@/lib/print/htmlFormatter';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -103,6 +103,9 @@ export const handleExportExcel = (ctx: ExportContext) => {
     if (isColumnEnabled("labs")) {
       row["Labs"] = stripHtml(patient.labs);
     }
+    if (isColumnEnabled("medications")) {
+      row["Medications"] = formatMedicationsText(patient.medications);
+    }
 
     systemKeys.forEach(key => {
       if (isColumnEnabled(`systems.${key}`)) {
@@ -185,6 +188,7 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
   if (isColumnEnabled("intervalEvents")) headers.push("Events");
   if (isColumnEnabled("imaging")) headers.push("Imaging");
   if (isColumnEnabled("labs")) headers.push("Labs");
+  if (isColumnEnabled("medications")) headers.push("Medications");
   enabledSystemKeys.forEach(key => {
     headers.push(systemLabels[key]);
   });
@@ -222,6 +226,12 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
       row.push({
         text: htmlToStructuredText(patient.labs),
         color: extractDominantColor(patient.labs)
+      });
+    }
+    if (isColumnEnabled("medications")) {
+      row.push({
+        text: formatMedicationsText(patient.medications),
+        color: null
       });
     }
     enabledSystemKeys.forEach(key => {
@@ -313,6 +323,10 @@ export const handleExportTXT = (ctx: ExportContext) => {
     if (isColumnEnabled("labs") && patient.labs) {
       content += `LABS:\n${stripHtml(patient.labs)}\n\n`;
     }
+    if (isColumnEnabled("medications")) {
+      const medsText = formatMedicationsText(patient.medications);
+      if (medsText) content += `MEDICATIONS:\n${medsText}\n\n`;
+    }
 
     if (enabledSystemKeys.length > 0) {
       content += `SYSTEMS REVIEW:\n`;
@@ -366,7 +380,7 @@ export const handleExportRTF = (ctx: ExportContext) => {
 
   // Build RTF content first to collect all colors
   const patientContent: string[] = [];
-  
+
   patients.forEach((patient, index) => {
     let content = '';
     content += `\\pard\\sb200\\sa100\\brdrb\\brdrs\\brdrw10\\brsp20\n`;
@@ -389,6 +403,13 @@ export const handleExportRTF = (ctx: ExportContext) => {
     if (isColumnEnabled("labs") && patient.labs) {
       content += `\\fs22\\b Labs:\\b0\\par\n`;
       content += `\\fs20 ${htmlToRTF(patient.labs)}\\par\\par\n`;
+    }
+    if (isColumnEnabled("medications")) {
+      const medsText = formatMedicationsText(patient.medications);
+      if (medsText) {
+        content += `\\fs22\\b Medications:\\b0\\par\n`;
+        content += `\\fs20 ${escapeRTFNew(medsText)}\\par\\par\n`;
+      }
     }
 
     if (enabledSystemKeys.length > 0) {
@@ -537,6 +558,16 @@ export const handleExportDOC = (ctx: ExportContext) => {
       <div class="section-content">${patient.labs}</div>
     </div>`;
     }
+    if (isColumnEnabled("medications")) {
+      const medsText = formatMedicationsText(patient.medications);
+      if (medsText) {
+        html += `
+    <div class="section">
+      <div class="section-title">Medications</div>
+      <div class="section-content">${medsText.replace(/\n/g, '<br>')}</div>
+    </div>`;
+      }
+    }
 
     if (enabledSystemKeys.length > 0) {
       html += `
@@ -641,6 +672,14 @@ export const handleExportJSON = (ctx: ExportContext) => {
       }
       if (isColumnEnabled("labs")) {
         row.labs = stripHtml(patient.labs);
+      }
+      if (isColumnEnabled("medications")) {
+        row.medications = {
+          infusions: patient.medications?.infusions || [],
+          scheduled: patient.medications?.scheduled || [],
+          prn: patient.medications?.prn || [],
+          rawText: patient.medications?.rawText || ''
+        };
       }
 
       const systems: Record<string, string> = {};

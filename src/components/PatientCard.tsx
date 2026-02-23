@@ -116,7 +116,7 @@ const PatientCardComponent = ({
 
   return (
     <motion.article
-      className="print-avoid-break bg-card rounded-2xl border border-border/30 shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden"
+      className="print-avoid-break bg-card rounded-2xl border border-border/40 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative group ring-1 ring-black/5 dark:ring-white/5"
       aria-label={`Patient: ${patient.name || 'Unnamed'}`}
       variants={shouldReduceMotion ? undefined : cardHover}
       initial="rest"
@@ -124,10 +124,10 @@ const PatientCardComponent = ({
       whileTap="tap"
     >
       {/* Header */}
-      <div className="flex justify-between items-center gap-4 px-5 py-4 bg-secondary/20 border-b border-border/20">
+      <div className="flex justify-between items-center gap-4 px-5 py-3.5 bg-secondary/10 border-b border-border/40 transition-colors group-hover:bg-secondary/20">
         <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-          <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center flex-shrink-0 border border-border/20">
-            <span className="text-base font-semibold text-card-foreground">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20 shadow-sm">
+            <span className="text-base font-semibold text-primary">
               {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
             </span>
           </div>
@@ -137,14 +137,14 @@ const PatientCardComponent = ({
               value={patient.name}
               onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
               aria-label="Patient name"
-              className="max-w-[200px] font-medium bg-secondary/50 border border-border/30 hover:border-border/50 focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-xl px-3 h-8 text-sm text-foreground transition-all duration-200"
+              className="max-w-[220px] font-medium bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
             />
             <Input
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
               aria-label="Bed or room number"
-              className="max-w-[100px] bg-secondary/50 border border-border/30 hover:border-border/50 focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-xl px-3 h-8 text-sm text-foreground transition-all duration-200"
+              className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
             />
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">
@@ -169,7 +169,7 @@ const PatientCardComponent = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground/70 hover:text-foreground hover:bg-secondary/60"
+                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
                 aria-label="View change history"
               >
                 <History className="h-3.5 w-3.5" aria-hidden="true" />
@@ -180,7 +180,7 @@ const PatientCardComponent = ({
             variant="ghost"
             size="icon"
             onClick={() => onToggleCollapse(patient.id)}
-            className="h-8 w-8 text-muted-foreground/70 hover:text-foreground hover:bg-secondary/60"
+            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
             aria-label={patient.collapsed ? "Expand patient card" : "Collapse patient card"}
             aria-expanded={!patient.collapsed}
             aria-controls={`patient-body-${patient.id}`}
@@ -191,7 +191,7 @@ const PatientCardComponent = ({
             variant="ghost"
             size="icon"
             onClick={() => onDuplicate(patient.id)}
-            className="h-8 w-8 text-muted-foreground/70 hover:text-foreground hover:bg-secondary/60"
+            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
             aria-label="Duplicate patient"
           >
             <Copy className="h-3.5 w-3.5" aria-hidden="true" />
@@ -200,7 +200,7 @@ const PatientCardComponent = ({
             variant="ghost"
             size="icon"
             onClick={() => onRemove(patient.id)}
-            className="h-8 w-8 text-muted-foreground/70 hover:text-destructive hover:bg-destructive/5"
+            className="h-8 w-8 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
             aria-label="Remove patient"
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -284,7 +284,7 @@ const PatientCardComponent = ({
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="bg-secondary/30 rounded-xl p-3 border border-border/20 transition-colors focus-within:border-primary/30 focus-within:bg-secondary/40">
+                    <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.clinicalSummary}
                         onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
@@ -386,7 +386,7 @@ const PatientCardComponent = ({
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="bg-secondary/30 rounded-xl p-3 border border-border/20 transition-colors focus-within:border-primary/30 focus-within:bg-secondary/40">
+                    <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.intervalEvents}
                         onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
@@ -456,7 +456,7 @@ const PatientCardComponent = ({
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <div className="bg-secondary/30 rounded-xl border border-border/20 transition-colors focus-within:border-primary/30">
+                        <div className="bg-background/50 rounded-xl border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <ImagePasteEditor
                             value={patient.imaging}
                             onChange={(value) => onUpdate(patient.id, 'imaging', value)}
@@ -517,7 +517,7 @@ const PatientCardComponent = ({
                       )}
 
                       <div className="space-y-1">
-                        <div className="bg-secondary/30 rounded-xl p-3 border border-border/20 transition-colors focus-within:border-primary/30 focus-within:bg-secondary/40">
+                        <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <RichTextEditor
                             value={patient.labs}
                             onChange={(value) => onUpdate(patient.id, 'labs', value)}
@@ -537,7 +537,7 @@ const PatientCardComponent = ({
 
               {/* Medications */}
               {sectionVisibility.medications && (
-                <div className="bg-secondary/30 rounded-xl p-4 border border-border/20">
+                <div className="bg-background/50 rounded-xl p-4 border border-border/40 shadow-inner transition-all duration-200 hover:border-border/60">
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                     onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}

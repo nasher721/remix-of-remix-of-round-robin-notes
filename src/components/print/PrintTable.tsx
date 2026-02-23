@@ -2,7 +2,7 @@ import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import type { ColumnWidthsType } from './types';
 import { systemLabels } from './constants';
-import { cleanInlineStyles, formatTodosHtml } from './utils';
+import { cleanInlineStyles, formatTodosHtml, formatMedicationsHtml } from './utils';
 import { cn } from '@/lib/utils';
 
 interface PrintTableProps {
@@ -57,6 +57,11 @@ export const PrintTable = ({
             {isColumnEnabled("labs") && (
               <th className="border border-border p-3 text-left font-bold uppercase" style={{ width: columnWidths.labs, fontSize: `${printFontSize + 1}px` }}>
                 Labs
+              </th>
+            )}
+            {isColumnEnabled("medications") && (
+              <th className="border border-border p-3 text-left font-bold bg-orange-500 text-white uppercase" style={{ width: columnWidths.medications, fontSize: `${printFontSize + 1}px` }}>
+                Medications
               </th>
             )}
             {enabledSystemKeys.map(key => (
@@ -128,6 +133,15 @@ export const PrintTable = ({
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: `${printFontSize}px` }}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.labs) }}
+                  />
+                </td>
+              )}
+              {isColumnEnabled("medications") && (
+                <td className="border border-border p-2 align-top bg-orange-50/50">
+                  <div
+                    className="whitespace-pre-wrap break-words"
+                    style={{ fontSize: `${printFontSize}px` }}
+                    dangerouslySetInnerHTML={{ __html: formatMedicationsHtml(patient.medications) }}
                   />
                 </td>
               )}

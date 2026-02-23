@@ -5,6 +5,7 @@ import type { PrintSettings, PrintDataProps } from "@/lib/print/types";
 import { COLUMN_COMBINATIONS } from "@/lib/print/constants";
 import type { Patient } from "@/types/patient";
 import { getPageMetrics } from "@/lib/print/layout";
+import { formatMedicationsHtml } from "./utils";
 
 interface PrintDocumentProps extends PrintDataProps {
   settings: PrintSettings;
@@ -183,6 +184,9 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
         if (!val) return null;
         return <div className="whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
       }
+      if (colKey === "medications") {
+        return <div className="whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: formatMedicationsHtml((patient as Patient & { medications?: { infusions?: string[]; scheduled?: string[]; prn?: string[]; rawText?: string } }).medications) }} />;
+      }
       const val = patient[colKey as keyof typeof patient] as string;
       if (!val) return null;
       return <div className="whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
@@ -232,8 +236,11 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
             <h1 className="font-bold text-slate-900" style={{ fontSize: `${getHeaderFontSize()}pt` }}>
               Patient Rounding Report
             </h1>
+            {settings.physicianName && (
+              <div className="mt-1 text-sm font-medium text-slate-700">{settings.physicianName}</div>
+            )}
             <div className="flex justify-between mt-2 text-sm text-slate-500">
-              {settings.showTimestamp ? <span>Generated: {new Date().toLocaleDateString()}</span> : <span />}
+              {settings.showTimestamp ? <span>Generated: {new Date().toLocaleString()}</span> : <span />}
               <span>Total Patients: {patients.length}</span>
               {settings.showPageNumbers && <span>Page 1</span>}
             </div>
@@ -262,7 +269,8 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
                       className={cn(
                         "align-top",
                         tableBorderClass,
-                        settings.alternateRowColors ? (idx % 2 === 0 ? "bg-white" : "bg-slate-50/50") : "bg-white"
+                        settings.alternateRowColors ? (idx % 2 === 0 ? "bg-white" : "bg-slate-50/50") : "bg-white",
+                        settings.onePatientPerPage && idx < patients.length - 1 && "print-patient-break"
                       )}
                     >
                       {renderColumns.map((col, index) => (
@@ -298,6 +306,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
                   className={cn(
                     settings.borderStyle === "none" ? "" : "border",
                     "rounded-lg bg-white shadow-sm break-inside-avoid print-avoid-break",
+                    settings.onePatientPerPage && "print-patient-break",
                     settings.activeTab === "list"
                       ? settings.compactMode
                         ? "p-2"

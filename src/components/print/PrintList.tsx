@@ -5,6 +5,7 @@ import { PrintSection } from './list-components/PrintSection';
 import { PrintSystemsReview } from './list-components/PrintSystemsReview';
 import { PrintTodos } from './list-components/PrintTodos';
 import { PrintRoundingNotes } from './list-components/PrintRoundingNotes';
+import { formatMedicationsHtml } from './utils';
 
 interface PrintListProps {
   patients: Patient[];
@@ -75,6 +76,15 @@ export const PrintList = ({
                 />
               )}
             </div>
+
+            {isColumnEnabled("medications") && (patient.medications?.infusions?.length || patient.medications?.scheduled?.length || patient.medications?.prn?.length || patient.medications?.rawText) && (
+              <PrintSection
+                title="Medications"
+                content={formatMedicationsHtml(patient.medications)}
+                fontSize={printFontSize}
+                variant="orange"
+              />
+            )}
 
             <PrintSystemsReview
               systems={patient.systems}

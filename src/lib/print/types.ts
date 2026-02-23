@@ -26,6 +26,7 @@ export type ColumnWidthsType = {
     events: number;
     imaging: number;
     labs: number;
+    medications: number;
     notes: number;
     todos: number;
     'systems.neuro': number;
@@ -62,6 +63,7 @@ export interface PrintPreset {
     showTimestamp: boolean;
     alternateRowColors: boolean;
     compactMode: boolean;
+    physicianName?: string;
     createdAt: string;
 }
 
@@ -82,6 +84,7 @@ export interface PrintSettings {
     showTimestamp: boolean;
     alternateRowColors: boolean;
     compactMode: boolean;
+    physicianName?: string;
     activeTab: string;
     showNotesColumn: boolean;
     showTodosColumn: boolean;

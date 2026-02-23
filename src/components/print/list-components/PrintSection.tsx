@@ -7,7 +7,7 @@ interface PrintSectionProps {
     content?: string;
     children?: React.ReactNode;
     fontSize: number;
-    variant?: 'primary' | 'blue' | 'green' | 'violet' | 'amber';
+    variant?: 'primary' | 'blue' | 'green' | 'violet' | 'amber' | 'orange';
     className?: string;
 }
 
@@ -44,6 +44,11 @@ export const PrintSection = ({
             border: "border-amber-400",
             header: "bg-amber-500",
             content: "bg-amber-50"
+        },
+        orange: {
+            border: "border-orange-400",
+            header: "bg-orange-500",
+            content: "bg-orange-50"
         }
     };
 

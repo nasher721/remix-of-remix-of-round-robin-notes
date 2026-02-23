@@ -1,7 +1,7 @@
 import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import { systemLabels } from './constants';
-import { cleanInlineStyles } from './utils';
+import { cleanInlineStyles, formatMedicationsHtml } from './utils';
 import { cn } from '@/lib/utils';
 import { CheckSquare, Square } from 'lucide-react';
 
@@ -99,6 +99,17 @@ export const PrintCards = ({
                 </div>
               )}
             </div>
+
+            {isColumnEnabled("medications") && (patient.medications?.infusions?.length || patient.medications?.scheduled?.length || patient.medications?.prn?.length || patient.medications?.rawText) && (
+              <div className="border-2 border-orange-400 rounded-lg overflow-hidden">
+                <div className="bg-orange-500 text-white font-bold uppercase px-3 py-2" style={{ fontSize: `${printFontSize + 1}px`, letterSpacing: '0.5px' }}>
+                  Medications
+                </div>
+                <div className="bg-orange-50 p-3" style={{ fontSize: `${printFontSize}px` }}>
+                  <div dangerouslySetInnerHTML={{ __html: formatMedicationsHtml(patient.medications) }} />
+                </div>
+              </div>
+            )}
 
             {enabledSystemKeys.length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">

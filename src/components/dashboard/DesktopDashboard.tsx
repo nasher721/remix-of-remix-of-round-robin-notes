@@ -178,7 +178,7 @@ export const DesktopDashboard = () => {
           </div>
 
           {/* Center - Stats Pill */}
-          <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-white/10 rounded-full text-xs font-medium text-card-foreground/70">
+          <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-secondary text-secondary-foreground border border-border/40 rounded-full text-xs font-medium shadow-sm">
             <div className="flex items-center gap-1.5">
               <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
               <span className="text-card-foreground font-semibold">{patients.length}</span>
@@ -218,65 +218,30 @@ export const DesktopDashboard = () => {
       <div className="h-[calc(100vh-6rem)] w-full no-print">
         <ResizablePanelGroup direction="horizontal" className="h-full items-stretch">
 
-          {/* COLUMN 1: Tools Dashboard */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={30} className="bg-secondary/10 border-r border-border/20 flex flex-col">
-            <ScrollArea className="flex-1 p-fluid-sm">
-              <div className="space-y-6">
-
-                {/* Global Tools Section */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Global Tools</h3>
-                  <div className="space-y-2">
-                    <UnitCensusDashboard patients={patients} />
-                    <LabTrendingPanel patients={patients} />
-                    <ContextAwareHelp />
-                  </div>
+          {/* COLUMN 1: Clinical Reference (Left Sidebar) */}
+          <ResizablePanel defaultSize={25} minSize={15} maxSize={40} collapsible={true} collapsedSize={0} className="bg-background/40 shadow-inner border-r border-border/40 flex flex-col relative">
+            <div className="absolute inset-0">
+              <Tabs defaultValue="ibcc" className="h-full flex flex-col">
+                <div className="px-3 pt-3 border-b border-border/20">
+                  <TabsList className="w-full bg-secondary/50 p-1">
+                    <TabsTrigger value="ibcc" className="flex-1 text-xs">IBCC</TabsTrigger>
+                    <TabsTrigger value="guidelines" className="flex-1 text-xs">Guidelines</TabsTrigger>
+                  </TabsList>
                 </div>
-
-                {/* Patient Actions Section */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Patient Actions</h3>
-                  <div className="space-y-2">
-                    <Button onClick={onAddPatient} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/20">
-                      <Plus className="h-4 w-4" /> Add Patient
-                    </Button>
-                    <SmartPatientImport onImportPatient={onAddPatientWithData} />
-                    <EpicHandoffImport existingBeds={patients.map(p => p.bed)} onImportPatients={onImportPatients} />
-                  </div>
-                </div>
-
-                {/* Clinical Intelligence Section */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Clinical Intelligence</h3>
-                  <div className="space-y-2">
-                    <ClinicalRiskCalculator />
-                    <TimelineDialog />
-                    <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
-                  </div>
-                </div>
-
-                {/* Patient Navigator */}
-                <div className="space-y-3 pt-4 border-t border-border/20">
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Navigation</h3>
-                  <PatientNavigator
-                    onScrollToPatient={(id) => {
-                      const element = document.getElementById(`patient-card-${id}`);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
-                        setTimeout(() => element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 1000);
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            </ScrollArea>
+                <TabsContent value="ibcc" className="flex-1 m-0 data-[state=inactive]:hidden">
+                  <IBCCPanel />
+                </TabsContent>
+                <TabsContent value="guidelines" className="flex-1 m-0 data-[state=inactive]:hidden">
+                  <GuidelinesPanel />
+                </TabsContent>
+              </Tabs>
+            </div>
           </ResizablePanel>
 
           <ResizableHandle withHandle className="bg-border/30 hover:bg-primary/30 active:bg-primary transition-colors" />
 
           {/* COLUMN 2: Patient Workspace (Main) */}
-          <ResizablePanel defaultSize={55} minSize={40} className="flex flex-col bg-background relative">
+          <ResizablePanel defaultSize={50} minSize={40} className="flex flex-col bg-background relative z-10 shadow-lg ring-1 ring-border/20 rounded-xl m-1">
             <div className="p-fluid-md pb-0">
               <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-Fluid-sm">
                 {/* Search & Filter */}
@@ -417,11 +382,58 @@ export const DesktopDashboard = () => {
 
           <ResizableHandle withHandle className="bg-border/30 hover:bg-primary/30 active:bg-primary transition-colors" />
 
-          {/* COLUMN 3: Clinical Reference */}
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={40} className="bg-secondary/5 flex flex-col relative border-l border-border/20">
-            <div className="absolute inset-0">
-              <IBCCPanel />
-            </div>
+          {/* COLUMN 3: Tools Dashboard (Right Sidebar) */}
+          <ResizablePanel defaultSize={25} minSize={15} maxSize={35} collapsible={true} collapsedSize={0} className="bg-background/40 shadow-inner flex flex-col border-l border-border/40">
+            <ScrollArea className="flex-1 p-fluid-sm">
+              <div className="space-y-6">
+                {/* Global Tools Section */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Global Tools</h3>
+                  <div className="space-y-2">
+                    <UnitCensusDashboard patients={patients} />
+                    <LabTrendingPanel patients={patients} />
+                    <ContextAwareHelp />
+                  </div>
+                </div>
+
+                {/* Patient Actions Section */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Patient Actions</h3>
+                  <div className="space-y-2">
+                    <Button onClick={onAddPatient} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/20">
+                      <Plus className="h-4 w-4" /> Add Patient
+                    </Button>
+                    <SmartPatientImport onImportPatient={onAddPatientWithData} />
+                    <EpicHandoffImport existingBeds={patients.map(p => p.bed)} onImportPatients={onImportPatients} />
+                  </div>
+                </div>
+
+                {/* Clinical Intelligence Section */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Clinical Intelligence</h3>
+                  <div className="space-y-2">
+                    <ClinicalRiskCalculator />
+                    <TimelineDialog />
+                    <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
+                  </div>
+                </div>
+
+                {/* Patient Navigator */}
+                <div className="space-y-3 pt-4 border-t border-border/20">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Navigation</h3>
+                  <PatientNavigator
+                    onScrollToPatient={(id) => {
+                      const element = document.getElementById(`patient-card-${id}`);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+                        setTimeout(() => element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2'), 1000);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </ScrollArea>
           </ResizablePanel>
 
         </ResizablePanelGroup>
