@@ -26,7 +26,7 @@ export const PrintTodos = ({ todos, fontSize }: PrintTodosProps) => {
                         ) : (
                             <Square className="h-4 w-4 mt-0.5 text-muted-foreground" />
                         )}
-                        <span style={{ fontSize: `${fontSize}px` }}>{todo.content}</span>
+                        <span style={{ fontSize: 'var(--print-fs)' } as React.CSSProperties}>{todo.content}</span>
                     </li>
                 ))}
             </ul>

@@ -444,6 +444,7 @@
 /* Morrow-style utility classes */
 @layer utilities {
   .morrow-blur {
+    -webkit-backdrop-filter: saturate(120%) blur(24px);
     backdrop-filter: saturate(120%) blur(24px);
     background-color: hsl(var(--background) / 0.75);
   }
@@ -488,6 +489,7 @@
 
   /* Glass morphism panel */
   .glass-panel {
+    -webkit-backdrop-filter: saturate(120%) blur(24px);
     backdrop-filter: saturate(120%) blur(24px);
     background-color: hsl(180 10% 12% / 0.85);
     border: 1px solid hsl(var(--border) / 0.3);
@@ -519,6 +521,23 @@
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Move long noise SVG to a class to satisfy linting */
+  .noise-overlay {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E");
+  }
+
+  /* Print system utilities to avoid inline styles */
+  .print-table {
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .print-col-dynamic {
+    width: var(--col-width, auto);
+    font-size: var(--print-fs, inherit);
   }
 
 }

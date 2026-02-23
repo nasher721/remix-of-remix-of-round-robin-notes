@@ -13,18 +13,18 @@ export const PrintPatientHeader = ({ patient, index, fontSize }: PrintPatientHea
             <div className="flex items-center gap-3">
                 <span
                     className="bg-white text-primary rounded-full w-10 h-10 flex items-center justify-center font-bold"
-                    style={{ fontSize: `${fontSize + 2}px` }}
+                    style={{ fontSize: 'calc(var(--print-fs) + 2px)' } as React.CSSProperties}
                 >
                     {index + 1}
                 </span>
-                <span className="font-bold" style={{ fontSize: `${fontSize + 4}px` }}>
+                <span className="font-bold whitespace-nowrap" style={{ fontSize: 'calc(var(--print-fs) + 4px)' } as React.CSSProperties}>
                     {patient.name || 'Unnamed'}
                 </span>
             </div>
             {patient.bed && (
                 <span
                     className="bg-white/20 px-4 py-1.5 rounded font-medium"
-                    style={{ fontSize: `${fontSize}px` }}
+                    style={{ fontSize: 'var(--print-fs)' } as React.CSSProperties}
                 >
                     Bed: {patient.bed}
                 </span>

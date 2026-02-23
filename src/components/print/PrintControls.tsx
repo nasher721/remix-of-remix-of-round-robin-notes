@@ -42,12 +42,12 @@ export function PrintControls({
             </Button>
 
             <Button variant="outline" onClick={onExportPDF} disabled={isGenerating}>
-                <FileText className="mr-2 h-4 w-4 text-red-500" />
+                <FileText className="mr-2 h-4 w-4 text-rose-400/80" />
                 PDF
             </Button>
 
             <Button variant="outline" onClick={onExportExcel} disabled={isGenerating}>
-                <FileSpreadsheet className="mr-2 h-4 w-4 text-green-600" />
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500/80" />
                 Excel
             </Button>
 
@@ -60,7 +60,7 @@ export function PrintControls({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={onExportWord}>
-                        <FileText className="mr-2 h-4 w-4 text-blue-600" />
+                        <FileText className="mr-2 h-4 w-4 text-sky-500/80" />
                         Word Document
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={onExportRTF}>

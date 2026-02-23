@@ -58,14 +58,14 @@ export const PrintSection = ({
         <div className={cn("border-2 rounded-lg overflow-hidden", style.border, className)}>
             <div
                 className={cn("text-white font-bold uppercase px-3 py-2", style.header)}
-                style={{ fontSize: `${fontSize + 1}px`, letterSpacing: '0.5px' }}
+                style={{ fontSize: 'calc(var(--print-fs) + 1px)', letterSpacing: '0.5px' } as React.CSSProperties}
             >
                 {title}
             </div>
             {content ? (
                 <div
                     className={cn("p-3 whitespace-pre-wrap", style.content)}
-                    style={{ fontSize: `${fontSize}px` }}
+                    style={{ fontSize: 'var(--print-fs)' } as React.CSSProperties}
                     dangerouslySetInnerHTML={{ __html: cleanInlineStyles(content) || '<span class="text-muted-foreground italic">None documented</span>' }}
                 />
             ) : (

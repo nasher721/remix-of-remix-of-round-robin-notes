@@ -17,7 +17,7 @@ export const PrintSystemsReview = ({ systems, enabledSystemKeys, fontSize }: Pri
         <div>
             <div
                 className="bg-primary text-white font-bold uppercase px-3 py-2 rounded-t-lg"
-                style={{ fontSize: `${fontSize + 1}px`, letterSpacing: '0.5px' }}
+                style={{ fontSize: 'calc(var(--print-fs) + 1px)', letterSpacing: '0.5px' } as React.CSSProperties}
             >
                 Systems Review
             </div>
@@ -31,13 +31,13 @@ export const PrintSystemsReview = ({ systems, enabledSystemKeys, fontSize }: Pri
                         )}>
                             <div
                                 className="bg-primary/90 text-white font-bold uppercase px-2 py-1.5 text-center"
-                                style={{ fontSize: `${fontSize}px`, letterSpacing: '0.3px' }}
+                                style={{ fontSize: 'var(--print-fs)', letterSpacing: '0.3px' } as React.CSSProperties}
                             >
                                 {systemLabels[key]}
                             </div>
                             <div
                                 className="p-2 bg-muted/10 min-h-[40px] whitespace-pre-wrap"
-                                style={{ fontSize: `${fontSize - 1}px` }}
+                                style={{ fontSize: 'calc(var(--print-fs) - 1px)' } as React.CSSProperties}
                                 dangerouslySetInnerHTML={{ __html: cleanInlineStyles(value) || '<span class="text-muted-foreground">-</span>' }}
                             />
                         </div>

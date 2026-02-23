@@ -12,6 +12,8 @@ import {
   safeErrorMessage,
   MAX_MEDIA_PAYLOAD_BYTES,
 } from "../_shared/mod.ts";
+import { getLLMConfig, callLLM } from "../_shared/llm-client.ts";
+
 
 // Process base64 in chunks to prevent memory issues
 function processBase64Chunks(base64String: string, chunkSize = 32768): Uint8Array {
@@ -109,22 +111,27 @@ serve(async (req) => {
     // Parse and validate input
     const bodyResult = await parseAndValidateBody<{ audio?: string; mimeType?: string; enhanceMedical?: boolean; model?: string }>(req, { maxBytes: MAX_MEDIA_PAYLOAD_BYTES });
     if (!bodyResult.valid) {
+      safeLog('warn', 'Invalid request body or payload too large');
       return bodyResult.response;
     }
     const { audio, mimeType = 'audio/webm', enhanceMedical = true, model: requestedModel } = bodyResult.data;
+    // Safety: strip data URI prefix if present (e.g., "data:audio/webm;base64,")
+    const audioPrefixMatch = audio!.match(/^data:audio\/[a-z0-9]+;base64,/i);
+    const audioData = audioPrefixMatch ? audio!.split(',')[1] : audio;
 
-    const audioCheck = requireString(audio, 'audio');
-    if (typeof audioCheck === 'object' && 'error' in audioCheck) {
-      return createErrorResponse(req, audioCheck.error, 400);
-    }
-
-    console.log('Received audio data, processing...');
-    console.log('MIME type:', mimeType);
-    console.log('Enhance medical:', enhanceMedical);
+    safeLog('info', `Received audio data: ${audioData!.length} base64 chars`);
+    safeLog('info', `MIME type: ${mimeType}`);
+    safeLog('info', `Enhance medical: ${enhanceMedical}`);
 
     // Process audio in chunks
-    const binaryAudio = processBase64Chunks(audio);
-    console.log('Processed audio size:', binaryAudio.length, 'bytes');
+    let binaryAudio: Uint8Array;
+    try {
+      binaryAudio = processBase64Chunks(audioData!);
+      safeLog('info', `Processed audio size: ${binaryAudio.length} bytes`);
+    } catch (err) {
+      safeLog('error', `Failed to process base64 chunks: ${err}`);
+      return createErrorResponse(req, 'Malformed audio data: Invalid base64 encoding', 400);
+    }
 
     // Prepare form data for Whisper API with enhanced medical prompting
     const formData = new FormData();
@@ -135,32 +142,11 @@ serve(async (req) => {
     formData.append('prompt', WHISPER_MEDICAL_PROMPT);
 
     // Transcribe with Whisper via OpenAI API
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    // We strictly need OpenAI for Whisper, so we check if it's the configured provider or explicitly available
+    const llmConfig = getLLMConfig('openai');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || (llmConfig.provider === 'openai' ? llmConfig.apiKey : undefined);
+
     if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
-    }
-
-    // First, transcribe using Whisper through OpenAI API
-    const transcribeResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('OPENAI_API_KEY') || ''}`,
-      },
-      body: formData,
-    });
-
-    let rawTranscript = '';
-
-    // If OpenAI key is available, use Whisper
-    if (transcribeResponse.ok) {
-      const whisperResult = await transcribeResponse.json();
-      rawTranscript = whisperResult.text;
-      safeLog('info', 'Whisper transcription completed');
-    } else {
-      // Fallback: Return error if Whisper API is unavailable
-      console.log('Whisper not available, checking for alternative...');
-
-      // For demo purposes, return an error asking for OpenAI key
       return createErrorResponse(
         req,
         'Audio transcription requires OPENAI_API_KEY secret to be configured for Whisper API access.',
@@ -168,46 +154,57 @@ serve(async (req) => {
       );
     }
 
-    // If medical enhancement is requested, use GPT-4
+    // First, transcribe using Whisper through OpenAI API
+    const transcribeResponse = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    let rawTranscript = '';
+
+    if (transcribeResponse.ok) {
+      const whisperResult = await transcribeResponse.json();
+      rawTranscript = whisperResult.text;
+      safeLog('info', 'Whisper transcription completed');
+    } else {
+      const errorText = await transcribeResponse.text();
+      console.error('Whisper API Error:', errorText);
+      return createErrorResponse(
+        req,
+        `Whisper transcription failed: ${transcribeResponse.statusText}`,
+        500
+      );
+    }
+
+    // If medical enhancement is requested, use our shared LLM client
     let finalText = rawTranscript;
     let enhancementModel = 'none';
 
     if (enhanceMedical && rawTranscript) {
       console.log('Enhancing medical terminology...');
 
-      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
-
-      // Try GPT-4 first for better medical understanding
-      if (OPENAI_API_KEY) {
-        try {
-          const gptResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${OPENAI_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini', // Fast and cost-effective for enhancement
-              messages: [
-                { role: 'system', content: MEDICAL_ENHANCEMENT_PROMPT },
-                { role: 'user', content: rawTranscript }
-              ],
-              temperature: 0.1,
-              max_completion_tokens: 2000,
-            }),
-          });
-
-          if (gptResponse.ok) {
-            const gptResult = await gptResponse.json();
-            finalText = gptResult.choices?.[0]?.message?.content || rawTranscript;
-            enhancementModel = 'gpt-4o-mini';
-            safeLog('info', 'GPT-4 enhancement completed');
-          } else {
-            console.log('GPT-4 enhancement failed');
+      try {
+        // use the requested model or default. This relies on getLLMConfig doing the right mapping.
+        const modelToUse = requestedModel || undefined;
+        finalText = await callLLM(
+          MEDICAL_ENHANCEMENT_PROMPT,
+          rawTranscript,
+          {
+            model: modelToUse,
+            temperature: 0.1,
+            maxTokens: 2000
           }
-        } catch (err) {
-          console.error('GPT-4 enhancement error:', err);
-        }
+        ) || rawTranscript;
+
+        enhancementModel = modelToUse || 'default';
+        safeLog('info', 'Medical enhancement completed via shared LLM client');
+      } catch (err) {
+        console.error('Medical enhancement error:', err);
+        // Fall back to raw transcript if enhancement fails
+        finalText = rawTranscript;
       }
     }
 

@@ -29,7 +29,13 @@ export const PrintList = ({
   isColumnEnabled,
 }: PrintListProps) => {
   return (
-    <div className="space-y-6" style={{ fontFamily: fontCSS }}>
+    <div
+      className="space-y-6 print-container"
+      style={{
+        "--print-font": fontCSS,
+        "--print-fs": `${printFontSize}px`
+      } as React.CSSProperties}
+    >
       {patients.map((patient, index) => (
         <div key={patient.id} className="border-4 border-primary rounded-lg overflow-hidden mb-4 break-inside-avoid shadow-md">
           <PrintPatientHeader

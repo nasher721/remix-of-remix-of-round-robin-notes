@@ -12,7 +12,13 @@ const DEFAULT_ALLOWED_ORIGINS = [
   // Local development
   'http://localhost:8080',
   'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:4173',
   'http://localhost:3000',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:3000',
   // Production Vercel deployments
   'https://remix-of-remix-of-round-robin-notes.vercel.app',
   // Supabase dashboard (for testing)
@@ -58,8 +64,12 @@ export function getCorsHeaders(request: Request): Record<string, string> {
     allowedOrigins.some(allowed =>
       origin === allowed || origin.startsWith(allowed + '/')
     ) ||
-    // Allow Vercel preview deployments (*.vercel.app)
-    /^https:\/\/[a-z0-9-]+-nasher721s-projects\.vercel\.app$/.test(origin)
+    // Allow Vercel preview deployments
+    /^https:\/\/[a-z0-9-]+-nasher721(-[a-z0-9-]+)?\.vercel\.app$/.test(origin) ||
+    /^https:\/\/remix-of-remix-of-round-robin-notes-.*\.vercel\.app$/.test(origin) ||
+    // Allow local development on any port (safety only for non-production)
+    (/^http:\/\/localhost:\d+$/.test(origin) && !Deno.env.get('SUPABASE_URL')?.includes('qrlonfgafvyfqqtsasfc')) ||
+    /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
   );
 
   // SECURITY: If origin is not allowed, return NO CORS headers
