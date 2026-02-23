@@ -1080,7 +1080,7 @@ export const RichTextEditor = ({
           aria-multiline="true"
           aria-label={section ? `${section} notes` : placeholder}
           contentEditable
-          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative whitespace-pre-wrap text-card-foreground"
+          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative whitespace-pre-wrap text-foreground"
           style={{ fontSize: `${fontSizeRef.current}px` }}
           onInput={handleInput}
           onPaste={handlePaste}

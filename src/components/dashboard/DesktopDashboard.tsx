@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, LayoutGroup, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { fadeInDown, scaleIn, staggerContainer, staggerItem, transitions } from '@/lib/animations';
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
@@ -292,30 +292,20 @@ export const DesktopDashboard = () => {
                       className="pl-10 h-9 bg-card/60 border-border/30 focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-white/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
                     />
                   </div>
-                  <LayoutGroup>
-                    <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl" role="group" aria-label="Filter patients">
-                      {Object.values(PatientFilterType).map((f) => (
-                        <Button
-                          key={f}
-                          variant={filter === f ? 'default' : 'ghost'}
-                          onClick={() => setFilter(f)}
-                          size="sm"
-                          aria-pressed={filter === f}
-                          className={`h-8 text-xs rounded-md relative ${filter === f ? 'shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                        >
-                          {filter === f && (
-                            <motion.div
-                              layoutId="activeFilter"
-                              className="absolute inset-0 bg-primary rounded-md"
-                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                              style={{ zIndex: -1 }}
-                            />
-                          )}
-                          {f === PatientFilterType.All ? 'All' : f === PatientFilterType.Filled ? 'With Notes' : 'Empty'}
-                        </Button>
-                      ))}
-                    </div>
-                  </LayoutGroup>
+                  <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl" role="group" aria-label="Filter patients">
+                    {Object.values(PatientFilterType).map((f) => (
+                      <Button
+                        key={f}
+                        variant={filter === f ? 'default' : 'ghost'}
+                        onClick={() => setFilter(f)}
+                        size="sm"
+                        aria-pressed={filter === f}
+                        className={`h-8 text-xs rounded-md transition-all duration-200 ${filter === f ? 'shadow-sm bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                      >
+                        {f === PatientFilterType.All ? 'All' : f === PatientFilterType.Filled ? 'With Notes' : 'Empty'}
+                      </Button>
+                    ))}
+                  </div>
 
                   {/* Sort Control */}
                   <div className="flex items-center gap-1.5 bg-card/40 rounded-xl px-2">

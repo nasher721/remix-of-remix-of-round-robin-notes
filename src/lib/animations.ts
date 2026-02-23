@@ -85,11 +85,11 @@ export const staggerItem: Variants = {
 export const cardHover: Variants = {
     rest: { scale: 1, y: 0 },
     hover: {
-        scale: 1.008,
-        y: -2,
-        transition: { type: 'spring' as const, stiffness: 400, damping: 20 },
+        scale: 1.003,
+        y: -1,
+        transition: { type: 'spring' as const, stiffness: 400, damping: 25 },
     },
-    tap: { scale: 0.995 },
+    tap: { scale: 0.998 },
 };
 
 // ─── Collapse / Expand ─────────────────────────────────────────
