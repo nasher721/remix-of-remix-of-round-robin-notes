@@ -61,6 +61,7 @@ export const AIClinicalAssistant = ({
   const {
     isProcessing,
     lastModel,
+    processWithAI,
     getDifferentialDiagnosis,
     checkDocumentation,
     formatAsSOAP,
@@ -75,6 +76,8 @@ export const AIClinicalAssistant = ({
   const [soapResult, setSoapResult] = React.useState<SOAPNote | null>(null);
   const [apResult, setApResult] = React.useState<AssessmentPlanResponse | null>(null);
   const [summaryResult, setSummaryResult] = React.useState<string | null>(null);
+  const [advancedTitle, setAdvancedTitle] = React.useState<string | null>(null);
+  const [advancedResult, setAdvancedResult] = React.useState<string | null>(null);
 
   const handleDifferentialDiagnosis = React.useCallback(async () => {
     const result = await getDifferentialDiagnosis(patient);
@@ -116,8 +119,28 @@ export const AIClinicalAssistant = ({
     }
   }, [generateClinicalSummary, patient]);
 
+  const runAdvancedGenerator = React.useCallback(async (
+    feature:
+      | 'system_based_rounds'
+      | 'date_organizer'
+      | 'problem_list'
+      | 'icu_boards_explainer'
+      | 'interval_events_generator'
+      | 'neuro_icu_hpi',
+    title: string,
+  ) => {
+    const result = await processWithAI<string>(feature, { patient });
+    if (result) {
+      setAdvancedTitle(title);
+      setAdvancedResult(result);
+      setDialogType('summary');
+    }
+  }, [patient, processWithAI]);
+
   const closeDialog = React.useCallback(() => {
     setDialogType(null);
+    setAdvancedTitle(null);
+    setAdvancedResult(null);
   }, []);
 
   const copyToClipboard = React.useCallback((text: string) => {
@@ -487,7 +510,8 @@ export const AIClinicalAssistant = ({
 
   // Render Summary result
   const renderSummaryDialog = () => {
-    if (!summaryResult) return null;
+    const displayText = advancedResult ?? summaryResult;
+    if (!displayText) return null;
 
     return (
       <Dialog open={dialogType === 'summary'} onOpenChange={() => closeDialog()}>
@@ -495,14 +519,14 @@ export const AIClinicalAssistant = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5" />
-              AI Clinical Summary
+              {advancedTitle || 'AI Clinical Summary'}
             </DialogTitle>
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
             <AIErrorBoundary featureLabel="Clinical Summary">
               <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm">
-                {summaryResult}
+                {displayText}
               </div>
             </AIErrorBoundary>
           </ScrollArea>
@@ -510,12 +534,12 @@ export const AIClinicalAssistant = ({
             <Button variant="outline" onClick={closeDialog}>
               Close
             </Button>
-            <Button variant="secondary" onClick={() => copyToClipboard(summaryResult)}>
+            <Button variant="secondary" onClick={() => copyToClipboard(displayText)}>
               <Copy className="h-4 w-4 mr-2" />
               Copy
             </Button>
             {onUpdatePatient && (
-              <Button onClick={() => insertIntoField('clinicalSummary', summaryResult)}>
+              <Button onClick={() => insertIntoField('clinicalSummary', displayText)}>
                 Insert into Summary
               </Button>
             )}
@@ -586,6 +610,56 @@ export const AIClinicalAssistant = ({
             <div className="flex flex-col">
               <span>Clinical Summary</span>
               <span className="text-xs text-muted-foreground">Generate comprehensive summary</span>
+            </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem onClick={() => runAdvancedGenerator('system_based_rounds', 'System-Based Rounds')} disabled={isProcessing}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>System-Based Rounds</span>
+              <span className="text-xs text-muted-foreground">Neuro ICU template output</span>
+            </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => runAdvancedGenerator('date_organizer', 'Date Organizer')} disabled={isProcessing}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Date Organizer</span>
+              <span className="text-xs text-muted-foreground">Chronologic clinical timeline</span>
+            </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => runAdvancedGenerator('problem_list', 'Problem List A&P')} disabled={isProcessing}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Problem List A&amp;P</span>
+              <span className="text-xs text-muted-foreground">Fellow-style Neuro ICU A&amp;P</span>
+            </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => runAdvancedGenerator('icu_boards_explainer', 'ICU Boards Explainer')} disabled={isProcessing}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>ICU Boards Explainer</span>
+              <span className="text-xs text-muted-foreground">Question breakdown + mnemonic</span>
+            </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => runAdvancedGenerator('interval_events_generator', 'Interval Events Generator')} disabled={isProcessing}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Interval Events Generator</span>
+              <span className="text-xs text-muted-foreground">DAY/NIGHT structured summary</span>
+            </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={() => runAdvancedGenerator('neuro_icu_hpi', 'Neuro ICU HPI Generator')} disabled={isProcessing}>
+            <Sparkles className="h-4 w-4 mr-2" />
+            <div className="flex flex-col">
+              <span>Neuro ICU HPI Generator</span>
+              <span className="text-xs text-muted-foreground">3-paragraph admission/consult HPI</span>
             </div>
           </DropdownMenuItem>
 
