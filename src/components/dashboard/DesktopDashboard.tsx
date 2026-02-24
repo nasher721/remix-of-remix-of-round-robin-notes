@@ -291,6 +291,20 @@ export const DesktopDashboard = () => {
                 {/* Right controls */}
                 <div className="flex items-center gap-2">
                   <SectionVisibilityPanel />
+                  {patients.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onCollapseAll}
+                      className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
+                      title={patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                    >
+                      <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="hidden xl:inline text-xs">
+                        {patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                      </span>
+                    </Button>
+                  )}
                   <DesktopAIModelSettingsDialog />
 
                   {/* Tools Dropdown triggers that were top bar */}
