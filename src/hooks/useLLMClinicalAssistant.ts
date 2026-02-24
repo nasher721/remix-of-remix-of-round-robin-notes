@@ -449,12 +449,7 @@ Rules:
 - Use concise medical shorthand and past tense.
 - Incomplete sentence fragments are acceptable.
 - Preserve sequence of events, key diagnostics, procedures, and major decisions.
-- Do not add data not explicitly provided.
-
-Output style example:
-7/2008: R MCA stroke w/ residual R sided weakness.
-2/10: Admitted to CICU w/ NSTEMI...
-2/12: LHC -> severe MVD...`,
+- Do not add data not explicitly provided.`,
 
   problem_list: `You are a Neurocritical Care fellow-level clinical documentation assistant.
 
