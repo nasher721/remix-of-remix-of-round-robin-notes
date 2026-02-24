@@ -28,11 +28,25 @@ import {
   Brain,
   FileText,
   Zap,
+  Activity,
+  Calendar,
+  ClipboardList,
+  GraduationCap,
+  Clock,
+  UserPlus,
 } from 'lucide-react';
 import { useTextTransform, TransformType, CustomPrompt } from '@/hooks/useTextTransform';
 import { useAIClinicalAssistant } from '@/hooks/useAIClinicalAssistant';
 import { useWritingStyleProfile } from '@/hooks/useWritingStyleProfile';
 import { toast } from 'sonner';
+import {
+  SYSTEM_BASED_ROUNDS_PROMPT,
+  DATE_ORGANIZER_PROMPT,
+  PROBLEM_LIST_PROMPT,
+  ICU_BOARDS_QUESTIONS_PROMPT,
+  INTERVAL_EVENTS_PROMPT,
+  NEURO_ICU_HPI_PROMPT,
+} from '@/data/baselinePrompts';
 
 interface AITextToolsProps {
   getSelectedText: () => string | null;
@@ -276,6 +290,91 @@ export const AITextTools = ({
             >
               <MessageSquarePlus className="h-4 w-4 mr-2" />
               Custom Prompt...
+            </Button>
+
+            <Separator className="my-2" />
+
+            <p className="text-xs font-medium text-muted-foreground px-2 py-1 flex items-center gap-1">
+              <Stethoscope className="h-3 w-3" />
+              Neuro ICU Tools
+            </p>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={() => handleTransform('custom', SYSTEM_BASED_ROUNDS_PROMPT)}
+              disabled={isLoading}
+            >
+              <Activity className="h-4 w-4 mr-2 text-rose-500" />
+              <div className="flex flex-col items-start text-left">
+                <span className="text-sm">Systems Rounds</span>
+                <span className="text-[10px] text-muted-foreground">Structured NC rounding update</span>
+              </div>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={() => handleTransform('custom', PROBLEM_LIST_PROMPT)}
+              disabled={isLoading}
+            >
+              <ClipboardList className="h-4 w-4 mr-2 text-indigo-500" />
+              <div className="flex flex-col items-start text-left">
+                <span className="text-sm">Problem List</span>
+                <span className="text-[10px] text-muted-foreground">NICU Fellow-style A&P</span>
+              </div>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={() => handleTransform('custom', INTERVAL_EVENTS_PROMPT)}
+              disabled={isLoading}
+            >
+              <Clock className="h-4 w-4 mr-2 text-amber-500" />
+              <div className="flex flex-col items-start text-left">
+                <span className="text-sm">Interval Summary</span>
+                <span className="text-[10px] text-muted-foreground">Day/Night running summary</span>
+              </div>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={() => handleTransform('custom', NEURO_ICU_HPI_PROMPT)}
+              disabled={isLoading}
+            >
+              <UserPlus className="h-4 w-4 mr-2 text-emerald-500" />
+              <div className="flex flex-col items-start text-left">
+                <span className="text-sm">Neuro HPI / Consult</span>
+                <span className="text-[10px] text-muted-foreground">Med-dense NICU admission HPI</span>
+              </div>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={() => handleTransform('custom', DATE_ORGANIZER_PROMPT)}
+              disabled={isLoading}
+            >
+              <Calendar className="h-4 w-4 mr-2 text-cyan-500" />
+              <span className="text-sm">Date Organizer</span>
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start h-9"
+              onClick={() => handleTransform('custom', ICU_BOARDS_QUESTIONS_PROMPT)}
+              disabled={isLoading}
+            >
+              <GraduationCap className="h-4 w-4 mr-2 text-orange-500" />
+              <span className="text-sm">ICU Board Tutor</span>
             </Button>
 
             {customPrompts.length > 0 && (
