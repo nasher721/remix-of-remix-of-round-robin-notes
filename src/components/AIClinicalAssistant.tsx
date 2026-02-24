@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useAIClinicalAssistant } from '@/hooks/useAIClinicalAssistant';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
 import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
 import type {
@@ -51,6 +52,30 @@ interface AIClinicalAssistantProps {
 }
 
 type DialogType = 'ddx' | 'doc_check' | 'soap' | 'ap' | 'summary' | null;
+type AdvancedFeatureKey =
+  | 'system_based_rounds'
+  | 'date_organizer'
+  | 'problem_list'
+  | 'icu_boards_explainer'
+  | 'interval_events_generator'
+  | 'neuro_icu_hpi';
+
+interface AdvancedFeatureConfig {
+  key: AdvancedFeatureKey;
+  title: string;
+  description: string;
+  requiresTextInput?: boolean;
+  textPlaceholder?: string;
+}
+
+const ADVANCED_FEATURES: AdvancedFeatureConfig[] = [
+  { key: 'system_based_rounds', title: 'System-Based Rounds', description: 'Neuro ICU template output' },
+  { key: 'date_organizer', title: 'Date Organizer', description: 'Chronologic clinical timeline', requiresTextInput: true, textPlaceholder: 'Paste clinical history to organize chronologically...' },
+  { key: 'problem_list', title: 'Problem List A&P', description: 'Fellow-style Neuro ICU A&P' },
+  { key: 'icu_boards_explainer', title: 'ICU Boards Explainer', description: 'Question breakdown + mnemonic', requiresTextInput: true, textPlaceholder: 'Paste board-style question and options...' },
+  { key: 'interval_events_generator', title: 'Interval Events Generator', description: 'DAY/NIGHT structured summary', requiresTextInput: true, textPlaceholder: 'Paste prior day + overnight events with dates...' },
+  { key: 'neuro_icu_hpi', title: 'Neuro ICU HPI Generator', description: '3-paragraph admission/consult HPI', requiresTextInput: true, textPlaceholder: 'Paste consult/admission details, timeline, labs, imaging...' },
+];
 
 export const AIClinicalAssistant = ({
   patient,
@@ -61,6 +86,7 @@ export const AIClinicalAssistant = ({
   const {
     isProcessing,
     lastModel,
+    processWithAI,
     getDifferentialDiagnosis,
     checkDocumentation,
     formatAsSOAP,
@@ -75,6 +101,10 @@ export const AIClinicalAssistant = ({
   const [soapResult, setSoapResult] = React.useState<SOAPNote | null>(null);
   const [apResult, setApResult] = React.useState<AssessmentPlanResponse | null>(null);
   const [summaryResult, setSummaryResult] = React.useState<string | null>(null);
+  const [advancedTitle, setAdvancedTitle] = React.useState<string | null>(null);
+  const [advancedResult, setAdvancedResult] = React.useState<string | null>(null);
+  const [activeAdvancedFeature, setActiveAdvancedFeature] = React.useState<AdvancedFeatureConfig | null>(null);
+  const [advancedInput, setAdvancedInput] = React.useState('');
 
   const handleDifferentialDiagnosis = React.useCallback(async () => {
     const result = await getDifferentialDiagnosis(patient);
@@ -116,8 +146,43 @@ export const AIClinicalAssistant = ({
     }
   }, [generateClinicalSummary, patient]);
 
+  const runAdvancedGenerator = React.useCallback(async (
+    feature: AdvancedFeatureKey,
+    title: string,
+    textInput?: string,
+  ) => {
+    const result = await processWithAI<string>(feature, { patient, text: textInput?.trim() || undefined });
+    if (result) {
+      setAdvancedTitle(title);
+      setAdvancedResult(result);
+      setDialogType('summary');
+    }
+  }, [patient, processWithAI]);
+
+  const handleAdvancedFeatureClick = React.useCallback((feature: AdvancedFeatureConfig) => {
+    if (feature.requiresTextInput) {
+      setActiveAdvancedFeature(feature);
+      setAdvancedInput('');
+      return;
+    }
+
+    void runAdvancedGenerator(feature.key, feature.title);
+  }, [runAdvancedGenerator]);
+
+  const handleAdvancedSubmit = React.useCallback(async () => {
+    if (!activeAdvancedFeature) return;
+
+    await runAdvancedGenerator(activeAdvancedFeature.key, activeAdvancedFeature.title, advancedInput);
+    setActiveAdvancedFeature(null);
+    setAdvancedInput('');
+  }, [activeAdvancedFeature, advancedInput, runAdvancedGenerator]);
+
   const closeDialog = React.useCallback(() => {
     setDialogType(null);
+    setAdvancedTitle(null);
+    setAdvancedResult(null);
+    setActiveAdvancedFeature(null);
+    setAdvancedInput('');
   }, []);
 
   const copyToClipboard = React.useCallback((text: string) => {
@@ -487,7 +552,8 @@ export const AIClinicalAssistant = ({
 
   // Render Summary result
   const renderSummaryDialog = () => {
-    if (!summaryResult) return null;
+    const displayText = advancedResult ?? summaryResult;
+    if (!displayText) return null;
 
     return (
       <Dialog open={dialogType === 'summary'} onOpenChange={() => closeDialog()}>
@@ -495,14 +561,14 @@ export const AIClinicalAssistant = ({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Brain className="h-5 w-5" />
-              AI Clinical Summary
+              {advancedTitle || 'AI Clinical Summary'}
             </DialogTitle>
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
             <AIErrorBoundary featureLabel="Clinical Summary">
               <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm">
-                {summaryResult}
+                {displayText}
               </div>
             </AIErrorBoundary>
           </ScrollArea>
@@ -510,12 +576,12 @@ export const AIClinicalAssistant = ({
             <Button variant="outline" onClick={closeDialog}>
               Close
             </Button>
-            <Button variant="secondary" onClick={() => copyToClipboard(summaryResult)}>
+            <Button variant="secondary" onClick={() => copyToClipboard(displayText)}>
               <Copy className="h-4 w-4 mr-2" />
               Copy
             </Button>
             {onUpdatePatient && (
-              <Button onClick={() => insertIntoField('clinicalSummary', summaryResult)}>
+              <Button onClick={() => insertIntoField('clinicalSummary', displayText)}>
                 Insert into Summary
               </Button>
             )}
@@ -589,6 +655,20 @@ export const AIClinicalAssistant = ({
             </div>
           </DropdownMenuItem>
 
+          <DropdownMenuSeparator />
+
+          {ADVANCED_FEATURES.map((feature) => (
+            <DropdownMenuItem key={feature.key} onClick={() => handleAdvancedFeatureClick(feature)} disabled={isProcessing}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              <div className="flex flex-col">
+                <span>{feature.title}</span>
+                <span className="text-xs text-muted-foreground">
+                  {feature.description}{feature.requiresTextInput ? ' • accepts pasted text' : ''}
+                </span>
+              </div>
+            </DropdownMenuItem>
+          ))}
+
           {isProcessing && (
             <>
               <DropdownMenuSeparator />
@@ -600,6 +680,28 @@ export const AIClinicalAssistant = ({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+
+      <Dialog open={!!activeAdvancedFeature} onOpenChange={(open) => { if (!open) { setActiveAdvancedFeature(null); setAdvancedInput(''); } }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{activeAdvancedFeature?.title}</DialogTitle>
+            <DialogDescription>
+              Paste optional source text to guide generation. Patient context will also be included automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={advancedInput}
+            onChange={(e) => setAdvancedInput(e.target.value)}
+            placeholder={activeAdvancedFeature?.textPlaceholder || 'Paste source text...'}
+            className="min-h-40"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setActiveAdvancedFeature(null); setAdvancedInput(''); }}>Cancel</Button>
+            <Button onClick={() => void handleAdvancedSubmit()} disabled={isProcessing}>Run</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Result Dialogs */}
       {renderDDxDialog()}

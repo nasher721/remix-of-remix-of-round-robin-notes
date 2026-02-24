@@ -55,7 +55,13 @@ export type AIFeature =
   | 'soap_format'
   | 'assessment_plan'
   | 'smart_expand'
-  | 'medical_correction';
+  | 'medical_correction'
+  | 'system_based_rounds'
+  | 'date_organizer'
+  | 'problem_list'
+  | 'icu_boards_explainer'
+  | 'interval_events_generator'
+  | 'neuro_icu_hpi';
 
 // Response types for AI operations
 export interface AIResponse<T = string> {
