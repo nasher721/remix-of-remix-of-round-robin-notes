@@ -201,34 +201,148 @@ export interface ModelOption {
   model: string;
   label: string;
   category: 'premium' | 'standard' | 'economy' | 'local';
+  description?: string;
+  bestFor?: string;
 }
 
 export const AVAILABLE_MODELS: ModelOption[] = [
   // OpenAI
-  { provider: 'openai', model: 'gpt-4o', label: 'GPT-4o', category: 'premium' },
-  { provider: 'openai', model: 'gpt-4o-mini', label: 'GPT-4o Mini', category: 'standard' },
-  { provider: 'openai', model: 'o1-preview', label: 'o1 Preview', category: 'premium' },
+  {
+    provider: 'openai',
+    model: 'gpt-4o',
+    label: 'GPT-4o',
+    category: 'premium',
+    description: 'High intelligence, complex clinical reasoning',
+    bestFor: 'Complex differentials, deep documentation analysis'
+  },
+  {
+    provider: 'openai',
+    model: 'gpt-4o-mini',
+    label: 'GPT-4o Mini',
+    category: 'standard',
+    description: 'Fast, efficient, reliable for daily tasks',
+    bestFor: 'Text formatting, simple summarization'
+  },
+  {
+    provider: 'openai',
+    model: 'o1-preview',
+    label: 'o1 Preview',
+    category: 'premium',
+    description: 'Advanced reasoning and problem solving',
+    bestFor: 'Extremely complex medical cases'
+  },
 
   // Anthropic
-  { provider: 'anthropic', model: 'claude-opus-4-20250514', label: 'Claude Opus 4', category: 'premium' },
-  { provider: 'anthropic', model: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', category: 'premium' },
-  { provider: 'anthropic', model: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku', category: 'standard' },
+  {
+    provider: 'anthropic',
+    model: 'claude-opus-4-20250514',
+    label: 'Claude Opus 4',
+    category: 'premium',
+    description: 'Most capable model for nuanced interpretation',
+    bestFor: 'Sensitive clinical narratives'
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-20250514',
+    label: 'Claude Sonnet 4',
+    category: 'premium',
+    description: 'Great balance of speed and high logic',
+    bestFor: 'General clinical assistance'
+  },
+  {
+    provider: 'anthropic',
+    model: 'claude-3-5-haiku-20241022',
+    label: 'Claude 3.5 Haiku',
+    category: 'standard',
+    description: 'Near-instant responses for quick edits',
+    bestFor: 'Real-time text correction'
+  },
 
   // Gemini
-  { provider: 'gemini', model: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', category: 'premium' },
-  { provider: 'gemini', model: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', category: 'standard' },
-  { provider: 'gemini', model: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', category: 'economy' },
+  {
+    provider: 'gemini',
+    model: 'gemini-2.5-pro',
+    label: 'Gemini 2.5 Pro',
+    category: 'premium',
+    description: 'Massive context window, multi-modal capabilities',
+    bestFor: 'Processing long medical records'
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-2.5-flash',
+    label: 'Gemini 2.5 Flash',
+    category: 'standard',
+    description: 'Optimized for speed and long-context efficiency',
+    bestFor: 'High-volume clinical data parsing'
+  },
+  {
+    provider: 'gemini',
+    model: 'gemini-2.0-flash',
+    label: 'Gemini 2.0 Flash',
+    category: 'economy',
+    description: 'Extremely fast and cost-effective',
+    bestFor: 'Simple categorization tasks'
+  },
 
   // Grok
-  { provider: 'grok', model: 'grok-2', label: 'Grok 2', category: 'standard' },
-  { provider: 'grok', model: 'grok-2-mini', label: 'Grok 2 Mini', category: 'economy' },
+  {
+    provider: 'grok',
+    model: 'grok-2',
+    label: 'Grok 2',
+    category: 'standard',
+    description: 'Strong reasoning and latest training data',
+    bestFor: 'General purpose modeling'
+  },
+  {
+    provider: 'grok',
+    model: 'grok-2-mini',
+    label: 'Grok 2 Mini',
+    category: 'economy',
+    description: 'Compact and capable',
+    bestFor: 'Lightweight transformations'
+  },
 
   // GLM
-  { provider: 'glm', model: 'glm-4', label: 'GLM-4', category: 'standard' },
-  { provider: 'glm', model: 'glm-4-flash', label: 'GLM-4 Flash', category: 'economy' },
+  {
+    provider: 'glm',
+    model: 'glm-4',
+    label: 'GLM-4',
+    category: 'standard',
+    description: 'General language model capabilities',
+    bestFor: 'Multilingual clinical notes'
+  },
+  {
+    provider: 'glm',
+    model: 'glm-4-flash',
+    label: 'GLM-4 Flash',
+    category: 'economy',
+    description: 'Fast inference for basic tasks',
+    bestFor: 'Simple text cleanup'
+  },
 
   // HuggingFace
-  { provider: 'huggingface', model: 'meta-llama/Meta-Llama-3.1-70B-Instruct', label: 'Llama 3.1 70B', category: 'local' },
-  { provider: 'huggingface', model: 'meta-llama/Meta-Llama-3.1-8B-Instruct', label: 'Llama 3.1 8B', category: 'local' },
-  { provider: 'huggingface', model: 'mistralai/Mixtral-8x7B-Instruct-v0.1', label: 'Mixtral 8x7B', category: 'local' },
+  {
+    provider: 'huggingface',
+    model: 'meta-llama/Meta-Llama-3.1-70B-Instruct',
+    label: 'Llama 3.1 70B',
+    category: 'local',
+    description: 'State-of-the-art open source reasoning',
+    bestFor: 'Local inference on large machines'
+  },
+  {
+    provider: 'huggingface',
+    model: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+    label: 'Llama 3.1 8B',
+    category: 'local',
+    description: 'Fast, efficient open source model',
+    bestFor: 'Simple local processing'
+  },
+  {
+    provider: 'huggingface',
+    model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+    label: 'Mixtral 8x7B',
+    category: 'local',
+    description: 'High performance Mixture-of-Experts',
+    bestFor: 'Balanced open source choice'
+  },
 ];

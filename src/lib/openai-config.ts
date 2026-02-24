@@ -61,7 +61,8 @@ export type AIFeature =
   | 'problem_list'
   | 'icu_boards_explainer'
   | 'interval_events_generator'
-  | 'neuro_icu_hpi';
+  | 'neuro_icu_hpi'
+  | 'smart_draft';
 
 // Response types for AI operations
 export interface AIResponse<T = string> {

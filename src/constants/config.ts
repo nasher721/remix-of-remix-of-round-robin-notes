@@ -12,7 +12,7 @@ export const STORAGE_KEYS = {
   AI_MODEL: 'aiModel',
   AI_CREDENTIALS: 'aiCredentials',
   AI_FEATURE_MODELS: 'aiFeatureModels',
-  
+
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
   PRINT_COLUMN_PREFS: 'printColumnPrefs',
@@ -96,10 +96,10 @@ export type AIFeatureModels = Partial<Record<AIFeatureCategory, string>>;
 // Supported models that can be used in edge functions via OpenAI API
 export const GATEWAY_MODELS = [
   { value: '__default__', label: 'Use default' },
-  { value: 'gpt-4o-mini', label: 'GPT-4o Mini (fast)' },
-  { value: 'gpt-4o', label: 'GPT-4o (balanced)' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo (high quality)' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (economic)' },
+  { value: 'gpt-4o', label: 'GPT-4o (Max Capability)' },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast/Balanced)' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo (Legacy High-Res)' },
+  { value: 'o1-preview', label: 'o1-preview (Advanced Reasoning)' },
 ] as const;
 
 export const DEFAULT_GATEWAY_MODEL = 'gpt-4o-mini';

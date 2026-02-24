@@ -47,6 +47,7 @@ interface UseAIClinicalAssistantReturn {
   formatAsSOAP: (patient: Patient) => Promise<SOAPNote | null>;
   generateAssessmentPlan: (patient: Patient) => Promise<AssessmentPlanResponse | null>;
   generateClinicalSummary: (patient: Patient) => Promise<string | null>;
+  generateDraft: (patient: Patient) => Promise<string | null>;
   correctMedicalText: (text: string) => Promise<string | null>;
 
   // Utilities
@@ -233,6 +234,11 @@ export const useAIClinicalAssistant = (
     [processWithAI]
   );
 
+  const generateDraft = useCallback(
+    (patient: Patient) => processWithAI<string>('smart_draft', { patient }),
+    [processWithAI]
+  );
+
   const correctMedicalText = useCallback(
     (text: string) => processWithAI<string>('medical_correction', { text }),
     [processWithAI]
@@ -251,6 +257,7 @@ export const useAIClinicalAssistant = (
     formatAsSOAP,
     generateAssessmentPlan,
     generateClinicalSummary,
+    generateDraft,
     correctMedicalText,
     cancel,
     reset,
