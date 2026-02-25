@@ -6,7 +6,8 @@ import {
     Download,
     Printer,
     FileJson,
-    Type
+    Type,
+    Loader2
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -21,6 +22,7 @@ interface PrintControlsProps {
     onExportWord: () => void;
     onExportTXT: () => void;
     onExportRTF: () => void;
+    onExportMarkdown: () => void;
     onPrint: () => void;
     isGenerating: boolean;
 }
@@ -31,45 +33,101 @@ export function PrintControls({
     onExportWord,
     onExportTXT,
     onExportRTF,
+    onExportMarkdown,
     onPrint,
     isGenerating
 }: PrintControlsProps) {
+    // Keyboard shortcuts
+    const handleKeyDown = React.useCallback((e: React.KeyboardEvent, handler: () => void) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handler();
+        }
+    }, []);
+
     return (
-        <div className="flex flex-wrap gap-2">
-            <Button onClick={onPrint} disabled={isGenerating}>
-                <Printer className="mr-2 h-4 w-4" />
-                Print
+        <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Export options">
+            {/* Screen reader live region for status announcements */}
+            <div role="status" aria-live="polite" className="sr-only">
+                {isGenerating ? 'Generating export document...' : ''}
+            </div>
+
+            <Button 
+                onClick={onPrint} 
+                disabled={isGenerating}
+                aria-label={isGenerating ? 'Generating document' : 'Print document'}
+                aria-busy={isGenerating}
+            >
+                {isGenerating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                    <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
+                {isGenerating ? "Generating..." : "Print"}
             </Button>
 
-            <Button variant="outline" onClick={onExportPDF} disabled={isGenerating}>
-                <FileText className="mr-2 h-4 w-4 text-rose-400/80" />
+            <Button 
+                variant="outline" 
+                onClick={onExportPDF} 
+                disabled={isGenerating}
+                aria-label="Export as PDF document"
+            >
+                <FileText className="mr-2 h-4 w-4 text-rose-400/80" aria-hidden="true" />
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 PDF
             </Button>
 
-            <Button variant="outline" onClick={onExportExcel} disabled={isGenerating}>
-                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500/80" />
+            <Button 
+                variant="outline" 
+                onClick={onExportExcel} 
+                disabled={isGenerating}
+                aria-label="Export as Excel spreadsheet"
+            >
+                <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500/80" aria-hidden="true" />
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Excel
             </Button>
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" disabled={isGenerating}>
-                        <Download className="mr-2 h-4 w-4" />
+                    <Button 
+                        variant="outline" 
+                        disabled={isGenerating}
+                        aria-label="More export formats"
+                        aria-haspopup="menu"
+                    >
+                        <Download className="mr-2 h-4 w-4" aria-hidden="true" />
                         More Formats
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={onExportWord}>
-                        <FileText className="mr-2 h-4 w-4 text-sky-500/80" />
+                <DropdownMenuContent align="end" role="menu">
+                    <DropdownMenuItem 
+                        onClick={onExportWord}
+                        aria-label="Export as Word document"
+                    >
+                        <FileText className="mr-2 h-4 w-4 text-sky-500/80" aria-hidden="true" />
                         Word Document
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onExportRTF}>
-                        <Type className="mr-2 h-4 w-4" />
+                    <DropdownMenuItem 
+                        onClick={onExportRTF}
+                        aria-label="Export as Rich Text Format"
+                    >
+                        <Type className="mr-2 h-4 w-4" aria-hidden="true" />
                         Rich Text (RTF)
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onExportTXT}>
-                        <FileText className="mr-2 h-4 w-4" />
+                    <DropdownMenuItem 
+                        onClick={onExportTXT}
+                        aria-label="Export as plain text"
+                    >
+                        <FileText className="mr-2 h-4 w-4" aria-hidden="true" />
                         Plain Text (TXT)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                        onClick={onExportMarkdown}
+                        aria-label="Export as Markdown"
+                    >
+                        <FileText className="mr-2 h-4 w-4 text-orange-400/80" aria-hidden="true" />
+                        Markdown (.md)
                     </DropdownMenuItem>
                 </DropdownMenuContent>
             </DropdownMenu>

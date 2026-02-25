@@ -15,6 +15,14 @@ export interface ColumnCombination {
     isCustom?: boolean;
 }
 
+export type PdfColumnLayout = 1 | 2 | 3;
+
+export interface PdfExportSettings {
+    layoutColumns?: PdfColumnLayout;
+    preserveHighlightColors?: boolean;
+    title?: string;
+}
+
 export interface CustomCombination extends ColumnCombination {
     isCustom: true;
     createdAt: string;
@@ -64,6 +72,7 @@ export interface PrintPreset {
     alternateRowColors: boolean;
     compactMode: boolean;
     physicianName?: string;
+    pdf?: PdfExportSettings;
     createdAt: string;
 }
 
@@ -85,6 +94,7 @@ export interface PrintSettings {
     alternateRowColors: boolean;
     compactMode: boolean;
     physicianName?: string;
+    pdf?: PdfExportSettings;
     activeTab: string;
     showNotesColumn: boolean;
     showTodosColumn: boolean;

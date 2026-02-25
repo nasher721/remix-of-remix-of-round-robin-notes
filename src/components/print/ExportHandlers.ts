@@ -1,5 +1,6 @@
 import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
+import type { PdfColumnLayout, PdfExportSettings } from '@/lib/print/types';
 import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
 import { stripHtml, formatTodosForDisplay, formatMedicationsText } from './utils';
@@ -9,23 +10,109 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2pdf from 'html2pdf.js';
 
-// Extract dominant color from HTML string for PDF export
-const extractDominantColor = (html: string): { r: number; g: number; b: number } | null => {
+type RgbColor = { r: number; g: number; b: number };
+
+interface PdfRenderableColumn {
+  id: string;
+  label: string;
+  type: 'single' | 'combined';
+  sourceKeys: string[];
+}
+
+interface PdfCellData {
+  text: string;
+  color: RgbColor | null;
+}
+
+interface PdfMarginConfig {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+interface PdfTypographyConfig {
+  titleFontSize: number;
+  metaFontSize: number;
+  bodyFontSize: number;
+  lineHeight: number;
+  cellPadding: number;
+}
+
+interface PdfLayoutMetrics {
+  margins: PdfMarginConfig;
+  contentTop: number;
+  contentBottom: number;
+  pageWidth: number;
+  pageHeight: number;
+}
+
+const PDF_MARGIN_MM_BY_SETTING = {
+  narrow: 10,
+  normal: 15,
+  wide: 20,
+} as const;
+
+const PDF_DEFAULT_TITLE = 'Patient Rounding Report';
+const PDF_ACCENT_COLOR: [number, number, number] = [30, 64, 175];
+const PDF_BORDER_COLOR: [number, number, number] = [203, 213, 225];
+const PDF_ALTERNATE_ROW_COLOR: [number, number, number] = [248, 250, 252];
+
+const isNearBlack = (color: RgbColor): boolean => color.r < 40 && color.g < 40 && color.b < 40;
+
+const normalizePdfText = (text: string): string =>
+  text
+    .replace(/\u00a0/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const getPdfFileName = () => `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
+
+const clampNumber = (value: number, min: number, max: number): number => {
+  if (Number.isNaN(value)) return min;
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+};
+
+const tintColor = (color: RgbColor, tintFactor: number = 0.9): RgbColor => ({
+  r: Math.round(color.r + (255 - color.r) * tintFactor),
+  g: Math.round(color.g + (255 - color.g) * tintFactor),
+  b: Math.round(color.b + (255 - color.b) * tintFactor),
+});
+
+const extractDominantColor = (html: string): RgbColor | null => {
   if (!html) return null;
   const temp = document.createElement('div');
   temp.innerHTML = html;
 
-  // Find first element with a color style
-  const elementsWithColor = temp.querySelectorAll('[style*="color"]');
+  const elementsWithColor = temp.querySelectorAll('[style*="color"], [style*="background-color"]');
+  let fallbackColor: RgbColor | null = null;
+
   for (const el of elementsWithColor) {
     const style = el.getAttribute('style') || '';
+
+    const backgroundColorMatch = style.match(/(?:^|;)\s*background-color\s*:\s*([^;]+)/i);
+    if (backgroundColorMatch) {
+      const parsedBackgroundColor = parseColor(backgroundColorMatch[1].trim());
+      if (parsedBackgroundColor) {
+        return parsedBackgroundColor;
+      }
+    }
+
     const colorMatch = style.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i);
     if (colorMatch) {
       const color = parseColor(colorMatch[1].trim());
-      if (color) return color;
+      if (color && !isNearBlack(color)) {
+        return color;
+      }
+      if (color && !fallbackColor) {
+        fallbackColor = color;
+      }
     }
   }
-  return null;
+
+  return fallbackColor;
 };
 
 // Convert HTML to text while preserving structure indicators
@@ -46,6 +133,10 @@ const htmlToStructuredText = (html: string): string => {
       switch (tag) {
         case 'br': return '\n';
         case 'p': return children + '\n';
+        case 'div':
+        case 'section':
+        case 'article':
+          return children + '\n';
         case 'li': return '• ' + children + '\n';
         case 'ul':
         case 'ol': return children;
@@ -55,7 +146,7 @@ const htmlToStructuredText = (html: string): string => {
     return '';
   };
 
-  return Array.from(temp.childNodes).map(processNode).join('').trim();
+  return normalizePdfText(Array.from(temp.childNodes).map(processNode).join(''));
 };
 
 interface ExportContext {
@@ -76,10 +167,553 @@ interface ExportContext {
   patientNotes: Record<string, string>;
   isFiltered?: boolean;
   totalPatientCount?: number;
+  showPageNumbers?: boolean;
+  showTimestamp?: boolean;
+  physicianName?: string;
+  pdf?: PdfExportSettings;
 }
 
 const getEnabledSystemKeys = (isColumnEnabled: (key: string) => boolean) =>
   systemKeys.filter(key => isColumnEnabled(`systems.${key}`));
+
+const resolvePdfFontFamily = (fontFamily: string): 'helvetica' | 'times' | 'courier' => {
+  if (fontFamily === 'times' || fontFamily === 'georgia') return 'times';
+  if (fontFamily === 'courier') return 'courier';
+  return 'helvetica';
+};
+
+const getPdfTypography = (ctx: ExportContext): PdfTypographyConfig => {
+  const bodyFontSize = clampNumber(ctx.printFontSize, 7, 12);
+  return {
+    titleFontSize: clampNumber(bodyFontSize + 4, 12, 18),
+    metaFontSize: clampNumber(bodyFontSize - 1, 8, 11),
+    bodyFontSize,
+    lineHeight: clampNumber(bodyFontSize * 0.43, 3.2, 5.2),
+    cellPadding: bodyFontSize <= 8 ? 1.6 : 2.2,
+  };
+};
+
+const getPdfMargins = (setting: ExportContext['margins']): PdfMarginConfig => {
+  const marginValue = PDF_MARGIN_MM_BY_SETTING[setting] ?? PDF_MARGIN_MM_BY_SETTING.normal;
+  return {
+    top: marginValue,
+    right: marginValue,
+    bottom: marginValue,
+    left: marginValue,
+  };
+};
+
+const getPdfLayoutMetrics = (doc: jsPDF, ctx: ExportContext): PdfLayoutMetrics => {
+  const margins = getPdfMargins(ctx.margins);
+  return {
+    margins,
+    contentTop: margins.top + 14,
+    contentBottom: margins.bottom + 8,
+    pageWidth: doc.internal.pageSize.getWidth(),
+    pageHeight: doc.internal.pageSize.getHeight(),
+  };
+};
+
+const isFieldEnabled = (ctx: ExportContext, fieldKey: string): boolean => {
+  if (fieldKey === 'todos') return ctx.showTodosColumn;
+  if (fieldKey === 'notes') return ctx.showNotesColumn || ctx.isColumnEnabled('notes');
+  return ctx.isColumnEnabled(fieldKey);
+};
+
+const FALLBACK_COLUMN_LABELS: Record<string, string> = {
+  patient: 'Patient',
+  clinicalSummary: 'Clinical Summary',
+  intervalEvents: 'Interval Events',
+  imaging: 'Imaging',
+  labs: 'Labs',
+  medications: 'Medications',
+  todos: 'Todos',
+  notes: 'Notes',
+};
+
+const resolveColumnLabel = (ctx: ExportContext, key: string): string => {
+  if (key.startsWith('systems.')) {
+    const systemKey = key.replace('systems.', '') as keyof typeof systemLabels;
+    return systemLabels[systemKey] || key;
+  }
+
+  const configuredLabel = ctx.columns.find(column => column.key === key)?.label;
+  return configuredLabel || FALLBACK_COLUMN_LABELS[key] || key;
+};
+
+const resolveColumnWeight = (ctx: ExportContext, column: PdfRenderableColumn): number => {
+  const getWeightFromFieldKey = (fieldKey: string): number => {
+    if (fieldKey === 'clinicalSummary') return ctx.columnWidths.summary || 150;
+    if (fieldKey === 'intervalEvents') return ctx.columnWidths.events || 150;
+    if (fieldKey === 'patient') return ctx.columnWidths.patient || 100;
+    if (fieldKey === 'notes') return ctx.columnWidths.notes || 140;
+    if (fieldKey === 'todos') return ctx.columnWidths.todos || 140;
+    if (fieldKey === 'imaging') return ctx.columnWidths.imaging || 120;
+    if (fieldKey === 'labs') return ctx.columnWidths.labs || 120;
+    if (fieldKey === 'medications') return ctx.columnWidths.medications || 150;
+    if (fieldKey.startsWith('systems.')) {
+      return ctx.columnWidths[fieldKey] || ctx.columnWidths['systems.neuro'] || 90;
+    }
+    return ctx.columnWidths[fieldKey] || 120;
+  };
+
+  if (column.type === 'combined') {
+    const combinedWeight = column.sourceKeys.reduce((sum, sourceKey) => sum + getWeightFromFieldKey(sourceKey), 0);
+    return combinedWeight || 200;
+  }
+
+  return getWeightFromFieldKey(column.sourceKeys[0]);
+};
+
+const buildRenderableColumns = (ctx: ExportContext): PdfRenderableColumn[] => {
+  const renderColumns: PdfRenderableColumn[] = [];
+  const processedKeys = new Set<string>();
+
+  (ctx.combinedColumns || []).forEach(comboKey => {
+    const combination = columnCombinations.find(combo => combo.key === comboKey);
+    if (!combination) return;
+
+    const activeSourceKeys = combination.columns.filter(columnKey => isFieldEnabled(ctx, columnKey));
+    if (activeSourceKeys.length === 0) return;
+
+    renderColumns.push({
+      id: combination.key,
+      label: combination.label,
+      type: 'combined',
+      sourceKeys: activeSourceKeys,
+    });
+
+    activeSourceKeys.forEach(columnKey => processedKeys.add(columnKey));
+  });
+
+  ctx.columns.forEach(column => {
+    if (processedKeys.has(column.key)) return;
+    if (!isFieldEnabled(ctx, column.key)) return;
+
+    renderColumns.push({
+      id: column.key,
+      label: resolveColumnLabel(ctx, column.key),
+      type: 'single',
+      sourceKeys: [column.key],
+    });
+  });
+
+  if (renderColumns.length === 0) {
+    return [
+      {
+        id: 'patient',
+        label: 'Patient',
+        type: 'single',
+        sourceKeys: ['patient'],
+      },
+    ];
+  }
+
+  return renderColumns.sort((a, b) => {
+    if (a.id === 'patient') return -1;
+    if (b.id === 'patient') return 1;
+    return 0;
+  });
+};
+
+const getPatientFieldCellData = (ctx: ExportContext, patient: Patient, fieldKey: string): PdfCellData => {
+  if (fieldKey === 'patient') {
+    return {
+      text: normalizePdfText(`${patient.name || 'Unnamed'}\nBed: ${patient.bed || '-'}`),
+      color: null,
+    };
+  }
+
+  if (fieldKey === 'clinicalSummary') {
+    return {
+      text: htmlToStructuredText(patient.clinicalSummary),
+      color: extractDominantColor(patient.clinicalSummary),
+    };
+  }
+
+  if (fieldKey === 'intervalEvents') {
+    return {
+      text: htmlToStructuredText(patient.intervalEvents),
+      color: extractDominantColor(patient.intervalEvents),
+    };
+  }
+
+  if (fieldKey === 'imaging') {
+    return {
+      text: htmlToStructuredText(patient.imaging),
+      color: extractDominantColor(patient.imaging),
+    };
+  }
+
+  if (fieldKey === 'labs') {
+    return {
+      text: htmlToStructuredText(patient.labs),
+      color: extractDominantColor(patient.labs),
+    };
+  }
+
+  if (fieldKey === 'medications') {
+    return {
+      text: normalizePdfText(formatMedicationsText(patient.medications)),
+      color: null,
+    };
+  }
+
+  if (fieldKey.startsWith('systems.')) {
+    const systemKey = fieldKey.replace('systems.', '') as keyof typeof patient.systems;
+    const value = patient.systems[systemKey];
+    return {
+      text: htmlToStructuredText(value),
+      color: extractDominantColor(value),
+    };
+  }
+
+  if (fieldKey === 'todos') {
+    return {
+      text: normalizePdfText(formatTodosForDisplay(ctx.getPatientTodos(patient.id))),
+      color: null,
+    };
+  }
+
+  if (fieldKey === 'notes') {
+    return {
+      text: normalizePdfText(ctx.patientNotes[patient.id] || ''),
+      color: null,
+    };
+  }
+
+  const fallbackValue = patient[fieldKey as keyof Patient];
+  if (typeof fallbackValue === 'string') {
+    return {
+      text: htmlToStructuredText(fallbackValue),
+      color: extractDominantColor(fallbackValue),
+    };
+  }
+
+  return {
+    text: '',
+    color: null,
+  };
+};
+
+const getColumnCellData = (ctx: ExportContext, patient: Patient, column: PdfRenderableColumn): PdfCellData => {
+  if (column.type === 'single') {
+    return getPatientFieldCellData(ctx, patient, column.sourceKeys[0]);
+  }
+
+  const sectionBlocks: string[] = [];
+  let combinedColor: RgbColor | null = null;
+
+  column.sourceKeys.forEach(sourceKey => {
+    const sectionData = getPatientFieldCellData(ctx, patient, sourceKey);
+    if (!sectionData.text) return;
+
+    sectionBlocks.push(`${resolveColumnLabel(ctx, sourceKey)}:\n${sectionData.text}`);
+    if (!combinedColor && sectionData.color) {
+      combinedColor = sectionData.color;
+    }
+  });
+
+  return {
+    text: normalizePdfText(sectionBlocks.join('\n\n')),
+    color: combinedColor,
+  };
+};
+
+const resolvePdfLayoutColumns = (ctx: ExportContext, renderColumnCount: number): { columns: PdfColumnLayout; explicit: boolean } => {
+  const explicitColumns = ctx.pdf?.layoutColumns;
+  if (explicitColumns === 1 || explicitColumns === 2 || explicitColumns === 3) {
+    return {
+      columns: explicitColumns,
+      explicit: true,
+    };
+  }
+
+  if (ctx.printOrientation === 'landscape') {
+    if (ctx.printFontSize <= 7) {
+      return {
+        columns: 3,
+        explicit: false,
+      };
+    }
+
+    if (renderColumnCount <= 6 || ctx.printFontSize <= 9) {
+      return {
+        columns: 2,
+        explicit: false,
+      };
+    }
+  }
+
+  return {
+    columns: 1,
+    explicit: false,
+  };
+};
+
+const applyPdfHeaderAndFooter = (
+  doc: jsPDF,
+  ctx: ExportContext,
+  metrics: PdfLayoutMetrics,
+  typography: PdfTypographyConfig,
+  generatedAt: string,
+  pdfFontFamily: 'helvetica' | 'times' | 'courier'
+) => {
+  const totalPages = doc.getNumberOfPages();
+  const title = normalizePdfText(ctx.pdf?.title || PDF_DEFAULT_TITLE) || PDF_DEFAULT_TITLE;
+  const showTimestamp = ctx.showTimestamp !== false;
+  const showPageNumbers = ctx.showPageNumbers !== false;
+
+  for (let page = 1; page <= totalPages; page += 1) {
+    doc.setPage(page);
+
+    doc.setFont(pdfFontFamily, 'bold');
+    doc.setFontSize(typography.titleFontSize);
+    doc.setTextColor(...PDF_ACCENT_COLOR);
+    doc.text(title, metrics.margins.left, metrics.margins.top - 1);
+
+    doc.setFont(pdfFontFamily, 'normal');
+    doc.setFontSize(typography.metaFontSize);
+    doc.setTextColor(71, 85, 105);
+
+    if (ctx.physicianName) {
+      doc.text(ctx.physicianName, metrics.margins.left, metrics.margins.top + 4);
+    }
+
+    const totalPatientsLabel = `Total Patients: ${ctx.patients.length}`;
+    doc.text(totalPatientsLabel, metrics.pageWidth - metrics.margins.right, metrics.margins.top + 4, { align: 'right' });
+
+    doc.setDrawColor(...PDF_BORDER_COLOR);
+    doc.setLineWidth(0.2);
+    doc.line(metrics.margins.left, metrics.margins.top + 6, metrics.pageWidth - metrics.margins.right, metrics.margins.top + 6);
+
+    const footerY = metrics.pageHeight - metrics.margins.bottom + 3;
+    doc.line(
+      metrics.margins.left,
+      metrics.pageHeight - metrics.margins.bottom - 4,
+      metrics.pageWidth - metrics.margins.right,
+      metrics.pageHeight - metrics.margins.bottom - 4
+    );
+
+    if (showTimestamp) {
+      doc.text(`Generated: ${generatedAt}`, metrics.margins.left, footerY);
+    }
+
+    if (showPageNumbers) {
+      doc.text(`Page ${page} of ${totalPages}`, metrics.pageWidth - metrics.margins.right, footerY, { align: 'right' });
+    }
+  }
+};
+
+const renderPdfTableLayout = (
+  doc: jsPDF,
+  ctx: ExportContext,
+  renderColumns: PdfRenderableColumn[],
+  metrics: PdfLayoutMetrics,
+  typography: PdfTypographyConfig,
+  pdfFontFamily: 'helvetica' | 'times' | 'courier'
+) => {
+  const preserveHighlightColors = ctx.pdf?.preserveHighlightColors !== false;
+
+  const tableRowsWithColors: PdfCellData[][] = ctx.patients.map(patient =>
+    renderColumns.map(column => {
+      const cellData = getColumnCellData(ctx, patient, column);
+      return {
+        text: cellData.text || '—',
+        color: cellData.color,
+      };
+    })
+  );
+
+  const tableData = tableRowsWithColors.map(row => row.map(cell => cell.text));
+  const totalWeight = renderColumns.reduce((sum, column) => sum + resolveColumnWeight(ctx, column), 0) || 1;
+  const usableWidth = metrics.pageWidth - metrics.margins.left - metrics.margins.right;
+
+  const columnStyles = renderColumns.reduce((styles, column, index) => {
+    const normalizedWidth = (resolveColumnWeight(ctx, column) / totalWeight) * usableWidth;
+    styles[index] = {
+      cellWidth: Math.max(24, normalizedWidth),
+    };
+    return styles;
+  }, {} as Record<number, { cellWidth: number }>);
+
+  autoTable(doc, {
+    head: [renderColumns.map(column => column.label)],
+    body: tableData,
+    startY: metrics.contentTop,
+    margin: {
+      top: metrics.contentTop,
+      left: metrics.margins.left,
+      right: metrics.margins.right,
+      bottom: metrics.contentBottom,
+    },
+    showHead: 'everyPage',
+    rowPageBreak: 'auto',
+    tableWidth: 'auto',
+    styles: {
+      font: pdfFontFamily,
+      fontSize: typography.bodyFontSize,
+      cellPadding: typography.cellPadding,
+      overflow: 'linebreak',
+      lineWidth: 0.1,
+      lineColor: PDF_BORDER_COLOR,
+      textColor: [15, 23, 42],
+      valign: 'top',
+      minCellHeight: typography.lineHeight + 2,
+    },
+    headStyles: {
+      fillColor: PDF_ACCENT_COLOR,
+      textColor: 255,
+      fontStyle: 'bold',
+      font: pdfFontFamily,
+      fontSize: clampNumber(typography.bodyFontSize + 0.5, 8, 12),
+      cellPadding: typography.cellPadding + 0.2,
+    },
+    alternateRowStyles: {
+      fillColor: PDF_ALTERNATE_ROW_COLOR,
+    },
+    columnStyles,
+    didParseCell: data => {
+      if (data.section !== 'body') return;
+
+      const rowIndex = data.row.index;
+      const columnIndex = data.column.index;
+      const cellData = tableRowsWithColors[rowIndex]?.[columnIndex];
+      if (!cellData?.color || !preserveHighlightColors) return;
+
+      data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
+      const tintedColor = tintColor(cellData.color, 0.92);
+      data.cell.styles.fillColor = [tintedColor.r, tintedColor.g, tintedColor.b];
+    },
+  });
+};
+
+const renderPdfMultiColumnLayout = (
+  doc: jsPDF,
+  ctx: ExportContext,
+  renderColumns: PdfRenderableColumn[],
+  layoutColumns: PdfColumnLayout,
+  metrics: PdfLayoutMetrics,
+  typography: PdfTypographyConfig,
+  pdfFontFamily: 'helvetica' | 'times' | 'courier'
+) => {
+  const preserveHighlightColors = ctx.pdf?.preserveHighlightColors !== false;
+
+  const patientCards: PdfCellData[] = ctx.patients.map(patient => {
+    const cardSections: string[] = [];
+    let cardColor: RgbColor | null = null;
+
+    const patientHeader = getPatientFieldCellData(ctx, patient, 'patient');
+    if (patientHeader.text) {
+      cardSections.push(patientHeader.text);
+    }
+
+    renderColumns
+      .filter(column => column.id !== 'patient')
+      .forEach(column => {
+        const columnData = getColumnCellData(ctx, patient, column);
+        if (!columnData.text) return;
+
+        cardSections.push(`${column.label.toUpperCase()}:\n${columnData.text}`);
+        if (!cardColor && columnData.color) {
+          cardColor = columnData.color;
+        }
+      });
+
+    return {
+      text: normalizePdfText(cardSections.join('\n\n')),
+      color: cardColor,
+    };
+  });
+
+  const rowsWithColors: PdfCellData[][] = [];
+  for (let index = 0; index < patientCards.length; index += layoutColumns) {
+    const row: PdfCellData[] = [];
+    for (let columnIndex = 0; columnIndex < layoutColumns; columnIndex += 1) {
+      row.push(patientCards[index + columnIndex] || { text: '', color: null });
+    }
+    rowsWithColors.push(row);
+  }
+
+  const bodyRows = rowsWithColors.map(row => row.map(cell => cell.text || ' '));
+  const usableWidth = metrics.pageWidth - metrics.margins.left - metrics.margins.right;
+  const cardColumnWidth = usableWidth / layoutColumns;
+
+  const columnStyles = Array.from({ length: layoutColumns }).reduce<Record<number, { cellWidth: number }>>(
+    (styles, _, index) => {
+      styles[index] = {
+        cellWidth: cardColumnWidth,
+      };
+      return styles;
+    },
+    {}
+  );
+
+  autoTable(doc, {
+    body: bodyRows,
+    startY: metrics.contentTop,
+    margin: {
+      top: metrics.contentTop,
+      left: metrics.margins.left,
+      right: metrics.margins.right,
+      bottom: metrics.contentBottom,
+    },
+    rowPageBreak: 'avoid',
+    tableWidth: 'auto',
+    styles: {
+      font: pdfFontFamily,
+      fontSize: clampNumber(typography.bodyFontSize - (layoutColumns === 3 ? 1 : 0), 6.5, 11),
+      cellPadding: layoutColumns === 3 ? 1.4 : 2,
+      overflow: 'linebreak',
+      lineWidth: 0.12,
+      lineColor: PDF_BORDER_COLOR,
+      textColor: [15, 23, 42],
+      valign: 'top',
+      minCellHeight: layoutColumns === 3 ? 34 : 42,
+    },
+    alternateRowStyles: {
+      fillColor: PDF_ALTERNATE_ROW_COLOR,
+    },
+    columnStyles,
+    didParseCell: data => {
+      if (data.section !== 'body') return;
+
+      const rowIndex = data.row.index;
+      const columnIndex = data.column.index;
+      const cellData = rowsWithColors[rowIndex]?.[columnIndex];
+      if (!cellData?.color || !preserveHighlightColors) return;
+
+      data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
+      const cardTint = tintColor(cellData.color, 0.94);
+      data.cell.styles.fillColor = [cardTint.r, cardTint.g, cardTint.b];
+    },
+  });
+};
+
+const exportWithHtml2PdfFallback = async (ctx: ExportContext, element: HTMLElement, fileName: string) => {
+  await html2pdf()
+    .set({
+      filename: fileName,
+      margin: 0,
+      image: {
+        type: 'jpeg',
+        quality: 0.98,
+      },
+      html2canvas: {
+        scale: 2.5,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: ctx.printOrientation,
+      },
+    })
+    .from(element)
+    .save();
+};
 
 export const handleExportExcel = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
@@ -142,158 +776,46 @@ export const handleExportExcel = (ctx: ExportContext) => {
 };
 
 export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement | null) => {
-  const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
-  const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
+  const fileName = getPdfFileName();
+  const generatedAt = new Date().toLocaleString();
 
-  if (element) {
-    const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
-    await html2pdf()
-      .set({
-        filename: fileName,
-        margin: 0,
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-        },
-        jsPDF: {
-          unit: 'mm',
-          format: 'a4',
-          orientation: ctx.printOrientation,
-        },
-      })
-      .from(element)
-      .save();
+  try {
+    const doc = new jsPDF({
+      orientation: ctx.printOrientation,
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pdfFontFamily = resolvePdfFontFamily(ctx.printFontFamily);
+    const typography = getPdfTypography(ctx);
+    const metrics = getPdfLayoutMetrics(doc, ctx);
+    const renderColumns = buildRenderableColumns(ctx);
+    const { columns: layoutColumns, explicit } = resolvePdfLayoutColumns(ctx, renderColumns.length);
+
+    const shouldUseMultiColumnLayout =
+      !ctx.onePatientPerPage && layoutColumns > 1 && (explicit || renderColumns.length <= 8);
+
+    doc.setFont(pdfFontFamily, 'normal');
+
+    if (shouldUseMultiColumnLayout) {
+      renderPdfMultiColumnLayout(doc, ctx, renderColumns, layoutColumns, metrics, typography, pdfFontFamily);
+    } else {
+      renderPdfTableLayout(doc, ctx, renderColumns, metrics, typography, pdfFontFamily);
+    }
+
+    applyPdfHeaderAndFooter(doc, ctx, metrics, typography, generatedAt, pdfFontFamily);
+    doc.save(fileName);
+
+    return fileName;
+  } catch (error) {
+    console.error('jsPDF export failed, attempting html2pdf fallback:', error);
+    if (!element) {
+      throw error;
+    }
+
+    await exportWithHtml2PdfFallback(ctx, element, fileName);
     return fileName;
   }
-
-  const doc = new jsPDF({
-    orientation: ctx.printOrientation,
-    unit: 'mm',
-    format: 'a4'
-  });
-
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("Patient Rounding Report", 14, 15);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
-  doc.text(`Total Patients: ${patients.length}`, 14, 27);
-
-  const headers: string[] = [];
-  if (isColumnEnabled("patient")) headers.push("Patient", "Bed");
-  if (isColumnEnabled("clinicalSummary")) headers.push("Summary");
-  if (isColumnEnabled("intervalEvents")) headers.push("Events");
-  if (isColumnEnabled("imaging")) headers.push("Imaging");
-  if (isColumnEnabled("labs")) headers.push("Labs");
-  if (isColumnEnabled("medications")) headers.push("Medications");
-  enabledSystemKeys.forEach(key => {
-    headers.push(systemLabels[key]);
-  });
-  if (showTodosColumn) headers.push("Todos");
-  if (isColumnEnabled("notes")) headers.push("Notes");
-
-  // Build table data with color information for each cell
-  type CellData = { text: string; color: { r: number; g: number; b: number } | null };
-  const tableDataWithColors: CellData[][] = patients.map(patient => {
-    const row: CellData[] = [];
-
-    if (isColumnEnabled("patient")) {
-      row.push({ text: patient.name || "Unnamed", color: null });
-      row.push({ text: patient.bed || "-", color: null });
-    }
-    if (isColumnEnabled("clinicalSummary")) {
-      row.push({
-        text: htmlToStructuredText(patient.clinicalSummary),
-        color: extractDominantColor(patient.clinicalSummary)
-      });
-    }
-    if (isColumnEnabled("intervalEvents")) {
-      row.push({
-        text: htmlToStructuredText(patient.intervalEvents),
-        color: extractDominantColor(patient.intervalEvents)
-      });
-    }
-    if (isColumnEnabled("imaging")) {
-      row.push({
-        text: htmlToStructuredText(patient.imaging),
-        color: extractDominantColor(patient.imaging)
-      });
-    }
-    if (isColumnEnabled("labs")) {
-      row.push({
-        text: htmlToStructuredText(patient.labs),
-        color: extractDominantColor(patient.labs)
-      });
-    }
-    if (isColumnEnabled("medications")) {
-      row.push({
-        text: formatMedicationsText(patient.medications),
-        color: null
-      });
-    }
-    enabledSystemKeys.forEach(key => {
-      const value = patient.systems[key as keyof typeof patient.systems];
-      row.push({
-        text: htmlToStructuredText(value),
-        color: extractDominantColor(value)
-      });
-    });
-    if (showTodosColumn) {
-      const todos = getPatientTodos(patient.id);
-      row.push({ text: formatTodosForDisplay(todos), color: null });
-    }
-    if (isColumnEnabled("notes")) {
-      row.push({ text: patientNotes[patient.id] || "", color: null });
-    }
-
-    return row;
-  });
-
-  // Extract just the text for the table body
-  const tableData = tableDataWithColors.map(row => row.map(cell => cell.text));
-
-  autoTable(doc, {
-    head: [headers],
-    body: tableData,
-    startY: 32,
-    styles: {
-      fontSize: 6,
-      cellPadding: 2,
-      overflow: 'linebreak',
-      lineWidth: 0.1,
-      cellWidth: 'wrap',
-    },
-    headStyles: {
-      fillColor: [59, 130, 246],
-      textColor: 255,
-      fontStyle: 'bold',
-      fontSize: 6
-    },
-    alternateRowStyles: {
-      fillColor: [245, 247, 250]
-    },
-    margin: { top: 32, left: 10, right: 10 },
-    tableWidth: 'auto',
-    showHead: 'everyPage',
-    rowPageBreak: 'auto',
-    // Apply colors to cells that have them
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.row.index !== undefined && data.column.index !== undefined) {
-        const cellData = tableDataWithColors[data.row.index]?.[data.column.index];
-        if (cellData?.color) {
-          data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
-        }
-      }
-    }
-  });
-
-  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
-  doc.save(fileName);
-
-  return fileName;
 };
 
 export const handleExportTXT = (ctx: ExportContext) => {
@@ -626,6 +1148,79 @@ export const handleExportDOC = (ctx: ExportContext) => {
   const link = document.createElement('a');
   link.href = url;
   const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.doc`;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  return fileName;
+};
+
+export const handleExportMarkdown = (ctx: ExportContext) => {
+  const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
+  const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
+
+  let content = `# Patient Rounding Report\n`;
+  content += `**Generated:** ${new Date().toLocaleString()}\n`;
+  content += `**Total Patients:** ${patients.length}\n\n`;
+
+  patients.forEach((patient, index) => {
+    content += `## Patient ${index + 1}: ${patient.name || 'Unnamed'}\n`;
+    content += `**Bed/Room:** ${patient.bed || 'N/A'}\n\n`;
+
+    if (isColumnEnabled("clinicalSummary") && patient.clinicalSummary) {
+      content += `### Clinical Summary\n${stripHtml(patient.clinicalSummary)}\n\n`;
+    }
+    if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
+      content += `### Interval Events\n${stripHtml(patient.intervalEvents)}\n\n`;
+    }
+    if (isColumnEnabled("imaging") && patient.imaging) {
+      content += `### Imaging\n${stripHtml(patient.imaging)}\n\n`;
+    }
+    if (isColumnEnabled("labs") && patient.labs) {
+      content += `### Labs\n${stripHtml(patient.labs)}\n\n`;
+    }
+    if (isColumnEnabled("medications")) {
+      const medsText = formatMedicationsText(patient.medications);
+      if (medsText) {
+        content += `### Medications\n${medsText}\n\n`;
+      }
+    }
+
+    if (enabledSystemKeys.length > 0) {
+      content += `### Systems Review\n`;
+      enabledSystemKeys.forEach(key => {
+        const value = patient.systems[key as keyof typeof patient.systems];
+        if (value) {
+          content += `#### ${systemLabels[key]}\n${stripHtml(value)}\n\n`;
+        }
+      });
+    }
+
+    if (showTodosColumn) {
+      const todos = getPatientTodos(patient.id);
+      if (todos.length > 0) {
+        content += `### Todos\n`;
+        todos.forEach(todo => {
+          content += `- [${todo.completed ? 'x' : ' '}] ${todo.content}\n`;
+        });
+        content += `\n`;
+      }
+    }
+
+    if (isColumnEnabled("notes") && patientNotes[patient.id]) {
+      content += `### Notes\n${patientNotes[patient.id]}\n\n`;
+    }
+
+    content += `---\n\n`;
+  });
+
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.md`;
   link.download = fileName;
   document.body.appendChild(link);
   link.click();

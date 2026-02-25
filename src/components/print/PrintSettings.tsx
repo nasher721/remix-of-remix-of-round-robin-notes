@@ -70,7 +70,7 @@ export function PrintSettings({
   const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
   const [editingCombination, setEditingCombination] = React.useState<CustomCombination | undefined>();
 
-  const fontFamilies = [
+  const fontFamilies = React.useMemo(() => [
     { value: 'system', label: 'System Default' },
     { value: 'arial', label: 'Arial' },
     { value: 'times', label: 'Times New Roman' },
@@ -78,7 +78,8 @@ export function PrintSettings({
     { value: 'courier', label: 'Courier New' },
     { value: 'verdana', label: 'Verdana' },
     { value: 'trebuchet', label: 'Trebuchet MS' },
-  ];
+  ], []);
+
 
   const handleToggleColumn = (key: string) => {
     const updatedColumns = settings.columns.map(col =>
@@ -99,10 +100,11 @@ export function PrintSettings({
 
   const systemKeys = SYSTEM_KEYS;
   const systemLabels = SYSTEM_LABELS_SHORT;
-  const combinedWidthOptions = [
+  const combinedWidthOptions = React.useMemo(() => [
     ...columnCombinations,
     ...customCombinations
-  ];
+  ], [customCombinations]);
+
 
   return (
     <div className="space-y-6">
@@ -488,7 +490,7 @@ export function PrintSettings({
 
         <ScrollArea className="h-[300px] pr-4 border rounded-md p-2">
           <div className="space-y-2">
-            {settings.columns.filter(c => !c.key.startsWith('systems.')).map(col => (
+            {/* Performance Note: For very large patient lists, consider virtualization for the preview */ settings.columns.filter(c => !c.key.startsWith('systems.')).map(col => (
               <div key={col.key} className="flex items-center space-x-2">
                 <Checkbox
                   id={`col-${col.key}`}

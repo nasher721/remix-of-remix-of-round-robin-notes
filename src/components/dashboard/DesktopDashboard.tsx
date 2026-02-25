@@ -32,6 +32,7 @@ import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
 import { LiveRegion } from "@/components/LiveRegion";
+import { AICommandPalette, useAICommandPalette } from "@/components/tools/AICommandPalette";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ import {
   FileText,
   ChevronsUpDown,
   Stethoscope,
+  Sparkles,
 } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import {
@@ -103,6 +105,7 @@ export const DesktopDashboard = () => {
   const [showPrintModal, setShowPrintModal] = React.useState(false);
   const [showPhraseManager, setShowPhraseManager] = React.useState(false);
   const [showComparisonModal, setShowComparisonModal] = React.useState(false);
+  const { isOpen: isAICommandPaletteOpen, setIsOpen: setAICommandPaletteOpen } = useAICommandPalette();
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   useKeyboardShortcuts({
@@ -426,6 +429,13 @@ export const DesktopDashboard = () => {
                 <div className="space-y-3">
                   <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Clinical Intelligence</h3>
                   <div className="space-y-2">
+                    <Button 
+                      onClick={() => setAICommandPaletteOpen(true)} 
+                      className="w-full justify-start gap-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-600 dark:text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20 border border-purple-500/20"
+                    >
+                      <Sparkles className="h-4 w-4" /> AI Assistant
+                      <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
+                    </Button>
                     <ClinicalRiskCalculator />
                     <TimelineDialog />
                     <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />

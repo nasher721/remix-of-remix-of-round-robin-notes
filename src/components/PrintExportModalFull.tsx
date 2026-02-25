@@ -33,6 +33,7 @@ import {
   handleExportTXT,
   handleExportRTF,
   handleExportDOC,
+  handleExportMarkdown,
 } from "./print/ExportHandlers";
 
 export interface PatientTodosMap {
@@ -604,6 +605,16 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }
   };
 
+  const onExportMarkdown = () => {
+    try {
+      const fileName = handleExportMarkdown(getExportContext());
+      toast({ title: "Markdown Export Complete", description: fileName });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Export Failed", variant: "destructive" });
+    }
+  };
+
   // If layout designer is open, show it fullscreen
   if (showLayoutDesigner) {
     return (
@@ -649,6 +660,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                 onExportWord={onExportWord}
                 onExportTXT={onExportTXT}
                 onExportRTF={onExportRTF}
+                onExportMarkdown={onExportMarkdown}
                 isGenerating={isGenerating}
               />
             </div>
