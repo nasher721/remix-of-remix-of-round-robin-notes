@@ -16,8 +16,7 @@ import { PatientAcuityBadge } from "./PatientAcuityBadge";
 import { QuickActionsPanel } from "./QuickActionsPanel";
 import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
 import { LabTrendBadge } from "./LabTrendingPanel";
-import { AIGeneratorTools } from "./AIGeneratorTools";
-import { AIClinicalAssistant } from "./AIClinicalAssistant";
+import { AppleAIAssistant } from "./AppleAIAssistant";
 import { PatientSystemsReview } from "./PatientSystemsReview";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
@@ -159,8 +158,7 @@ const PatientCardComponent = ({
           {/* Quick Actions & Protocol Tools */}
           <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
           <SmartProtocolSuggestions patient={patient} />
-          <AIGeneratorTools patient={patient} onUpdatePatient={onUpdate} compact />
-          <AIClinicalAssistant patient={patient} onUpdatePatient={onUpdate} compact />
+          <AppleAIAssistant patient={patient} onUpdatePatient={onUpdate} compact />
           <div className="w-px h-4 bg-border/40 mx-1" />
           <FieldHistoryViewer
             patientId={patient.id}

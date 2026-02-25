@@ -232,37 +232,35 @@ export function MobileClinicalTools({
       </div>
 
       {/* AI Tools Section */}
-      <div className="space-y-3">
+      <div className="space-y-3 relative">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-          AI Tools
+          Apple Intelligence
         </h2>
-        
+
         <button
           onClick={onOpenBatchCourse}
-          className="w-full text-left active:scale-[0.98] transition-transform"
+          className="w-full text-left active:scale-[0.98] transition-all duration-300 relative group overflow-hidden rounded-2xl p-[1px]"
         >
-          <Card className="border-l-4 hover:bg-muted/50 transition-colors" style={{ borderLeftColor: '#8b5cf6' }}>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <div
-                  className="p-3 rounded-xl"
-                  style={{ backgroundColor: '#8b5cf615' }}
-                >
-                  <Sparkles className="h-6 w-6" style={{ color: '#8b5cf6' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">Batch Course Generator</h3>
-                    <Badge variant="outline" className="text-xs">AI</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    Generate courses for multiple patients
-                  </p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-60 group-hover:opacity-100 transition-opacity rounded-2xl" />
+          <div className="relative bg-background/90 backdrop-blur-xl border border-white/10 dark:border-white/5 rounded-[15px] p-4 h-full">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 shadow-inner">
+                <Sparkles className="h-6 w-6 text-purple-500 group-hover:scale-110 transition-transform duration-500" />
               </div>
-            </CardContent>
-          </Card>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+                    Batch Course Generator
+                  </h3>
+                  <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">AI</Badge>
+                </div>
+                <p className="text-sm text-foreground/70">
+                  Generate courses for multiple patients magically
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-purple-500 opacity-50 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </div>
         </button>
       </div>
 

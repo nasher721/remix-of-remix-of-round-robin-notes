@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
 import { DictationButton } from "./DictationButton";
-import { AITextTools } from "./AITextTools";
+import { AppleAIAssistant } from "./AppleAIAssistant";
 import { DocumentImport } from "./DocumentImport";
 import { PhrasePicker, PhraseFormDialog } from "./phrases";
 import { usePhraseExpansion } from "@/hooks/usePhraseExpansion";
@@ -1050,7 +1050,7 @@ export const RichTextEditor = ({
             <ShieldCheck className="h-3.5 w-3.5" />
             <span className="hidden sm:inline text-xs font-medium">Sense Check</span>
           </Button>
-          <AITextTools
+          <AppleAIAssistant
             getSelectedText={() => {
               const selection = window.getSelection();
               if (!selection || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
