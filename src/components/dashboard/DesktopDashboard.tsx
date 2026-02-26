@@ -293,6 +293,16 @@ export const DesktopDashboard = () => {
 
                 {/* Right controls */}
                 <div className="flex items-center gap-2">
+                  <Button
+                    onClick={handlePrint}
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Open print and export"
+                    className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
+                  >
+                    <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline text-xs" aria-hidden="true">Print / Export</span>
+                  </Button>
                   <SectionVisibilityPanel />
                   {patients.length > 0 && (
                     <Button
