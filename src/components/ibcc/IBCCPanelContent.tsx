@@ -72,6 +72,7 @@ function IBCCPanelContent() {
     isSearching,
     filteredChapters,
     contextSuggestions,
+    detailedMatches,
     bookmarkedChapters,
     recentChapters,
     activeCategory,
@@ -145,23 +146,59 @@ function IBCCPanelContent() {
         </div>
       </div>
 
-      {/* Context Suggestions */}
       {contextSuggestions.length > 0 && !searchQuery && (
         <div className="p-4 border-b border-border bg-primary/5">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <span className="text-xs font-medium text-primary">📋 Suggested for Current Patient</span>
+            <Badge variant="secondary" className="text-[10px]">
+              {contextSuggestions.length} found
+            </Badge>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {contextSuggestions.map(chapter => (
-              <Badge
-                key={chapter.id}
-                variant="outline"
-                className="cursor-pointer hover:bg-primary/10 border-primary/30 text-primary transition-colors"
-                onClick={() => viewChapter(chapter)}
-              >
-                {chapter.category.icon} {chapter.title}
-              </Badge>
-            ))}
+          <div className="space-y-2">
+            {detailedMatches && detailedMatches.length > 0 ? (
+              detailedMatches.slice(0, 4).map((match) => (
+                <div
+                  key={match.chapter.id}
+                  className="p-3 rounded-lg border cursor-pointer transition-all bg-card hover:bg-secondary/50 border-border hover:border-primary/30"
+                  onClick={() => viewChapter(match.chapter)}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm">{match.chapter.category.icon}</span>
+                        <span className="font-medium text-sm">{match.chapter.title}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {match.matchReasons.slice(0, 2).map((reason, idx) => (
+                          <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
+                            {reason}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <Badge
+                      variant={match.relevanceScore >= 5 ? 'default' : 'secondary'}
+                      className="text-[10px] flex-shrink-0"
+                    >
+                      {match.relevanceScore} pts
+                    </Badge>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {contextSuggestions.map(chapter => (
+                  <Badge
+                    key={chapter.id}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-primary/10 border-primary/30 text-primary transition-colors"
+                    onClick={() => viewChapter(chapter)}
+                  >
+                    {chapter.category.icon} {chapter.title}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

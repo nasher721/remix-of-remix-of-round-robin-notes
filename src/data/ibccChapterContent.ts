@@ -220,6 +220,7 @@ export const CHAPTER_CONTENT: Record<string, IBCCChapterContent> = {
     ],
   },
 
+
   // ============================================
   // DKA - Comprehensive Content
   // ============================================
@@ -563,6 +564,12 @@ export const CHAPTER_CONTENT: Record<string, IBCCChapterContent> = {
       {
         id: 'ards-pearl-6',
         text: 'PEEP improves oxygenation but optimal PEEP strategy remains debated. Use ARDSNet tables or driving pressure-guided approach.',
+        importance: 'moderate',
+        category: 'Ventilation',
+      },
+      {
+        id: 'ards-pearl-7',
+        text: 'Short-course neuromuscular blockade (≤48h) may improve ventilator synchrony in severe ARDS with deep sedation.',
         importance: 'moderate',
         category: 'Ventilation',
       },
@@ -964,6 +971,12 @@ export const CHAPTER_CONTENT: Record<string, IBCCChapterContent> = {
         text: 'Urine output <0.5 mL/kg/hr for 6 hours is AKI by KDIGO criteria, even with normal creatinine.',
         importance: 'moderate',
         category: 'Diagnosis',
+      },
+      {
+        id: 'aki-pearl-7',
+        text: 'Renally dose all medications daily (especially antimicrobials and anticoagulants) to prevent AKI progression.',
+        importance: 'moderate',
+        category: 'Medication Safety',
       },
     ],
     diagnosticCriteria: [
@@ -1642,6 +1655,12 @@ export const CHAPTER_CONTENT: Record<string, IBCCChapterContent> = {
         text: 'CHA2DS2-VASc drives stroke risk; HAS-BLED identifies bleeding risk but does NOT preclude anticoagulation.',
         importance: 'high',
         category: 'Risk Stratification',
+      },
+      {
+        id: 'afib-pearl-6',
+        text: 'Always search for triggers in ICU AFib (sepsis, hypoxia, PE, pain, alcohol withdrawal, thyroid). Treating the cause improves control.',
+        importance: 'high',
+        category: 'Etiology',
       },
     ],
     diagnosticCriteria: [

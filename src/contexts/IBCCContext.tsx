@@ -46,8 +46,9 @@ interface IBCCContextValue {
   contextSuggestions: IBCCChapter[];
   hasContextSuggestions: boolean;
   setCurrentPatient: (patient: Patient | undefined) => void;
+  // Detailed context matches for UI display
+  detailedMatches: { chapter: IBCCChapter; relevanceScore: number; matchReasons: string[] }[];
 
-  // Data accessors
   getCalculatorsForChapter: (chapterId: string) => ClinicalCalculator[];
   getChecklistsForChapter: (chapterId: string) => ProtocolChecklist[];
 
@@ -193,9 +194,9 @@ export function IBCCProvider({ children }: IBCCProviderProps) {
     // Context suggestions (from hook)
     contextSuggestions: context.contextSuggestions,
     hasContextSuggestions: context.hasContextSuggestions,
+    detailedMatches: context.detailedMatches,
     setCurrentPatient,
 
-    // Data accessors
     getCalculatorsForChapter,
     getChecklistsForChapter,
 
