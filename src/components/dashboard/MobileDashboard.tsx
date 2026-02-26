@@ -8,7 +8,7 @@ import { IBCCPanel } from "@/components/ibcc";
 import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, Plus, ArrowUpDown } from "lucide-react";
+import { ChevronsUpDown, Plus, ArrowUpDown, Printer } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -156,17 +156,29 @@ export const MobileDashboard = () => {
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 rightAction={
-                  patients.length > 0 ? (
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={onCollapseAll}
+                      onClick={handlePrint}
                       className="h-10 w-10"
-                      title={patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                      title="Print / Export"
                     >
-                      <ChevronsUpDown className="h-5 w-5" />
+                      <Printer className="h-5 w-5" />
+                      <span className="sr-only">Print / Export</span>
                     </Button>
-                  ) : undefined
+                    {patients.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={onCollapseAll}
+                        className="h-10 w-10"
+                        title={patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                      >
+                        <ChevronsUpDown className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
                 }
               />
               <div className="sticky top-14 z-30 bg-background/90 backdrop-blur-xl border-b border-border/20">
