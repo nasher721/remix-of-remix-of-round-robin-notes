@@ -3101,6 +3101,713 @@ export const CHAPTER_CONTENT: Record<string, IBCCChapterContent> = {
       },
     ],
   },
+
+  // ============================================
+  // RESUSCITATION - VASOPRESSORS & INOTROPES
+  // ============================================
+  vasopressors: {
+    keyPearls: [
+      {
+        id: 'pressors-pearl-1',
+        text: 'Norepinephrine is the default first-line vasopressor for undifferentiated shock while diagnostic clarification is ongoing.',
+        importance: 'critical',
+        category: 'First-line Choice',
+      },
+      {
+        id: 'pressors-pearl-2',
+        text: 'Do not delay vasopressor initiation waiting for central access; start peripherally through a proximal large-bore IV and transition when feasible.',
+        importance: 'critical',
+        category: 'Timing',
+      },
+      {
+        id: 'pressors-pearl-3',
+        text: 'Match pharmacology to physiology: inotropy (dobutamine) for low cardiac output, vasoconstriction (norepinephrine/vasopressin) for vasoplegia.',
+        importance: 'high',
+        category: 'Hemodynamics',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'pressors-dx-1',
+        title: 'When to Start Vasopressors',
+        criteria: [
+          { id: 'pressors-dx-1-1', text: 'Persistent MAP <65 mmHg after initial fluid challenge', required: true, value: 'MAP <65' },
+          { id: 'pressors-dx-1-2', text: 'Evidence of hypoperfusion (oliguria, altered mentation, rising lactate)', required: true },
+          { id: 'pressors-dx-1-3', text: 'No rapidly reversible obstructive cause (tamponade, tension pneumothorax)', required: true },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'pressors-tx-1',
+        phase: 'Initial Stabilization',
+        title: 'Pressor Initiation',
+        timing: '0-30 minutes',
+        actions: [
+          { id: 'pressors-tx-1-1', text: 'Start norepinephrine via peripheral or central IV', priority: 'immediate', details: 'Titrate every 2-3 minutes to MAP target.' },
+          { id: 'pressors-tx-1-2', text: 'Set individualized perfusion goals', priority: 'urgent', details: 'MAP ≥65 is typical; consider higher target with chronic HTN.' },
+          { id: 'pressors-tx-1-3', text: 'Obtain bedside echo to phenotype shock', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'pressors-tx-2',
+        phase: 'Escalation',
+        title: 'Second Agent Strategy',
+        timing: '30-120 minutes',
+        actions: [
+          { id: 'pressors-tx-2-1', text: 'Add vasopressin 0.03 U/min if norepinephrine requirement is rising', priority: 'urgent' },
+          { id: 'pressors-tx-2-2', text: 'Add dobutamine for persistent low output state', priority: 'urgent', details: 'Use echo and lactate trend to guide.' },
+          { id: 'pressors-tx-2-3', text: 'Address reversible contributors: acidosis, hypocalcemia, ongoing bleeding', priority: 'routine' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'pressors-pit-1',
+        title: 'Pressors before adequate preload assessment',
+        description: 'Escalating vasoconstrictors without ensuring minimal preload in profoundly volume-depleted states.',
+        consequence: 'Worsening tissue perfusion and ischemic complications.',
+        prevention: 'Pair vasopressor use with dynamic fluid responsiveness assessment and serial perfusion endpoints.',
+        severity: 'major',
+      },
+    ],
+  },
+
+  // ============================================
+  // PULMONOLOGY - MECHANICAL VENTILATION
+  // ============================================
+  'mechanical-ventilation': {
+    keyPearls: [
+      {
+        id: 'vent-pearl-1',
+        text: 'Use lung-protective ventilation broadly in intubated adults: tidal volume 6-8 mL/kg predicted body weight and plateau pressure <30 cmH2O.',
+        importance: 'critical',
+        category: 'Ventilator Strategy',
+      },
+      {
+        id: 'vent-pearl-2',
+        text: 'Hypoxemia is primarily managed with PEEP and FiO2; hypercapnia is primarily managed with minute ventilation.',
+        importance: 'high',
+        category: 'Troubleshooting',
+      },
+      {
+        id: 'vent-pearl-3',
+        text: 'Daily awakening and spontaneous breathing trials shorten ventilation duration when no contraindications exist.',
+        importance: 'high',
+        category: 'Liberation',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'vent-tx-1',
+        phase: 'Post-intubation',
+        title: 'Initial Setup',
+        timing: 'First 15 minutes',
+        actions: [
+          { id: 'vent-tx-1-1', text: 'Set assist-control mode with VT 6-8 mL/kg PBW', priority: 'immediate' },
+          { id: 'vent-tx-1-2', text: 'Start RR 16-24/min and titrate to pH goals', priority: 'urgent' },
+          { id: 'vent-tx-1-3', text: 'Adjust PEEP/FiO2 using standardized table', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'vent-tx-2',
+        phase: 'Daily Management',
+        title: 'Monitoring & Liberation',
+        timing: 'Q shift and daily',
+        actions: [
+          { id: 'vent-tx-2-1', text: 'Track plateau pressure, driving pressure, and auto-PEEP', priority: 'urgent' },
+          { id: 'vent-tx-2-2', text: 'Perform sedation interruption and SBT if criteria met', priority: 'routine' },
+          { id: 'vent-tx-2-3', text: 'Extubate when airway protection, oxygenation, and mental status are adequate', priority: 'routine' },
+        ],
+      },
+    ],
+    differentialDiagnosis: [
+      'Tube malposition or right mainstem intubation',
+      'Mucus plugging',
+      'Pneumothorax',
+      'Pulmonary edema or evolving ARDS',
+      'Bronchospasm with air trapping',
+    ],
+  },
+
+  // ============================================
+  // NEUROLOGY - ACUTE ISCHEMIC STROKE
+  // ============================================
+  stroke: {
+    keyPearls: [
+      {
+        id: 'stroke-pearl-1',
+        text: 'Time-to-reperfusion is brain: parallelize CT imaging, last-known-well verification, and thrombolytic eligibility assessment.',
+        importance: 'critical',
+        category: 'Workflow',
+      },
+      {
+        id: 'stroke-pearl-2',
+        text: 'Large-vessel occlusion should trigger immediate thrombectomy pathway activation regardless of thrombolytic candidacy.',
+        importance: 'critical',
+        category: 'Reperfusion',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'stroke-dx-1',
+        title: 'Hyperacute Evaluation Bundle',
+        criteria: [
+          { id: 'stroke-dx-1-1', text: 'Last-known-well time established', required: true },
+          { id: 'stroke-dx-1-2', text: 'Non-contrast CT excludes hemorrhage', required: true },
+          { id: 'stroke-dx-1-3', text: 'Disabling neurologic deficit present', required: true },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'stroke-tx-1',
+        phase: 'Hyperacute',
+        title: 'Reperfusion Decision',
+        timing: '0-60 minutes',
+        actions: [
+          { id: 'stroke-tx-1-1', text: 'Control BP to thrombolysis-compatible range when needed', priority: 'immediate' },
+          { id: 'stroke-tx-1-2', text: 'Administer IV thrombolytic within approved window if eligible', priority: 'immediate' },
+          { id: 'stroke-tx-1-3', text: 'Consult neurointerventional team for EVT candidacy', priority: 'urgent' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'stroke-pit-1',
+        title: 'Permissive delay for transfer discussions',
+        description: 'Spending excessive time on non-essential deliberations before transfer to thrombectomy-capable center.',
+        consequence: 'Lost salvageable penumbra and worse disability outcomes.',
+        prevention: 'Activate transfer and reperfusion pathways immediately once LVO is suspected.',
+        severity: 'critical',
+      },
+    ],
+  },
+
+  // ============================================
+  // HEMATOLOGY - ANTICOAGULATION REVERSAL
+  // ============================================
+  'anticoagulation-reversal': {
+    keyPearls: [
+      {
+        id: 'ac-rev-pearl-1',
+        text: 'Life-threatening bleeding requires immediate empiric reversal based on likely agent; do not wait for complete lab confirmation.',
+        importance: 'critical',
+        category: 'Timing',
+      },
+      {
+        id: 'ac-rev-pearl-2',
+        text: '4-factor PCC is preferred over plasma for warfarin-associated major hemorrhage due to speed and lower volume burden.',
+        importance: 'high',
+        category: 'Product Selection',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'ac-rev-tx-1',
+        phase: 'Immediate',
+        title: 'Agent-Specific Reversal',
+        timing: '0-30 minutes',
+        actions: [
+          { id: 'ac-rev-tx-1-1', text: 'Warfarin: give 4-factor PCC + IV vitamin K', priority: 'immediate' },
+          { id: 'ac-rev-tx-1-2', text: 'Dabigatran: give idarucizumab if available', priority: 'immediate' },
+          { id: 'ac-rev-tx-1-3', text: 'Factor Xa inhibitors: use andexanet alfa or PCC per institutional protocol', priority: 'immediate' },
+        ],
+      },
+    ],
+    medications: [
+      {
+        id: 'ac-rev-med-1',
+        name: '4-factor Prothrombin Complex Concentrate',
+        genericName: 'PCC (factors II, VII, IX, X)',
+        category: 'first-line',
+        indication: 'Warfarin-associated life-threatening bleeding or urgent procedure',
+        dosing: [
+          { route: 'IV', dose: '25-50 units/kg', maxDose: '5000 units', notes: 'Dose by INR and institutional protocol.' },
+        ],
+        monitoringParameters: ['INR', 'Clinical hemostasis', 'Thrombotic events'],
+      },
+    ],
+  },
+
+  // ============================================
+  // GI/HEPATOLOGY - ACUTE GI BLEEDING
+  // ============================================
+  'gi-bleeding': {
+    keyPearls: [
+      {
+        id: 'gib-pearl-1',
+        text: 'Hemodynamic stabilization, large-bore access, and blood preparation precede definitive localization in unstable patients.',
+        importance: 'critical',
+        category: 'Resuscitation',
+      },
+      {
+        id: 'gib-pearl-2',
+        text: 'Restrictive transfusion (typical Hgb threshold ~7 g/dL) is generally associated with improved outcomes in non-exsanguinating bleeds.',
+        importance: 'high',
+        category: 'Transfusion',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'gib-tx-1',
+        phase: 'Emergency',
+        title: 'Stabilize and Risk Stratify',
+        timing: '0-2 hours',
+        actions: [
+          { id: 'gib-tx-1-1', text: 'Establish two large-bore IVs, send type and screen/crossmatch', priority: 'immediate' },
+          { id: 'gib-tx-1-2', text: 'Start IV PPI for suspected upper GI source', priority: 'urgent' },
+          { id: 'gib-tx-1-3', text: 'Add octreotide and ceftriaxone when variceal bleed is possible', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'gib-tx-2',
+        phase: 'Definitive',
+        title: 'Procedure Planning',
+        timing: 'Within 24 hours',
+        actions: [
+          { id: 'gib-tx-2-1', text: 'Coordinate urgent endoscopy once stabilized', priority: 'urgent' },
+          { id: 'gib-tx-2-2', text: 'Escalate to IR/surgery if refractory hemorrhage persists', priority: 'urgent' },
+        ],
+      },
+    ],
+  },
+
+  // ============================================
+  // PROCEDURES - AIRWAY MANAGEMENT
+  // ============================================
+  intubation: {
+    keyPearls: [
+      {
+        id: 'airway-pearl-1',
+        text: 'Optimize physiology before laryngoscopy: preoxygenate thoroughly, treat hypotension, and plan backup airway strategies.',
+        importance: 'critical',
+        category: 'Preparation',
+      },
+      {
+        id: 'airway-pearl-2',
+        text: 'First-pass success is a major safety metric; use checklists, video laryngoscopy, and the most experienced operator available.',
+        importance: 'high',
+        category: 'Execution',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'airway-tx-1',
+        phase: 'Pre-intubation',
+        title: 'Preparation & Positioning',
+        timing: '0-10 minutes',
+        actions: [
+          { id: 'airway-tx-1-1', text: 'Perform airway assessment and assign Plan A/B/C', priority: 'immediate' },
+          { id: 'airway-tx-1-2', text: 'Preoxygenate with NRB + nasal cannula or NIV in severe hypoxemia', priority: 'immediate' },
+          { id: 'airway-tx-1-3', text: 'Prepare vasopressor push-dose or infusion for high-risk hypotension', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'airway-tx-2',
+        phase: 'Peri-intubation',
+        title: 'RSI and Confirmation',
+        timing: 'Procedure time',
+        actions: [
+          { id: 'airway-tx-2-1', text: 'Administer induction and paralytic per hemodynamic profile', priority: 'immediate' },
+          { id: 'airway-tx-2-2', text: 'Confirm tube with waveform capnography and bilateral chest rise', priority: 'immediate' },
+          { id: 'airway-tx-2-3', text: 'Set post-intubation sedation and lung-protective ventilator settings', priority: 'urgent' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'airway-pit-1',
+        title: 'No post-intubation sedation plan',
+        description: 'Securing the tube but delaying analgesia/sedation orders.',
+        consequence: 'Severe agitation, ventilator dyssynchrony, and self-extubation risk.',
+        prevention: 'Prepare post-intubation analgesia and sedation infusions before laryngoscopy begins.',
+        severity: 'major',
+      },
+    ],
+  },
+
+  // ============================================
+  // CARDIOLOGY - ACUTE HEART FAILURE
+  // ============================================
+  'heart-failure': {
+    keyPearls: [
+      {
+        id: 'hf-pearl-1',
+        text: 'Phenotype first: warm/wet (hypertensive pulmonary edema) is managed differently from cold/wet (low-output cardiogenic shock).',
+        importance: 'critical',
+        category: 'Hemodynamic Classification',
+      },
+      {
+        id: 'hf-pearl-2',
+        text: 'Positive-pressure ventilation (NIV/CPAP) rapidly improves preload/afterload and oxygenation in acute cardiogenic pulmonary edema.',
+        importance: 'high',
+        category: 'Respiratory Support',
+      },
+      {
+        id: 'hf-pearl-3',
+        text: 'Early bedside echo and lung ultrasound outperform static exam alone for identifying congestion and low-output states.',
+        importance: 'high',
+        category: 'Diagnostics',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'hf-dx-1',
+        title: 'High-Risk Acute Decompensated Heart Failure Features',
+        criteria: [
+          { id: 'hf-dx-1-1', text: 'Severe dyspnea or hypoxemia with pulmonary edema', required: true },
+          { id: 'hf-dx-1-2', text: 'Objective congestion (B-lines, elevated JVP, edema, pleural effusions)', required: true },
+          { id: 'hf-dx-1-3', text: 'Evidence of end-organ hypoperfusion in cold phenotype', value: 'lactate/AKI/AMS' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'hf-tx-1',
+        phase: 'Immediate Stabilization',
+        title: 'Oxygenation and Afterload Reduction',
+        timing: '0-60 minutes',
+        actions: [
+          { id: 'hf-tx-1-1', text: 'Start NIV for moderate-severe respiratory distress', priority: 'immediate' },
+          { id: 'hf-tx-1-2', text: 'Use IV nitrates in hypertensive pulmonary edema', priority: 'immediate', details: 'Titrate to symptom relief and BP response.' },
+          { id: 'hf-tx-1-3', text: 'Administer IV loop diuretic early when volume overload present', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'hf-tx-2',
+        phase: 'Escalation',
+        title: 'Low-Output/Cardiogenic Shock Pathway',
+        timing: '1-6 hours',
+        actions: [
+          { id: 'hf-tx-2-1', text: 'Initiate norepinephrine for hypotension with shock', priority: 'urgent' },
+          { id: 'hf-tx-2-2', text: 'Add inotrope if persistent low cardiac output', priority: 'urgent' },
+          { id: 'hf-tx-2-3', text: 'Engage advanced HF/mechanical support team early', priority: 'routine' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'hf-pit-1',
+        title: 'Single-pathway treatment for all ADHF',
+        description: 'Using the same strategy for hypertensive flash edema and cardiogenic shock.',
+        consequence: 'Delayed hemodynamic recovery and avoidable respiratory failure.',
+        prevention: 'Classify patients by congestion and perfusion before selecting therapy.',
+        severity: 'major',
+      },
+    ],
+  },
+
+  // ============================================
+  // PULMONOLOGY - SEVERE ASTHMA
+  // ============================================
+  asthma: {
+    keyPearls: [
+      {
+        id: 'asthma-pearl-1',
+        text: 'Failure to improve after aggressive bronchodilator and steroid therapy should trigger immediate reassessment for alternative pathology (pneumothorax, mucus plugging, anaphylaxis).',
+        importance: 'critical',
+        category: 'Reassessment',
+      },
+      {
+        id: 'asthma-pearl-2',
+        text: 'In severe obstructive physiology, permissive hypercapnia with low respiratory rates helps prevent dynamic hyperinflation and arrest.',
+        importance: 'critical',
+        category: 'Ventilator Strategy',
+      },
+      {
+        id: 'asthma-pearl-3',
+        text: 'Magnesium sulfate and early noninvasive support can reduce intubation risk in selected patients.',
+        importance: 'high',
+        category: 'Adjuncts',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'asthma-tx-1',
+        phase: 'Emergency Department/ICU Arrival',
+        title: 'Aggressive Bronchodilation',
+        timing: '0-30 minutes',
+        actions: [
+          { id: 'asthma-tx-1-1', text: 'Continuous or stacked nebulized albuterol + ipratropium', priority: 'immediate' },
+          { id: 'asthma-tx-1-2', text: 'Give systemic corticosteroid promptly', priority: 'immediate' },
+          { id: 'asthma-tx-1-3', text: 'Administer IV magnesium sulfate for severe symptoms', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'asthma-tx-2',
+        phase: 'Impending Respiratory Failure',
+        title: 'Pre-intubation Rescue and Vent Strategy',
+        timing: '30-120 minutes',
+        actions: [
+          { id: 'asthma-tx-2-1', text: 'Trial NIV or HFNC when appropriate and monitored closely', priority: 'urgent' },
+          { id: 'asthma-tx-2-2', text: 'Use ketamine-facilitated intubation in crashing patients when needed', priority: 'urgent' },
+          { id: 'asthma-tx-2-3', text: 'After intubation set low RR/high inspiratory flow with long expiratory time', priority: 'immediate' },
+        ],
+      },
+    ],
+    differentialDiagnosis: [
+      'Anaphylaxis',
+      'Vocal cord dysfunction',
+      'Pulmonary edema (cardiac asthma)',
+      'Foreign body aspiration',
+      'Pneumothorax',
+    ],
+  },
+
+  // ============================================
+  // INFECTIOUS DISEASE - PNEUMONIA
+  // ============================================
+  pneumonia: {
+    keyPearls: [
+      {
+        id: 'pna-pearl-1',
+        text: 'Empiric therapy should be immediate in severe pneumonia and narrowed quickly using microbiology and clinical trajectory.',
+        importance: 'critical',
+        category: 'Antimicrobial Timing',
+      },
+      {
+        id: 'pna-pearl-2',
+        text: 'Assess aspiration risk, healthcare exposures, and local resistance to decide MRSA/Pseudomonas coverage upfront.',
+        importance: 'high',
+        category: 'Initial Regimen Design',
+      },
+      {
+        id: 'pna-pearl-3',
+        text: 'In ventilated patients, secretion burden and ventilator synchrony are as important as antimicrobial choice.',
+        importance: 'high',
+        category: 'ICU Supportive Care',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'pna-dx-1',
+        title: 'Severe Pneumonia Syndrome',
+        criteria: [
+          { id: 'pna-dx-1-1', text: 'Compatible imaging infiltrate(s)', required: true },
+          { id: 'pna-dx-1-2', text: 'Clinical inflammatory/infectious syndrome', required: true },
+          { id: 'pna-dx-1-3', text: 'Organ support need (vasopressors or mechanical ventilation)', value: 'ICU-level severity' },
+        ],
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'pna-tx-1',
+        phase: 'Initial 6 hours',
+        title: 'Early Diagnostics and Antimicrobials',
+        timing: '0-6 hours',
+        actions: [
+          { id: 'pna-tx-1-1', text: 'Draw blood cultures and respiratory sample before first dose when feasible', priority: 'urgent' },
+          { id: 'pna-tx-1-2', text: 'Start broad empiric antibiotics tailored to risk profile', priority: 'immediate' },
+          { id: 'pna-tx-1-3', text: 'Evaluate for parapneumonic effusion/empyema requiring drainage', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'pna-tx-2',
+        phase: '48-72 hours',
+        title: 'De-escalation and Duration',
+        timing: '2-3 days',
+        actions: [
+          { id: 'pna-tx-2-1', text: 'Narrow therapy to pathogen-directed regimen', priority: 'routine' },
+          { id: 'pna-tx-2-2', text: 'Stop unnecessary anti-MRSA/anti-Pseudomonal coverage if unsupported', priority: 'routine' },
+          { id: 'pna-tx-2-3', text: 'Set total course based on response and source control', priority: 'routine' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'pna-pit-1',
+        title: 'Prolonged broad-spectrum therapy despite negative data',
+        description: 'Continuing maximal coverage despite improving status and no supporting cultures.',
+        consequence: 'Drug toxicity, C. difficile risk, and antimicrobial resistance.',
+        prevention: 'Perform formal antibiotic timeout at 48-72 hours with de-escalation plan.',
+        severity: 'major',
+      },
+    ],
+  },
+
+  // ============================================
+  // HEMATOLOGY - TRANSFUSION
+  // ============================================
+  transfusion: {
+    keyPearls: [
+      {
+        id: 'txf-pearl-1',
+        text: 'Transfuse to physiology, not a single number; active ischemia, hemorrhage, and shock justify individualized thresholds.',
+        importance: 'critical',
+        category: 'Thresholds',
+      },
+      {
+        id: 'txf-pearl-2',
+        text: 'In massive hemorrhage, balanced component therapy and early fibrinogen replacement reduce coagulopathic spiral.',
+        importance: 'high',
+        category: 'Massive Transfusion',
+      },
+      {
+        id: 'txf-pearl-3',
+        text: 'Every transfusion order should include a post-transfusion reassessment target and stop point.',
+        importance: 'high',
+        category: 'Stewardship',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'txf-tx-1',
+        phase: 'Non-massive bleeding/anemia',
+        title: 'Targeted Component Use',
+        timing: 'Per episode',
+        actions: [
+          { id: 'txf-tx-1-1', text: 'PRBC transfusion with restrictive strategy unless specific indication for higher goal', priority: 'urgent' },
+          { id: 'txf-tx-1-2', text: 'Platelet transfusion for severe thrombocytopenia or procedure-related threshold', priority: 'urgent' },
+          { id: 'txf-tx-1-3', text: 'Use FFP/PCC/cryoprecipitate according to coagulation deficits', priority: 'routine' },
+        ],
+      },
+      {
+        id: 'txf-tx-2',
+        phase: 'Massive hemorrhage',
+        title: 'MTP Activation',
+        timing: 'Immediate',
+        actions: [
+          { id: 'txf-tx-2-1', text: 'Activate MTP with balanced product delivery', priority: 'immediate' },
+          { id: 'txf-tx-2-2', text: 'Monitor ionized calcium, temperature, and acid-base status', priority: 'urgent' },
+          { id: 'txf-tx-2-3', text: 'Reassess every cycle with labs/viscoelastic testing if available', priority: 'urgent' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'txf-pit-1',
+        title: 'Unstructured transfusion without reassessment',
+        description: 'Ordering repeated blood products without explicit endpoint.',
+        consequence: 'Volume overload, TRALI/TACO risk, and unnecessary exposure.',
+        prevention: 'Define target hemoglobin/coagulation endpoint and reassess after each unit/cycle.',
+        severity: 'major',
+      },
+    ],
+  },
+
+  // ============================================
+  // GI/HEPATOLOGY - ACUTE PANCREATITIS
+  // ============================================
+  pancreatitis: {
+    keyPearls: [
+      {
+        id: 'pan-pearl-1',
+        text: 'Early balanced crystalloid resuscitation is beneficial, but over-resuscitation worsens pulmonary and abdominal complications.',
+        importance: 'critical',
+        category: 'Fluids',
+      },
+      {
+        id: 'pan-pearl-2',
+        text: 'Enteral nutrition should begin early when tolerated; prolonged NPO status increases infectious complications.',
+        importance: 'high',
+        category: 'Nutrition',
+      },
+      {
+        id: 'pan-pearl-3',
+        text: 'Antibiotics are not routine for sterile necrosis; reserve for proven or strongly suspected infected necrosis/extrapancreatic infection.',
+        importance: 'high',
+        category: 'Antibiotic Stewardship',
+      },
+    ],
+    diagnosticCriteria: [
+      {
+        id: 'pan-dx-1',
+        title: 'Diagnosis of Acute Pancreatitis (2 of 3)',
+        criteria: [
+          { id: 'pan-dx-1-1', text: 'Typical epigastric pain radiating to back', required: true },
+          { id: 'pan-dx-1-2', text: 'Lipase or amylase >3x upper limit of normal', required: true },
+          { id: 'pan-dx-1-3', text: 'Characteristic imaging findings', required: true },
+        ],
+        notes: 'Need any two criteria for diagnosis.',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'pan-tx-1',
+        phase: 'First 24 hours',
+        title: 'Supportive Foundation',
+        timing: '0-24 hours',
+        actions: [
+          { id: 'pan-tx-1-1', text: 'Provide balanced crystalloid with frequent hemodynamic reassessment', priority: 'immediate' },
+          { id: 'pan-tx-1-2', text: 'Aggressive multimodal analgesia', priority: 'urgent' },
+          { id: 'pan-tx-1-3', text: 'Screen for biliary obstruction/cholangitis requiring urgent ERCP', priority: 'urgent' },
+        ],
+      },
+      {
+        id: 'pan-tx-2',
+        phase: 'Ongoing ICU care',
+        title: 'Complication Surveillance',
+        timing: 'Daily',
+        actions: [
+          { id: 'pan-tx-2-1', text: 'Start enteral feeding early if no contraindication', priority: 'routine' },
+          { id: 'pan-tx-2-2', text: 'Monitor for necrosis, organ failure, abdominal compartment syndrome', priority: 'urgent' },
+          { id: 'pan-tx-2-3', text: 'Coordinate delayed drainage/debridement strategy when indicated', priority: 'routine' },
+        ],
+      },
+    ],
+  },
+
+  // ============================================
+  // PROCEDURES - CENTRAL LINE PLACEMENT
+  // ============================================
+  'central-line': {
+    keyPearls: [
+      {
+        id: 'cl-pearl-1',
+        text: 'Ultrasound guidance is standard of care for internal jugular access and should be used whenever possible for real-time cannulation.',
+        importance: 'critical',
+        category: 'Technique',
+      },
+      {
+        id: 'cl-pearl-2',
+        text: 'Strict sterile barrier precautions and chlorhexidine prep reduce CLABSI and should never be abbreviated for convenience.',
+        importance: 'critical',
+        category: 'Infection Prevention',
+      },
+      {
+        id: 'cl-pearl-3',
+        text: 'Post-procedure confirmation should verify tip position and exclude immediate complications before use in high-risk cases.',
+        importance: 'high',
+        category: 'Safety',
+      },
+    ],
+    treatmentAlgorithm: [
+      {
+        id: 'cl-tx-1',
+        phase: 'Pre-procedure',
+        title: 'Planning and Preparation',
+        timing: 'Before needle insertion',
+        actions: [
+          { id: 'cl-tx-1-1', text: 'Confirm indication/site and assess coagulopathy risks', priority: 'urgent' },
+          { id: 'cl-tx-1-2', text: 'Assemble full sterile kit and ultrasound setup', priority: 'immediate' },
+          { id: 'cl-tx-1-3', text: 'Place patient in optimal position and perform timeout', priority: 'immediate' },
+        ],
+      },
+      {
+        id: 'cl-tx-2',
+        phase: 'Insertion and verification',
+        title: 'Cannulation and Post-placement Checks',
+        timing: 'Procedure + immediate post',
+        actions: [
+          { id: 'cl-tx-2-1', text: 'Use real-time ultrasound vessel entry and wire confirmation', priority: 'immediate' },
+          { id: 'cl-tx-2-2', text: 'Secure line, apply sterile dressing, document depth/lumen function', priority: 'urgent' },
+          { id: 'cl-tx-2-3', text: 'Confirm placement with ultrasound/CXR per site and institutional policy', priority: 'urgent' },
+        ],
+      },
+    ],
+    pitfalls: [
+      {
+        id: 'cl-pit-1',
+        title: 'Line left in place without daily necessity review',
+        description: 'Failure to remove central access once no longer needed.',
+        consequence: 'Increased CLABSI and thrombosis risk.',
+        prevention: 'Embed daily line rounds and remove unnecessary catheters promptly.',
+        severity: 'major',
+      },
+    ],
+  },
+
 };
 
 /**
