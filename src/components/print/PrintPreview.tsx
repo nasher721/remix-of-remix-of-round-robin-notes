@@ -45,7 +45,11 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
   const [zoom, setZoom] = React.useState(100);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
+  const [mounted, setMounted] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Defer CSS transition until after mount to avoid an initial-render flash
+  React.useEffect(() => { setMounted(true); }, []);
 
   // Calculate approximate page count based on patients and settings
   const patientsPerPage = settings.onePatientPerPage ? 1 : Math.max(1, Math.ceil(patients.length / 3));
@@ -237,8 +241,11 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
       {/* Preview Content */}
       <ScrollArea className="flex-1 p-4">
         <div
-          className="mx-auto origin-top transition-transform duration-200"
-          style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
+          className={cn(
+            "mx-auto origin-top",
+            mounted && "transition-transform duration-200"
+          )}
+          style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center", willChange: "transform" }}
         >
           <PrintDocument
             patients={patients}

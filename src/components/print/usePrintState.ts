@@ -4,40 +4,65 @@ import { defaultColumns, defaultColumnWidths, defaultCombinedColumnWidths, fontF
 import { useToast } from '@/hooks/use-toast';
 import { STORAGE_KEYS, DEFAULT_CONFIG } from '@/constants/config';
 
-export const usePrintState = () => {
-  const { toast } = useToast();
+// ---------------------------------------------------------------------------
+// State shape
+// ---------------------------------------------------------------------------
 
-  const [columnWidths, setColumnWidths] = React.useState<ColumnWidthsType>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return { ...defaultColumnWidths, ...parsed };
-      } catch {
-        return defaultColumnWidths;
-      }
-    }
-    return defaultColumnWidths;
-  });
+interface PrintState {
+  columnWidths: ColumnWidthsType;
+  combinedColumnWidths: Record<string, number>;
+  columns: ColumnConfig[];
+  printFontSize: number;
+  printFontFamily: string;
+  margins: 'narrow' | 'normal' | 'wide';
+  headerStyle: 'minimal' | 'standard' | 'detailed';
+  borderStyle: 'none' | 'light' | 'medium' | 'heavy';
+  showPageNumbers: boolean;
+  showTimestamp: boolean;
+  alternateRowColors: boolean;
+  compactMode: boolean;
+  onePatientPerPage: boolean;
+  autoFitFontSize: boolean;
+  combinedColumns: string[];
+  systemsReviewColumnCount: number;
+  printOrientation: 'portrait' | 'landscape';
+  customPresets: PrintPreset[];
+  physicianName: string;
+}
 
-  const [combinedColumnWidths, setCombinedColumnWidths] = React.useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return { ...defaultCombinedColumnWidths, ...parsed };
-      } catch {
-        return defaultCombinedColumnWidths;
-      }
-    }
-    return defaultCombinedColumnWidths;
-  });
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
 
-  const [columns, setColumns] = React.useState<ColumnConfig[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_PREFS);
-    if (saved) {
+type PrintAction =
+  | { type: 'SET_FIELD'; field: keyof PrintState; value: PrintState[keyof PrintState] }
+  | { type: 'LOAD_PRESET'; preset: PrintPreset }
+  | { type: 'RESET_COLUMNS' }
+  | { type: 'TOGGLE_COLUMN'; key: string }
+  | { type: 'SELECT_ALL_COLUMNS' }
+  | { type: 'DESELECT_ALL_COLUMNS' }
+  | { type: 'TOGGLE_COMBINATION'; key: string };
+
+// ---------------------------------------------------------------------------
+// Initial state (reads from localStorage once)
+// ---------------------------------------------------------------------------
+
+function buildInitialState(): PrintState {
+  const savedColumnWidths = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS);
+  const columnWidths: ColumnWidthsType = savedColumnWidths
+    ? { ...defaultColumnWidths, ...JSON.parse(savedColumnWidths) }
+    : defaultColumnWidths;
+
+  const savedCombinedWidths = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
+  const combinedColumnWidths: Record<string, number> = savedCombinedWidths
+    ? { ...defaultCombinedColumnWidths, ...JSON.parse(savedCombinedWidths) }
+    : defaultCombinedColumnWidths;
+
+  const savedColumnPrefs = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_PREFS);
+  const columns: ColumnConfig[] = savedColumnPrefs
+    ? (() => {
       try {
-        const savedCols = JSON.parse(saved) as ColumnConfig[];
+        const savedCols = JSON.parse(savedColumnPrefs) as ColumnConfig[];
         return defaultColumns.map(col => {
           const savedCol = savedCols.find(s => s.key === col.key);
           return savedCol ? { ...col, enabled: savedCol.enabled } : col;
@@ -45,359 +70,545 @@ export const usePrintState = () => {
       } catch {
         return defaultColumns;
       }
-    }
-    return defaultColumns;
-  });
+    })()
+    : defaultColumns;
 
-  const [printFontSize, setPrintFontSize] = React.useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE);
-    return saved ? parseInt(saved, 10) : DEFAULT_CONFIG.PRINT_FONT_SIZE;
-  });
+  const savedFontSize = localStorage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE);
+  const printFontSize = savedFontSize ? parseInt(savedFontSize, 10) : DEFAULT_CONFIG.PRINT_FONT_SIZE;
 
-  const [printFontFamily, setPrintFontFamily] = React.useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || DEFAULT_CONFIG.PRINT_FONT_FAMILY;
-  });
+  const printFontFamily =
+    localStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || DEFAULT_CONFIG.PRINT_FONT_FAMILY;
 
-  const [margins, setMargins] = React.useState<'narrow' | 'normal' | 'wide'>(() => {
-    return (localStorage.getItem('printMargins') as 'narrow' | 'normal' | 'wide') || DEFAULT_CONFIG.PRINT_MARGINS;
-  });
+  const margins =
+    (localStorage.getItem('printMargins') as PrintState['margins']) || DEFAULT_CONFIG.PRINT_MARGINS;
 
-  const [headerStyle, setHeaderStyle] = React.useState<'minimal' | 'standard' | 'detailed'>(() => {
-    return (localStorage.getItem('printHeaderStyle') as 'minimal' | 'standard' | 'detailed') || DEFAULT_CONFIG.PRINT_HEADER_STYLE;
-  });
+  const headerStyle =
+    (localStorage.getItem('printHeaderStyle') as PrintState['headerStyle']) || DEFAULT_CONFIG.PRINT_HEADER_STYLE;
 
-  const [borderStyle, setBorderStyle] = React.useState<'none' | 'light' | 'medium' | 'heavy'>(() => {
-    return (localStorage.getItem('printBorderStyle') as 'none' | 'light' | 'medium' | 'heavy') || DEFAULT_CONFIG.PRINT_BORDER_STYLE;
-  });
+  const borderStyle =
+    (localStorage.getItem('printBorderStyle') as PrintState['borderStyle']) || DEFAULT_CONFIG.PRINT_BORDER_STYLE;
 
-  const [showPageNumbers, setShowPageNumbers] = React.useState(() => {
-    const saved = localStorage.getItem('printShowPageNumbers');
-    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_SHOW_PAGE_NUMBERS;
-  });
+  const savedShowPageNumbers = localStorage.getItem('printShowPageNumbers');
+  const showPageNumbers = savedShowPageNumbers
+    ? savedShowPageNumbers === 'true'
+    : DEFAULT_CONFIG.PRINT_SHOW_PAGE_NUMBERS;
 
-  const [showTimestamp, setShowTimestamp] = React.useState(() => {
-    const saved = localStorage.getItem('printShowTimestamp');
-    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP;
-  });
+  const savedShowTimestamp = localStorage.getItem('printShowTimestamp');
+  const showTimestamp = savedShowTimestamp
+    ? savedShowTimestamp === 'true'
+    : DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP;
 
-  const [alternateRowColors, setAlternateRowColors] = React.useState(() => {
-    const saved = localStorage.getItem('printAlternateRowColors');
-    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS;
-  });
+  const savedAlternateRowColors = localStorage.getItem('printAlternateRowColors');
+  const alternateRowColors = savedAlternateRowColors
+    ? savedAlternateRowColors === 'true'
+    : DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS;
 
-  const [compactMode, setCompactMode] = React.useState(() => {
-    const saved = localStorage.getItem('printCompactMode');
-    return saved ? saved === 'true' : DEFAULT_CONFIG.PRINT_COMPACT_MODE;
-  });
+  const savedCompactMode = localStorage.getItem('printCompactMode');
+  const compactMode = savedCompactMode
+    ? savedCompactMode === 'true'
+    : DEFAULT_CONFIG.PRINT_COMPACT_MODE;
 
-  const [onePatientPerPage, setOnePatientPerPage] = React.useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true';
-  });
+  const onePatientPerPage =
+    localStorage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true';
 
-  const [autoFitFontSize, setAutoFitFontSize] = React.useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE) === 'true';
-  });
+  const autoFitFontSize =
+    localStorage.getItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE) === 'true';
 
-  const [combinedColumns, setCombinedColumns] = React.useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS);
-    return saved ? JSON.parse(saved) : [];
-  });
+  const savedCombinedColumns = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS);
+  const combinedColumns: string[] = savedCombinedColumns ? JSON.parse(savedCombinedColumns) : [];
 
-  const [systemsReviewColumnCount, setSystemsReviewColumnCount] = React.useState<number>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_SYSTEMS_REVIEW_COLUMN_COUNT);
-    return saved ? parseInt(saved, 10) : DEFAULT_CONFIG.SYSTEMS_REVIEW_COLUMN_COUNT;
-  });
+  const savedSystemsCount = localStorage.getItem(STORAGE_KEYS.PRINT_SYSTEMS_REVIEW_COLUMN_COUNT);
+  const systemsReviewColumnCount = savedSystemsCount
+    ? parseInt(savedSystemsCount, 10)
+    : DEFAULT_CONFIG.SYSTEMS_REVIEW_COLUMN_COUNT;
 
-  const [printOrientation, setPrintOrientation] = React.useState<'portrait' | 'landscape'>(() => {
-    return (localStorage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as 'portrait' | 'landscape') || DEFAULT_CONFIG.PRINT_ORIENTATION;
-  });
+  const printOrientation =
+    (localStorage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as PrintState['printOrientation']) ||
+    DEFAULT_CONFIG.PRINT_ORIENTATION;
 
-  const [customPresets, setCustomPresets] = React.useState<PrintPreset[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS);
-    return saved ? JSON.parse(saved) : [];
-  });
+  const savedCustomPresets = localStorage.getItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS);
+  const customPresets: PrintPreset[] = savedCustomPresets ? JSON.parse(savedCustomPresets) : [];
 
-  const [physicianName, setPhysicianName] = React.useState(() => {
-    return localStorage.getItem('printPhysicianName') || '';
-  });
-
-  // Persist preferences
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE, onePatientPerPage.toString());
-  }, [onePatientPerPage]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE, autoFitFontSize.toString());
-  }, [autoFitFontSize]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS, JSON.stringify(combinedColumns));
-  }, [combinedColumns]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_SYSTEMS_REVIEW_COLUMN_COUNT, systemsReviewColumnCount.toString());
-  }, [systemsReviewColumnCount]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, printOrientation);
-  }, [printOrientation]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS, JSON.stringify(customPresets));
-  }, [customPresets]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, printFontSize.toString());
-    localStorage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, printFontFamily);
-  }, [printFontSize, printFontFamily]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(columnWidths));
-  }, [columnWidths]);
-
-  React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS, JSON.stringify(combinedColumnWidths));
-  }, [combinedColumnWidths]);
-
-  React.useEffect(() => {
-    localStorage.setItem('printMargins', margins);
-    localStorage.setItem('printHeaderStyle', headerStyle);
-    localStorage.setItem('printBorderStyle', borderStyle);
-    localStorage.setItem('printShowPageNumbers', showPageNumbers.toString());
-    localStorage.setItem('printShowTimestamp', showTimestamp.toString());
-    localStorage.setItem('printAlternateRowColors', alternateRowColors.toString());
-    localStorage.setItem('printCompactMode', compactMode.toString());
-  }, [margins, headerStyle, borderStyle, showPageNumbers, showTimestamp, alternateRowColors, compactMode]);
-
-  React.useEffect(() => {
-    localStorage.setItem('printPhysicianName', physicianName);
-  }, [physicianName]);
-
-  const getFontFamilyCSS = React.useCallback(() => {
-    return fontFamilies.find(f => f.value === printFontFamily)?.css || fontFamilies[0].css;
-  }, [printFontFamily]);
-
-  const toggleColumn = React.useCallback((key: string) => {
-    setColumns(prev => {
-      const updated = prev.map(col =>
-        col.key === key ? { ...col, enabled: !col.enabled } : col
-      );
-      localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
-  const selectAllColumns = React.useCallback(() => {
-    setColumns(prev => {
-      const updated = prev.map(col => ({ ...col, enabled: true }));
-      localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
-  const deselectAllColumns = React.useCallback(() => {
-    setColumns(prev => {
-      const updated = prev.map(col =>
-        col.key === "patient" ? col : { ...col, enabled: false }
-      );
-      localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
-
-  const toggleColumnCombination = React.useCallback((combinationKey: string) => {
-    setCombinedColumns(prev => {
-      if (prev.includes(combinationKey)) {
-        return prev.filter(k => k !== combinationKey);
-      } else {
-        return [...prev, combinationKey];
-      }
-    });
-  }, []);
-
-  const isColumnEnabled = React.useCallback((key: string): boolean => {
-    return columns.find(c => c.key === key)?.enabled ?? false;
-  }, [columns]);
-
-  const saveCurrentAsPreset = React.useCallback((name: string) => {
-    if (!name.trim()) {
-      toast({
-        title: "Name required",
-        description: "Please enter a name for your preset.",
-        variant: "destructive"
-      });
-      return false;
-    }
-
-    const preset: PrintPreset = {
-      id: Date.now().toString(),
-      name: name.trim(),
-      columns: columns,
-      combinedColumns: combinedColumns,
-      printOrientation: printOrientation,
-      printFontSize: printFontSize,
-      printFontFamily: printFontFamily,
-      onePatientPerPage: onePatientPerPage,
-      autoFitFontSize: autoFitFontSize,
-      columnWidths: columnWidths,
-      combinedColumnWidths: combinedColumnWidths,
-      margins: margins,
-      headerStyle: headerStyle,
-      borderStyle: borderStyle,
-      showPageNumbers: showPageNumbers,
-      showTimestamp: showTimestamp,
-      alternateRowColors: alternateRowColors,
-      compactMode: compactMode,
-      physicianName: physicianName,
-      createdAt: new Date().toISOString()
-    };
-
-    setCustomPresets(prev => [...prev, preset]);
-
-    toast({
-      title: "Preset saved",
-      description: `"${preset.name}" has been saved for quick access.`
-    });
-    return true;
-  }, [columns, combinedColumns, printOrientation, printFontSize, printFontFamily, onePatientPerPage, autoFitFontSize, columnWidths, combinedColumnWidths, margins, headerStyle, borderStyle, showPageNumbers, showTimestamp, alternateRowColors, compactMode, physicianName, toast]);
-
-  const loadPreset = React.useCallback((preset: PrintPreset) => {
-    setColumns(preset.columns);
-    setCombinedColumns(preset.combinedColumns);
-    setPrintOrientation(preset.printOrientation);
-    setPrintFontSize(preset.printFontSize);
-    setPrintFontFamily(preset.printFontFamily);
-    setOnePatientPerPage(preset.onePatientPerPage);
-    setAutoFitFontSize(preset.autoFitFontSize);
-    setColumnWidths(preset.columnWidths);
-    setCombinedColumnWidths(preset.combinedColumnWidths);
-    setMargins(preset.margins);
-    setHeaderStyle(preset.headerStyle);
-    setBorderStyle(preset.borderStyle);
-    setShowPageNumbers(preset.showPageNumbers);
-    setShowTimestamp(preset.showTimestamp);
-    setAlternateRowColors(preset.alternateRowColors);
-    setCompactMode(preset.compactMode);
-    if (preset.physicianName !== undefined) setPhysicianName(preset.physicianName);
-
-    toast({
-      title: "Preset loaded",
-      description: `"${preset.name}" settings applied.`
-    });
-  }, [toast]);
-
-  const deletePreset = React.useCallback((presetId: string) => {
-    setCustomPresets(prev => prev.filter(p => p.id !== presetId));
-    toast({
-      title: "Preset deleted",
-      description: "The preset has been removed."
-    });
-  }, [toast]);
-
-  const exportPreset = React.useCallback((preset: PrintPreset) => {
-    const exportData = {
-      ...preset,
-      exportedAt: new Date().toISOString(),
-      version: '1.0'
-    };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `print-preset-${preset.name.toLowerCase().replace(/\s+/g, '-')}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Preset exported",
-      description: `"${preset.name}" saved as JSON file.`
-    });
-  }, [toast]);
-
-  const importPreset = React.useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target?.result as string);
-        if (!data.name || !data.columns) {
-          throw new Error('Invalid preset format');
-        }
-        const newPreset: PrintPreset = {
-          id: Date.now().toString(),
-          name: data.name + (customPresets.some(p => p.name === data.name) ? ' (imported)' : ''),
-          columns: data.columns,
-          combinedColumns: data.combinedColumns || [],
-          printOrientation: data.printOrientation || 'portrait',
-          printFontSize: data.printFontSize || 9,
-          printFontFamily: data.printFontFamily || 'system',
-          onePatientPerPage: data.onePatientPerPage || false,
-          autoFitFontSize: data.autoFitFontSize || false,
-          columnWidths: data.columnWidths || defaultColumnWidths,
-          combinedColumnWidths: data.combinedColumnWidths || defaultCombinedColumnWidths,
-          margins: data.margins || DEFAULT_CONFIG.PRINT_MARGINS,
-          headerStyle: data.headerStyle || DEFAULT_CONFIG.PRINT_HEADER_STYLE,
-          borderStyle: data.borderStyle || DEFAULT_CONFIG.PRINT_BORDER_STYLE,
-          showPageNumbers: data.showPageNumbers ?? DEFAULT_CONFIG.PRINT_SHOW_PAGE_NUMBERS,
-          showTimestamp: data.showTimestamp ?? DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP,
-          alternateRowColors: data.alternateRowColors ?? DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS,
-          compactMode: data.compactMode ?? DEFAULT_CONFIG.PRINT_COMPACT_MODE,
-          createdAt: new Date().toISOString()
-        };
-        setCustomPresets(prev => [...prev, newPreset]);
-        toast({
-          title: "Preset imported",
-          description: `"${newPreset.name}" has been added.`
-        });
-      } catch {
-        toast({
-          title: "Import failed",
-          description: "The file could not be parsed as a valid preset.",
-          variant: "destructive"
-        });
-      }
-    };
-    reader.readAsText(file);
-  }, [customPresets, toast]);
+  const physicianName = localStorage.getItem('printPhysicianName') || '';
 
   return {
     columnWidths,
-    setColumnWidths,
     combinedColumnWidths,
-    setCombinedColumnWidths,
     columns,
-    setColumns,
     printFontSize,
-    setPrintFontSize,
     printFontFamily,
-    setPrintFontFamily,
     margins,
-    setMargins,
     headerStyle,
-    setHeaderStyle,
     borderStyle,
-    setBorderStyle,
     showPageNumbers,
-    setShowPageNumbers,
     showTimestamp,
-    setShowTimestamp,
     alternateRowColors,
-    setAlternateRowColors,
     compactMode,
-    setCompactMode,
     onePatientPerPage,
-    setOnePatientPerPage,
     autoFitFontSize,
-    setAutoFitFontSize,
     combinedColumns,
-    setCombinedColumns,
     systemsReviewColumnCount,
-    setSystemsReviewColumnCount,
     printOrientation,
-    setPrintOrientation,
     customPresets,
+    physicianName,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Reducer
+// ---------------------------------------------------------------------------
+
+function reducer(state: PrintState, action: PrintAction): PrintState {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+
+    case 'LOAD_PRESET': {
+      const p = action.preset;
+      return {
+        ...state,
+        columns: p.columns,
+        combinedColumns: p.combinedColumns,
+        printOrientation: p.printOrientation,
+        printFontSize: p.printFontSize,
+        printFontFamily: p.printFontFamily,
+        onePatientPerPage: p.onePatientPerPage,
+        autoFitFontSize: p.autoFitFontSize,
+        columnWidths: p.columnWidths,
+        combinedColumnWidths: p.combinedColumnWidths,
+        margins: p.margins,
+        headerStyle: p.headerStyle,
+        borderStyle: p.borderStyle,
+        showPageNumbers: p.showPageNumbers,
+        showTimestamp: p.showTimestamp,
+        alternateRowColors: p.alternateRowColors,
+        compactMode: p.compactMode,
+        physicianName: p.physicianName ?? state.physicianName,
+      };
+    }
+
+    case 'RESET_COLUMNS':
+      return { ...state, columns: defaultColumns };
+
+    case 'TOGGLE_COLUMN':
+      return {
+        ...state,
+        columns: state.columns.map(col =>
+          col.key === action.key ? { ...col, enabled: !col.enabled } : col
+        ),
+      };
+
+    case 'SELECT_ALL_COLUMNS':
+      return {
+        ...state,
+        columns: state.columns.map(col => ({ ...col, enabled: true })),
+      };
+
+    case 'DESELECT_ALL_COLUMNS':
+      return {
+        ...state,
+        columns: state.columns.map(col =>
+          col.key === 'patient' ? col : { ...col, enabled: false }
+        ),
+      };
+
+    case 'TOGGLE_COMBINATION':
+      return {
+        ...state,
+        combinedColumns: state.combinedColumns.includes(action.key)
+          ? state.combinedColumns.filter(k => k !== action.key)
+          : [...state.combinedColumns, action.key],
+      };
+
+    default:
+      return state;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Persist state to localStorage after each change
+// ---------------------------------------------------------------------------
+
+function persistState(state: PrintState) {
+  localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(state.columnWidths));
+  localStorage.setItem(
+    STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS,
+    JSON.stringify(state.combinedColumnWidths)
+  );
+  localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(state.columns));
+  localStorage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, state.printFontSize.toString());
+  localStorage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, state.printFontFamily);
+  localStorage.setItem('printMargins', state.margins);
+  localStorage.setItem('printHeaderStyle', state.headerStyle);
+  localStorage.setItem('printBorderStyle', state.borderStyle);
+  localStorage.setItem('printShowPageNumbers', state.showPageNumbers.toString());
+  localStorage.setItem('printShowTimestamp', state.showTimestamp.toString());
+  localStorage.setItem('printAlternateRowColors', state.alternateRowColors.toString());
+  localStorage.setItem('printCompactMode', state.compactMode.toString());
+  localStorage.setItem(
+    STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE,
+    state.onePatientPerPage.toString()
+  );
+  localStorage.setItem(
+    STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE,
+    state.autoFitFontSize.toString()
+  );
+  localStorage.setItem(
+    STORAGE_KEYS.PRINT_COMBINED_COLUMNS,
+    JSON.stringify(state.combinedColumns)
+  );
+  localStorage.setItem(
+    STORAGE_KEYS.PRINT_SYSTEMS_REVIEW_COLUMN_COUNT,
+    state.systemsReviewColumnCount.toString()
+  );
+  localStorage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, state.printOrientation);
+  localStorage.setItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS, JSON.stringify(state.customPresets));
+  localStorage.setItem('printPhysicianName', state.physicianName);
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
+export const usePrintState = () => {
+  const { toast } = useToast();
+
+  const [state, dispatch] = React.useReducer(
+    reducer,
+    undefined,
+    buildInitialState
+  );
+
+  // Persist on every state change (batched — runs once per dispatch)
+  React.useEffect(() => {
+    persistState(state);
+  }, [state]);
+
+  // ------------------------------------------------------------------
+  // Public setter wrappers (API-compatible with the old useState shape)
+  // ------------------------------------------------------------------
+
+  const setColumnWidths = React.useCallback((v: ColumnWidthsType | ((prev: ColumnWidthsType) => ColumnWidthsType)) => {
+    dispatch({
+      type: 'SET_FIELD',
+      field: 'columnWidths',
+      value: typeof v === 'function' ? v(state.columnWidths) : v,
+    });
+  }, [state.columnWidths]);
+
+  const setCombinedColumnWidths = React.useCallback(
+    (v: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'combinedColumnWidths',
+        value: typeof v === 'function' ? v(state.combinedColumnWidths) : v,
+      });
+    },
+    [state.combinedColumnWidths]
+  );
+
+  const setColumns = React.useCallback(
+    (v: ColumnConfig[] | ((prev: ColumnConfig[]) => ColumnConfig[])) => {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'columns',
+        value: typeof v === 'function' ? v(state.columns) : v,
+      });
+    },
+    [state.columns]
+  );
+
+  const setPrintFontSize = React.useCallback((v: number) => {
+    dispatch({ type: 'SET_FIELD', field: 'printFontSize', value: v });
+  }, []);
+
+  const setPrintFontFamily = React.useCallback((v: string) => {
+    dispatch({ type: 'SET_FIELD', field: 'printFontFamily', value: v });
+  }, []);
+
+  const setMargins = React.useCallback((v: PrintState['margins']) => {
+    dispatch({ type: 'SET_FIELD', field: 'margins', value: v });
+  }, []);
+
+  const setHeaderStyle = React.useCallback((v: PrintState['headerStyle']) => {
+    dispatch({ type: 'SET_FIELD', field: 'headerStyle', value: v });
+  }, []);
+
+  const setBorderStyle = React.useCallback((v: PrintState['borderStyle']) => {
+    dispatch({ type: 'SET_FIELD', field: 'borderStyle', value: v });
+  }, []);
+
+  const setShowPageNumbers = React.useCallback((v: boolean) => {
+    dispatch({ type: 'SET_FIELD', field: 'showPageNumbers', value: v });
+  }, []);
+
+  const setShowTimestamp = React.useCallback((v: boolean) => {
+    dispatch({ type: 'SET_FIELD', field: 'showTimestamp', value: v });
+  }, []);
+
+  const setAlternateRowColors = React.useCallback((v: boolean) => {
+    dispatch({ type: 'SET_FIELD', field: 'alternateRowColors', value: v });
+  }, []);
+
+  const setCompactMode = React.useCallback((v: boolean) => {
+    dispatch({ type: 'SET_FIELD', field: 'compactMode', value: v });
+  }, []);
+
+  const setOnePatientPerPage = React.useCallback((v: boolean) => {
+    dispatch({ type: 'SET_FIELD', field: 'onePatientPerPage', value: v });
+  }, []);
+
+  const setAutoFitFontSize = React.useCallback((v: boolean) => {
+    dispatch({ type: 'SET_FIELD', field: 'autoFitFontSize', value: v });
+  }, []);
+
+  const setCombinedColumns = React.useCallback(
+    (v: string[] | ((prev: string[]) => string[])) => {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'combinedColumns',
+        value: typeof v === 'function' ? v(state.combinedColumns) : v,
+      });
+    },
+    [state.combinedColumns]
+  );
+
+  const setSystemsReviewColumnCount = React.useCallback((v: number) => {
+    dispatch({ type: 'SET_FIELD', field: 'systemsReviewColumnCount', value: v });
+  }, []);
+
+  const setPrintOrientation = React.useCallback((v: PrintState['printOrientation']) => {
+    dispatch({ type: 'SET_FIELD', field: 'printOrientation', value: v });
+  }, []);
+
+  const setCustomPresets = React.useCallback(
+    (v: PrintPreset[] | ((prev: PrintPreset[]) => PrintPreset[])) => {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'customPresets',
+        value: typeof v === 'function' ? v(state.customPresets) : v,
+      });
+    },
+    [state.customPresets]
+  );
+
+  const setPhysicianName = React.useCallback((v: string) => {
+    dispatch({ type: 'SET_FIELD', field: 'physicianName', value: v });
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Computed / derived helpers
+  // ------------------------------------------------------------------
+
+  const getFontFamilyCSS = React.useCallback(() => {
+    return fontFamilies.find(f => f.value === state.printFontFamily)?.css || fontFamilies[0].css;
+  }, [state.printFontFamily]);
+
+  // ------------------------------------------------------------------
+  // Column helpers
+  // ------------------------------------------------------------------
+
+  const toggleColumn = React.useCallback((key: string) => {
+    dispatch({ type: 'TOGGLE_COLUMN', key });
+  }, []);
+
+  const selectAllColumns = React.useCallback(() => {
+    dispatch({ type: 'SELECT_ALL_COLUMNS' });
+  }, []);
+
+  const deselectAllColumns = React.useCallback(() => {
+    dispatch({ type: 'DESELECT_ALL_COLUMNS' });
+  }, []);
+
+  const toggleColumnCombination = React.useCallback((key: string) => {
+    dispatch({ type: 'TOGGLE_COMBINATION', key });
+  }, []);
+
+  const isColumnEnabled = React.useCallback(
+    (key: string): boolean => state.columns.find(c => c.key === key)?.enabled ?? false,
+    [state.columns]
+  );
+
+  // ------------------------------------------------------------------
+  // Preset helpers
+  // ------------------------------------------------------------------
+
+  const saveCurrentAsPreset = React.useCallback(
+    (name: string) => {
+      if (!name.trim()) {
+        toast({
+          title: 'Name required',
+          description: 'Please enter a name for your preset.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      const preset: PrintPreset = {
+        id: Date.now().toString(),
+        name: name.trim(),
+        columns: state.columns,
+        combinedColumns: state.combinedColumns,
+        printOrientation: state.printOrientation,
+        printFontSize: state.printFontSize,
+        printFontFamily: state.printFontFamily,
+        onePatientPerPage: state.onePatientPerPage,
+        autoFitFontSize: state.autoFitFontSize,
+        columnWidths: state.columnWidths,
+        combinedColumnWidths: state.combinedColumnWidths,
+        margins: state.margins,
+        headerStyle: state.headerStyle,
+        borderStyle: state.borderStyle,
+        showPageNumbers: state.showPageNumbers,
+        showTimestamp: state.showTimestamp,
+        alternateRowColors: state.alternateRowColors,
+        compactMode: state.compactMode,
+        physicianName: state.physicianName,
+        createdAt: new Date().toISOString(),
+      };
+
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'customPresets',
+        value: [...state.customPresets, preset],
+      });
+
+      toast({ title: 'Preset saved', description: `"${preset.name}" has been saved for quick access.` });
+      return true;
+    },
+    [state, toast]
+  );
+
+  // Single dispatch → single re-render (was 17 setState calls before)
+  const loadPreset = React.useCallback(
+    (preset: PrintPreset) => {
+      dispatch({ type: 'LOAD_PRESET', preset });
+      toast({ title: 'Preset loaded', description: `"${preset.name}" settings applied.` });
+    },
+    [toast]
+  );
+
+  const deletePreset = React.useCallback(
+    (presetId: string) => {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'customPresets',
+        value: state.customPresets.filter(p => p.id !== presetId),
+      });
+      toast({ title: 'Preset deleted', description: 'The preset has been removed.' });
+    },
+    [state.customPresets, toast]
+  );
+
+  const exportPreset = React.useCallback(
+    (preset: PrintPreset) => {
+      const exportData = { ...preset, exportedAt: new Date().toISOString(), version: '1.0' };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `print-preset-${preset.name.toLowerCase().replace(/\s+/g, '-')}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Preset exported', description: `"${preset.name}" saved as JSON file.` });
+    },
+    [toast]
+  );
+
+  const importPreset = React.useCallback(
+    (file: File) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target?.result as string);
+          if (!data.name || !data.columns) throw new Error('Invalid preset format');
+          const newPreset: PrintPreset = {
+            id: Date.now().toString(),
+            name: data.name + (state.customPresets.some(p => p.name === data.name) ? ' (imported)' : ''),
+            columns: data.columns,
+            combinedColumns: data.combinedColumns || [],
+            printOrientation: data.printOrientation || 'portrait',
+            printFontSize: data.printFontSize || 9,
+            printFontFamily: data.printFontFamily || 'system',
+            onePatientPerPage: data.onePatientPerPage || false,
+            autoFitFontSize: data.autoFitFontSize || false,
+            columnWidths: data.columnWidths || defaultColumnWidths,
+            combinedColumnWidths: data.combinedColumnWidths || defaultCombinedColumnWidths,
+            margins: data.margins || DEFAULT_CONFIG.PRINT_MARGINS,
+            headerStyle: data.headerStyle || DEFAULT_CONFIG.PRINT_HEADER_STYLE,
+            borderStyle: data.borderStyle || DEFAULT_CONFIG.PRINT_BORDER_STYLE,
+            showPageNumbers: data.showPageNumbers ?? DEFAULT_CONFIG.PRINT_SHOW_PAGE_NUMBERS,
+            showTimestamp: data.showTimestamp ?? DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP,
+            alternateRowColors: data.alternateRowColors ?? DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS,
+            compactMode: data.compactMode ?? DEFAULT_CONFIG.PRINT_COMPACT_MODE,
+            createdAt: new Date().toISOString(),
+          };
+          dispatch({
+            type: 'SET_FIELD',
+            field: 'customPresets',
+            value: [...state.customPresets, newPreset],
+          });
+          toast({ title: 'Preset imported', description: `"${newPreset.name}" has been added.` });
+        } catch {
+          toast({
+            title: 'Import failed',
+            description: 'The file could not be parsed as a valid preset.',
+            variant: 'destructive',
+          });
+        }
+      };
+      reader.readAsText(file);
+    },
+    [state.customPresets, toast]
+  );
+
+  // ------------------------------------------------------------------
+  // Return  (same shape as before — no consumers need updating)
+  // ------------------------------------------------------------------
+
+  return {
+    // State
+    columnWidths: state.columnWidths,
+    setColumnWidths,
+    combinedColumnWidths: state.combinedColumnWidths,
+    setCombinedColumnWidths,
+    columns: state.columns,
+    setColumns,
+    printFontSize: state.printFontSize,
+    setPrintFontSize,
+    printFontFamily: state.printFontFamily,
+    setPrintFontFamily,
+    margins: state.margins,
+    setMargins,
+    headerStyle: state.headerStyle,
+    setHeaderStyle,
+    borderStyle: state.borderStyle,
+    setBorderStyle,
+    showPageNumbers: state.showPageNumbers,
+    setShowPageNumbers,
+    showTimestamp: state.showTimestamp,
+    setShowTimestamp,
+    alternateRowColors: state.alternateRowColors,
+    setAlternateRowColors,
+    compactMode: state.compactMode,
+    setCompactMode,
+    onePatientPerPage: state.onePatientPerPage,
+    setOnePatientPerPage,
+    autoFitFontSize: state.autoFitFontSize,
+    setAutoFitFontSize,
+    combinedColumns: state.combinedColumns,
+    setCombinedColumns,
+    systemsReviewColumnCount: state.systemsReviewColumnCount,
+    setSystemsReviewColumnCount,
+    printOrientation: state.printOrientation,
+    setPrintOrientation,
+    customPresets: state.customPresets,
     setCustomPresets,
+    physicianName: state.physicianName,
+    setPhysicianName,
+    // Helpers
     getFontFamilyCSS,
     toggleColumn,
     selectAllColumns,
@@ -409,7 +620,5 @@ export const usePrintState = () => {
     deletePreset,
     exportPreset,
     importPreset,
-    physicianName,
-    setPhysicianName,
   };
 };
