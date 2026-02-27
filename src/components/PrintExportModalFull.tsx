@@ -274,18 +274,26 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }
   }, [user]);
 
+  // Debounce the @page CSS update — orientation + margins rarely change rapidly,
+  // and forcing a style recalc on every settings mutation causes layout jitter.
+  const applyPageStyleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { printOrientation, margins } = settings;
   React.useEffect(() => {
-    const { marginMm } = getPageMetrics(settings);
-    const styleId = "print-page-style";
-    let style = document.getElementById(styleId) as HTMLStyleElement | null;
-    if (!style) {
-      style = document.createElement("style");
-      style.id = styleId;
-      document.head.appendChild(style);
-    }
-    style.textContent = `@page { size: A4 ${settings.printOrientation}; margin: 0; }`;
-    document.documentElement.style.setProperty("--print-page-margin", `${marginMm}mm`);
-  }, [settings]);
+    if (applyPageStyleRef.current) clearTimeout(applyPageStyleRef.current);
+    applyPageStyleRef.current = setTimeout(() => {
+      const { marginMm } = getPageMetrics({ printOrientation, margins } as typeof settings);
+      const styleId = "print-page-style";
+      let style = document.getElementById(styleId) as HTMLStyleElement | null;
+      if (!style) {
+        style = document.createElement("style");
+        style.id = styleId;
+        document.head.appendChild(style);
+      }
+      style.textContent = `@page { size: A4 ${printOrientation}; margin: 0; }`;
+      document.documentElement.style.setProperty("--print-page-margin", `${marginMm}mm`);
+    }, 150);
+    return () => { if (applyPageStyleRef.current) clearTimeout(applyPageStyleRef.current); };
+  }, [printOrientation, margins]);
 
   React.useEffect(() => {
     syncSettingsToLocalStorage(settings);
@@ -324,39 +332,45 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     localStorage.setItem('printColumnPrefs', JSON.stringify(newColumns));
   }, []);
 
+  // Single atomic setState — avoids the previous 2-render cascade
+  // (handleUpdateColumns → re-render 1, then setSettings → re-render 2).
   const applyTemplateSettings = React.useCallback((template: ReturnType<typeof getTemplateById>) => {
     if (!template) return;
 
-    // Map template sections to columns
-    const newColumns = settings.columns.map(col => {
-      const templateSection = template.sections.find(s => s.key === col.key);
-      if (templateSection) {
-        return { ...col, enabled: templateSection.enabled };
-      }
-      return { ...col, enabled: false };
+    setSettings(prev => {
+      // Map template sections to column enabled state
+      const newColumns = prev.columns.map(col => {
+        const templateSection = template.sections.find(s => s.key === col.key);
+        return templateSection
+          ? { ...col, enabled: templateSection.enabled }
+          : { ...col, enabled: false };
+      });
+
+      const updated = {
+        ...prev,
+        columns: newColumns,
+        printOrientation: template.layout.orientation,
+        printFontSize: template.styling.fontSize,
+        printFontFamily: template.styling.fontFamily,
+        onePatientPerPage: template.layout.patientsPerPage === 1,
+        activeTab: template.layout.viewType,
+        margins: template.layout.margins,
+        headerStyle: template.layout.headerStyle,
+        showPageNumbers: template.layout.showPageNumbers,
+        showTimestamp: template.layout.showTimestamp,
+        borderStyle: template.styling.borderStyle,
+        alternateRowColors: template.styling.alternateRowColors,
+        compactMode: template.styling.compactMode,
+      };
+
+      // Persist the columns immediately inside the updater so localStorage
+      // is always in sync with the new state in the same tick.
+      localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(newColumns));
+      return updated;
     });
+  }, []);
 
-    handleUpdateColumns(newColumns);
-
-    // Update other settings
-    setSettings(prev => ({
-      ...prev,
-      printOrientation: template.layout.orientation,
-      printFontSize: template.styling.fontSize,
-      printFontFamily: template.styling.fontFamily,
-      onePatientPerPage: template.layout.patientsPerPage === 1,
-      activeTab: template.layout.viewType,
-      margins: template.layout.margins,
-      headerStyle: template.layout.headerStyle,
-      showPageNumbers: template.layout.showPageNumbers,
-      showTimestamp: template.layout.showTimestamp,
-      borderStyle: template.styling.borderStyle,
-      alternateRowColors: template.styling.alternateRowColors,
-      compactMode: template.styling.compactMode,
-    }));
-  }, [handleUpdateColumns, settings.columns]);
-
-  const handleApplyTemplate = (templateId: PrintTemplateType) => {
+  const handleApplyTemplate = React.useCallback((templateId: PrintTemplateType) => {
     const template = getTemplateById(templateId);
     if (!template) return;
 
@@ -364,7 +378,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     applyTemplateSettings(template);
 
     toast({ title: `Applied ${template.name} template` });
-  };
+  }, [applyTemplateSettings, toast]);
 
   const handleResetColumns = () => {
     handleUpdateColumns(defaultColumns);
