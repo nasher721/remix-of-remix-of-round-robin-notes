@@ -1,79 +1,37 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  motion,
+  useReducedMotion,
+  type TargetAndTransition,
+  type Variants,
+} from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import FeatureHighlights from "@/components/landing/FeatureHighlights";
+
+const featureChips = [
+  { icon: "devices", label: "Mobile access" },
+  { icon: "speed", label: "Realtime sync" },
+  { icon: "lock", label: "HIPAA secure" },
+  { icon: "task", label: "Team tasks" },
+];
+
+const checklist = [
+  "Live sign-outs with change tracking",
+  "Bedside-ready layout for ICU teams",
+  "Exportable notes for handoff & reports",
+];
+
+const signalCards = [
+  { label: "Rounds", value: "In progress", tone: "bg-primary/15 text-primary" },
+  { label: "Drafts", value: "Auto-saved", tone: "bg-emerald-50 text-emerald-600" },
+  { label: "Alerts", value: "Labs updated", tone: "bg-amber-50 text-amber-700" },
+];
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [showContent, setShowContent] = useState(false);
-  const [isActive, setIsActive] = useState(false);
-  const [showPlayOverlay, setShowPlayOverlay] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const handleScroll = useCallback(() => {
-    if (containerRef.current) {
-      setScrollY(containerRef.current.scrollTop);
-    }
-  }, []);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const playPromise = video.play();
-
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        setShowPlayOverlay(true);
-      });
-    }
-
-    const handleEnded = () => {
-      startTransition();
-    };
-
-    const handleError = () => {
-      console.log("Video failed to load, starting app directly.");
-      startTransition();
-    };
-
-    video.addEventListener("ended", handleEnded);
-    video.addEventListener("error", handleError);
-
-    return () => {
-      video.removeEventListener("ended", handleEnded);
-      video.removeEventListener("error", handleError);
-    };
-  }, []);
-
-  const startTransition = () => {
-    setShowContent(true);
-    setTimeout(() => {
-      setIsActive(true);
-    }, 200);
-    setTimeout(() => {
-      setIsActive(true);
-    }, 600);
-  };
-
-  const handlePlayClick = () => {
-    const video = videoRef.current;
-    if (video) {
-      video.play();
-      setShowPlayOverlay(false);
-    }
-  };
+  const shouldReduceMotion = useReducedMotion();
 
   const handleLaunchPortal = () => {
     if (user) {
@@ -84,182 +42,229 @@ const Landing: React.FC = () => {
     }
   };
 
-  // Parallax factors
-  const parallaxSlow = scrollY * 0.3;
-  const parallaxMed = scrollY * 0.5;
-  const parallaxFast = scrollY * 0.7;
-  const bgOpacity = Math.min(scrollY / 600, 0.15);
+  const fadeUp: Variants = {
+    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 18 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+    },
+  };
+
+  const stagger: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08, delayChildren: 0.05 },
+    },
+  };
+
+  const float: TargetAndTransition | undefined = shouldReduceMotion
+    ? undefined
+    : {
+        y: [0, -12, 0],
+        scale: [1, 1.02, 1],
+        transition: { duration: 8, repeat: Infinity, ease: [0.37, 0, 0.63, 1] },
+      };
 
   return (
-    <div
-      ref={containerRef}
-      className="landing-page min-h-screen relative overflow-y-auto overflow-x-hidden transition-colors duration-[1500ms] ease-in-out scroll-smooth bg-background"
-    >
-      {/* Video intro overlay */}
-      <div
-        className={`intro-container fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-[800ms] ease-out bg-background ${showContent ? "opacity-0 invisible pointer-events-none" : ""}`}
-      >
-        <video
-          ref={videoRef}
-          className="intro-video w-full h-full object-cover"
-          style={{ mixBlendMode: "multiply" }}
-          muted
-          playsInline
+    <div className="landing-page min-h-screen relative overflow-hidden bg-background text-foreground">
+      <motion.div
+        className="pointer-events-none absolute -left-32 -top-40 h-96 w-96 rounded-full bg-primary/20 blur-3xl"
+        animate={float}
+      />
+      <motion.div
+        className="pointer-events-none absolute -right-24 top-10 h-[320px] w-[320px] rounded-full bg-sky-400/20 blur-3xl"
+        animate={float}
+        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <section className="relative mx-auto flex max-w-6xl flex-col gap-12 px-6 pt-20 pb-16 md:flex-row md:items-center md:pt-24">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/10 via-sky-500/10 to-background" />
+        <motion.div
+          className="flex-1 space-y-6"
+          variants={stagger}
+          initial="hidden"
+          animate="visible"
         >
-          <source src="/video_d947dcb3-9916-4d7f-b617-a3beb20d3fdf.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
-        {showPlayOverlay && (
-          <button
-            onClick={handlePlayClick}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white px-10 py-5 rounded-full cursor-pointer z-[200] font-semibold backdrop-blur-sm hover:bg-black/70 transition-colors"
+          <motion.span
+            variants={fadeUp}
+            className="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary ring-1 ring-primary/20"
           >
-            Start Experience
-          </button>
-        )}
-      </div>
+            <span className="material-icons text-base">auto_awesome</span>
+            ICU-ready workflows
+          </motion.span>
 
-      {/* Hero section with parallax */}
-      <div
-        className={`poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-all duration-[1000ms] ease-in ${isActive ? "bg-gradient-to-br from-primary/90 via-medical-blue/80 to-primary/90" : "bg-background"} ${showContent ? "opacity-100" : ""}`}
-      >
-        {/* Parallax background circles */}
-        <div
-          className="bg-circle absolute rounded-full bg-white/5 z-0 w-[300px] h-[300px] -top-[100px] -right-[50px] transition-transform duration-100 ease-linear"
-          style={{ transform: `translateY(${parallaxSlow}px)` }}
-        />
-        <div
-          className="bg-circle absolute rounded-full bg-white/5 w-[200px] h-[200px] bottom-[100px] -left-[50px] transition-transform duration-100 ease-linear"
-          style={{ transform: `translateY(${-parallaxMed}px)` }}
-        />
-        <div
-          className="bg-circle absolute rounded-full bg-white/5 w-[150px] h-[150px] top-1/2 -right-[30px] transition-transform duration-100 ease-linear"
-          style={{ transform: `translateY(${parallaxSlow}px)` }}
-        />
-
-        {/* Parallax floating icons */}
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1] top-[15%] left-[10%] transition-transform duration-100 ease-linear"
-          style={{ transform: `translateY(${-parallaxFast}px)` }}
-        >
-          <span className="material-icons">local_hospital</span>
-        </span>
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1] top-[25%] right-[15%] transition-transform duration-100 ease-linear"
-          style={{ transform: `translateY(${-parallaxMed}px)` }}
-        >
-          <span className="material-icons">medical_services</span>
-        </span>
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1] bottom-[25%] left-[12%] transition-transform duration-100 ease-linear"
-          style={{ transform: `translateY(${parallaxSlow}px)` }}
-        >
-          <span className="material-icons">health_and_safety</span>
-        </span>
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1] bottom-[30%] right-[10%] transition-transform duration-100 ease-linear"
-          style={{ transform: `translateY(${parallaxMed}px)` }}
-        >
-          <span className="material-icons">monitor_heart</span>
-        </span>
-
-        {/* Extra parallax glow layer */}
-        <div
-          className="absolute inset-0 pointer-events-none z-0"
-          style={{
-            background: `radial-gradient(ellipse at 50% ${30 + parallaxSlow * 0.05}%, rgba(255,255,255,${bgOpacity}), transparent 70%)`,
-          }}
-        />
-
-        {/* Logo / cart with parallax */}
-        <div
-          className="logo-container relative w-[320px] h-[380px] flex justify-center items-center mb-10 z-10 transition-transform duration-[1200ms] ease-[cubic-bezier(0.34,1.56,0.64,1)]"
-          style={{
-            transform: `scale(${isActive ? 1 : 0.9}) translateY(${-parallaxSlow * 0.2}px)`,
-          }}
-        >
-          <div className="cart-wrapper relative w-[320px] h-[380px]">
-            <div className="monitor absolute top-[10px] left-1/2 -translate-x-1/2 w-[180px] h-[130px] bg-[#f0f4f8] rounded-xl border-4 border-[#2c3e50] shadow-[0_10px_30px_rgba(0,0,0,0.2)] z-[5]">
-              <div className="screen w-[156px] h-[100px] bg-[#1976D2] mx-2 rounded-md flex justify-center items-center relative overflow-hidden border-2 border-[#2c3e50]">
-                <span className="material-icons text-[40px] text-white/90 animate-[iconFloat_3s_ease-in-out_infinite]">analytics</span>
-              </div>
-            </div>
-            <div className="stand-pole absolute left-1/2 top-[140px] -translate-x-1/2 w-[24px] h-[160px] bg-[#e0e0e0] border-l-2 border-r-2 border-[#bdc3c7] z-[1]" />
-            <div className="work-surface absolute top-[180px] left-1/2 -translate-x-1/2 w-[220px] h-[15px] bg-white rounded-lg border-3 border-[#2c3e50] z-[4] shadow-[0_5px_15px_rgba(0,0,0,0.1)]" />
-            <div className="keyboard-tray absolute top-[205px] left-1/2 -translate-x-1/2 w-[140px] h-[10px] bg-[#90A4AE] rounded border-2 border-[#2c3e50] z-[3]" />
-            <div className="cart-base absolute bottom-[60px] left-1/2 -translate-x-1/2 w-[200px] h-[40px] bg-white rounded-[20px] border-3 border-[#2c3e50] z-[2]" />
-            <div className="wheels-container absolute bottom-0 left-1/2 -translate-x-1/2 w-[240px] h-[70px] flex justify-between z-[1]">
-              <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
-              </div>
-              <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Title section with staggered parallax */}
-        <div className="title-section text-center relative z-10 -mt-5">
-          <h1
-            className={`main-title font-heading text-[56px] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-md transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
-            style={{
-              transform: isActive ? `translateY(${-parallaxSlow * 0.15}px)` : undefined,
-            }}
+          <motion.h1
+            variants={fadeUp}
+            className="font-heading text-4xl font-extrabold leading-tight tracking-tight text-foreground md:text-5xl"
           >
             Rolling Rounds
-          </h1>
-          <p
-            className={`subtitle text-[1.2rem] font-sans font-light text-white/90 mb-7.5 transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
-            style={{
-              transform: isActive ? `translateY(${-parallaxSlow * 0.1}px)` : undefined,
-            }}
+            <span className="block text-[92%] text-muted-foreground">
+              Clinical documentation built for bedside teams
+            </span>
+          </motion.h1>
+
+          <motion.p
+            variants={fadeUp}
+            className="max-w-2xl text-lg text-muted-foreground"
           >
-            Medical Rounding & Patient List Management
-          </p>
+            Organize patients, capture handoffs, and keep the team in sync with realtime updates
+            across mobile and desktop. No video intros—just a faster path to the work.
+          </motion.p>
 
-          <div className={`features flex flex-wrap justify-center gap-[15px] mt-5 transition-all duration-[800ms] ease-out delay-[900ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
-            <div className="feature-tag bg-white/15 backdrop-blur-md px-5 py-2.5 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2 border border-white/20 hover:bg-white/25 hover:-translate-y-0.5 transition-all">
-              <span className="material-icons">devices</span>
-              <span>Mobile Access</span>
-            </div>
-            <div className="feature-tag bg-white/15 backdrop-blur-md px-5 py-2.5 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2 border border-white/20 hover:bg-white/25 hover:-translate-y-0.5 transition-all">
-              <span className="material-icons">speed</span>
-              <span>Real-time Sync</span>
-            </div>
-            <div className="feature-tag bg-white/15 backdrop-blur-md px-5 py-2.5 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2 border border-white/20 hover:bg-white/25 hover:-translate-y-0.5 transition-all">
-              <span className="material-icons">cloud_done</span>
-              <span>HIPAA Secure</span>
-            </div>
-          </div>
-        </div>
-
-        <div className={`cta-section mt-10 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
-          <button
-            onClick={handleLaunchPortal}
-            className="cta-button bg-white text-primary px-12 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-lg hover:-translate-y-0.5 hover:scale-105 hover:shadow-xl transition-all border-none cursor-pointer outline-none"
+          <motion.div
+            variants={stagger}
+            className="flex flex-wrap gap-2"
           >
-            <span>Launch Portal</span>
-            <span className="material-icons">login</span>
-          </button>
-        </div>
-      </div>
+            {featureChips.map((chip) => (
+              <motion.span
+                key={chip.label}
+                variants={fadeUp}
+                whileHover={{ y: shouldReduceMotion ? 0 : -2, scale: shouldReduceMotion ? 1 : 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-foreground shadow-sm ring-1 ring-foreground/10 backdrop-blur"
+              >
+                <span className="material-icons text-base text-primary">{chip.icon}</span>
+                {chip.label}
+              </motion.span>
+            ))}
+          </motion.div>
 
-      {/* Feature highlights section */}
-      {showContent && <FeatureHighlights />}
+          <motion.div variants={fadeUp} className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
+            <motion.button
+              whileHover={{ y: shouldReduceMotion ? 0 : -2, scale: shouldReduceMotion ? 1 : 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleLaunchPortal}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform"
+            >
+              Launch portal
+              <span className="material-icons text-base">login</span>
+            </motion.button>
 
-      <style>{`
-        @keyframes iconFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
-        }
-      `}</style>
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              Live sync keeps bedside and desktop aligned
+            </div>
+          </motion.div>
+
+          <motion.ul variants={stagger} className="grid gap-3 md:grid-cols-2">
+            {checklist.map((item) => (
+              <motion.li
+                key={item}
+                variants={fadeUp}
+                className="flex items-start gap-2 rounded-xl bg-white/70 px-4 py-3 text-sm font-medium text-foreground shadow-sm ring-1 ring-foreground/5 backdrop-blur"
+              >
+                <span className="mt-0.5 h-5 w-5 rounded-full bg-primary/15 text-primary">
+                  <span className="material-icons text-sm leading-5">check</span>
+                </span>
+                <span className="text-left text-muted-foreground">{item}</span>
+              </motion.li>
+            ))}
+          </motion.ul>
+        </motion.div>
+
+        <motion.div
+          className="relative flex-1"
+          variants={fadeUp}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.div
+            className="relative overflow-hidden rounded-3xl bg-white/80 p-6 shadow-xl ring-1 ring-foreground/10 backdrop-blur"
+            animate={float}
+          >
+            <div className="flex items-center justify-between text-sm font-semibold text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <span className="material-icons text-primary">monitor_heart</span>
+                Patient list
+              </div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                Live updates
+              </span>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {signalCards.map((card) => (
+                <div
+                  key={card.label}
+                  className="flex items-center justify-between rounded-2xl bg-muted/60 px-4 py-3 text-sm font-semibold text-foreground"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="material-icons text-base text-primary">arrow_forward</span>
+                    {card.label}
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${card.tone}`}>
+                    {card.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 rounded-2xl bg-gradient-to-br from-primary/10 via-sky-500/5 to-white px-4 py-4 text-sm">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span className="material-icons text-base text-primary">fact_check</span>
+                  Bedside checklist
+                </div>
+                <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold text-primary ring-1 ring-primary/15">
+                  Change tracked
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 text-muted-foreground">
+                <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs font-semibold">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" /> Airway secure
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-600">Updated just now</span>
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs font-semibold">
+                    <span className="h-2 w-2 rounded-full bg-amber-400" /> New labs to review
+                  </span>
+                  <span className="text-[11px] font-semibold text-amber-700">Synced across teams</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="absolute -bottom-6 -left-6 w-[220px] rounded-2xl bg-primary text-primary-foreground p-4 shadow-xl ring-4 ring-primary/20"
+            animate={float}
+            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
+          >
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <span className="material-icons text-base">radar</span>
+              Shift snapshot
+            </div>
+            <ul className="mt-3 space-y-2 text-sm">
+              <li className="flex items-center justify-between">
+                <span>Patients followed</span>
+                <span className="font-bold">12</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span>Tasks due</span>
+                <span className="font-bold">5</span>
+              </li>
+              <li className="flex items-center justify-between">
+                <span>Sign-outs</span>
+                <span className="font-bold">ready</span>
+              </li>
+            </ul>
+          </motion.div>
+        </motion.div>
+      </section>
+
+      <motion.div
+        id="feature-highlights"
+        className="relative"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-120px" }}
+        variants={fadeUp}
+      >
+        <FeatureHighlights />
+      </motion.div>
     </div>
   );
 };

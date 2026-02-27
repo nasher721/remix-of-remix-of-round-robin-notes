@@ -259,7 +259,7 @@ export const usePrintState = () => {
       description: `"${preset.name}" has been saved for quick access.`
     });
     return true;
-  }, [columns, combinedColumns, printOrientation, printFontSize, printFontFamily, onePatientPerPage, autoFitFontSize, columnWidths, combinedColumnWidths, margins, headerStyle, borderStyle, showPageNumbers, showTimestamp, alternateRowColors, compactMode, toast]);
+  }, [columns, combinedColumns, printOrientation, printFontSize, printFontFamily, onePatientPerPage, autoFitFontSize, columnWidths, combinedColumnWidths, margins, headerStyle, borderStyle, showPageNumbers, showTimestamp, alternateRowColors, compactMode, physicianName, toast]);
 
   const loadPreset = React.useCallback((preset: PrintPreset) => {
     setColumns(preset.columns);

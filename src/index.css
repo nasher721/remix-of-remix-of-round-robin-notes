@@ -612,3 +612,54 @@
   background-color: transparent;
   color: inherit;
 }
+
+/* Enhanced Focus Indicators for Accessibility */
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.8);
+  outline-offset: 2px;
+}
+
+/* Subtle focus for inputs */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.6);
+  outline-offset: 1px;
+}
+
+/* Focus ring for buttons */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid hsl(var(--ring) / 0.8);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px hsl(var(--ring) / 0.2);
+}
+
+/* Remove default focus for mouse users - show only on keyboard */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Smooth transitions for interactive elements */
+button,
+input,
+textarea,
+select,
+a {
+  transition: all 0.15s ease;
+}
+
+/* Touch-friendly tap highlight on mobile */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  [role="button"],
+  a,
+  select {
+    -webkit-tap-highlight-color: hsl(var(--primary) / 0.1);
+  }
+}
+.prose mark {
+  background-color: transparent;
+  color: inherit;
+}

@@ -167,7 +167,7 @@ export const AppleAIAssistant = ({
     onUpdatePatient(patient.id, lastEntry.field, lastEntry.previousValue);
     setHistory(rest);
     toast({ description: 'Undid last AI change' });
-  }, [history, onUpdatePatient, patient]);
+  }, [history, onUpdatePatient, patient, toast]);
 
   // Actions - Clinical
   const handleDDX = async () => {

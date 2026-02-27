@@ -1,4 +1,5 @@
 import * as React from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -56,7 +57,10 @@ function App(): React.ReactElement {
                   <BrowserRouter>
                     <SkipToContent />
                     <React.Suspense fallback={
-                      <div
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         className="flex items-center justify-center h-screen"
                         role="status"
                         aria-live="polite"
@@ -64,18 +68,24 @@ function App(): React.ReactElement {
                         aria-label="Loading page"
                       >
                         <span className="sr-only">Loading page, please wait…</span>
-                        <span aria-hidden="true">Loading...</span>
-                      </div>
+                        <span aria-hidden="true" className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0ms' }} />
+                          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '150ms' }} />
+                          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '300ms' }} />
+                        </span>
+                      </motion.div>
                     }>
-                      <Routes>
-                        <Route path="/" element={<Index />} />
-                        <Route path="/auth" element={<Auth />} />
-                        <Route path="/fhir/callback" element={<FHIRCallback />} />
-                        {import.meta.env.DEV && (
-                          <Route path="/__print-export-test" element={<PrintExportTest />} />
-                        )}
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
+                      <AnimatePresence mode="wait">
+                        <Routes locationKey="location">
+                          <Route path="/" element={<Index />} />
+                          <Route path="/auth" element={<Auth />} />
+                          <Route path="/fhir/callback" element={<FHIRCallback />} />
+                          {import.meta.env.DEV && (
+                            <Route path="/__print-export-test" element={<PrintExportTest />} />
+                          )}
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </AnimatePresence>
                     </React.Suspense>
                   </BrowserRouter>
                 </TooltipProvider>

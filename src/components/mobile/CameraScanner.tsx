@@ -204,7 +204,7 @@ export function CameraScanner({
     if (hasPermission !== false) {
       startCamera();
     }
-  }, [facingMode]);
+  }, [facingMode, hasPermission, startCamera]);
 
   if (hasPermission === false) {
     return (
