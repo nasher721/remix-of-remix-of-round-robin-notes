@@ -28,6 +28,19 @@ const signalCards = [
   { label: "Alerts", value: "Labs updated", tone: "bg-amber-50 text-amber-700" },
 ];
 
+const CartWheel: React.FC<{ shouldReduceMotion: boolean }> = ({ shouldReduceMotion }) => (
+  <motion.div
+    className="relative h-10 w-10 rounded-full border-2 border-slate-500 bg-white"
+    animate={shouldReduceMotion ? undefined : { rotate: 360 }}
+    transition={shouldReduceMotion ? undefined : { duration: 2.7, repeat: Infinity, ease: "linear" }}
+  >
+    <span className="absolute left-1/2 top-1 h-4 w-0.5 -translate-x-1/2 bg-slate-500" />
+    <span className="absolute left-1/2 top-1 h-4 w-0.5 -translate-x-1/2 rotate-[120deg] bg-slate-500" />
+    <span className="absolute left-1/2 top-1 h-4 w-0.5 -translate-x-1/2 rotate-[240deg] bg-slate-500" />
+    <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-500" />
+  </motion.div>
+);
+
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -81,12 +94,7 @@ const Landing: React.FC = () => {
 
       <section className="relative mx-auto flex max-w-6xl flex-col gap-12 px-6 pt-20 pb-16 md:flex-row md:items-center md:pt-24">
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/10 via-sky-500/10 to-background" />
-        <motion.div
-          className="flex-1 space-y-6"
-          variants={stagger}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.div className="flex-1 space-y-6" variants={stagger} initial="hidden" animate="visible">
           <motion.span
             variants={fadeUp}
             className="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary ring-1 ring-primary/20"
@@ -105,18 +113,12 @@ const Landing: React.FC = () => {
             </span>
           </motion.h1>
 
-          <motion.p
-            variants={fadeUp}
-            className="max-w-2xl text-lg text-muted-foreground"
-          >
+          <motion.p variants={fadeUp} className="max-w-2xl text-lg text-muted-foreground">
             Organize patients, capture handoffs, and keep the team in sync with realtime updates
-            across mobile and desktop. No video intros—just a faster path to the work.
+            across mobile and desktop.
           </motion.p>
 
-          <motion.div
-            variants={stagger}
-            className="flex flex-wrap gap-2"
-          >
+          <motion.div variants={stagger} className="flex flex-wrap gap-2">
             {featureChips.map((chip) => (
               <motion.span
                 key={chip.label}
@@ -164,12 +166,7 @@ const Landing: React.FC = () => {
           </motion.ul>
         </motion.div>
 
-        <motion.div
-          className="relative flex-1"
-          variants={fadeUp}
-          initial="hidden"
-          animate="visible"
-        >
+        <motion.div className="relative flex-1" variants={fadeUp} initial="hidden" animate="visible">
           <motion.div
             className="relative overflow-hidden rounded-3xl bg-white/80 p-6 shadow-xl ring-1 ring-foreground/10 backdrop-blur"
             animate={float}
@@ -201,31 +198,26 @@ const Landing: React.FC = () => {
               ))}
             </div>
 
-            <div className="mt-6 rounded-2xl bg-gradient-to-br from-primary/10 via-sky-500/5 to-white px-4 py-4 text-sm">
-              <div className="flex items-center justify-between text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="material-icons text-base text-primary">fact_check</span>
-                  Bedside checklist
+            <motion.div
+              className="mt-6 rounded-2xl border border-slate-300/70 bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-4"
+              animate={shouldReduceMotion ? undefined : { y: [0, -4, 0] }}
+              transition={shouldReduceMotion ? undefined : { duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <div className="relative mx-auto h-40 w-52">
+                <div className="absolute left-1/2 top-2 h-16 w-24 -translate-x-1/2 rounded-lg border-2 border-slate-600 bg-white shadow-sm">
+                  <div className="mx-1 mt-1 flex h-12 items-center justify-center rounded bg-primary/85 text-white">
+                    <span className="material-icons text-lg">analytics</span>
+                  </div>
                 </div>
-                <span className="rounded-full bg-white/60 px-3 py-1 text-xs font-semibold text-primary ring-1 ring-primary/15">
-                  Change tracked
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2 text-muted-foreground">
-                <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2">
-                  <span className="flex items-center gap-2 text-xs font-semibold">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" /> Airway secure
-                  </span>
-                  <span className="text-[11px] font-semibold text-emerald-600">Updated just now</span>
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-white/70 px-3 py-2">
-                  <span className="flex items-center gap-2 text-xs font-semibold">
-                    <span className="h-2 w-2 rounded-full bg-amber-400" /> New labs to review
-                  </span>
-                  <span className="text-[11px] font-semibold text-amber-700">Synced across teams</span>
+                <div className="absolute left-1/2 top-[68px] h-8 w-2 -translate-x-1/2 rounded bg-slate-400" />
+                <div className="absolute left-1/2 top-[88px] h-2 w-28 -translate-x-1/2 rounded bg-slate-500/50" />
+                <div className="absolute left-1/2 top-[95px] h-8 w-36 -translate-x-1/2 rounded-full border-2 border-slate-600 bg-white" />
+                <div className="absolute bottom-0 left-1/2 flex w-40 -translate-x-1/2 items-center justify-between">
+                  <CartWheel shouldReduceMotion={shouldReduceMotion ?? false} />
+                  <CartWheel shouldReduceMotion={shouldReduceMotion ?? false} />
                 </div>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
 
           <motion.div
