@@ -18,7 +18,7 @@ import type {
   MagazineLayoutConfig,
   SavedLayout,
 } from '@/types/layoutDesigner';
-import { LAYOUT_TEMPLATES, getDefaultLayout, createCustomLayout } from './defaultLayouts';
+import { LAYOUT_TEMPLATES, getDefaultLayout, createCustomLayout, hydrateLayoutConfig } from './defaultLayouts';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -69,20 +69,20 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
       if (savedId) {
         // Check built-in layouts first
         const builtIn = LAYOUT_TEMPLATES.find(l => l.id === savedId);
-        if (builtIn) return builtIn;
+        if (builtIn) return hydrateLayoutConfig(builtIn);
 
         // Check saved custom layouts
         const savedLayoutsStr = localStorage.getItem(STORAGE_KEYS.SAVED_LAYOUTS);
         if (savedLayoutsStr) {
           const savedLayouts: SavedLayout[] = JSON.parse(savedLayoutsStr);
           const customLayout = savedLayouts.find(l => l.id === savedId);
-          if (customLayout) return customLayout.config;
+          if (customLayout) return hydrateLayoutConfig(customLayout.config);
         }
       }
     } catch {
       // Fall through to default
     }
-    return getDefaultLayout();
+    return hydrateLayoutConfig(getDefaultLayout());
   });
 
   // Undo/Redo stacks
@@ -133,11 +133,11 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
   const updateLayout = React.useCallback((updates: Partial<LayoutConfig>) => {
     setCurrentLayout(prev => {
       pushToHistory(prev);
-      return {
+      return hydrateLayoutConfig({
         ...prev,
         ...updates,
         updatedAt: new Date().toISOString(),
-      };
+      });
     });
   }, [pushToHistory]);
 
@@ -167,11 +167,15 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
 
   // Select a layout (built-in or saved)
   const selectLayout = React.useCallback((layoutId: string) => {
+    if (layoutId === currentLayout.id) {
+      return;
+    }
+
     // Check built-in layouts
     const builtIn = LAYOUT_TEMPLATES.find(l => l.id === layoutId);
     if (builtIn) {
       pushToHistory(currentLayout);
-      setCurrentLayout(builtIn);
+      setCurrentLayout(hydrateLayoutConfig(builtIn));
 
       // Add to recent
       setRecentLayoutIds(prev => {
@@ -185,7 +189,7 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
     const saved = savedLayouts.find(l => l.id === layoutId);
     if (saved) {
       pushToHistory(currentLayout);
-      setCurrentLayout(saved.config);
+      setCurrentLayout(hydrateLayoutConfig(saved.config));
 
       // Add to recent
       setRecentLayoutIds(prev => {
@@ -201,7 +205,7 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
       id: `saved-${Date.now()}`,
       name,
       description,
-      config: {
+      config: hydrateLayoutConfig({
         ...currentLayout,
         id: `saved-${Date.now()}`,
         name,
@@ -209,13 +213,13 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
         isBuiltIn: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      },
+      }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     setSavedLayouts(prev => [...prev, newLayout]);
-    setCurrentLayout(newLayout.config);
+    setCurrentLayout(hydrateLayoutConfig(newLayout.config));
 
     toast({
       title: 'Layout Saved',
@@ -231,7 +235,7 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
       if (layout.id === layoutId) {
         return {
           ...layout,
-          config: currentLayout,
+          config: hydrateLayoutConfig(currentLayout),
           updatedAt: new Date().toISOString(),
         };
       }
@@ -250,7 +254,7 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
 
     // If deleting current layout, switch to default
     if (currentLayout.id === layoutId) {
-      setCurrentLayout(getDefaultLayout());
+      setCurrentLayout(hydrateLayoutConfig(getDefaultLayout()));
     }
 
     toast({
@@ -276,7 +280,7 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
       };
 
       setSavedLayouts(prev => [...prev, newSaved]);
-      setCurrentLayout(duplicated);
+      setCurrentLayout(hydrateLayoutConfig(duplicated));
 
       toast({
         title: 'Layout Duplicated',
@@ -318,19 +322,19 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
         const importedLayout: SavedLayout = {
           id: `imported-${Date.now()}`,
           name: data.name + ' (Imported)',
-          config: {
+          config: hydrateLayoutConfig({
             ...data,
             id: `imported-${Date.now()}`,
             isBuiltIn: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-          },
+          }),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
         setSavedLayouts(prev => [...prev, importedLayout]);
-        setCurrentLayout(importedLayout.config);
+        setCurrentLayout(hydrateLayoutConfig(importedLayout.config));
 
         toast({
           title: 'Layout Imported',
@@ -464,7 +468,7 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
   // Reset to default layout
   const resetToDefault = React.useCallback(() => {
     pushToHistory(currentLayout);
-    setCurrentLayout(getDefaultLayout());
+    setCurrentLayout(hydrateLayoutConfig(getDefaultLayout()));
     toast({
       title: 'Reset Complete',
       description: 'Layout has been reset to default.',
