@@ -21,6 +21,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
 import { OfflineSyncIndicator } from "@/components/offline/OfflineSyncIndicator";
+import { UnifiedAIChatbot } from "@/components/UnifiedAIChatbot";
 import { preloadClinicalData } from "@/lib/lazyData";
 
 // Preload clinical data in background after initial render
@@ -57,6 +58,7 @@ function App(): React.ReactElement {
                   <Sonner />
                   <BrowserRouter>
                     <SkipToContent />
+                    <UnifiedAIChatbot />
                     <React.Suspense fallback={
                       <motion.div
                         initial={{ opacity: 0 }}

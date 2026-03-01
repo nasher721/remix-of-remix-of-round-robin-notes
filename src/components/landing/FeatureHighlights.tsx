@@ -29,18 +29,18 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, del
   return (
     <div
       ref={ref}
-      className={`group relative bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-[0_4px_24px_rgba(0,0,0,0.06)] border border-[#e0e8f0] hover:shadow-[0_12px_40px_rgba(13,71,161,0.12)] hover:-translate-y-1 transition-all duration-500 ${
+      className={`group relative bg-card/80 dark:bg-card/60 backdrop-blur-sm rounded-2xl p-8 shadow-sm border border-border/40 hover:shadow-lg hover:border-primary/20 hover:-translate-y-1.5 transition-all duration-500 ${
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1976D2] to-[#42A5F5] flex items-center justify-center mb-5 shadow-[0_4px_12px_rgba(25,118,210,0.3)] group-hover:scale-110 transition-transform duration-300">
-        <span className="material-icons text-white text-[28px]">{icon}</span>
+      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center mb-5 shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform duration-300">
+        <span className="material-icons text-primary-foreground text-[28px]">{icon}</span>
       </div>
-      <h3 className="text-xl font-bold text-[#1a2332] mb-3" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <h3 className="text-xl font-bold text-foreground mb-3 font-heading tracking-tight">
         {title}
       </h3>
-      <p className="text-[#5a6a7a] leading-relaxed text-[0.95rem]" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <p className="text-muted-foreground leading-relaxed text-[0.95rem]">
         {description}
       </p>
     </div>
@@ -72,18 +72,15 @@ const SectionHeading: React.FC<{ children: React.ReactNode; sub?: string }> = ({
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
       }`}
     >
-      <h2
-        className="text-[40px] font-extrabold text-[#1a2332] tracking-tight mb-4"
-        style={{ fontFamily: "'Montserrat', sans-serif" }}
-      >
+      <h2 className="text-[2.5rem] font-extrabold text-foreground tracking-tight mb-4 font-heading">
         {children}
       </h2>
       {sub && (
-        <p className="text-lg text-[#5a6a7a] max-w-2xl mx-auto" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           {sub}
         </p>
       )}
-      <div className="w-20 h-1 bg-gradient-to-r from-[#1976D2] to-[#42A5F5] mx-auto mt-6 rounded-full" />
+      <div className="w-20 h-1 bg-gradient-to-r from-primary to-primary/50 mx-auto mt-6 rounded-full" />
     </div>
   );
 };
@@ -130,17 +127,16 @@ const stats = [
 
 const FeatureHighlights: React.FC = () => {
   return (
-    <section className="relative py-24 px-6" style={{ backgroundColor: "#f4f8fc" }}>
-      {/* Decorative top divider */}
-      <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#42A5F5] to-transparent opacity-10" />
+    <section className="relative py-24 px-6 bg-secondary/30 dark:bg-secondary/10">
+      {/* Subtle top gradient */}
+      <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-primary/5 to-transparent" />
 
       <div className="max-w-6xl mx-auto relative z-10">
         {/* Stats bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-24">
-          {stats.map((stat, i) => {
-            const ref = React.createRef<HTMLDivElement>();
-            return <StatCard key={i} {...stat} delay={i * 100} />;
-          })}
+          {stats.map((stat, i) => (
+            <StatCard key={i} {...stat} delay={i * 100} />
+          ))}
         </div>
 
         {/* Features grid */}
@@ -184,16 +180,16 @@ const StatCard: React.FC<{ value: string; label: string; icon: string; delay: nu
   return (
     <div
       ref={ref}
-      className={`text-center p-6 rounded-xl bg-white/60 backdrop-blur-sm border border-[#e0e8f0] transition-all duration-600 ${
+      className={`text-center p-6 rounded-xl bg-card/70 dark:bg-card/50 backdrop-blur-sm border border-border/40 transition-all duration-500 ${
         isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-6 scale-95"
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <span className="material-icons text-[#1976D2] text-[32px] mb-2">{icon}</span>
-      <div className="text-3xl font-extrabold text-[#0D47A1]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+      <span className="material-icons text-primary text-[32px] mb-2">{icon}</span>
+      <div className="text-3xl font-extrabold text-foreground font-heading">
         {value}
       </div>
-      <div className="text-sm text-[#5a6a7a] mt-1 font-medium" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className="text-sm text-muted-foreground mt-1 font-medium">
         {label}
       </div>
     </div>
@@ -225,26 +221,25 @@ const BottomCTA: React.FC = () => {
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
       }`}
     >
-      <div className="bg-gradient-to-br from-[#0D47A1] to-[#1976D2] rounded-3xl p-12 shadow-[0_20px_60px_rgba(13,71,161,0.25)]">
-        <h3
-          className="text-3xl font-bold text-white mb-4"
-          style={{ fontFamily: "'Montserrat', sans-serif" }}
-        >
-          Ready to streamline your rounds?
-        </h3>
-        <p
-          className="text-white/80 text-lg mb-8"
-          style={{ fontFamily: "'Poppins', sans-serif" }}
-        >
-          Join clinical teams already using Rolling Rounds for faster, smarter patient care.
-        </p>
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="bg-white text-[#1976D2] px-10 py-3.5 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.2)] hover:-translate-y-0.5 hover:scale-105 transition-all cursor-pointer border-none outline-none"
-        >
-          <span>Get Started</span>
-          <span className="material-icons">arrow_upward</span>
-        </button>
+      <div className="bg-gradient-to-br from-primary to-primary/80 rounded-3xl p-12 shadow-2xl shadow-primary/20 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+        <div className="relative z-10">
+          <h3 className="text-3xl font-bold text-primary-foreground mb-4 font-heading tracking-tight">
+            Ready to streamline your rounds?
+          </h3>
+          <p className="text-primary-foreground/80 text-lg mb-8 max-w-lg mx-auto">
+            Join clinical teams already using Rolling Rounds for faster, smarter patient care.
+          </p>
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="bg-white/95 text-primary px-10 py-3.5 rounded-2xl text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-xl hover:-translate-y-0.5 hover:shadow-2xl transition-all duration-200 cursor-pointer border-none outline-none"
+          >
+            <span>Get Started</span>
+            <span className="material-icons">arrow_upward</span>
+          </button>
+        </div>
       </div>
     </div>
   );
