@@ -164,24 +164,47 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
   onInsertToField,
 }) => {
   const { toast } = useToast();
-  const { streamWithAI, isStreaming, accumulatedResponse } = useStreamingAI({
-    onComplete: (response) => {
-      toast({
-        title: 'AI Complete',
-        description: 'Response generated successfully',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'AI Error',
-        description: error,
-        variant: 'destructive',
-      });
-    },
+  const [inlineError, setInlineError] = React.useState<string | null>(null);
+  const [lastRun, setLastRun] = React.useState<{ command: AICommand; text?: string } | null>(null);
+  const {
+    streamWithAI,
+    isStreaming,
+    accumulatedResponse,
+    error,
+    cancel,
+    reset,
+  } = useStreamingAI({
+    silent: true,
+    onError: (msg) => setInlineError(msg),
   });
 
   const [selectedCommand, setSelectedCommand] = React.useState<AICommand | null>(null);
   const [textInput, setTextInput] = React.useState('');
+  const outputRef = React.useRef<HTMLDivElement>(null);
+
+  const hasResponse = Boolean(accumulatedResponse.trim());
+
+  const startStreaming = React.useCallback(async (command: AICommand, inputText?: string) => {
+    setInlineError(null);
+    reset();
+    setSelectedCommand(command.requiresTextInput ? command : null);
+
+    if (!command.requiresTextInput && !patient) {
+      setInlineError('Select a patient to run this command.');
+      return;
+    }
+
+    setLastRun({ command, text: inputText });
+
+    try {
+      await streamWithAI(command.feature, {
+        text: inputText,
+        patient,
+      });
+    } catch (err) {
+      console.error('AI command failed:', err);
+    }
+  }, [patient, streamWithAI, reset]);
 
   const handleCommandSelect = React.useCallback(async (command: AICommand) => {
     // If command requires text input, store it for later
@@ -190,59 +213,39 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
       return;
     }
 
-    // Execute command with patient context
-    if (patient) {
-      try {
-        const result = await streamWithAI(command.feature, {
-          patient,
-        });
-        
-        if (result && onInsertToField) {
-          // For now, show result in toast - could be enhanced to insert directly
-          onInsertToField('clinicalSummary', result);
-        }
-      } catch (error) {
-        console.error('AI command failed:', error);
-      }
-    } else {
-      toast({
-        title: 'No Patient Selected',
-        description: 'Please select a patient to use AI features',
-        variant: 'destructive',
-      });
-    }
-    
-    onOpenChange(false);
-  }, [patient, streamWithAI, onInsertToField, onOpenChange, toast]);
+    await startStreaming(command);
+  }, [startStreaming]);
 
   const handleTextSubmit = React.useCallback(async () => {
-    if (!selectedCommand || !textInput.trim()) return;
-
-    try {
-      const result = await streamWithAI(selectedCommand.feature, {
-        text: textInput,
-        patient,
-      });
-      
-      if (result && onInsertToField) {
-        onInsertToField('clinicalSummary', result);
-      }
-    } catch (error) {
-      console.error('AI command with text failed:', error);
+    if (!selectedCommand) return;
+    if (!textInput.trim()) {
+      setInlineError('Enter text to process.');
+      return;
     }
 
-    setSelectedCommand(null);
-    setTextInput('');
-    onOpenChange(false);
-  }, [selectedCommand, textInput, patient, streamWithAI, onInsertToField, onOpenChange]);
+    await startStreaming(selectedCommand, textInput);
+  }, [selectedCommand, textInput, startStreaming]);
+
+  const handleRetry = React.useCallback(() => {
+    if (!lastRun) return;
+    startStreaming(lastRun.command, lastRun.text);
+  }, [lastRun, startStreaming]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       setSelectedCommand(null);
       setTextInput('');
+      setInlineError(null);
+      reset();
     }
     onOpenChange(isOpen);
   };
+
+  React.useEffect(() => {
+    if (!outputRef.current) return;
+    void accumulatedResponse;
+    outputRef.current.scrollTop = outputRef.current.scrollHeight;
+  }, [accumulatedResponse]);
 
   return (
     <>
@@ -278,20 +281,37 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
                     }
                   }}
                 />
-                <div className="flex justify-between mt-2">
+                <div className="flex justify-between mt-2 items-center">
                   <button
+                    type="button"
                     className="text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setSelectedCommand(null)}
+                    disabled={isStreaming}
                   >
                     ← Back to commands
                   </button>
-                  <button
-                    className="text-sm bg-primary text-primary-foreground px-3 py-1 rounded-md"
-                    onClick={handleTextSubmit}
-                    disabled={!textInput.trim() || isStreaming}
-                  >
-                    {isStreaming ? 'Processing...' : 'Generate ⌘↵'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="text-sm text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setTextInput('');
+                        reset();
+                        setInlineError(null);
+                      }}
+                      disabled={isStreaming}
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm bg-primary text-primary-foreground px-3 py-1 rounded-md"
+                      onClick={handleTextSubmit}
+                      disabled={!textInput.trim() || isStreaming}
+                    >
+                      {isStreaming ? 'Processing...' : 'Generate ⌘↵'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </CommandGroup>
@@ -372,6 +392,91 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
             </>
           )}
         </CommandList>
+
+        {(inlineError || error || isStreaming || hasResponse) && (
+          <div className="border-t bg-muted/50 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Sparkles className={`h-4 w-4 ${isStreaming ? 'animate-spin' : ''}`} />
+                <span>{isStreaming ? 'Generating...' : hasResponse ? 'Response ready' : 'AI status'}</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="text-xs rounded-md border px-3 py-1"
+                  onClick={cancel}
+                  disabled={!isStreaming}
+                >
+                  Stop
+                </button>
+                <button
+                  type="button"
+                  className="text-xs rounded-md border px-3 py-1"
+                  onClick={() => {
+                    reset();
+                    setInlineError(null);
+                  }}
+                  disabled={isStreaming && !hasResponse}
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+
+            {(inlineError || error) && (
+              <p className="text-sm text-destructive">{inlineError || error}</p>
+            )}
+
+            <div className="rounded-md border bg-background p-3 h-40 overflow-y-auto whitespace-pre-wrap break-words font-mono text-sm">
+              <div ref={outputRef}>
+                {accumulatedResponse || (isStreaming ? 'Streaming response…' : 'No response yet.')}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs text-muted-foreground">
+                {selectedCommand ? selectedCommand.name : 'Select a command to begin.'}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="text-xs rounded-md border px-3 py-1"
+                  onClick={handleRetry}
+                  disabled={!lastRun || isStreaming}
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  className="text-xs rounded-md border px-3 py-1"
+                  onClick={() => {
+                    if (!hasResponse) return;
+                    navigator.clipboard.writeText(accumulatedResponse).catch(() => {
+                      toast({
+                        title: 'Copy failed',
+                        description: 'Could not copy to clipboard',
+                        variant: 'destructive',
+                      });
+                    });
+                  }}
+                  disabled={!hasResponse}
+                >
+                  Copy
+                </button>
+                {onInsertToField && (
+                  <button
+                    type="button"
+                    className="text-xs rounded-md border px-3 py-1 bg-primary text-primary-foreground"
+                    onClick={() => onInsertToField('clinicalSummary', accumulatedResponse)}
+                    disabled={!hasResponse}
+                  >
+                    Insert into note
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </CommandDialog>
 
       {/* Floating indicator when AI is processing */}

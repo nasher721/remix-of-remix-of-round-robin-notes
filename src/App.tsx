@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 const Auth = React.lazy(() => import("./pages/Auth"));
 const FHIRCallback = React.lazy(() => import("./pages/FHIRCallback"));
 const PrintExportTest = React.lazy(() => import("./pages/PrintExportTest"));
+const Help = React.lazy(() => import("./pages/Help"));
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -76,10 +77,11 @@ function App(): React.ReactElement {
                       </motion.div>
                     }>
                       <AnimatePresence mode="wait">
-                        <Routes locationKey="location">
+                        <Routes>
                           <Route path="/" element={<Index />} />
                           <Route path="/auth" element={<Auth />} />
                           <Route path="/fhir/callback" element={<FHIRCallback />} />
+                          <Route path="/help" element={<Help />} />
                           {import.meta.env.DEV && (
                             <Route path="/__print-export-test" element={<PrintExportTest />} />
                           )}

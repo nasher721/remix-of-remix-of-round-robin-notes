@@ -1,35 +1,45 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-// Test utility functions that don't need React
+import { cn } from "@/lib/utils";
 
-test("placeholder test to verify test runner works", () => {
-  assert.equal(1 + 1, 2);
+test("cn merges class strings", () => {
+  const result = cn("btn", "btn-primary", "text-sm");
+  assert.equal(result, "btn btn-primary text-sm");
 });
 
-test("string utilities - basic assertions", () => {
-  // Test some basic string operations
-  const testStr = "  Hello World  ";
-  assert.equal(testStr.trim(), "Hello World");
-  assert.equal(testStr.toLowerCase(), "  hello world  ");
-  assert.equal(testStr.toUpperCase(), "  HELLO WORLD  ");
+test("cn handles falsy and conditional values", () => {
+  const result = cn(
+    "base",
+    null,
+    undefined,
+    false,
+    "",
+    { hidden: false, block: true, active: true }
+  );
+
+  assert.equal(result, "base block active");
 });
 
-test("array utilities", () => {
-  const arr = [1, 2, 3, 4, 5];
-  assert.equal(arr.length, 5);
-  assert.equal(arr.filter(x => x > 3).length, 2);
-  assert.equal(arr.reduce((a, b) => a + b, 0), 15);
+test("cn deduplicates conflicting Tailwind classes with last-wins merge", () => {
+  const result = cn("px-2", "px-4", "md:px-2", "px-6");
+  assert.equal(result, "md:px-2 px-6");
 });
 
-test("object utilities", () => {
-  const obj = { a: 1, b: 2 };
-  assert.equal(Object.keys(obj).length, 2);
-  assert.equal(Object.values(obj).reduce((a, b) => a + b, 0), 3);
+test("cn flattens nested arrays and objects", () => {
+  const result = cn(
+    "p-2",
+    ["mt-2", ["text-sm", { hidden: false, block: true }]],
+    "leading-tight"
+  );
+
+  assert.equal(result, "p-2 mt-2 text-sm block leading-tight");
 });
 
-test("date utilities", () => {
-  const now = new Date();
-  assert.ok(now instanceof Date);
-  assert.ok(now.getTime() > 0);
+test("cn resolves mutually exclusive Tailwind variants", () => {
+  const result = cn("bg-red-500", "bg-red-600", "hover:bg-red-700", {
+    "bg-red-400": false,
+  });
+
+  assert.equal(result, "bg-red-600 hover:bg-red-700");
 });

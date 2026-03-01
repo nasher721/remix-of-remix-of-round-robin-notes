@@ -19,6 +19,7 @@ interface UseStreamingAIOptions {
   onChunk?: (chunk: string, accumulated: string) => void;
   onComplete?: (fullResponse: string) => void;
   onError?: (error: string) => void;
+  silent?: boolean;
 }
 
 interface UseStreamingAIReturn {
@@ -55,7 +56,7 @@ function patientToContext(patient: Patient): ClinicalContext {
 export const useStreamingAI = (
   options: UseStreamingAIOptions = {}
 ): UseStreamingAIReturn => {
-  const { onChunk, onComplete, onError } = options;
+  const { onChunk, onComplete, onError, silent = false } = options;
   const { getModelForFeature } = useSettings();
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -222,18 +223,20 @@ export const useStreamingAI = (
       setError(message);
       onError?.(message);
 
-      toast({
-        title: 'AI Streaming Failed',
-        description: message,
-        variant: 'destructive',
-      });
+      if (!silent) {
+        toast({
+          title: 'AI Streaming Failed',
+          description: message,
+          variant: 'destructive',
+        });
+      }
 
       return null;
     } finally {
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [onChunk, onComplete, onError, toast, getModelForFeature]);
+  }, [onChunk, onComplete, onError, toast, getModelForFeature, silent]);
 
   return {
     isStreaming,

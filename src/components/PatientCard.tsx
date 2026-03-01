@@ -28,6 +28,8 @@ import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import { useDailySummaryGenerator } from "@/hooks/useDailySummaryGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
+import { useStreamingAI } from "@/hooks/useStreamingAI";
+import { useToast } from "@/hooks/use-toast";
 
 interface PatientCardProps {
   patient: Patient;
@@ -48,6 +50,7 @@ const PatientCardComponent = ({
 }: PatientCardProps) => {
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
+  const { toast } = useToast();
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
@@ -93,6 +96,74 @@ const PatientCardComponent = ({
     const newValue = `[${timestamp}] ${currentValue || ''}`;
     onUpdate(patient.id, field, newValue);
   };
+
+  const {
+    streamWithAI: runAI,
+    isStreaming: isStreamingAI,
+    accumulatedResponse: aiOutput,
+    error: aiError,
+    cancel: cancelAI,
+    reset: resetAI,
+  } = useStreamingAI({ silent: true });
+  const [aiPanelVisible, setAIPanelVisible] = React.useState(false);
+  const [aiMode, setAIMode] = React.useState<'insights' | 'delta' | 'checklist' | 'handoff' | 'labs' | 'imaging' | null>(null);
+
+  const stripHtml = React.useCallback((value: string | undefined) => value?.replace(/<[^>]*>/g, '') ?? '', []);
+
+  const startAIMode = React.useCallback(
+    async (mode: typeof aiMode) => {
+      if (!mode) return;
+      setAIPanelVisible(true);
+      setAIMode(mode);
+      resetAI();
+
+      const prompts: Record<string, { prompt: string; text?: string }> = {
+        insights: {
+          prompt:
+            'You are an ICU bedside assistant. From patient context (systems, labs, meds, interval events), generate 2-3 concise risk/attention items with one-liner reasoning and a suggested next action. <80 words.',
+        },
+        delta: {
+          prompt:
+            'Summarize what changed since last note. Focus on new interval events, system updates, labs, meds, and todos. 3 bullets max.',
+        },
+        checklist: {
+          prompt:
+            'Generate a concise rounding checklist (3-6 items) based on current problems, systems, labs, and meds. Each item should be actionable with who/when (e.g., RN now, MD pre-round).',
+        },
+        handoff: {
+          prompt:
+            'Create SBAR handoff text from patient context. One sentence each for Situation, Background, Assessment, Recommendation. Keep terse.',
+        },
+        labs: {
+          prompt:
+            'Explain these labs in 2 bullets: key interpretation + suggested next step. Be concise.',
+          text: stripHtml(patient.labs),
+        },
+        imaging: {
+          prompt:
+            'Explain imaging findings in 2 bullets with possible implication and next step.',
+          text: stripHtml(patient.imaging),
+        },
+      };
+
+      const selected = prompts[mode];
+      await runAI('clinical_summary', {
+        patient,
+        text: selected?.text || undefined,
+        customPrompt: selected.prompt,
+      });
+    },
+    [patient, resetAI, runAI, stripHtml]
+  );
+
+  const insertAIOutput = React.useCallback(() => {
+    if (!aiOutput?.trim()) return;
+    const targetField = 'clinicalSummary';
+    const currentValue = (patient[targetField as keyof Patient] as string) || '';
+    const newValue = currentValue ? `${currentValue}\n\n---\n${aiOutput}` : aiOutput;
+    onUpdate(patient.id, targetField, newValue);
+    toast({ title: 'Inserted AI output', description: 'Added to clinical summary' });
+  }, [aiOutput, onUpdate, patient, toast]);
 
   const clearSection = (field: string) => {
     if (confirm('Clear this section?')) {
@@ -159,6 +230,54 @@ const PatientCardComponent = ({
           <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
           <SmartProtocolSuggestions patient={patient} />
           <AppleAIAssistant patient={patient} onUpdatePatient={onUpdate} compact />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => startAIMode('insights')}
+            disabled={isStreamingAI}
+            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+aria-label="Generate AI risk insights"
+>
+<Sparkles className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+Insights
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => startAIMode('delta')}
+            disabled={isStreamingAI}
+            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+            aria-label="What changed since last round"
+          >
+            <Clock className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+            Delta
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => startAIMode('checklist')}
+            disabled={isStreamingAI}
+            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+            aria-label="Generate rounding checklist"
+          >
+            <ClipboardList className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+            Checklist
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => startAIMode('handoff')}
+            disabled={isStreamingAI}
+            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+            aria-label="Generate SBAR handoff"
+          >
+            <FileText className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+            SBAR
+          </Button>
           <div className="w-px h-4 bg-border/40 mx-1" />
           <FieldHistoryViewer
             patientId={patient.id}
@@ -206,6 +325,140 @@ const PatientCardComponent = ({
         </div>
       </div>
 
+      {(aiPanelVisible || isStreamingAI || aiOutput || aiError) && (
+        <div className="mx-5 mt-3 mb-1 rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2 no-print">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+              <Sparkles className={`h-4 w-4 ${isStreamingAI ? 'animate-spin' : ''}`} aria-hidden="true" />
+              <span>{isStreamingAI ? 'Generating…' : aiMode ? `AI ${aiMode}` : 'AI Output'}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={cancelAI}
+                disabled={!isStreamingAI}
+              >
+                Stop
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  resetAI();
+                  setAIPanelVisible(false);
+                  setAIMode(null);
+                }}
+                disabled={isStreamingAI}
+              >
+                Reset
+              </Button>
+            </div>
+          </div>
+
+          {aiError && (
+            <p className="text-sm text-destructive">{aiError}</p>
+          )}
+
+          <div className="rounded-lg border bg-background px-3 py-2 text-sm whitespace-pre-wrap break-words min-h-[52px]">
+            {aiOutput?.trim() || (isStreamingAI ? 'Streaming response…' : 'No output yet.')}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <div className="text-xs text-muted-foreground">AI generated text.</div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!aiOutput?.trim()) return;
+                  navigator.clipboard.writeText(aiOutput).catch(() => {
+                    toast({
+                      title: 'Copy failed',
+                      description: 'Could not copy to clipboard',
+                      variant: 'destructive',
+                    });
+                  });
+                }}
+                disabled={!aiOutput?.trim()}
+              >
+                Copy
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={insertAIOutput}
+                disabled={!aiOutput?.trim()}
+              >
+                Insert into summary
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proactive Risk Nudges */}
+      {(() => {
+        const labsText = stripHtml(patient.labs || '').toLowerCase();
+        const nudges: { label: string; description: string }[] = [];
+
+        if (labsText.includes('cr:') || labsText.includes('creatinine')) {
+          const crMatch = labsText.match(/cr[:\s]+([\d.]+)/) || labsText.match(/creatinine[:\s]+([\d.]+)/);
+          if (crMatch && parseFloat(crMatch[1]) > 1.5) {
+            nudges.push({ label: 'AKI risk', description: 'Elevated Cr detected. Consider renal dosing and nephrology consult.' });
+          }
+        }
+
+        if (labsText.includes('wbc') && labsText.includes('lactate')) {
+          const wbcMatch = labsText.match(/wbc[:\s]+([\d.]+)/);
+          const lactateMatch = labsText.match(/lactate[:\s]+([\d.]+)/);
+          if (wbcMatch && lactateMatch && (parseFloat(wbcMatch[1]) > 12 || parseFloat(lactateMatch[1]) > 2)) {
+            nudges.push({ label: 'Sepsis risk', description: 'Consider sepsis workup if clinically indicated.' });
+          }
+        }
+
+        if (labsText.includes('bun') && labsText.includes('cr')) {
+          const bunMatch = labsText.match(/bun[:\s]+([\d.]+)/);
+          const crMatch2 = labsText.match(/cr[:\s]+([\d.]+)/);
+          if (bunMatch && crMatch2) {
+            const ratio = parseFloat(bunMatch[1]) / parseFloat(crMatch2[1]);
+            if (ratio > 20) {
+              nudges.push({ label: 'Pre-renal AKI', description: 'BUN/Cr ratio >20 suggests pre-renal etiology. Consider volume status.' });
+            }
+          }
+        }
+
+        if (nudges.length === 0) return null;
+
+        return (
+          <div className="mx-5 mt-2 mb-1 space-y-2 no-print">
+            {nudges.map((nudge, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-2"
+              >
+                <div className="flex-1">
+                  <div className="text-xs font-semibold text-amber-700 dark:text-amber-400">{nudge.label}</div>
+                  <div className="text-[11px] text-amber-600 dark:text-amber-300">{nudge.description}</div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => addTodo(`${nudge.label}: ${nudge.description}`)}
+                  className="h-6 px-2 text-[10px] text-amber-700 hover:text-amber-900 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                >
+                  Add todo
+                </Button>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       <AnimatePresence initial={false}>
         {!patient.collapsed && (
           <motion.div
@@ -443,14 +696,24 @@ const PatientCardComponent = ({
                           >
                             <Clock className="h-3 w-3" aria-hidden="true" />
                           </Button>
+<Button
+variant="ghost"
+                            size="sm"
+                            onClick={() => startAIMode('imaging')}
+                            disabled={isStreamingAI}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-primary"
+                            type="button"
+                          >
+                            Explain
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => clearSection('imaging')}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
-                          >
-                            Clear
-                          </Button>
+onClick={() => clearSection('imaging')}
+className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+>
+Clear
+</Button>
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -498,14 +761,24 @@ const PatientCardComponent = ({
                             onDeleteTodo={deleteTodo}
                             onGenerateTodos={generateTodos}
                           />
+<Button
+variant="ghost"
+                            size="sm"
+                            onClick={() => startAIMode('labs')}
+                            disabled={isStreamingAI}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-primary"
+                            type="button"
+                          >
+                            Explain
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => clearSection('labs')}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
-                          >
-                            Clear
-                          </Button>
+onClick={() => clearSection('labs')}
+className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+>
+Clear
+</Button>
                         </div>
                       </div>
 
