@@ -82,22 +82,27 @@ const Landing: React.FC = () => {
 
   return (
     <div className="landing-page min-h-screen relative overflow-hidden bg-background text-foreground">
+      {/* Ambient glow orbs */}
       <motion.div
-        className="pointer-events-none absolute -left-32 -top-40 h-96 w-96 rounded-full bg-primary/20 blur-3xl"
+        className="pointer-events-none absolute -left-32 -top-40 h-[500px] w-[500px] rounded-full bg-primary/15 blur-3xl"
         animate={float}
       />
       <motion.div
-        className="pointer-events-none absolute -right-24 top-10 h-[320px] w-[320px] rounded-full bg-sky-400/20 blur-3xl"
+        className="pointer-events-none absolute -right-24 top-10 h-[400px] w-[400px] rounded-full bg-sky-400/15 blur-3xl"
         animate={float}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
+      <motion.div
+        className="pointer-events-none absolute left-1/2 bottom-0 h-64 w-96 -translate-x-1/2 rounded-full bg-violet-400/10 blur-3xl"
+        animate={shouldReduceMotion ? undefined : { opacity: [0.4, 0.7, 0.4], transition: { duration: 6, repeat: Infinity } }}
+      />
 
       <section className="relative mx-auto flex max-w-6xl flex-col gap-12 px-6 pt-20 pb-16 md:flex-row md:items-center md:pt-24">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/10 via-sky-500/10 to-background" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/8 via-sky-500/8 to-background" />
         <motion.div className="flex-1 space-y-6" variants={stagger} initial="hidden" animate="visible">
           <motion.span
             variants={fadeUp}
-            className="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary ring-1 ring-primary/20"
+            className="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary ring-1 ring-primary/25 shadow-sm"
           >
             <span className="material-icons text-base">auto_awesome</span>
             ICU-ready workflows
@@ -105,10 +110,10 @@ const Landing: React.FC = () => {
 
           <motion.h1
             variants={fadeUp}
-            className="font-heading text-4xl font-extrabold leading-tight tracking-tight text-foreground md:text-5xl"
+            className="font-heading text-4xl font-extrabold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl"
           >
             Rolling Rounds
-            <span className="block text-[92%] text-muted-foreground">
+            <span className="block text-[85%] text-gradient mt-1">
               Clinical documentation built for bedside teams
             </span>
           </motion.h1>
@@ -135,13 +140,13 @@ const Landing: React.FC = () => {
 
           <motion.div variants={fadeUp} className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
             <motion.button
-              whileHover={{ y: shouldReduceMotion ? 0 : -2, scale: shouldReduceMotion ? 1 : 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ y: shouldReduceMotion ? 0 : -3, scale: shouldReduceMotion ? 1 : 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={handleLaunchPortal}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-7 py-3.5 text-base font-semibold text-primary-foreground shadow-xl shadow-primary/30 transition-all duration-200 hover:bg-primary/90"
             >
               Launch portal
-              <span className="material-icons text-base">login</span>
+              <span className="material-icons text-base">arrow_forward</span>
             </motion.button>
 
             <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -168,7 +173,7 @@ const Landing: React.FC = () => {
 
         <motion.div className="relative flex-1" variants={fadeUp} initial="hidden" animate="visible">
           <motion.div
-            className="relative overflow-hidden rounded-3xl bg-white/80 p-6 shadow-xl ring-1 ring-foreground/10 backdrop-blur"
+            className="relative overflow-hidden rounded-3xl bg-white/85 dark:bg-card/85 p-6 shadow-2xl ring-1 ring-foreground/10 backdrop-blur-xl"
             animate={float}
           >
             <div className="flex items-center justify-between text-sm font-semibold text-muted-foreground">
@@ -221,7 +226,7 @@ const Landing: React.FC = () => {
           </motion.div>
 
           <motion.div
-            className="absolute -bottom-6 -left-6 w-[220px] rounded-2xl bg-primary text-primary-foreground p-4 shadow-xl ring-4 ring-primary/20"
+            className="absolute -bottom-6 -left-6 w-[220px] rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4 shadow-2xl ring-4 ring-primary/25 backdrop-blur"
             animate={float}
             transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
           >
