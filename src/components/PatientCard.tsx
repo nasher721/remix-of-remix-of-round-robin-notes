@@ -123,7 +123,7 @@ const PatientCardComponent = ({
       whileTap="tap"
     >
       {/* Header */}
-      <div className="flex justify-between items-center gap-4 px-5 py-3.5 bg-secondary/10 border-b border-border/40 transition-colors group-hover:bg-secondary/20">
+      <div className="flex justify-between items-center gap-4 px-5 py-3.5 bg-gradient-to-r from-secondary/20 to-secondary/10 border-b border-border/40 transition-colors group-hover:from-secondary/30 group-hover:to-secondary/15">
         <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20 shadow-sm">
             <span className="text-base font-semibold text-primary">
@@ -241,10 +241,10 @@ const PatientCardComponent = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded flex items-center justify-center bg-muted">
-                        <FileText className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
+                      <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
+                        <FileText className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Clinical Summary</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Clinical Summary</h3>
                       {patient.clinicalSummary && (
                         <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                           {patient.clinicalSummary.length}
@@ -303,10 +303,10 @@ const PatientCardComponent = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded flex items-center justify-center bg-muted">
-                        <Calendar className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
+                      <div className="h-5 w-5 rounded flex items-center justify-center bg-violet-500/10 border border-violet-500/15">
+                        <Calendar className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Interval Events</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Interval Events</h3>
                       {patient.intervalEvents && (
                         <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                           {patient.intervalEvents.length}
@@ -408,10 +408,10 @@ const PatientCardComponent = ({
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded flex items-center justify-center bg-muted">
-                            <ImageIcon className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
+                          <div className="h-5 w-5 rounded flex items-center justify-center bg-sky-500/10 border border-sky-500/15">
+                            <ImageIcon className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" aria-hidden="true" />
                           </div>
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Imaging</h3>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Imaging</h3>
                           {patient.imaging && (
                             <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                               {patient.imaging.replace(/<[^>]*>/g, '').length}
@@ -477,10 +477,10 @@ const PatientCardComponent = ({
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded flex items-center justify-center bg-muted">
-                            <TestTube className="h-3.5 w-3.5 text-card-foreground/70" aria-hidden="true" />
+                          <div className="h-5 w-5 rounded flex items-center justify-center bg-amber-500/10 border border-amber-500/15">
+                            <TestTube className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" aria-hidden="true" />
                           </div>
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/60">Labs</h3>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Labs</h3>
                           {patient.labs && (
                             <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                               {patient.labs.length}

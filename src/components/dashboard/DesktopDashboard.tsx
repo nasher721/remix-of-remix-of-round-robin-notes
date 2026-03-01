@@ -51,6 +51,9 @@ import {
   Stethoscope,
   Sparkles,
   ChevronDown,
+  BookOpen,
+  Wrench,
+  SlidersHorizontal,
 } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import {
@@ -175,48 +178,47 @@ export const DesktopDashboard = () => {
   return (
     <div className="min-h-screen bg-background" id="main-content" role="main">
       <motion.header
-        className="sticky top-0 z-50 border-b border-border/20 bg-card/95 backdrop-blur-xl no-print"
+        className="sticky top-0 z-50 border-b border-border/20 bg-card/90 backdrop-blur-2xl no-print shadow-sm"
         initial={shouldReduceMotion ? false : { opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={transitions.smooth}
       >
         <div className="container mx-auto px-fluid-md lg:px-fluid-lg h-14 flex items-center justify-between gap-fluid-sm">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate("/")}>
-            <div className="relative flex items-center justify-center h-8 w-8">
-              <div className="absolute inset-0 bg-white/10 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-8 w-auto relative z-10" />
+            <div className="relative flex items-center justify-center h-9 w-9 rounded-xl bg-primary/8 group-hover:bg-primary/15 transition-colors border border-primary/10">
+              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-6 w-auto relative z-10" />
             </div>
             <div>
-              <h1 className="text-fluid-sm font-semibold tracking-tight leading-none text-card-foreground">Rolling Rounds</h1>
-              <p className="text-[10px] text-muted-foreground font-medium tracking-wider uppercase mt-0.5">Professional</p>
+              <h1 className="text-fluid-sm font-semibold tracking-tight leading-none text-card-foreground group-hover:text-primary transition-colors">Rolling Rounds</h1>
+              <p className="text-[10px] text-muted-foreground font-medium tracking-widest uppercase mt-0.5">Professional</p>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-secondary text-secondary-foreground border border-border/40 rounded-full text-xs font-medium shadow-sm">
+          <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 bg-secondary/60 text-secondary-foreground border border-border/30 rounded-full text-xs font-medium shadow-sm backdrop-blur">
             <div className="flex items-center gap-1.5">
-              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
               <span className="text-card-foreground font-semibold">{patients.length}</span>
-              <span>patients</span>
+              <span className="text-muted-foreground">patients</span>
             </div>
-            <div className="h-3 w-px bg-white/20" aria-hidden="true" />
+            <div className="h-3 w-px bg-border/60" aria-hidden="true" />
             <OfflineIndicator />
-            <div className="h-3 w-px bg-white/20" aria-hidden="true" />
-            <Clock className="h-3 w-3" aria-hidden="true" />
-            <span>{todayLabel}</span>
+            <div className="h-3 w-px bg-border/60" aria-hidden="true" />
+            <Clock className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
+            <span className="text-muted-foreground">{todayLabel}</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <PresenceIndicator />
             <div className="text-right hidden sm:block">
               <p className="text-xs font-medium leading-none text-card-foreground">{user.email}</p>
-              <p className="text-[10px] text-card-foreground/50">Physician</p>
+              <p className="text-[10px] text-card-foreground/40 mt-0.5">Physician</p>
             </div>
             <ThemeToggle />
             <Button
               onClick={onSignOut}
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-card-foreground/60 hover:text-red-400 hover:bg-red-400/10 rounded-full transition-colors"
+              className="h-8 w-8 text-card-foreground/50 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
               aria-label="Sign out"
             >
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
@@ -226,17 +228,48 @@ export const DesktopDashboard = () => {
       </motion.header>
 
       <div className="container mx-auto px-fluid-md lg:px-fluid-lg pt-4 pb-3 no-print">
-        <div ref={utilityPanelRef} className="relative rounded-xl border border-border/30 bg-card/40 p-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant={utilityPanel === "resources" ? "secondary" : "ghost"} size="sm" className="gap-1.5" onClick={() => setUtilityPanel((current) => current === "resources" ? null : "resources")}>
-              <Stethoscope className="h-3.5 w-3.5" /> Resources <ChevronDown className="h-3.5 w-3.5" />
+        <div ref={utilityPanelRef} className="relative rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "resources" ? "bg-primary/10 text-primary border border-primary/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
+              onClick={() => setUtilityPanel((current) => current === "resources" ? null : "resources")}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Resources
+              <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "resources" ? "rotate-180" : ""}`} />
             </Button>
-            <Button variant={utilityPanel === "tools" ? "secondary" : "ghost"} size="sm" className="gap-1.5" onClick={() => setUtilityPanel((current) => current === "tools" ? null : "tools")}>
-              <Sparkles className="h-3.5 w-3.5" /> Tools <ChevronDown className="h-3.5 w-3.5" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "tools" ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
+              onClick={() => setUtilityPanel((current) => current === "tools" ? null : "tools")}
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              Tools
+              <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "tools" ? "rotate-180" : ""}`} />
             </Button>
-            <Button variant={utilityPanel === "settings" ? "secondary" : "ghost"} size="sm" className="gap-1.5" onClick={() => setUtilityPanel((current) => current === "settings" ? null : "settings")}>
-              <Type className="h-3.5 w-3.5" /> Settings <ChevronDown className="h-3.5 w-3.5" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "settings" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
+              onClick={() => setUtilityPanel((current) => current === "settings" ? null : "settings")}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Settings
+              <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "settings" ? "rotate-180" : ""}`} />
             </Button>
+            <div className="ml-auto flex items-center gap-1.5">
+              <Button
+                onClick={onAddPatient}
+                size="sm"
+                className="gap-2 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs font-medium"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Patient
+              </Button>
+            </div>
           </div>
 
           {utilityPanel && (
@@ -263,9 +296,7 @@ export const DesktopDashboard = () => {
               {utilityPanel === "tools" && (
                 <div className="grid gap-3 lg:grid-cols-2">
                   <div className="space-y-2">
-                    <Button onClick={onAddPatient} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/20">
-                      <Plus className="h-4 w-4" /> Add Patient
-                    </Button>
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
                     <SmartPatientImport onImportPatient={onAddPatientWithData} />
                     <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
                     <Button onClick={() => setAICommandPaletteOpen(true)} className="w-full justify-start gap-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-600 dark:text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20 border border-purple-500/20">
@@ -275,6 +306,7 @@ export const DesktopDashboard = () => {
                     <ClinicalRiskCalculator />
                   </div>
                   <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
                     <UnitCensusDashboard patients={patients} />
                     <LabTrendingPanel patients={patients} />
                     <ContextAwareHelp />
@@ -406,19 +438,19 @@ export const DesktopDashboard = () => {
 
               <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted-foreground/70 pb-3 border-b border-border/20">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-card/40">
-                    <Users className="h-3 w-3 text-emerald-400" aria-hidden="true" />
-                    {filteredPatients.length} of {patients.length}
+                  <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                    <Users className="h-3 w-3" aria-hidden="true" />
+                    {filteredPatients.length} of {patients.length} patients
                   </Badge>
                   {searchQuery && (
-                    <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5">
+                    <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5 bg-primary/5 text-primary border-primary/20">
                       Searching &ldquo;{searchQuery}&rdquo;
                     </Badge>
                   )}
                   <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5">{filterLabel}</Badge>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full" aria-hidden="true" />
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" aria-hidden="true" />
                   <span>Synced {lastSaved.toLocaleTimeString()}</span>
                 </div>
                 <LiveRegion
@@ -442,21 +474,21 @@ export const DesktopDashboard = () => {
                   transition={{ ...transitions.spring, delay: 0.15 }}
                 >
                   <div className="mb-8 relative">
-                    <div className="absolute inset-0 bg-primary/5 blur-3xl rounded-full scale-150" />
-                    <div className="relative bg-card rounded-3xl p-6 border border-border/20">
-                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-40" />
+                    <div className="absolute inset-0 bg-primary/8 blur-3xl rounded-full scale-150" />
+                    <div className="relative bg-gradient-to-br from-card to-secondary/30 rounded-3xl p-8 border border-border/30 shadow-sm">
+                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-50" />
                     </div>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2 text-foreground">
+                  <h3 className="text-2xl font-semibold mb-2 text-foreground tracking-tight">
                     {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
                   </h3>
                   <p className="text-muted-foreground text-sm mb-8 max-w-xs leading-relaxed">
                     {patients.length === 0
-                      ? "Add your first patient to begin documenting rounds."
+                      ? "Add your first patient to begin documenting rounds with your team."
                       : "Try adjusting your search or filter criteria."}
                   </p>
                   {patients.length === 0 && (
-                    <Button onClick={onAddPatient} size="lg" className="gap-2 rounded-2xl shadow-md hover:shadow-lg bg-card text-card-foreground transition-shadow">
+                    <Button onClick={onAddPatient} size="lg" className="gap-2.5 rounded-2xl shadow-md hover:shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 px-6">
                       <Plus className="h-4 w-4" />
                       Add First Patient
                     </Button>
@@ -472,10 +504,11 @@ export const DesktopDashboard = () => {
 
       <Button
         onClick={() => setAICommandPaletteOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-12 w-12 rounded-full shadow-xl bg-gradient-to-r from-violet-500 to-blue-500 text-white hover:opacity-90"
+        className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 transition-all duration-200 border border-white/20 p-3"
         aria-label="Open AI tools"
+        style={{ height: "3.25rem", width: "3.25rem" }}
       >
-        <Sparkles className="h-5 w-5" />
+        <Sparkles className="h-5 w-5 drop-shadow" />
       </Button>
 
       <PrintExportModal
