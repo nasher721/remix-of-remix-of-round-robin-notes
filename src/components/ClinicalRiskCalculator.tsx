@@ -25,6 +25,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -36,12 +43,14 @@ import {
   calculateWellsDVT,
   calculateWellsPE,
   calculateNEWS2,
+  calculateAPACHE2,
   type SOFAInputs,
   type QSOFAInputs,
   type CURB65Inputs,
   type WellsDVTInputs,
   type WellsPEInputs,
   type NEWS2Inputs,
+  type APACHE2Inputs,
   type RiskScoreResult,
 } from "@/types/riskScores";
 
@@ -51,7 +60,7 @@ interface ClinicalRiskCalculatorProps {
   patientSummary?: string;
 }
 
-type ScoreTab = 'qsofa' | 'sofa' | 'curb65' | 'wells_dvt' | 'wells_pe' | 'news2';
+type ScoreTab = 'qsofa' | 'sofa' | 'apache2' | 'curb65' | 'wells_dvt' | 'wells_pe' | 'news2';
 
 const RiskLevelIcon = ({ level }: { level: string }) => {
   switch (level) {
@@ -73,8 +82,8 @@ const ScoreDisplay = ({ result, title }: { result: RiskScoreResult | null; title
 
   const bgColor = result.riskLevel === 'low' ? 'bg-green-50 border-green-200' :
     result.riskLevel === 'moderate' ? 'bg-amber-50 border-amber-200' :
-    result.riskLevel === 'high' ? 'bg-orange-50 border-orange-200' :
-    'bg-red-50 border-red-200';
+      result.riskLevel === 'high' ? 'bg-orange-50 border-orange-200' :
+        'bg-red-50 border-red-200';
 
   return (
     <div className={cn("p-4 rounded-lg border-2 transition-all", bgColor)}>
@@ -608,6 +617,165 @@ const SOFACalculator = () => {
   );
 };
 
+// APACHE-II Calculator
+const APACHE2Calculator = () => {
+  const [inputs, setInputs] = React.useState<APACHE2Inputs>({});
+  const [result, setResult] = React.useState<RiskScoreResult | null>(null);
+
+  React.useEffect(() => {
+    const hasInput = Object.values(inputs).some(v => v !== undefined && v !== 'none');
+    if (hasInput) {
+      setResult(calculateAPACHE2(inputs));
+    }
+  }, [inputs]);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Age</Label>
+          <Input
+            type="number"
+            placeholder="60"
+            className="h-8"
+            value={inputs.age ?? ''}
+            onChange={(e) => setInputs({ ...inputs, age: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Temp (°C)</Label>
+          <Input
+            type="number"
+            step="0.1"
+            placeholder="37.0"
+            className="h-8"
+            value={inputs.temp ?? ''}
+            onChange={(e) => setInputs({ ...inputs, temp: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">MAP</Label>
+          <Input
+            type="number"
+            placeholder="90"
+            className="h-8"
+            value={inputs.map ?? ''}
+            onChange={(e) => setInputs({ ...inputs, map: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Heart Rate</Label>
+          <Input
+            type="number"
+            placeholder="80"
+            className="h-8"
+            value={inputs.heartRate ?? ''}
+            onChange={(e) => setInputs({ ...inputs, heartRate: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Resp Rate</Label>
+          <Input
+            type="number"
+            placeholder="16"
+            className="h-8"
+            value={inputs.respRate ?? ''}
+            onChange={(e) => setInputs({ ...inputs, respRate: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">GCS</Label>
+          <Input
+            type="number"
+            min={3}
+            max={15}
+            placeholder="15"
+            className="h-8"
+            value={inputs.gcs ?? ''}
+            onChange={(e) => setInputs({ ...inputs, gcs: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 pb-2 border-b border-border/40">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Creatinine</Label>
+          <Input
+            type="number"
+            step="0.1"
+            placeholder="1.0"
+            className="h-8"
+            value={inputs.creatinine ?? ''}
+            onChange={(e) => setInputs({ ...inputs, creatinine: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="flex items-center gap-2 pt-6">
+          <Switch
+            checked={inputs.acuteRenalFailure ?? false}
+            onCheckedChange={(checked) => setInputs({ ...inputs, acuteRenalFailure: checked })}
+          />
+          <Label className="text-[10px] sm:text-xs">Acute Renal Failure</Label>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Na+</Label>
+          <Input
+            type="number"
+            placeholder="140"
+            className="h-8"
+            value={inputs.sodium ?? ''}
+            onChange={(e) => setInputs({ ...inputs, sodium: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">K+</Label>
+          <Input
+            type="number"
+            step="0.1"
+            placeholder="4.0"
+            className="h-8"
+            value={inputs.potassium ?? ''}
+            onChange={(e) => setInputs({ ...inputs, potassium: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">pH</Label>
+          <Input
+            type="number"
+            step="0.01"
+            placeholder="7.4"
+            className="h-8"
+            value={inputs.arterialPh ?? ''}
+            onChange={(e) => setInputs({ ...inputs, arterialPh: e.target.value ? parseFloat(e.target.value) : undefined })}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label className="text-xs">Chronic Health / Surgery Status</Label>
+        <Select
+          value={inputs.chronicHealthSurg ?? 'none'}
+          onValueChange={(v: string) => setInputs({ ...inputs, chronicHealthSurg: v as APACHE2Inputs['chronicHealthSurg'] })}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="non-operative">Non-operative</SelectItem>
+            <SelectItem value="emergency-post-op">Emergency Post-op</SelectItem>
+            <SelectItem value="elective-post-op">Elective Post-op</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <ScoreDisplay result={result} title="APACHE II Score" />
+    </div>
+  );
+};
+
 export function ClinicalRiskCalculator({ className }: ClinicalRiskCalculatorProps) {
   const [activeTab, setActiveTab] = React.useState<ScoreTab>('qsofa');
 
@@ -633,13 +801,14 @@ export function ClinicalRiskCalculator({ className }: ClinicalRiskCalculatorProp
 
         <div className="mt-6">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ScoreTab)}>
-            <TabsList className="grid grid-cols-3 lg:grid-cols-6 h-auto gap-1 p-1">
-              <TabsTrigger value="qsofa" className="text-xs px-2 py-1.5">qSOFA</TabsTrigger>
-              <TabsTrigger value="sofa" className="text-xs px-2 py-1.5">SOFA</TabsTrigger>
-              <TabsTrigger value="curb65" className="text-xs px-2 py-1.5">CURB-65</TabsTrigger>
-              <TabsTrigger value="wells_dvt" className="text-xs px-2 py-1.5">Wells DVT</TabsTrigger>
-              <TabsTrigger value="wells_pe" className="text-xs px-2 py-1.5">Wells PE</TabsTrigger>
-              <TabsTrigger value="news2" className="text-xs px-2 py-1.5">NEWS2</TabsTrigger>
+            <TabsList className="grid grid-cols-4 lg:grid-cols-7 h-auto gap-1 p-1">
+              <TabsTrigger value="qsofa" className="text-[10px] sm:text-xs px-1 py-1.5">qSOFA</TabsTrigger>
+              <TabsTrigger value="sofa" className="text-[10px] sm:text-xs px-1 py-1.5">SOFA</TabsTrigger>
+              <TabsTrigger value="apache2" className="text-[10px] sm:text-xs px-1 py-1.5">APACHE II</TabsTrigger>
+              <TabsTrigger value="curb65" className="text-[10px] sm:text-xs px-1 py-1.5">CURB-65</TabsTrigger>
+              <TabsTrigger value="wells_dvt" className="text-[10px] sm:text-xs px-1 py-1.5">Wells DVT</TabsTrigger>
+              <TabsTrigger value="wells_pe" className="text-[10px] sm:text-xs px-1 py-1.5">Wells PE</TabsTrigger>
+              <TabsTrigger value="news2" className="text-[10px] sm:text-xs px-1 py-1.5">NEWS2</TabsTrigger>
             </TabsList>
 
             <div className="mt-4">
@@ -663,6 +832,18 @@ export function ClinicalRiskCalculator({ className }: ClinicalRiskCalculatorProp
                   </CardHeader>
                   <CardContent>
                     <SOFACalculator />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="apache2" className="m-0">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">APACHE II Score</CardTitle>
+                    <p className="text-xs text-muted-foreground">Acute Physiology and Chronic Health Evaluation II</p>
+                  </CardHeader>
+                  <CardContent>
+                    <APACHE2Calculator />
                   </CardContent>
                 </Card>
               </TabsContent>
