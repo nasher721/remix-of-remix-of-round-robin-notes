@@ -74,10 +74,12 @@ export interface DbPatient {
   systems: PatientSystems;
   medications: PatientMedications;
   field_timestamps: FieldTimestamps;
-  collapsed: boolean;
-  created_at: string;
-  last_modified: string;
+collapsed: boolean;
+created_at: string;
+last_modified: string;
   age?: number;
+  rounding_order?: number;
+  has_rounded?: boolean;
 }
 
 /**
@@ -96,10 +98,12 @@ export interface Patient {
   systems: PatientSystems;
   medications: PatientMedications;
   fieldTimestamps: FieldTimestamps;
-  collapsed: boolean;
-  createdAt: string;
-  lastModified: string;
+collapsed: boolean;
+createdAt: string;
+lastModified: string;
   age?: number;
+  roundingOrder?: number;
+  hasRounded?: boolean;
 }
 
 /**

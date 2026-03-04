@@ -5,6 +5,8 @@ export interface KeyboardShortcutActions {
   onSearch?: () => void;
   onCollapseAll?: () => void;
   onPrint?: () => void;
+  onNextPatient?: () => void;
+  onPrevPatient?: () => void;
 }
 
 /**
@@ -65,6 +67,20 @@ export function useKeyboardShortcuts(actions: KeyboardShortcutActions) {
       if (event.key === "p") {
         event.preventDefault();
         actions.onPrint?.();
+        return;
+      }
+
+      // Ctrl+ArrowRight: Next patient
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        actions.onNextPatient?.();
+        return;
+      }
+
+      // Ctrl+ArrowLeft: Previous patient
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        actions.onPrevPatient?.();
         return;
       }
     },

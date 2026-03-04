@@ -63,7 +63,7 @@ export function usePatientFetch(): PatientFetchState {
             const { data, error } = await supabase
                 .from("patients")
                 .select("*")
-                .order("patient_number", { ascending: true });
+                .order("rounding_order", { ascending: true });
 
             if (error) throw error;
 

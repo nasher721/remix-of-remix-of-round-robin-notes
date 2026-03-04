@@ -1,4 +1,5 @@
 import * as React from "react";
+import { arrayMove } from "@dnd-kit/sortable";
 import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
 import { useAuth } from "../useAuth";
 import { useNotifications } from "../use-notifications";
@@ -290,6 +291,52 @@ export function usePatientMutations({
         }
     }, [user, fetchPatients, notifications, patientsRef, setPatients]);
 
+    const reorderPatients = React.useCallback(async (activeId: string, overId: string) => {
+        if (!user) return;
+
+        const currentPatients = [...patientsRef.current];
+        const oldIndex = currentPatients.findIndex((p) => p.id === activeId);
+        const newIndex = currentPatients.findIndex((p) => p.id === overId);
+
+        if (oldIndex === -1 || newIndex === -1) return;
+
+        const newPatients = arrayMove(currentPatients, oldIndex, newIndex);
+
+        // Update local state immediately
+        setPatients(newPatients);
+        // Update ref to avoid stale updates
+        patientsRef.current = newPatients;
+
+        if (!hasSupabaseConfig) return;
+
+        try {
+            // Persist the new order to Supabase
+            const { error } = await supabase
+                .from("patients")
+                .upsert(newPatients.map((p, index) => ({
+                    id: p.id,
+                    user_id: user.id,
+                    patient_number: p.patientNumber,
+                    name: p.name,
+                    bed: p.bed,
+                    clinical_summary: p.clinicalSummary,
+                    interval_events: p.intervalEvents,
+                    imaging: p.imaging,
+                    labs: p.labs,
+                    systems: p.systems as any,
+                    medications: p.medications as any,
+                    field_timestamps: p.fieldTimestamps as any,
+                    collapsed: p.collapsed,
+                    rounding_order: index,
+                })));
+
+            if (error) throw error;
+        } catch (error) {
+            console.error("Error reordering patients:", error);
+            fetchPatients(); // Revert on error
+        }
+    }, [user, patientsRef, setPatients, fetchPatients]);
+
     const clearAll = React.useCallback(async () => {
         if (!user) return;
         if (!hasSupabaseConfig) {
@@ -332,5 +379,6 @@ export function usePatientMutations({
         toggleCollapse,
         collapseAll,
         clearAll,
+        reorderPatients,
     };
 }

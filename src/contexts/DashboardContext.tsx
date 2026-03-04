@@ -35,6 +35,7 @@ interface DashboardContextType {
     onCollapseAll: () => void;
     onClearAll: () => void;
     onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
+    onReorderPatients: (activeId: string, overId: string) => void;
 
     // Autotext Actions
     onAddAutotext: (shortcut: string, expansion: string, category: string) => Promise<boolean>;

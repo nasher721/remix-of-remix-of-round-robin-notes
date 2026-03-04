@@ -5,7 +5,7 @@ import { scaleIn, transitions } from "@/lib/animations";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
-import { VirtualizedPatientList } from "./VirtualizedPatientList";
+import { SortablePatientList } from "./SortablePatientList";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
@@ -54,6 +54,7 @@ import {
   BookOpen,
   Wrench,
   SlidersHorizontal,
+  MapPin,
 } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import {
@@ -87,14 +88,8 @@ export const DesktopDashboard = () => {
     onCollapseAll,
     onClearAll,
     onImportPatients,
+    onReorderPatients,
     onAddAutotext,
-    onRemoveAutotext,
-    onAddTemplate,
-    onRemoveTemplate,
-    onImportDictionary,
-    onSignOut,
-    lastSaved,
-  } = useDashboard();
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
   useChangeTracking();
@@ -105,12 +100,33 @@ export const DesktopDashboard = () => {
   const [utilityPanel, setUtilityPanel] = React.useState<UtilityPanel>(null);
   const { isOpen: isAICommandPaletteOpen, setIsOpen: setAICommandPaletteOpen } = useAICommandPalette();
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const [selectedPatientIndex, setSelectedPatientIndex] = React.useState<number>(-1);
+
+  const navigateToNextPatient = React.useCallback(() => {
+    const nextIndex = Math.min(selectedPatientIndex + 1, filteredPatients.length - 1);
+    if (nextIndex !== selectedPatientIndex && nextIndex >= 0) {
+      setSelectedPatientIndex(nextIndex);
+      const patientElement = document.querySelector(`[data-patient-id="${filteredPatients[nextIndex].id}"]`);
+      patientElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [selectedPatientIndex, filteredPatients]);
+
+  const navigateToPrevPatient = React.useCallback(() => {
+    const prevIndex = Math.max(selectedPatientIndex - 1, 0);
+    if (prevIndex !== selectedPatientIndex) {
+      setSelectedPatientIndex(prevIndex);
+      const patientElement = document.querySelector(`[data-patient-id="${filteredPatients[prevIndex].id}"]`);
+      patientElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [selectedPatientIndex, filteredPatients]);
 
   useKeyboardShortcuts({
     onAddPatient,
     onSearch: () => searchInputRef.current?.focus(),
     onCollapseAll,
     onPrint: () => setShowPrintModal(true),
+    onNextPatient: navigateToNextPatient,
+    onPrevPatient: navigateToPrevPatient,
   });
 
   const handleExport = React.useCallback(() => {
@@ -407,8 +423,26 @@ export const DesktopDashboard = () => {
                         <SelectItem value="room">Room</SelectItem>
                         <SelectItem value="name">Name</SelectItem>
                       </SelectContent>
-                    </Select>
-                  </div>
+                  </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const sortedPatients = [...filteredPatients].sort((a, b) => {
+                          const roomA = a.bed || '';
+                          const roomB = b.bed || '';
+                          return roomA.localeCompare(roomB, { numeric: true });
+                        });
+                        sortedPatients.forEach((patient, index) => {
+                          onUpdatePatient(patient.id, 'patientNumber', index + 1);
+                        });
+                      }}
+                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                      title="Optimize rounding order by room number"
+                    >
+                      <MapPin className="h-3.5 w-3.5 mr-1" />
+                      Optimize
+                    </Button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -495,7 +529,7 @@ export const DesktopDashboard = () => {
                   )}
                 </motion.div>
               ) : (
-                <VirtualizedPatientList />
+                <SortablePatientList />
               )}
             </ScrollArea>
           </div>

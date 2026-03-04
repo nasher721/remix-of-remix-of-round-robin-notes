@@ -80,34 +80,38 @@ export const parseFieldTimestampsJson = (timestamps: Json | null): FieldTimestam
  * Convert database patient to UI patient (snake_case to camelCase)
  */
 export const dbToUiPatient = (dbPatient: DbPatient): Patient => ({
-  id: dbPatient.id,
-  patientNumber: dbPatient.patient_number,
-  name: dbPatient.name,
-  bed: dbPatient.bed,
-  clinicalSummary: dbPatient.clinical_summary,
-  intervalEvents: dbPatient.interval_events,
-  imaging: dbPatient.imaging,
-  labs: dbPatient.labs,
-  systems: dbPatient.systems,
-  medications: dbPatient.medications || { infusions: [], scheduled: [], prn: [], rawText: "" },
-  fieldTimestamps: dbPatient.field_timestamps || {},
-  collapsed: dbPatient.collapsed,
-  createdAt: dbPatient.created_at,
+id: dbPatient.id,
+patientNumber: dbPatient.patient_number,
+name: dbPatient.name,
+bed: dbPatient.bed,
+clinicalSummary: dbPatient.clinical_summary,
+intervalEvents: dbPatient.interval_events,
+imaging: dbPatient.imaging,
+labs: dbPatient.labs,
+systems: dbPatient.systems,
+medications: dbPatient.medications || { infusions: [], scheduled: [], prn: [], rawText: "" },
+fieldTimestamps: dbPatient.field_timestamps || {},
+collapsed: dbPatient.collapsed,
+createdAt: dbPatient.created_at,
   lastModified: dbPatient.last_modified,
+  roundingOrder: dbPatient.rounding_order,
+  hasRounded: dbPatient.has_rounded,
 });
 
 /**
  * Map field names from UI (camelCase) to DB (snake_case)
  */
 export const uiFieldToDbField = (field: string): string => {
-  const fieldMap: Record<string, string> = {
-    clinicalSummary: "clinical_summary",
-    intervalEvents: "interval_events",
-    patientNumber: "patient_number",
-    createdAt: "created_at",
+const fieldMap: Record<string, string> = {
+clinicalSummary: "clinical_summary",
+intervalEvents: "interval_events",
+patientNumber: "patient_number",
+createdAt: "created_at",
     lastModified: "last_modified",
-  };
-  return fieldMap[field] || field;
+    roundingOrder: "rounding_order",
+    hasRounded: "has_rounded",
+};
+return fieldMap[field] || field;
 };
 
 /**

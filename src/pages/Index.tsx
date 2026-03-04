@@ -38,7 +38,8 @@ function IndexContent(): React.ReactElement | null {
     toggleCollapse,
     collapseAll,
     clearAll,
-    importPatients
+    importPatients,
+    reorderPatients,
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
   const { customDictionary, importDictionary } = useCloudDictionary();
@@ -131,6 +132,7 @@ function IndexContent(): React.ReactElement | null {
     onCollapseAll: collapseAll,
     onClearAll: clearAll,
     onImportPatients: importPatients,
+    onReorderPatients: reorderPatients,
     onAddAutotext: addAutotext,
     onRemoveAutotext: removeAutotext,
     onAddTemplate: addTemplate,
