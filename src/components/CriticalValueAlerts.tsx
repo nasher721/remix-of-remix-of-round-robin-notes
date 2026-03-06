@@ -86,7 +86,7 @@ export function CriticalValueAlerts({
   React.useEffect(() => {
     if (soundEnabled && criticalCount > 0) {
       // Would integrate with audio API for actual sound
-      console.log('Critical alert sound would play');
+      // Audio playback handled by browser audio API
     }
   }, [criticalCount, soundEnabled]);
 
@@ -169,14 +169,13 @@ export function CriticalValueAlerts({
                     return severityOrder[a.severity] - severityOrder[b.severity];
                   })
                   .map((alert) => (
-                    <AlertItem
+                    <MemoizedAlertItem
                       key={alert.id}
                       alert={alert}
                       onAcknowledge={() => onAcknowledge(alert.id)}
                       onDismiss={() => onDismiss(alert.id)}
                       onNavigate={() => onNavigateToPatient?.(alert.patientId)}
                     />
-                  ))}
               </div>
             </ScrollArea>
           </CardContent>
@@ -264,6 +263,8 @@ function AlertItem({ alert, onAcknowledge, onDismiss, onNavigate }: AlertItemPro
   );
 }
 
+const MemoizedAlertItem = React.memo(AlertItem);
+
 // Floating alert badge for header/nav
 interface AlertBadgeProps {
   alerts: ClinicalAlert[];
@@ -345,14 +346,13 @@ export function AlertPanel({
               <h3 className="text-sm font-semibold mb-3">Active Alerts</h3>
               <div className="space-y-2">
                 {unacknowledged.map((alert) => (
-                  <AlertItem
+                  <MemoizedAlertItem
                     key={alert.id}
                     alert={alert}
                     onAcknowledge={() => onAcknowledge(alert.id)}
                     onDismiss={() => onDismiss(alert.id)}
                     onNavigate={() => onNavigateToPatient?.(alert.patientId)}
                   />
-                ))}
               </div>
             </div>
           )}

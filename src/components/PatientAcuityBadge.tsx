@@ -207,8 +207,12 @@ export function PatientAcuityBadge({
         </div>
       </PopoverContent>
     </Popover>
-  );
-}
+  }
+
+const MemoizedPatientAcuityBadge = React.memo(PatientAcuityBadge);
+export { MemoizedPatientAcuityBadge };
+// Default export uses memoized version
+export default React.memo(PatientAcuityBadge);
 
 // Compact acuity indicator for lists
 interface AcuityIndicatorProps {
@@ -253,6 +257,9 @@ export function AcuityIndicator({ patient, className }: AcuityIndicatorProps) {
     </TooltipProvider>
   );
 }
+
+const MemoizedAcuityIndicator = React.memo(AcuityIndicator);
+export { MemoizedAcuityIndicator };
 
 // Acuity summary for unit overview
 interface AcuitySummaryProps {

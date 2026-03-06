@@ -1,5 +1,5 @@
 import { db, type QueuedMutationDB } from './database';
-
+import { logInfo, logWarn, logError } from '@/lib/observability/logger';
 export type { QueuedMutationDB };
 export type QueuedMutation = QueuedMutationDB;
 export type SyncResult = {
@@ -35,26 +35,26 @@ class IndexedDBQueueManager {
       await db.open();
       this.initialized = true;
       const count = await db.mutations.count();
-      console.log(`[IndexedDBQueue] Initialized with ${count} pending mutations`);
+      logInfo('Initialized', { count, source: 'IndexedDBQueue' });
     } catch (error) {
-      console.error('[IndexedDBQueue] Failed to initialize:', error);
+      logError('Failed to initialize', { error, source: 'IndexedDBQueue' });
       this.fallbackToLocalStorage();
     }
   }
   
   private fallbackToLocalStorage(): void {
-    console.warn('[IndexedDBQueue] Falling back to localStorage mode');
+    logWarn('Falling back to localStorage mode', { source: 'IndexedDBQueue' });
     this.initialized = false;
   }
   
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
-      console.log('[IndexedDBQueue] Connection restored');
+      logInfo('Connection restored', { source: 'IndexedDBQueue' });
       this.notifyListeners();
     });
     
     window.addEventListener('offline', () => {
-      console.log('[IndexedDBQueue] Connection lost');
+      logInfo('Connection lost', { source: 'IndexedDBQueue' });
       this.notifyListeners();
     });
   }
@@ -105,7 +105,7 @@ class IndexedDBQueueManager {
     }
     
     this.notifyListeners();
-    console.log(`[IndexedDBQueue] Queued: ${mutation.type}/${mutation.operation}`);
+    logInfo('Queued mutation', { type: mutation.type, operation: mutation.operation, source: 'IndexedDBQueue' });
     return id;
   }
   
@@ -137,7 +137,7 @@ class IndexedDBQueueManager {
         const newRetryCount = mutation.retryCount + 1;
         
         if (newRetryCount >= mutation.maxRetries) {
-          console.warn(`[IndexedDBQueue] Mutation ${mutationId} exceeded max retries`);
+          logWarn('Mutation exceeded max retries', { mutationId, source: 'IndexedDBQueue' });
           await db.mutations.delete(mutationId);
           this.notifyListeners();
           return false;
@@ -212,7 +212,7 @@ class IndexedDBQueueManager {
     await db.mutations.bulkAdd(oldQueue);
     localStorage.removeItem('offline-mutation-queue');
     
-    console.log(`[IndexedDBQueue] Migrated ${oldQueue.length} mutations from localStorage`);
+    logInfo('Migrated mutations from localStorage', { count: oldQueue.length, source: 'IndexedDBQueue' });
     return oldQueue.length;
   }
 
@@ -279,6 +279,6 @@ export const indexedDBQueue = new IndexedDBQueueManager();
 export async function migrateFromOldQueue(): Promise<void> {
   const count = await indexedDBQueue.migrateFromLocalStorage();
   if (count > 0) {
-    console.log(`[Migration] Migrated ${count} mutations to IndexedDB`);
+    logInfo('Migrated mutations to IndexedDB', { count, source: 'Migration' });
   }
 }

@@ -8,8 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { IBCCProvider } from "@/contexts/IBCCContext";
 import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
-import { SettingsProvider } from "@/contexts/SettingsContext";
-import Index from "./pages/Index";
+import { SettingsProvider } from "@/contexts/SettingsCoordinator";
 import NotFound from "./pages/NotFound";
 
 // Lazy-load secondary routes to reduce initial bundle

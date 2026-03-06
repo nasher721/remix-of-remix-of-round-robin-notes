@@ -3,22 +3,19 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cardHover, collapseVariants } from '@/lib/animations';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList, MoreHorizontal } from "lucide-react";
+import { FileText, Calendar, ChevronDown, ImageIcon, TestTube, Sparkles, Loader2, Settings2, X, Eraser } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
 import { FieldTimestamp } from "./FieldTimestamp";
-import { FieldHistoryViewer } from "./FieldHistoryViewer";
 import { SystemsConfigManager } from "./SystemsConfigManager";
 import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
-import { PatientAcuityBadge } from "./PatientAcuityBadge";
-import { QuickActionsPanel } from "./QuickActionsPanel";
-import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
-import { LabTrendBadge } from "./LabTrendingPanel";
-import { AppleAIAssistant } from "./AppleAIAssistant";
 import { PatientSystemsReview } from "./PatientSystemsReview";
+// Extracted sub-components
+import { PatientCardHeader } from "./PatientCardHeader";
+import { PatientAIPanel } from "./PatientAIPanel";
+import { PatientRiskNudges } from "./PatientRiskNudges";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -64,7 +61,7 @@ const PatientCardComponent = ({
     return (patient.imaging.match(/<img[^>]+src=["'][^"']+["'][^>]*>/gi) || []).length;
   }, [patient.imaging]);
 
-  const handleGenerateIntervalEvents = async () => {
+  const handleGenerateIntervalEvents = React.useCallback(async () => {
     const result = await generateIntervalEvents(
       patient.systems,
       patient.intervalEvents,
@@ -77,15 +74,15 @@ const PatientCardComponent = ({
         : result;
       onUpdate(patient.id, 'intervalEvents', newValue);
     }
-  };
+  }, [generateIntervalEvents, onUpdate, patient]);
 
-  const handleGenerateDailySummary = async () => {
+  const handleGenerateDailySummary = React.useCallback(async () => {
     await generateDailySummary(patient, (newValue) => {
       onUpdate(patient.id, 'intervalEvents', newValue);
     });
-  };
+  }, [generateDailySummary, onUpdate, patient]);
 
-  const addTimestamp = (field: string) => {
+  const addTimestamp = React.useCallback((field: string) => {
     const timestamp = new Date().toLocaleString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -96,7 +93,25 @@ const PatientCardComponent = ({
       : patient[field as keyof Patient];
     const newValue = `[${timestamp}] ${currentValue || ''}`;
     onUpdate(patient.id, field, newValue);
-  };
+  }, [onUpdate, patient]);
+
+  // Stable handler wrappers for inline updates
+  const handleFieldUpdate = React.useCallback(
+    <T,>(field: string, value: T) => onUpdate(patient.id, field, value),
+    [onUpdate, patient.id]
+  );
+  const handleToggleCollapse = React.useCallback(
+    () => onToggleCollapse(patient.id),
+    [onToggleCollapse, patient.id]
+  );
+  const handleDuplicate = React.useCallback(
+    () => onDuplicate(patient.id),
+    [onDuplicate, patient.id]
+  );
+  const handleRemove = React.useCallback(
+    () => onRemove(patient.id),
+    [onRemove, patient.id]
+  );
 
   const {
     streamWithAI: runAI,
@@ -166,20 +181,20 @@ const PatientCardComponent = ({
     toast({ title: 'Inserted AI output', description: 'Added to clinical summary' });
   }, [aiOutput, onUpdate, patient, toast]);
 
-  const clearSection = (field: string) => {
+  const clearSection = React.useCallback((field: string) => {
     if (confirm('Clear this section?')) {
       onUpdate(patient.id, field, '');
     }
-  };
+  }, [onUpdate, patient.id]);
 
-  const clearAllSystems = () => {
+  const clearAllSystems = React.useCallback(() => {
     if (confirm('Clear ALL systems review data? This cannot be undone.')) {
       // Clear each enabled system
       enabledSystems.forEach((system) => {
         onUpdate(patient.id, `systems.${system.key}`, '');
       });
     }
-  };
+  }, [enabledSystems, onUpdate, patient.id]);
 
 
 
@@ -195,290 +210,41 @@ const PatientCardComponent = ({
       whileTap="tap"
     >
       {/* Header */}
-      <div className="flex justify-between items-center gap-4 px-5 py-3.5 bg-gradient-to-r from-secondary/20 to-secondary/10 border-b border-border/40 transition-colors group-hover:from-secondary/30 group-hover:to-secondary/15">
-        <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20 shadow-sm">
-            <span className="text-base font-semibold text-primary">
-              {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
-            </span>
-          </div>
-          <div className="flex gap-2.5 flex-1 flex-wrap items-center">
-            <Input
-              placeholder="Patient Name"
-              value={patient.name}
-              onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
-              aria-label="Patient name"
-              className="max-w-[220px] font-medium bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
-            />
-            <Input
-              placeholder="Bed/Room"
-              value={patient.bed}
-              onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
-              aria-label="Bed or room number"
-              className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
-            />
-            {/* Patient Status Badges */}
-            <div className="flex items-center gap-1.5 no-print">
-              <PatientAcuityBadge patient={patient} size="sm" />
-              <LabTrendBadge labText={patient.labs} />
-              <ProtocolBadge patient={patient} />
-            </div>
-          </div>
-        </div>
+      <PatientCardHeader
+        patient={patient}
+        onUpdate={onUpdate}
+        onFieldUpdate={handleFieldUpdate}
+        onToggleCollapse={handleToggleCollapse}
+        onDuplicate={handleDuplicate}
+        onRemove={handleRemove}
+        isStreamingAI={isStreamingAI}
+        aiMode={aiMode}
+        startAIMode={startAIMode}
+      />
 
-        <div className="flex items-center gap-0.5 no-print">
-          {/* Quick Actions & Protocol Tools */}
-          <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
-          <SmartProtocolSuggestions patient={patient} />
-          <AppleAIAssistant patient={patient} onUpdatePatient={onUpdate} compact />
-          {/* AI Modes Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={isStreamingAI}
-                className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                aria-label="AI modes"
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
-                AI
-                <ChevronDown className="h-3 w-3 ml-0.5" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">AI Modes</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => startAIMode('insights')}
-                disabled={isStreamingAI}
-                className="cursor-pointer"
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                Insights
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => startAIMode('delta')}
-                disabled={isStreamingAI}
-                className="cursor-pointer"
-              >
-                <Clock className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                Delta
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => startAIMode('checklist')}
-                disabled={isStreamingAI}
-                className="cursor-pointer"
-              >
-                <ClipboardList className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                Checklist
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => startAIMode('handoff')}
-                disabled={isStreamingAI}
-                className="cursor-pointer"
-              >
-                <FileText className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                SBAR
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          <div className="w-px h-4 bg-border/40 mx-1" />
-          
-          {/* Collapse Button - Primary Action */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onToggleCollapse(patient.id)}
-            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
-            aria-label={patient.collapsed ? "Expand patient card" : "Collapse patient card"}
-            aria-expanded={!patient.collapsed}
-            aria-controls={`patient-body-${patient.id}`}
-          >
-            {patient.collapsed ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />}
-          </Button>
-          
-          {/* More Actions Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
-                aria-label="More actions"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Actions</DropdownMenuLabel>
-              <DropdownMenuItem className="cursor-pointer">
-                <FieldHistoryViewer
-                  patientId={patient.id}
-                  patientName={patient.name}
-                  trigger={
-                    <div className="flex items-center w-full">
-                      <History className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                      <span>View History</span>
-                    </div>
-                  }
-                />
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => onDuplicate(patient.id)}
-                className="cursor-pointer"
-              >
-                <Copy className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => onRemove(patient.id)}
-                className="cursor-pointer text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                Remove
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      {(aiPanelVisible || isStreamingAI || aiOutput || aiError) && (
-        <div className="mx-5 mt-3 mb-1 rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2 no-print">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-              <Sparkles className={`h-4 w-4 ${isStreamingAI ? 'animate-spin' : ''}`} aria-hidden="true" />
-              <span>{isStreamingAI ? 'Generating…' : aiMode ? `AI ${aiMode}` : 'AI Output'}</span>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={cancelAI}
-                disabled={!isStreamingAI}
-              >
-                Stop
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  resetAI();
-                  setAIPanelVisible(false);
-                  setAIMode(null);
-                }}
-                disabled={isStreamingAI}
-              >
-                Reset
-              </Button>
-            </div>
-          </div>
-
-          {aiError && (
-            <p className="text-sm text-destructive">{aiError}</p>
-          )}
-
-          <div className="rounded-lg border bg-background px-3 py-2 text-sm whitespace-pre-wrap break-words min-h-[52px]">
-            {aiOutput?.trim() || (isStreamingAI ? 'Streaming response…' : 'No output yet.')}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 justify-between">
-            <div className="text-xs text-muted-foreground">AI generated text.</div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!aiOutput?.trim()) return;
-                  navigator.clipboard.writeText(aiOutput).catch(() => {
-                    toast({
-                      title: 'Copy failed',
-                      description: 'Could not copy to clipboard',
-                      variant: 'destructive',
-                    });
-                  });
-                }}
-                disabled={!aiOutput?.trim()}
-              >
-                Copy
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={insertAIOutput}
-                disabled={!aiOutput?.trim()}
-              >
-                Insert into summary
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* AI Panel */}
+      <PatientAIPanel
+        visible={aiPanelVisible}
+        isStreaming={isStreamingAI}
+        aiMode={aiMode}
+        output={aiOutput}
+        error={aiError}
+        onCancel={cancelAI}
+        onReset={() => {
+          resetAI();
+          setAIPanelVisible(false);
+          setAIMode(null);
+        }}
+        onCopy={() => {}}
+        onInsert={insertAIOutput}
+        onCopyFailed={() => toast({ title: 'Copy failed', description: 'Could not copy to clipboard', variant: 'destructive' })}
+      />
 
       {/* Proactive Risk Nudges */}
-      {(() => {
-        const labsText = stripHtml(patient.labs || '').toLowerCase();
-        const nudges: { label: string; description: string }[] = [];
-
-        if (labsText.includes('cr:') || labsText.includes('creatinine')) {
-          const crMatch = labsText.match(/cr[:\s]+([\d.]+)/) || labsText.match(/creatinine[:\s]+([\d.]+)/);
-          if (crMatch && parseFloat(crMatch[1]) > 1.5) {
-            nudges.push({ label: 'AKI risk', description: 'Elevated Cr detected. Consider renal dosing and nephrology consult.' });
-          }
-        }
-
-        if (labsText.includes('wbc') && labsText.includes('lactate')) {
-          const wbcMatch = labsText.match(/wbc[:\s]+([\d.]+)/);
-          const lactateMatch = labsText.match(/lactate[:\s]+([\d.]+)/);
-          if (wbcMatch && lactateMatch && (parseFloat(wbcMatch[1]) > 12 || parseFloat(lactateMatch[1]) > 2)) {
-            nudges.push({ label: 'Sepsis risk', description: 'Consider sepsis workup if clinically indicated.' });
-          }
-        }
-
-        if (labsText.includes('bun') && labsText.includes('cr')) {
-          const bunMatch = labsText.match(/bun[:\s]+([\d.]+)/);
-          const crMatch2 = labsText.match(/cr[:\s]+([\d.]+)/);
-          if (bunMatch && crMatch2) {
-            const ratio = parseFloat(bunMatch[1]) / parseFloat(crMatch2[1]);
-            if (ratio > 20) {
-              nudges.push({ label: 'Pre-renal AKI', description: 'BUN/Cr ratio >20 suggests pre-renal etiology. Consider volume status.' });
-            }
-          }
-        }
-
-        if (nudges.length === 0) return null;
-
-        return (
-          <div className="mx-5 mt-2 mb-1 space-y-2 no-print">
-            {nudges.map((nudge, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-2"
-              >
-                <div className="flex-1">
-                  <div className="text-xs font-semibold text-amber-700 dark:text-amber-400">{nudge.label}</div>
-                  <div className="text-[11px] text-amber-600 dark:text-amber-300">{nudge.description}</div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => addTodo(`${nudge.label}: ${nudge.description}`)}
-                  className="h-6 px-2 text-[10px] text-amber-700 hover:text-amber-900 hover:bg-amber-100 dark:hover:bg-amber-900/30"
-                >
-                  Add todo
-                </Button>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
+      <PatientRiskNudges
+        labsText={patient.labs}
+        onAddTodo={addTodo}
+      />
       <AnimatePresence initial={false}>
         {!patient.collapsed && (
           <motion.div
@@ -558,7 +324,7 @@ const PatientCardComponent = ({
                     <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.clinicalSummary}
-                        onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
+                        onChange={(value) => handleFieldUpdate('clinicalSummary', value)}
                         placeholder="Enter clinical summary..."
                         minHeight="80px"
                         autotexts={autotexts}
@@ -660,7 +426,7 @@ const PatientCardComponent = ({
                     <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.intervalEvents}
-                        onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
+                        onChange={(value) => handleFieldUpdate('intervalEvents', value)}
                         placeholder="Enter interval events..."
                         minHeight="80px"
                         autotexts={autotexts}
@@ -740,7 +506,7 @@ Clear
                         <div className="bg-background/50 rounded-xl border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <ImagePasteEditor
                             value={patient.imaging}
-                            onChange={(value) => onUpdate(patient.id, 'imaging', value)}
+                            onChange={(value) => handleFieldUpdate('imaging', value)}
                             placeholder="X-rays, CT, MRI, Echo... (paste images here)"
                             minHeight="60px"
                             autotexts={autotexts}
@@ -811,7 +577,7 @@ Clear
                         <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <RichTextEditor
                             value={patient.labs}
-                            onChange={(value) => onUpdate(patient.id, 'labs', value)}
+                            onChange={(value) => handleFieldUpdate('labs', value)}
                             placeholder="CBC, BMP, LFTs, coags... (e.g., Na: 140, K: 4.0, Cr: 1.0)"
                             minHeight="60px"
                             autotexts={autotexts}
@@ -831,7 +597,7 @@ Clear
                 <div className="bg-background/50 rounded-xl p-4 border border-border/40 shadow-inner transition-all duration-200 hover:border-border/60">
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
-                    onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
+                    onMedicationsChange={(meds) => handleFieldUpdate('medications', meds)}
                   />
                   <FieldTimestamp timestamp={patient.fieldTimestamps?.medications} className="pl-1 mt-2" />
                 </div>

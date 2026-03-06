@@ -1,9 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { offlineQueue, QueuedMutation, SyncResult } from './offlineQueue';
-import { logMetric } from '@/lib/observability/logger';
+import { logMetric, logInfo, logWarn, logError } from '@/lib/observability/logger';
 import { toast } from 'sonner';
-
 export interface SyncProgress {
   total: number;
   completed: number;
@@ -55,7 +54,7 @@ class SyncService {
         .maybeSingle();
       
       if (error) {
-        console.error(`[SyncService] Failed to check conflict for ${table}:`, error);
+        logError('Failed to check conflict', { table, error, source: 'SyncService' });
         return { hasConflict: false };
       }
       
@@ -73,7 +72,7 @@ class SyncService {
         mutationTimestamp,
       };
     } catch (error) {
-      console.error(`[SyncService] Conflict check error:`, error);
+      logError('Conflict check error', { error, source: 'SyncService' });
       return { hasConflict: false };
     }
   }
@@ -84,7 +83,7 @@ class SyncService {
     
     // Validate table name against known tables
     if (!this.isValidTable(table)) {
-      console.error(`[SyncService] Unknown table: ${table}`);
+      logError('Unknown table', { table, source: 'SyncService' });
       return {
         success: false,
         mutationId: mutation.id,
@@ -112,12 +111,7 @@ class SyncService {
             const conflict = await this.checkConflict(table, entityId, timestamp);
             
             if (conflict.hasConflict) {
-              console.warn(
-                `[SyncService] Conflict detected for ${table}/${entityId}: ` +
-                `Server timestamp (${conflict.serverTimestamp}) is newer than ` +
-                `mutation timestamp (${new Date(conflict.mutationTimestamp!).toISOString()}). ` +
-                `Skipping update to avoid overwriting newer data.`
-              );
+              logWarn('Conflict detected - skipping update', { table, entityId, serverTimestamp: conflict.serverTimestamp, mutationTimestamp: new Date(conflict.mutationTimestamp!).toISOString(), source: 'SyncService' });
               
               return {
                 success: true,
@@ -155,7 +149,7 @@ class SyncService {
       
       return { success: true, mutationId: mutation.id };
     } catch (error) {
-      console.error(`[SyncService] Mutation failed:`, error);
+      logError('Mutation failed', { error, source: 'SyncService' });
       return {
         success: false,
         mutationId: mutation.id,
@@ -188,7 +182,7 @@ class SyncService {
   // Sync all pending mutations
   async syncAll(onProgress?: SyncProgressCallback): Promise<SyncProgress> {
     if (this.isSyncing) {
-      console.log('[SyncService] Sync already in progress');
+      logInfo('Sync already in progress', { source: 'SyncService' });
       return {
         total: 0,
         completed: 0,
@@ -200,7 +194,7 @@ class SyncService {
     }
     
     if (!navigator.onLine) {
-      console.log('[SyncService] Offline, skipping sync');
+      logInfo('Offline, skipping sync', { source: 'SyncService' });
       return {
         total: 0,
         completed: 0,
@@ -233,7 +227,7 @@ class SyncService {
       return progress;
     }
     
-    console.log(`[SyncService] Starting sync of ${queue.length} mutations`);
+    logInfo('Starting sync', { queueSize: queue.length, source: 'SyncService' });
     
     // Sort by timestamp (oldest first)
     const sortedQueue = [...queue].sort((a, b) => a.timestamp - b.timestamp);
@@ -249,7 +243,7 @@ class SyncService {
       if (result.success) {
         if (result.skipped) {
           progress.skipped++;
-          console.log(`[SyncService] Skipped conflicting mutation: ${mutation.id}`);
+          logInfo('Skipped conflicting mutation', { mutationId: mutation.id, source: 'SyncService' });
         } else {
           progress.completed++;
         }
@@ -259,7 +253,7 @@ class SyncService {
         const shouldRetry = offlineQueue.markFailed(mutation.id);
         
         if (!shouldRetry) {
-          console.warn(`[SyncService] Mutation permanently failed: ${mutation.id}`);
+          logWarn('Mutation permanently failed', { mutationId: mutation.id, source: 'SyncService' });
         }
       }
       
@@ -276,8 +270,7 @@ class SyncService {
       progress.failed > 0 ? `${progress.failed} failed` : null,
     ].filter(Boolean).join(', ');
     
-    console.log(`[SyncService] Sync complete: ${summary}`);
-    
+    logInfo('Sync complete', { summary, source: 'SyncService' });
     return progress;
   }
   

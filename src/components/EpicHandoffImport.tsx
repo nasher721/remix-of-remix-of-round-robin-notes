@@ -16,7 +16,7 @@ import { extractPdfText, extractPdfAsImages } from "@/lib/import-utils";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
-
+import { logInfo, logError } from "@/lib/observability/logger";
 interface PatientSystems {
   neuro: string;
   cv: string;
@@ -104,7 +104,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
           try {
             setStatusMessage("Extracting text from PDF...");
             content = await extractPdfText(file);
-            console.log("Extracted PDF text length:", content.length);
+            logInfo('Extracted PDF text', { length: content.length, source: 'EpicHandoffImport' });
 
             // Check if meaningful content was extracted
             const meaningfulContent = content.replace(/--- Page Break ---/g, '').trim();
@@ -116,7 +116,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
               });
             }
           } catch (e) {
-            console.error("PDF text extraction failed:", e);
+            logError('PDF text extraction failed', { error: String(e), source: 'EpicHandoffImport' });
             useOcr = true;
           }
         }
@@ -144,7 +144,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
           // Enhanced error logging
           if (error) {
-            console.error("Edge Function invocation error (OCR path):", {
+            logError('Edge Function invocation error (OCR path)', { error: error.message, details: error, source: 'EpicHandoffImport' });
               message: error.message,
               details: error,
               stack: error.stack,
@@ -181,7 +181,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error:", {
+        logError('Edge Function invocation error', { error: error.message, details: error, source: 'EpicHandoffImport' });
           message: error.message,
           details: error,
           stack: error.stack,
@@ -193,7 +193,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       finalizeImport(data.data?.patients || []);
 
     } catch (error) {
-      console.error("Error parsing handoff:", error);
+      logError('Error parsing handoff', { error: String(error), source: 'EpicHandoffImport' });
       toast({
         title: "Parsing failed",
         description: error instanceof Error ? error.message : "Failed to parse the handoff document.",
@@ -249,7 +249,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error (paste path):", {
+        logError('Edge Function invocation error (paste path)', { error: error.message, details: error, source: 'EpicHandoffImport' });
           message: error.message,
           details: error,
           stack: error.stack,
@@ -260,7 +260,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       finalizeImport(data.data?.patients || []);
     } catch (error) {
-      console.error("Error parsing pasted content:", error);
+      logError('Error parsing pasted content', { error: String(error), source: 'EpicHandoffImport' });
       toast({
         title: "Parsing failed",
         description: error instanceof Error ? error.message : "Failed to parse the pasted content.",
@@ -326,7 +326,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       });
       handleClose();
     } catch (error) {
-      console.error("Error importing patients:", error);
+      logError('Error importing patients', { error: String(error), source: 'EpicHandoffImport' });
       toast({
         title: "Import failed",
         description: "Failed to import patients.",

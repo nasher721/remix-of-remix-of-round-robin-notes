@@ -1,10 +1,11 @@
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import type { 
-  ClinicalPhrase, 
-  PhraseField, 
-  PhraseFolder, 
+import { logError } from '@/lib/observability/logger';
+import type {
+  ClinicalPhrase,
+  PhraseField,
+  PhraseFolder,
   PhraseVersion,
   ContextTriggers,
   FieldOption,
@@ -12,6 +13,7 @@ import type {
   ConditionalLogic,
   PatientDataSource
 } from '@/types/phrases';
+import { logError } from '@/lib/observability/logger';
 
 // DB to UI mappers
 const mapFolder = (row: Record<string, unknown>): PhraseFolder => ({
@@ -101,7 +103,7 @@ export const useClinicalPhrases = () => {
       setPhrases((phrasesRes.data || []).map(mapPhrase));
       setFolders((foldersRes.data || []).map(mapFolder));
     } catch (error) {
-      console.error('Error fetching phrases:', error);
+      logError('Error fetching phrases', { error, source: 'useClinicalPhrases' });
       toast.error('Failed to load clinical phrases');
     } finally {
       setLoading(false);
@@ -177,7 +179,7 @@ export const useClinicalPhrases = () => {
       toast.success('Phrase created');
       return newPhrase;
     } catch (error) {
-      console.error('Error creating phrase:', error);
+      logError('Error creating phrase', { error, source: 'useClinicalPhrases' });
       toast.error('Failed to create phrase');
       return null;
     }
@@ -234,7 +236,7 @@ export const useClinicalPhrases = () => {
       toast.success('Phrase updated');
       return true;
     } catch (error) {
-      console.error('Error updating phrase:', error);
+      logError('Error updating phrase', { error, source: 'useClinicalPhrases' });
       toast.error('Failed to update phrase');
       return false;
     }
@@ -254,7 +256,7 @@ export const useClinicalPhrases = () => {
       toast.success('Phrase deleted');
       return true;
     } catch (error) {
-      console.error('Error deleting phrase:', error);
+      logError('Error deleting phrase', { error, source: 'useClinicalPhrases' });
       toast.error('Failed to delete phrase');
       return false;
     }
@@ -272,7 +274,7 @@ export const useClinicalPhrases = () => {
       if (error) throw error;
       return (data || []).map(mapField);
     } catch (error) {
-      console.error('Error fetching phrase fields:', error);
+      logError('Error fetching phrase fields', { error, source: 'useClinicalPhrases' });
       return [];
     }
   }, []);
@@ -301,7 +303,7 @@ export const useClinicalPhrases = () => {
       if (error) throw error;
       return mapField(data);
     } catch (error) {
-      console.error('Error adding field:', error);
+      logError('Error adding field', { error, source: 'useClinicalPhrases' });
       toast.error('Failed to add field');
       return null;
     }
@@ -330,7 +332,7 @@ export const useClinicalPhrases = () => {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error updating field:', error);
+      logError('Error updating field', { error, source: 'useClinicalPhrases' });
       return false;
     }
   }, []);
@@ -346,7 +348,7 @@ export const useClinicalPhrases = () => {
       if (error) throw error;
       return true;
     } catch (error) {
-      console.error('Error deleting field:', error);
+      logError('Error deleting field', { error, source: 'useClinicalPhrases' });
       return false;
     }
   }, []);
@@ -363,7 +365,7 @@ export const useClinicalPhrases = () => {
       if (error) throw error;
       return (data || []).map(mapVersion);
     } catch (error) {
-      console.error('Error fetching versions:', error);
+      logError('Error fetching versions', { error, source: 'useClinicalPhrases' });
       return [];
     }
   }, []);
@@ -413,7 +415,7 @@ export const useClinicalPhrases = () => {
           : p
       ));
     } catch (error) {
-      console.error('Error logging usage:', error);
+      logError('Error logging usage', { error, source: 'useClinicalPhrases' });
     }
   }, [phrases]);
 
@@ -445,7 +447,7 @@ export const useClinicalPhrases = () => {
       toast.success('Folder created');
       return newFolder;
     } catch (error) {
-      console.error('Error creating folder:', error);
+      logError('Error creating folder', { error, source: 'useClinicalPhrases' });
       toast.error('Failed to create folder');
       return null;
     }
@@ -471,7 +473,7 @@ export const useClinicalPhrases = () => {
       setFolders(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
       return true;
     } catch (error) {
-      console.error('Error updating folder:', error);
+      logError('Error updating folder', { error, source: 'useClinicalPhrases' });
       return false;
     }
   }, []);
@@ -489,7 +491,7 @@ export const useClinicalPhrases = () => {
       toast.success('Folder deleted');
       return true;
     } catch (error) {
-      console.error('Error deleting folder:', error);
+      logError('Error deleting folder', { error, source: 'useClinicalPhrases' });
       toast.error('Failed to delete folder');
       return false;
     }

@@ -10,6 +10,7 @@ import {
     mapPatientRecord,
     shouldTrackTimestamp,
 } from "@/services/patientService";
+import { logError } from "@/lib/observability/logger";
 
 export interface PatientMutationsDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
@@ -64,7 +65,7 @@ export function usePatientMutations({
                 description: "New patient card created.",
             });
         } catch (error) {
-            console.error("Error adding patient:", error);
+            logError('Error adding patient', { error, source: 'usePatientMutations' });
             notifications.error({
                 title: "Error",
                 description: "Failed to add patient.",
@@ -166,7 +167,7 @@ export function usePatientMutations({
                 })();
             }
         } catch (error) {
-            console.error("Error updating patient:", error);
+            logError('Error updating patient', { error, source: 'usePatientMutations' });
             fetchPatients(); // Revert on error
         }
     }, [user, fetchPatients, notifications, patientsRef, setPatients]);
@@ -196,7 +197,7 @@ export function usePatientMutations({
                 description: "Patient has been removed.",
             });
         } catch (error) {
-            console.error("Error removing patient:", error);
+            logError('Error removing patient', { error, source: 'usePatientMutations' });
             notifications.error({
                 title: "Error",
                 description: "Failed to remove patient.",
@@ -247,7 +248,7 @@ export function usePatientMutations({
                 description: "Patient card has been duplicated.",
             });
         } catch (error) {
-            console.error("Error duplicating patient:", error);
+            logError('Error duplicating patient', { error, source: 'usePatientMutations' });
             notifications.error({
                 title: "Error",
                 description: "Failed to duplicate patient.",
@@ -286,7 +287,7 @@ export function usePatientMutations({
 
             if (error) throw error;
         } catch (error) {
-            console.error("Error collapsing all patients:", error);
+            logError('Error collapsing all patients', { error, source: 'usePatientMutations' });
             fetchPatients();
         }
     }, [user, fetchPatients, notifications, patientsRef, setPatients]);
@@ -332,7 +333,7 @@ export function usePatientMutations({
 
             if (error) throw error;
         } catch (error) {
-            console.error("Error reordering patients:", error);
+            logError('Error reordering patients', { error, source: 'usePatientMutations' });
             fetchPatients(); // Revert on error
         }
     }, [user, patientsRef, setPatients, fetchPatients]);
@@ -363,7 +364,7 @@ export function usePatientMutations({
                 description: "All patient data has been removed.",
             });
         } catch (error) {
-            console.error("Error clearing patients:", error);
+            logError('Error clearing patients', { error, source: 'usePatientMutations' });
             notifications.error({
                 title: "Error",
                 description: "Failed to clear patients.",
