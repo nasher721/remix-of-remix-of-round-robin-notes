@@ -2,8 +2,9 @@ import * as React from "react";
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cardHover, collapseVariants } from '@/lib/animations';
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList } from "lucide-react";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList, MoreHorizontal } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
@@ -230,69 +231,62 @@ const PatientCardComponent = ({
           <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
           <SmartProtocolSuggestions patient={patient} />
           <AppleAIAssistant patient={patient} onUpdatePatient={onUpdate} compact />
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => startAIMode('insights')}
-            disabled={isStreamingAI}
-            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
-aria-label="Generate AI risk insights"
->
-<Sparkles className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
-Insights
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => startAIMode('delta')}
-            disabled={isStreamingAI}
-            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
-            aria-label="What changed since last round"
-          >
-            <Clock className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
-            Delta
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => startAIMode('checklist')}
-            disabled={isStreamingAI}
-            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
-            aria-label="Generate rounding checklist"
-          >
-            <ClipboardList className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
-            Checklist
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => startAIMode('handoff')}
-            disabled={isStreamingAI}
-            className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
-            aria-label="Generate SBAR handoff"
-          >
-            <FileText className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
-            SBAR
-          </Button>
-          <div className="w-px h-4 bg-border/40 mx-1" />
-          <FieldHistoryViewer
-            patientId={patient.id}
-            patientName={patient.name}
-            trigger={
+          {/* AI Modes Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
+                type="button"
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
-                aria-label="View change history"
+                size="sm"
+                disabled={isStreamingAI}
+                className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                aria-label="AI modes"
               >
-                <History className="h-3.5 w-3.5" aria-hidden="true" />
+                <Sparkles className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+                AI
+                <ChevronDown className="h-3 w-3 ml-0.5" aria-hidden="true" />
               </Button>
-            }
-          />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">AI Modes</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() => startAIMode('insights')}
+                disabled={isStreamingAI}
+                className="cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
+                Insights
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => startAIMode('delta')}
+                disabled={isStreamingAI}
+                className="cursor-pointer"
+              >
+                <Clock className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
+                Delta
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => startAIMode('checklist')}
+                disabled={isStreamingAI}
+                className="cursor-pointer"
+              >
+                <ClipboardList className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
+                Checklist
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => startAIMode('handoff')}
+                disabled={isStreamingAI}
+                className="cursor-pointer"
+              >
+                <FileText className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
+                SBAR
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          <div className="w-px h-4 bg-border/40 mx-1" />
+          
+          {/* Collapse Button - Primary Action */}
           <Button
             variant="ghost"
             size="icon"
@@ -304,24 +298,50 @@ Insights
           >
             {patient.collapsed ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDuplicate(patient.id)}
-            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
-            aria-label="Duplicate patient"
-          >
-            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onRemove(patient.id)}
-            className="h-8 w-8 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-            aria-label="Remove patient"
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
+          
+          {/* More Actions Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+                aria-label="More actions"
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Actions</DropdownMenuLabel>
+              <DropdownMenuItem className="cursor-pointer">
+                <FieldHistoryViewer
+                  patientId={patient.id}
+                  patientName={patient.name}
+                  trigger={
+                    <div className="flex items-center w-full">
+                      <History className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
+                      <span>View History</span>
+                    </div>
+                  }
+                />
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onDuplicate(patient.id)}
+                className="cursor-pointer"
+              >
+                <Copy className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
+                Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => onRemove(patient.id)}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
+                Remove
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

@@ -1,4 +1,6 @@
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus, FileUp, Wand2, Mic, Camera } from "lucide-react";
 import { Plus, FileUp, Wand2 } from "lucide-react";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
@@ -75,7 +77,25 @@ export const MobileAddPanel = ({ onAddPatient, onOpenImport, onSmartImport }: Mo
           </div>
         </div>
       </Card>
-
+      {/* Quick Actions - Voice & Camera */}
+      <div className="grid grid-cols-2 gap-3">
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col items-center justify-center gap-1 hover:bg-secondary/50"
+        >
+          <Mic className="h-6 w-6 text-primary" />
+          <span className="text-sm font-medium">Voice</span>
+          <span className="text-xs text-muted-foreground">Dictate notes</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col items-center justify-center gap-1 hover:bg-secondary/50"
+        >
+          <Camera className="h-6 w-6 text-blue-500" />
+          <span className="text-sm font-medium">Scan</span>
+          <span className="text-xs text-muted-foreground">Capture document</span>
+        </Button>
+      </div>
       <div className="pt-4 border-t border-border">
         <h3 className="text-sm font-medium text-muted-foreground mb-3">Quick Tips</h3>
         <ul className="space-y-2 text-sm text-muted-foreground">

@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePatients } from "@/hooks/usePatients";
 import { useCloudAutotexts } from "@/hooks/useAutotexts";
 import { useCloudDictionary } from "@/hooks/useCloudDictionary";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useBreakpoint } from "@/hooks/use-mobile";
 import { useAllPatientTodos } from "@/hooks/useAllPatientTodos";
 import { usePatientFilter } from "@/hooks/usePatientFilter";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -13,6 +13,7 @@ import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
+import { TabletDashboard } from "@/components/dashboard/TabletDashboard";
 import { Loader2 } from "lucide-react";
 import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
 import type { MobileTab } from "@/components/layout";
@@ -23,7 +24,7 @@ import Landing from "./Landing";
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
   useNetworkStatus();
-  const isMobile = useIsMobile();
+  const breakpoint = useBreakpoint();
   const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
   const { sortBy } = useSettings();
@@ -212,8 +213,8 @@ function IndexContent(): React.ReactElement | null {
     return <Landing />;
   }
 
-  // Mobile Layout
-  if (isMobile) {
+  // Responsive Layout Selection
+  if (breakpoint === 'mobile') {
     return (
       <DashboardProvider {...dashboardContextValue}>
         <MobileDashboard />
@@ -221,7 +222,15 @@ function IndexContent(): React.ReactElement | null {
     );
   }
 
-  // Desktop Layout
+  if (breakpoint === 'tablet') {
+    return (
+      <DashboardProvider {...dashboardContextValue}>
+        <TabletDashboard />
+      </DashboardProvider>
+    );
+  }
+
+  // Desktop Layout (includes 'desktop' and 'wide' breakpoints)
   return (
     <DashboardProvider {...dashboardContextValue}>
       <DesktopDashboard />

@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
   Plus,
   Printer,
@@ -288,8 +289,22 @@ export const DesktopDashboard = () => {
             </div>
           </div>
 
-          {utilityPanel && (
-            <div className="mt-3 rounded-lg border border-border/40 bg-background p-3 shadow-xl">
+          {/* Utility Sheet - Slides from right */}
+          <Sheet open={!!utilityPanel} onOpenChange={(open) => !open && setUtilityPanel(null)}>
+            <SheetContent side="right" className="w-[400px] sm:w-[540px] sm:max-w-[540px] overflow-y-auto">
+              <SheetHeader className="pb-4">
+                <SheetTitle className="flex items-center gap-2">
+                  {utilityPanel === "resources" && <><BookOpen className="h-4 w-4" /> Resources</>}
+                  {utilityPanel === "tools" && <><Wrench className="h-4 w-4" /> Tools</>}
+                  {utilityPanel === "settings" && <><SlidersHorizontal className="h-4 w-4" /> Settings</>}
+                </SheetTitle>
+                <SheetDescription>
+                  {utilityPanel === "resources" && "Clinical references and guidelines"}
+                  {utilityPanel === "tools" && "Import, AI, and analytics tools"}
+                  {utilityPanel === "settings" && "Customize your workflow"}
+                </SheetDescription>
+              </SheetHeader>
+              
               {utilityPanel === "resources" && (
                 <Tabs defaultValue="ibcc" className="w-full">
                   <TabsList className="mb-3">
@@ -375,8 +390,8 @@ export const DesktopDashboard = () => {
                   </div>
                 </div>
               )}
-            </div>
-          )}
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
 
