@@ -12,14 +12,17 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DashboardProvider } from "@/contexts/DashboardContext";
-import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
-import { TabletDashboard } from "@/components/dashboard/TabletDashboard";
 import { Loader2 } from "lucide-react";
 import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
 import type { MobileTab } from "@/components/layout";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import type { Patient } from "@/types/patient";
-import Landing from "./Landing";
+
+// Lazy-load layouts and landing to reduce initial bundle
+const DesktopDashboard = React.lazy(() => import("@/components/dashboard/DesktopDashboard").then(module => ({ default: module.DesktopDashboard })));
+const MobileDashboard = React.lazy(() => import("@/components/dashboard/MobileDashboard").then(module => ({ default: module.MobileDashboard })));
+const TabletDashboard = React.lazy(() => import("@/components/dashboard/TabletDashboard").then(module => ({ default: module.TabletDashboard })));
+const Landing = React.lazy(() => import("./Landing"));
 
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
@@ -167,6 +170,7 @@ function IndexContent(): React.ReactElement | null {
     collapseAll,
     clearAll,
     importPatients,
+    reorderPatients,
     addAutotext,
     removeAutotext,
     addTemplate,
@@ -211,30 +215,32 @@ function IndexContent(): React.ReactElement | null {
   }
 
   if (!user) {
-    return <Landing />;
+    return (
+      <React.Suspense fallback={<div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}>
+        <Landing />
+      </React.Suspense>
+    );
   }
 
   // Responsive Layout Selection
-  if (breakpoint === 'mobile') {
-    return (
-      <DashboardProvider {...dashboardContextValue}>
-        <MobileDashboard />
-      </DashboardProvider>
-    );
-  }
-
-  if (breakpoint === 'tablet') {
-    return (
-      <DashboardProvider {...dashboardContextValue}>
-        <TabletDashboard />
-      </DashboardProvider>
-    );
-  }
-
-  // Desktop Layout (includes 'desktop' and 'wide' breakpoints)
   return (
     <DashboardProvider {...dashboardContextValue}>
-      <DesktopDashboard />
+      <React.Suspense fallback={
+        <div className="h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-muted-foreground text-sm">Loading dashboard...</p>
+          </div>
+        </div>
+      }>
+        {breakpoint === 'mobile' ? (
+          <MobileDashboard />
+        ) : breakpoint === 'tablet' ? (
+          <TabletDashboard />
+        ) : (
+          <DesktopDashboard />
+        )}
+      </React.Suspense>
     </DashboardProvider>
   );
 }

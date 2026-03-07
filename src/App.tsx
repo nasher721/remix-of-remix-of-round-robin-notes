@@ -17,13 +17,13 @@ const Auth = React.lazy(() => import("./pages/Auth"));
 const FHIRCallback = React.lazy(() => import("./pages/FHIRCallback"));
 const PrintExportTest = React.lazy(() => import("./pages/PrintExportTest"));
 const Help = React.lazy(() => import("./pages/Help"));
-import { ThemeProvider } from "@/components/theme-provider";
+const UnifiedAIChatbot = React.lazy(() => import("@/components/UnifiedAIChatbot").then(module => ({ default: module.UnifiedAIChatbot })));
+import { preloadClinicalData } from "@/lib/lazyData";
+import { AriaLiveProvider } from "@/lib/accessibility";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
 import { OfflineSyncIndicator } from "@/components/offline/OfflineSyncIndicator";
-import { UnifiedAIChatbot } from "@/components/UnifiedAIChatbot";
-import { preloadClinicalData } from "@/lib/lazyData";
-import { AriaLiveProvider } from "@/lib/accessibility";
 
 // Preload clinical data in background after initial render
 preloadClinicalData();
@@ -48,60 +48,62 @@ const queryClient = new QueryClient({
 function App(): React.ReactElement {
   return (
     <GlobalErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-        <AriaLiveProvider>
-        <AuthProvider>
-          <SettingsProvider>
-            <IBCCProvider>
-              <ClinicalGuidelinesProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <SkipToContent />
-                    <UnifiedAIChatbot />
-                    <React.Suspense fallback={
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="flex items-center justify-center h-screen"
-                        role="status"
-                        aria-live="polite"
-                        aria-busy="true"
-                        aria-label="Loading page"
-                      >
-                        <span className="sr-only">Loading page, please wait…</span>
-                        <span aria-hidden="true" className="flex items-center gap-2">
-                          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0ms' }} />
-                          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '150ms' }} />
-                          <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '300ms' }} />
-                        </span>
-                      </motion.div>
-                    }>
-                      <AnimatePresence mode="wait">
-                        <Routes>
-                          <Route path="/" element={<Index />} />
-                          <Route path="/auth" element={<Auth />} />
-                          <Route path="/fhir/callback" element={<FHIRCallback />} />
-                          <Route path="/help" element={<Help />} />
-                          {import.meta.env.DEV && (
-                            <Route path="/__print-export-test" element={<PrintExportTest />} />
-                          )}
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </AnimatePresence>
-                    </React.Suspense>
-                  </BrowserRouter>
-                </TooltipProvider>
-              </ClinicalGuidelinesProvider>
-            </IBCCProvider>
-          </SettingsProvider>
-        </AuthProvider>
-        </AriaLiveProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AriaLiveProvider>
+            <AuthProvider>
+              <SettingsProvider>
+                <IBCCProvider>
+                  <ClinicalGuidelinesProvider>
+                    <TooltipProvider>
+                      <Toaster />
+                      <Sonner />
+                      <BrowserRouter>
+                        <SkipToContent />
+                        <React.Suspense fallback={null}>
+                          <UnifiedAIChatbot />
+                        </React.Suspense>
+                        <React.Suspense fallback={
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex items-center justify-center h-screen"
+                            role="status"
+                            aria-live="polite"
+                            aria-busy="true"
+                            aria-label="Loading page"
+                          >
+                            <span className="sr-only">Loading page, please wait…</span>
+                            <span aria-hidden="true" className="flex items-center gap-2">
+                              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '0ms' }} />
+                              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '150ms' }} />
+                              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" style={{ animationDelay: '300ms' }} />
+                            </span>
+                          </motion.div>
+                        }>
+                          <AnimatePresence mode="wait">
+                            <Routes>
+                              <Route path="/" element={<Index />} />
+                              <Route path="/auth" element={<Auth />} />
+                              <Route path="/fhir/callback" element={<FHIRCallback />} />
+                              <Route path="/help" element={<Help />} />
+                              {import.meta.env.DEV && (
+                                <Route path="/__print-export-test" element={<PrintExportTest />} />
+                              )}
+                              <Route path="*" element={<NotFound />} />
+                            </Routes>
+                          </AnimatePresence>
+                        </React.Suspense>
+                      </BrowserRouter>
+                    </TooltipProvider>
+                  </ClinicalGuidelinesProvider>
+                </IBCCProvider>
+              </SettingsProvider>
+            </AuthProvider>
+          </AriaLiveProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </GlobalErrorBoundary>
   );
 }

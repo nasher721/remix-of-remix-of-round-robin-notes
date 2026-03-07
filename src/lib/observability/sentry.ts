@@ -6,7 +6,7 @@ import * as Sentry from '@sentry/react';
  */
 export function initSentry() {
   const dsn = import.meta.env.VITE_SENTRY_DSN;
-  
+
   if (!dsn) {
     console.warn('Sentry DSN not configured. Error tracking is disabled.');
     return;
@@ -16,27 +16,27 @@ export function initSentry() {
     dsn,
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_APP_VERSION || 'development',
-    
+
     // Performance monitoring
     tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
-    
+
     // Error sampling
     sampleRate: 1.0,
-    
+
     // Enable debug mode in development
     debug: import.meta.env.DEV,
-    
+
     // Before sending, sanitize any potential PHI
-    beforeSend(event) {
+    beforeSend(event, hint) {
       // Filter out specific errors that aren't actionable
       if (shouldIgnoreError(event)) {
         return null;
       }
-      
+
       // Sanitize sensitive data
       return sanitizeEvent(event);
     },
-    
+
     // Configure which integrations to enable
     integrations: [
       Sentry.browserTracingIntegration(),
@@ -45,7 +45,7 @@ export function initSentry() {
         blockAllMedia: true,
       }),
     ],
-    
+
     // Replay sampling
     replaysSessionSampleRate: 0.0, // Disabled by default
     replaysOnErrorSampleRate: 0.1, // Sample 10% of errors
@@ -55,9 +55,9 @@ export function initSentry() {
 /**
  * Determine if an error should be ignored (not sent to Sentry)
  */
-function shouldIgnoreError(event: Sentry.Event): boolean {
+function shouldIgnoreError(event: Sentry.ErrorEvent): boolean {
   const errorMessage = event.exception?.values?.[0]?.value || '';
-  
+
   // Ignore common non-actionable errors
   const ignoredPatterns = [
     /ResizeObserver loop limit exceeded/i,
@@ -66,21 +66,21 @@ function shouldIgnoreError(event: Sentry.Event): boolean {
     /AbortError/i,
     /The operation was aborted/i,
   ];
-  
+
   return ignoredPatterns.some(pattern => pattern.test(errorMessage));
 }
 
 /**
  * Sanitize event data to remove potential PHI
  */
-function sanitizeEvent(event: Sentry.Event): Sentry.Event {
+function sanitizeEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   const sanitized = { ...event };
-  
+
   // Sanitize request URL
   if (sanitized.request?.url) {
     sanitized.request.url = sanitizeUrl(sanitized.request.url);
   }
-  
+
   // Sanitize breadcrumbs
   if (sanitized.breadcrumbs) {
     sanitized.breadcrumbs = sanitized.breadcrumbs.map(crumb => ({
@@ -89,12 +89,12 @@ function sanitizeEvent(event: Sentry.Event): Sentry.Event {
       data: crumb.data ? sanitizeObject(crumb.data) : undefined,
     }));
   }
-  
+
   // Sanitize extra context
   if (sanitized.extra) {
     sanitized.extra = sanitizeObject(sanitized.extra);
   }
-  
+
   return sanitized;
 }
 
@@ -121,13 +121,13 @@ function sanitizeUrl(url: string): string {
 function sanitizeString(str: string): string {
   // Remove MRN patterns (common formats)
   let sanitized = str.replace(/\bMRN\d{6,10}\b/gi, '[REDACTED_MRN]');
-  
+
   // Remove email addresses
   sanitized = sanitized.replace(/[\w.-]+@[\w.-]+\.\w+/g, '[REDACTED_EMAIL]');
-  
+
   // Remove phone numbers
   sanitized = sanitized.replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[REDACTED_PHONE]');
-  
+
   return sanitized;
 }
 
@@ -136,7 +136,7 @@ function sanitizeString(str: string): string {
  */
 function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
-  
+
   for (const [key, value] of Object.entries(obj)) {
     // Skip sensitive keys entirely
     const sensitiveKeys = ['password', 'token', 'ssn', 'mrn', 'dob', 'birthdate'];
@@ -144,7 +144,7 @@ function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
       sanitized[key] = '[REDACTED]';
       continue;
     }
-    
+
     if (typeof value === 'string') {
       sanitized[key] = sanitizeString(value);
     } else if (typeof value === 'object' && value !== null) {
@@ -153,7 +153,7 @@ function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
       sanitized[key] = value;
     }
   }
-  
+
   return sanitized;
 }
 
@@ -165,7 +165,7 @@ export function setSentryUser(user: { id: string; email?: string } | null) {
     Sentry.setUser(null);
     return;
   }
-  
+
   Sentry.setUser({
     id: user.id,
     // Don't include email to avoid PII issues
@@ -218,8 +218,9 @@ export function captureException(
 }
 
 /**
- * Start a performance transaction
+ * Start a performance span
  */
 export function startTransaction(name: string, op: string) {
-  return Sentry.startTransaction({ name, op });
+  // In Sentry v8+, startTransaction is replaced with startInactiveSpan
+  return Sentry.startInactiveSpan({ name, op });
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from "react";
-import { Patient } from "@/types/patient";
+import { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { AutoText, Template } from "@/types/autotext";
 import { MobileTab } from "@/components/layout";
 import { PatientTodo } from "@/types/todo";
@@ -39,14 +39,30 @@ interface DashboardContextType {
 
     // Actions
     onAddPatient: () => void;
-    onAddPatientWithData: (data: Partial<Patient>) => Promise<void>;
+    onAddPatientWithData: (data: {
+        name: string;
+        bed: string;
+        clinicalSummary: string;
+        intervalEvents: string;
+        imaging: string;
+        labs: string;
+        systems: PatientSystems;
+        medications?: PatientMedications;
+    }) => Promise<void>;
     onUpdatePatient: (id: string, field: string, value: unknown) => void;
     onRemovePatient: (id: string) => void;
     onDuplicatePatient: (id: string) => void;
     onToggleCollapse: (id: string) => void;
     onCollapseAll: () => void;
     onClearAll: () => void;
-    onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
+    onImportPatients: (patients: Array<{
+        name: string;
+        bed: string;
+        clinicalSummary: string;
+        intervalEvents: string;
+        systems?: PatientSystems;
+        medications?: PatientMedications;
+    }>) => Promise<void>;
     onReorderPatients: (activeId: string, overId: string) => void;
 
     // Autotext Actions
