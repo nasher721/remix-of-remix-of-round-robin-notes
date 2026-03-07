@@ -24,10 +24,13 @@ class IndexedDBQueueManager {
   private listeners: Set<(queue: QueuedMutation[]) => void> = new Set();
   private syncInProgress = false;
   private initialized = false;
+  private readonly isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
   
   constructor() {
-    this.initialize();
-    this.setupOnlineListener();
+    if (this.isBrowser) {
+      this.initialize();
+      this.setupOnlineListener();
+    }
   }
   
   private async initialize(): Promise<void> {
@@ -48,6 +51,8 @@ class IndexedDBQueueManager {
   }
   
   private setupOnlineListener(): void {
+    if (!this.isBrowser) return;
+
     window.addEventListener('online', () => {
       logInfo('Connection restored', { source: 'IndexedDBQueue' });
       this.notifyListeners();
@@ -57,6 +62,19 @@ class IndexedDBQueueManager {
       logInfo('Connection lost', { source: 'IndexedDBQueue' });
       this.notifyListeners();
     });
+  }
+
+  private getLocalStorageQueue(): QueuedMutation[] {
+    if (!this.isBrowser) return [];
+
+    const stored = localStorage.getItem('offline-mutation-queue');
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  private setLocalStorageQueue(queue: QueuedMutation[]): void {
+    if (!this.isBrowser) return;
+
+    localStorage.setItem('offline-mutation-queue', JSON.stringify(queue));
   }
   
   private notifyListeners(): void {
@@ -110,22 +128,18 @@ class IndexedDBQueueManager {
   }
   
   private enqueueToLocalStorage(mutation: QueuedMutation): void {
-    const stored = localStorage.getItem('offline-mutation-queue');
-    const queue: QueuedMutation[] = stored ? JSON.parse(stored) : [];
+    const queue = this.getLocalStorageQueue();
     queue.push(mutation);
-    localStorage.setItem('offline-mutation-queue', JSON.stringify(queue));
+    this.setLocalStorageQueue(queue);
   }
   
   async dequeue(mutationId: string): Promise<void> {
     if (this.initialized) {
       await db.mutations.delete(mutationId);
     } else {
-      const stored = localStorage.getItem('offline-mutation-queue');
-      if (stored) {
-        const queue: QueuedMutation[] = JSON.parse(stored);
-        const filtered = queue.filter(m => m.id !== mutationId);
-        localStorage.setItem('offline-mutation-queue', JSON.stringify(filtered));
-      }
+      const queue = this.getLocalStorageQueue();
+      const filtered = queue.filter(m => m.id !== mutationId);
+      this.setLocalStorageQueue(filtered);
     }
     this.notifyListeners();
   }
@@ -155,8 +169,7 @@ class IndexedDBQueueManager {
     if (this.initialized) {
       return db.mutations.orderBy('timestamp').toArray();
     }
-    const stored = localStorage.getItem('offline-mutation-queue');
-    return stored ? JSON.parse(stored) : [];
+    return this.getLocalStorageQueue();
   }
   
   async getByType(type: QueuedMutation['type']): Promise<QueuedMutation[]> {
@@ -182,7 +195,7 @@ class IndexedDBQueueManager {
   async clear(): Promise<void> {
     if (this.initialized) {
       await db.mutations.clear();
-    } else {
+    } else if (this.isBrowser) {
       localStorage.removeItem('offline-mutation-queue');
     }
     this.notifyListeners();
@@ -203,10 +216,9 @@ class IndexedDBQueueManager {
   }
   
   async migrateFromLocalStorage(): Promise<number> {
-    const stored = localStorage.getItem('offline-mutation-queue');
-    if (!stored || !this.initialized) return 0;
-    
-    const oldQueue: QueuedMutation[] = JSON.parse(stored);
+    if (!this.isBrowser || !this.initialized) return 0;
+
+    const oldQueue = this.getLocalStorageQueue();
     if (oldQueue.length === 0) return 0;
     
     await db.mutations.bulkAdd(oldQueue);
