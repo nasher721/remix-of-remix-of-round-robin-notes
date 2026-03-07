@@ -16,11 +16,6 @@ import { PatientFilterType } from "@/constants/config";
  *
  * This context is maintained for backward compatibility.
  */
-import { Patient } from "@/types/patient";
-import { AutoText, Template } from "@/types/autotext";
-import { MobileTab } from "@/components/layout";
-import { PatientTodo } from "@/types/todo";
-import { PatientFilterType } from "@/constants/config";
 
 interface DashboardContextType {
     // Data

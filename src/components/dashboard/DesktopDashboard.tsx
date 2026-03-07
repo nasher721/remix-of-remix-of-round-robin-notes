@@ -91,6 +91,7 @@ export const DesktopDashboard = () => {
     onImportPatients,
     onReorderPatients,
     onAddAutotext,
+    onSignOut,
   } = useDashboard();
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
