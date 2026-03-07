@@ -25,6 +25,7 @@ import Landing from "./Landing";
 function IndexContent(): React.ReactElement | null {
   useNetworkStatus();
   const breakpoint = useBreakpoint();
+  const isMobile = breakpoint === 'mobile';
   const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
   const { sortBy } = useSettings();
