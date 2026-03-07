@@ -4,6 +4,14 @@ import tailwindcssAnimate from "tailwindcss-animate";
 export default {
 	darkMode: ["class"],
 	content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+	safelist: [
+		'h-4',
+		'w-4',
+		'h-3',
+		'w-3',
+		'h-3.5',
+		'w-3.5',
+	],
 	prefix: "",
 	screens: {
 		'xs': '475px',
@@ -255,6 +263,14 @@ export default {
 			'fluid-3xl': 'var(--text-fluid-3xl)',
 		},
 		spacing: {
+			'1': '0.25rem',
+			'2': '0.5rem',
+			'3': '0.75rem',
+			'4': '1rem',
+			'5': '1.25rem',
+			'6': '1.5rem',
+			'8': '2rem',
+			'10': '2.5rem',
 			'18': '4.5rem',
 			'22': '5.5rem',
 			'fluid-xs': 'var(--space-fluid-xs)',
