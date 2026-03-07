@@ -1,11 +1,9 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-
+import { test, expect } from "vitest";
 import { cn } from "@/lib/utils";
 
 test("cn merges class strings", () => {
   const result = cn("btn", "btn-primary", "text-sm");
-  assert.equal(result, "btn btn-primary text-sm");
+  expect(result).toBe("btn btn-primary text-sm");
 });
 
 test("cn handles falsy and conditional values", () => {
@@ -18,12 +16,12 @@ test("cn handles falsy and conditional values", () => {
     { hidden: false, block: true, active: true }
   );
 
-  assert.equal(result, "base block active");
+  expect(result).toBe("base block active");
 });
 
 test("cn deduplicates conflicting Tailwind classes with last-wins merge", () => {
   const result = cn("px-2", "px-4", "md:px-2", "px-6");
-  assert.equal(result, "md:px-2 px-6");
+  expect(result).toBe("md:px-2 px-6");
 });
 
 test("cn flattens nested arrays and objects", () => {
@@ -33,7 +31,7 @@ test("cn flattens nested arrays and objects", () => {
     "leading-tight"
   );
 
-  assert.equal(result, "p-2 mt-2 text-sm block leading-tight");
+  expect(result).toBe("p-2 mt-2 text-sm block leading-tight");
 });
 
 test("cn resolves mutually exclusive Tailwind variants", () => {
@@ -41,5 +39,5 @@ test("cn resolves mutually exclusive Tailwind variants", () => {
     "bg-red-400": false,
   });
 
-  assert.equal(result, "bg-red-600 hover:bg-red-700");
+  expect(result).toBe("bg-red-600 hover:bg-red-700");
 });

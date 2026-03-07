@@ -1,5 +1,4 @@
-import test from "node:test";
-import assert from "node:assert/strict";
+import { test, expect } from "vitest";
 import {
   buildPatientInsertPayload,
   defaultMedicationsValue,
@@ -24,13 +23,13 @@ test("maps patient records with safe defaults", () => {
     field_timestamps: null,
     collapsed: false,
     created_at: "2024-01-01T00:00:00Z",
-    last_modified: null,
+    last_modified: "",
   });
 
-  assert.equal(mapped.imaging, "");
-  assert.equal(mapped.labs, "");
-  assert.deepEqual(mapped.systems, defaultSystemsValue);
-  assert.deepEqual(mapped.medications, defaultMedicationsValue);
+  expect(mapped.imaging).toBe("");
+  expect(mapped.labs).toBe("");
+  expect(mapped.systems).toEqual(defaultSystemsValue);
+  expect(mapped.medications).toEqual(defaultMedicationsValue);
 });
 
 test("builds patient insert payload with defaults", () => {
@@ -41,25 +40,25 @@ test("builds patient insert payload with defaults", () => {
     bed: "B2",
   });
 
-  assert.equal(payload.user_id, "user-1");
-  assert.equal(payload.patient_number, 3);
-  assert.equal(payload.name, "Jane");
-  assert.equal(payload.bed, "B2");
-  assert.deepEqual(payload.systems, defaultSystemsValue);
+  expect(payload.user_id).toBe("user-1");
+  expect(payload.patient_number).toBe(3);
+  expect(payload.name).toBe("Jane");
+  expect(payload.bed).toBe("B2");
+  expect(payload.systems).toEqual(defaultSystemsValue);
 });
 
 test("tracks all major field types", () => {
-  assert.equal(shouldTrackTimestamp("clinicalSummary"), true);
-  assert.equal(shouldTrackTimestamp("medications"), true);
-  assert.equal(shouldTrackTimestamp("labs"), true);
-  assert.equal(shouldTrackTimestamp("imaging"), true);
-  assert.equal(shouldTrackTimestamp("intervalEvents"), true);
+  expect(shouldTrackTimestamp("clinicalSummary")).toBe(true);
+  expect(shouldTrackTimestamp("medications")).toBe(true);
+  expect(shouldTrackTimestamp("labs")).toBe(true);
+  expect(shouldTrackTimestamp("imaging")).toBe(true);
+  expect(shouldTrackTimestamp("intervalEvents")).toBe(true);
   // systems is tracked via nested fields (e.g., systems.neuro)
-  assert.equal(shouldTrackTimestamp("systems.neuro"), true);
-  assert.equal(shouldTrackTimestamp("systems.cardiovascular"), true);
+  expect(shouldTrackTimestamp("systems.neuro")).toBe(true);
+  expect(shouldTrackTimestamp("systems.cardiovascular")).toBe(true);
   // non-trackable fields
-  assert.equal(shouldTrackTimestamp("name"), false);
-  assert.equal(shouldTrackTimestamp("bed"), false);
+  expect(shouldTrackTimestamp("name")).toBe(false);
+  expect(shouldTrackTimestamp("bed")).toBe(false);
 });
 
 test("computes next patient counter correctly", () => {
@@ -77,17 +76,17 @@ test("computes next patient counter correctly", () => {
     fieldTimestamps: {},
     collapsed: false,
     createdAt: "",
-    lastModified: null,
+    lastModified: "",
   };
-  assert.equal(getNextPatientCounter([mockPatient]), 8);
-  assert.equal(getNextPatientCounter([]), 1);
-  
+  expect(getNextPatientCounter([mockPatient])).toBe(8);
+  expect(getNextPatientCounter([])).toBe(1);
+
   const unsorted = [
-    { ...{ patientNumber: 3 }, id: "3", name: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: null },
-    { ...{ patientNumber: 1 }, id: "1", name: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: null },
-    { ...{ patientNumber: 5 }, id: "5", name: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: null },
+    { ...{ patientNumber: 3 }, id: "3", name: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: "" },
+    { ...{ patientNumber: 1 }, id: "1", name: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: "" },
+    { ...{ patientNumber: 5 }, id: "5", name: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: "" },
   ];
-  assert.equal(getNextPatientCounter(unsorted), 6);
+  expect(getNextPatientCounter(unsorted)).toBe(6);
 });
 
 test("maps patient with existing data preserves values", () => {
@@ -108,10 +107,10 @@ test("maps patient with existing data preserves values", () => {
     last_modified: "2024-01-02T00:00:00Z",
   });
 
-  assert.equal(mapped.imaging, "Chest X-ray");
-  assert.equal(mapped.labs, "CBC, BMP");
-  assert.equal(mapped.clinicalSummary, "Custom summary");
-  assert.equal(mapped.intervalEvents, "Custom events");
-  assert.equal(mapped.collapsed, true);
-  assert.equal(mapped.lastModified, "2024-01-02T00:00:00Z");
+  expect(mapped.imaging).toBe("Chest X-ray");
+  expect(mapped.labs).toBe("CBC, BMP");
+  expect(mapped.clinicalSummary).toBe("Custom summary");
+  expect(mapped.intervalEvents).toBe("Custom events");
+  expect(mapped.collapsed).toBe(true);
+  expect(mapped.lastModified).toBe("2024-01-02T00:00:00Z");
 });

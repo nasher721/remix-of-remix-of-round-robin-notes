@@ -1,0 +1,148 @@
+import type { Patient, ClinicalPhrase, User } from '@/types';
+
+export const mockUser: User = {
+  id: 'user-123',
+  email: 'doctor@hospital.com',
+  user_metadata: {
+    full_name: 'Dr. Jane Smith',
+    role: 'physician',
+  },
+  created_at: '2024-01-01T00:00:00Z',
+};
+
+export const mockPatients: Patient[] = [
+  {
+    id: 'patient-1',
+    name: 'John Doe',
+    mrn: 'MRN123456',
+    date_of_birth: '1975-05-15',
+    age: 49,
+    gender: 'male',
+    admission_date: '2024-03-01T08:00:00Z',
+    room_number: 'ICU-101A',
+    status: 'critical',
+    diagnosis: 'Acute Respiratory Failure',
+    systems: {
+      neuro: 'GCS 15, alert and oriented',
+      cv: 'HR 80, BP 120/80 on minimal pressors',
+      resp: 'Intubated, FiO2 40%, PEEP 8',
+      renalGU: 'Foley in place, UOP 1.5cc/kg/hr',
+      gi: 'NPO, bowel sounds present',
+      endo: 'On insulin drip, glucose 140-180',
+      heme: 'Hgb 10.2, INR 1.2',
+      infectious: 'Vancomycin/Zosyn day 3',
+      skinLines: 'CVC R IJ, no erythema',
+      dispo: 'Continue ICU care',
+    },
+    medications: {
+      infusions: [
+        { name: 'Norepinephrine', dose: '0.05 mcg/kg/min', rate: '5 ml/hr' },
+        { name: 'Insulin', dose: '2 units/hr', rate: '2 ml/hr' },
+      ],
+      scheduled: [
+        { name: 'Aspirin', dose: '81mg', frequency: 'daily' },
+      ],
+      prn: [
+        { name: 'Morphine', dose: '2-4mg', indication: 'pain' },
+      ],
+    },
+    labs: [
+      { name: 'WBC', value: '12.5', unit: 'K/uL', trend: 'up', reference_range: '4.5-11.0' },
+      { name: 'Hgb', value: '10.2', unit: 'g/dL', trend: 'stable', reference_range: '13.5-17.5' },
+      { name: 'Creatinine', value: '1.2', unit: 'mg/dL', trend: 'down', reference_range: '0.7-1.3' },
+    ],
+    vitals: {
+      temperature: 37.2,
+      heartRate: 80,
+      bloodPressure: { systolic: 120, diastolic: 80 },
+      respiratoryRate: 16,
+      oxygenSaturation: 96,
+    },
+    allergies: ['Penicillin', 'Sulfa'],
+    code_status: 'Full Code',
+    weight_kg: 75,
+    height_cm: 175,
+    created_at: '2024-03-01T08:00:00Z',
+    updated_at: '2024-03-06T10:00:00Z',
+    created_by: 'user-123',
+    team_id: 'team-1',
+  },
+  {
+    id: 'patient-2',
+    name: 'Sarah Johnson',
+    mrn: 'MRN789012',
+    date_of_birth: '1982-11-22',
+    age: 41,
+    gender: 'female',
+    admission_date: '2024-03-05T14:30:00Z',
+    room_number: 'ICU-102B',
+    status: 'stable',
+    diagnosis: 'Post-op Craniotomy',
+    systems: {
+      neuro: 'GCS 14, opens eyes to voice',
+      cv: 'Sinus tachycardia HR 100, normotensive',
+      resp: 'Extubated this AM, RA sat 95%',
+      renalGU: 'Voiding spontaneously',
+      gi: 'Clears started',
+      endo: 'Euglycemic',
+      heme: 'Hgb 9.8 post-op',
+      infectious: 'Peri-procedural abx only',
+      skinLines: 'EVD in place, draining CSF',
+      dispo: 'Step down when stable',
+    },
+    created_at: '2024-03-05T14:30:00Z',
+    updated_at: '2024-03-06T09:00:00Z',
+    created_by: 'user-123',
+    team_id: 'team-1',
+  },
+];
+
+export const mockClinicalPhrases: ClinicalPhrase[] = [
+  {
+    id: 'phrase-1',
+    title: 'Neuro ICU Admission',
+    content: 'Patient admitted to Neuro ICU for close monitoring following [diagnosis]. Neuro checks q1h. EVD in place with [ICP goal]. Maintain SBP >140.',
+    category: 'admission',
+    tags: ['neuro', 'icu', 'template'],
+    created_by: 'user-123',
+    is_public: true,
+    usage_count: 45,
+    created_at: '2024-01-15T00:00:00Z',
+    updated_at: '2024-03-01T00:00:00Z',
+  },
+  {
+    id: 'phrase-2',
+    title: 'Sepsis Bundle',
+    content: 'Sepsis protocol initiated. Blood cultures x2 obtained prior to antibiotics. IV fluids 30ml/kg given. Lactate trending. Vasopressors as needed for MAP >65.',
+    category: 'protocol',
+    tags: ['sepsis', 'bundle', 'emergency'],
+    created_by: 'user-123',
+    is_public: true,
+    usage_count: 120,
+    created_at: '2024-01-20T00:00:00Z',
+    updated_at: '2024-03-05T00:00:00Z',
+  },
+];
+
+export const mockTodos = [
+  {
+    id: 'todo-1',
+    patient_id: 'patient-1',
+    content: 'Follow up blood cultures',
+    completed: false,
+    priority: 'high',
+    due_date: '2024-03-07T08:00:00Z',
+    created_by: 'user-123',
+    created_at: '2024-03-06T10:00:00Z',
+  },
+  {
+    id: 'todo-2',
+    patient_id: 'patient-1',
+    content: 'CT chest if no improvement',
+    completed: false,
+    priority: 'medium',
+    due_date: '2024-03-08T08:00:00Z',
+    created_by: 'user-123',
+    created_at: '2024-03-06T10:00:00Z',
+  },
+];

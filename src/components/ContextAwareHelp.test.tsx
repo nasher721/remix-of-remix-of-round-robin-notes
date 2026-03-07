@@ -1,9 +1,7 @@
-
-import { describe, it } from 'node:test';
-import assert from 'node:assert';
+import { describe, it, expect } from 'vitest';
 
 describe('ContextAwareHelp', () => {
     it('should be a valid test file', () => {
-        assert.strictEqual(1, 1);
+        expect(1).toBe(1);
     });
 });

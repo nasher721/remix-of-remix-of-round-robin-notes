@@ -91,6 +91,7 @@ export const DesktopDashboard = () => {
     onImportPatients,
     onReorderPatients,
     onAddAutotext,
+  } = useDashboard();
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
   useChangeTracking();
@@ -578,6 +579,7 @@ export const DesktopDashboard = () => {
       <PhraseManager open={showPhraseManager} onOpenChange={setShowPhraseManager} />
 
       <AICommandPalette isOpen={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
+    </div>
     </div>
   );
 };

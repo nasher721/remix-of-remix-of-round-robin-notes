@@ -6,11 +6,6 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
   Superscript, Subscript, Search, Table as TableIcon, ShieldCheck, ChevronDown, MoreHorizontal
 } from "lucide-react";
-  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
-  Indent, Outdent, Palette, Undo2, Redo2, FileText, Strikethrough,
-  AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
-  Superscript, Subscript, Search, Table as TableIcon, ShieldCheck
-} from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -27,6 +22,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,

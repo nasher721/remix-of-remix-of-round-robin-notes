@@ -145,10 +145,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
           // Enhanced error logging
           if (error) {
             logError('Edge Function invocation error (OCR path)', { error: error.message, details: error, source: 'EpicHandoffImport' });
-              message: error.message,
-              details: error,
-              stack: error.stack,
-            });
             throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
           }
           if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -182,10 +178,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       // Enhanced error logging
       if (error) {
         logError('Edge Function invocation error', { error: error.message, details: error, source: 'EpicHandoffImport' });
-          message: error.message,
-          details: error,
-          stack: error.stack,
-        });
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -250,10 +242,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       // Enhanced error logging
       if (error) {
         logError('Edge Function invocation error (paste path)', { error: error.message, details: error, source: 'EpicHandoffImport' });
-          message: error.message,
-          details: error,
-          stack: error.stack,
-        });
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");

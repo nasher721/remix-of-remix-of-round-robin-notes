@@ -23,6 +23,7 @@ import { SkipToContent } from "@/components/SkipToContent";
 import { OfflineSyncIndicator } from "@/components/offline/OfflineSyncIndicator";
 import { UnifiedAIChatbot } from "@/components/UnifiedAIChatbot";
 import { preloadClinicalData } from "@/lib/lazyData";
+import { AriaLiveProvider } from "@/lib/accessibility";
 
 // Preload clinical data in background after initial render
 preloadClinicalData();
@@ -49,6 +50,7 @@ function App(): React.ReactElement {
     <GlobalErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+        <AriaLiveProvider>
         <AuthProvider>
           <SettingsProvider>
             <IBCCProvider>
@@ -97,6 +99,7 @@ function App(): React.ReactElement {
             </IBCCProvider>
           </SettingsProvider>
         </AuthProvider>
+        </AriaLiveProvider>
       </ThemeProvider>
     </QueryClientProvider>
     </GlobalErrorBoundary>

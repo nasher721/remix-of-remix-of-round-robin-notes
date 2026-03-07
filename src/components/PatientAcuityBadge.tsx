@@ -207,7 +207,8 @@ export function PatientAcuityBadge({
         </div>
       </PopoverContent>
     </Popover>
-  }
+  );
+}
 
 const MemoizedPatientAcuityBadge = React.memo(PatientAcuityBadge);
 export { MemoizedPatientAcuityBadge };
@@ -342,5 +343,3 @@ export function AcuitySummary({ patients, className }: AcuitySummaryProps) {
     </div>
   );
 }
-
-export default PatientAcuityBadge;

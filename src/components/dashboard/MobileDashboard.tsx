@@ -19,9 +19,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
 import { useDashboard } from "@/contexts/DashboardContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
