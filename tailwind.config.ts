@@ -5,7 +5,6 @@ export default {
 	darkMode: ["class"],
 	content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
 	prefix: "",
-	// Custom breakpoints for responsive design system
 	screens: {
 		'xs': '475px',
 		'sm': '640px',
@@ -184,170 +183,93 @@ export default {
 				shake: 'shake 0.35s ease-in-out',
 				'glow-pulse': 'glow-pulse 3s ease-in-out infinite'
 			},
-			fontFamily: {
-				sans: [
-					'Space Grotesk',
-					'ui-sans-serif',
-					'system-ui',
-					'-apple-system',
-					'BlinkMacSystemFont',
-					'Segoe UI',
-					'Roboto',
-					'Helvetica Neue',
-					'Arial',
-					'Noto Sans',
-					'sans-serif'
-				],
-				display: [
-					'Outfit',
-					'Space Grotesk',
-					'system-ui',
-					'sans-serif'
-				],
-				serif: [
-					'Lora',
-					'ui-serif',
-					'Georgia',
-					'Cambria',
-					'Times New Roman',
-					'Times',
-					'serif'
-				],
-				mono: [
-					'Space Mono',
-					'ui-monospace',
-					'SFMono-Regular',
-					'Menlo',
-					'Monaco',
-					'Consolas',
-					'Liberation Mono',
-					'Courier New',
-					'monospace'
-				]
-			},
-				sans: [
-					'Space Grotesk',
-					'ui-sans-serif',
-					'system-ui',
-					'-apple-system',
-					'BlinkMacSystemFont',
-					'Segoe UI',
-					'Roboto',
-					'Helvetica Neue',
-					'Arial',
-					'Noto Sans',
-					'sans-serif'
-				],
-				serif: [
-					'Lora',
-					'ui-serif',
-					'Georgia',
-					'Cambria',
-					'Times New Roman',
-					'Times',
-					'serif'
-				],
-				mono: [
-					'Space Mono',
-					'ui-monospace',
-					'SFMono-Regular',
-					'Menlo',
-					'Monaco',
-					'Consolas',
-					'Liberation Mono',
-					'Courier New',
-					'monospace'
-				]
-			},
-			fontSize: {
-				xs: [
-					'0.75rem',
-					{
-						lineHeight: '1rem'
-					}
-				],
-				sm: [
-					'0.875rem',
-					{
-						lineHeight: '1.25rem'
-					}
-				],
-				base: [
-					'1rem',
-					{
-						lineHeight: '1.5rem',
-						letterSpacing: '-0.014em'
-					}
-				],
-				lg: [
-					'1.125rem',
-					{
-						lineHeight: '1.75rem',
-						letterSpacing: '-0.014em'
-					}
-				],
-				xl: [
-					'1.25rem',
-					{
-						lineHeight: '1.75rem',
-						letterSpacing: '-0.017em'
-					}
-				],
-				'2xl': [
-					'1.5rem',
-					{
-						lineHeight: '2rem',
-						letterSpacing: '-0.02em'
-					}
-				],
-				'3xl': [
-					'1.875rem',
-					{
-						lineHeight: '2.25rem',
-						letterSpacing: '-0.022em'
-					}
-				],
-				'4xl': [
-					'2.25rem',
-					{
-						lineHeight: '2.5rem',
-						letterSpacing: '-0.025em'
-					}
-				],
-				'5xl': [
-					'3rem',
-					{
-						lineHeight: '1.2',
-						letterSpacing: '-0.027em'
-					}
-				],
-				// Fluid font sizes — scale smoothly with viewport
-				'fluid-xs': 'var(--text-fluid-xs)',
-				'fluid-sm': 'var(--text-fluid-sm)',
-				'fluid-base': 'var(--text-fluid-base)',
-				'fluid-lg': 'var(--text-fluid-lg)',
-				'fluid-xl': 'var(--text-fluid-xl)',
-				'fluid-2xl': 'var(--text-fluid-2xl)',
-				'fluid-3xl': 'var(--text-fluid-3xl)',
-			},
-			spacing: {
-				'18': '4.5rem',
-				'22': '5.5rem',
-				// Fluid spacing — scale smoothly with viewport
-				'fluid-xs': 'var(--space-fluid-xs)',
-				'fluid-sm': 'var(--space-fluid-sm)',
-				'fluid-md': 'var(--space-fluid-md)',
-				'fluid-lg': 'var(--space-fluid-lg)',
-				'fluid-xl': 'var(--space-fluid-xl)',
-			},
-			containers: {
-				'xs': '320px',
-				'sm': '384px',
-				'md': '448px',
-				'lg': '512px',
-				'xl': '576px',
-				'2xl': '672px',
-			}
+		},
+		fontSize: {
+			xs: [
+				'0.75rem',
+				{
+					lineHeight: '1rem'
+				}
+			],
+			sm: [
+				'0.875rem',
+				{
+					lineHeight: '1.25rem'
+				}
+			],
+			base: [
+				'1rem',
+				{
+					lineHeight: '1.5rem',
+					letterSpacing: '-0.014em'
+				}
+			],
+			lg: [
+				'1.125rem',
+				{
+					lineHeight: '1.75rem',
+					letterSpacing: '-0.014em'
+				}
+			],
+			xl: [
+				'1.25rem',
+				{
+					lineHeight: '1.75rem',
+					letterSpacing: '-0.017em'
+				}
+			],
+			'2xl': [
+				'1.5rem',
+				{
+					lineHeight: '2rem',
+					letterSpacing: '-0.02em'
+				}
+			],
+			'3xl': [
+				'1.875rem',
+				{
+					lineHeight: '2.25rem',
+					letterSpacing: '-0.022em'
+				}
+			],
+			'4xl': [
+				'2.25rem',
+				{
+					lineHeight: '2.5rem',
+					letterSpacing: '-0.025em'
+				}
+			],
+			'5xl': [
+				'3rem',
+				{
+					lineHeight: '1.2',
+					letterSpacing: '-0.027em'
+				}
+			],
+			'fluid-xs': 'var(--text-fluid-xs)',
+			'fluid-sm': 'var(--text-fluid-sm)',
+			'fluid-base': 'var(--text-fluid-base)',
+			'fluid-lg': 'var(--text-fluid-lg)',
+			'fluid-xl': 'var(--text-fluid-xl)',
+			'fluid-2xl': 'var(--text-fluid-2xl)',
+			'fluid-3xl': 'var(--text-fluid-3xl)',
+		},
+		spacing: {
+			'18': '4.5rem',
+			'22': '5.5rem',
+			'fluid-xs': 'var(--space-fluid-xs)',
+			'fluid-sm': 'var(--space-fluid-sm)',
+			'fluid-md': 'var(--space-fluid-md)',
+			'fluid-lg': 'var(--space-fluid-lg)',
+			'fluid-xl': 'var(--space-fluid-xl)',
+		},
+		containers: {
+			'xs': '320px',
+			'sm': '384px',
+			'md': '448px',
+			'lg': '512px',
+			'xl': '576px',
+			'2xl': '672px',
 		}
 	},
 	plugins: [tailwindcssAnimate],
