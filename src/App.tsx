@@ -12,6 +12,7 @@ import { SettingsProvider } from "@/contexts/SettingsCoordinator";
 import NotFound from "./pages/NotFound";
 
 // Lazy-load secondary routes to reduce initial bundle
+const Index = React.lazy(() => import("./pages/Index"));
 const Auth = React.lazy(() => import("./pages/Auth"));
 const FHIRCallback = React.lazy(() => import("./pages/FHIRCallback"));
 const PrintExportTest = React.lazy(() => import("./pages/PrintExportTest"));
