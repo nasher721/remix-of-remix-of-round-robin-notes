@@ -6,8 +6,7 @@ import { PatientFilterType } from "@/constants/config";
 
 import { DashboardContext as LegacyContext } from "./DashboardContext";
 import { MobileTab } from "@/components/layout";
-import { getGlobalState, setGlobalState, from the local state for better code organization."
- />
+import { getGlobalState, setGlobalState } from "@/lib/globalState";
 
 // Types for the new focused contexts
 
@@ -73,7 +72,6 @@ export interface UIState {
   onSignOut: () => void;
 }
 
-\
 
 class GenericProvider<T> extends React.Component<{ children: React.ReactNode }> {
   static Context = createContext<T | null>(null);

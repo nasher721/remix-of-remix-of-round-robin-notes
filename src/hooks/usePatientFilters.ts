@@ -36,7 +36,7 @@ const filterReducer = (state: FilterState, action: FilterAction): FilterState =>
 };
 
 export function usePatientFilters(patients: Patient[], initialSortBy?: PatientSort) {
-  const [state, dispatch = useReducer(filterReducer, initialState);
+  const [state, dispatch] = useReducer(filterReducer, initialState);
 
   const setSearchQuery = useCallback((query: string) => {
     dispatch({ type: 'SET_SEARCH', payload: query });

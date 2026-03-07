@@ -176,6 +176,7 @@ export function CriticalValueAlerts({
                       onDismiss={() => onDismiss(alert.id)}
                       onNavigate={() => onNavigateToPatient?.(alert.patientId)}
                     />
+                  ))}
               </div>
             </ScrollArea>
           </CardContent>
@@ -353,6 +354,7 @@ export function AlertPanel({
                     onDismiss={() => onDismiss(alert.id)}
                     onNavigate={() => onNavigateToPatient?.(alert.patientId)}
                   />
+                ))}
               </div>
             </div>
           )}
