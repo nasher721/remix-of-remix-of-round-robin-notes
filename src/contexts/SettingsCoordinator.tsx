@@ -95,15 +95,6 @@ function LegacySettingsBridge({ children }: { children: React.ReactNode }) {
     aiConfig.setAiCredential(provider, { apiKey: credential });
   }, [aiConfig.setAiCredential]);
 
-  // Bridge AI config methods
-  const setAiModel = (provider: AIProvider, model: string) => {
-    aiConfig.setAiCredential(provider, { model });
-  };
-
-  const setAiCredential = (provider: AIProvider, credential: string) => {
-    aiConfig.setAiCredential(provider, { apiKey: credential });
-  };
-
   // Extract API keys from credentials for legacy interface
   const aiCredentials = useMemo(() => {
     const result: Partial<Record<AIProvider, string>> = {};
