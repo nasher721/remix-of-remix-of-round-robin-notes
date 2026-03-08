@@ -1,7 +1,7 @@
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 
 // Create a fresh QueryClient for each test
 export function createTestQueryClient() {
@@ -18,11 +18,6 @@ export function createTestQueryClient() {
         retry: false,
       },
     },
-    logger: {
-      log: () => {},
-      warn: () => {},
-      error: () => {},
-    },
   });
 }
 
@@ -31,14 +26,22 @@ interface AllTheProvidersProps {
   initialEntries?: string[];
 }
 
-function AllTheProviders({ children }: AllTheProvidersProps) {
+export function AllTheProviders({ children, initialEntries }: AllTheProvidersProps) {
   const testQueryClient = createTestQueryClient();
-  
+
+  const Router = initialEntries ? (
+    <MemoryRouter initialEntries={initialEntries} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      {children}
+    </MemoryRouter>
+  ) : (
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      {children}
+    </BrowserRouter>
+  );
+
   return (
     <QueryClientProvider client={testQueryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        {children}
-      </BrowserRouter>
+      {Router}
     </QueryClientProvider>
   );
 }
@@ -50,16 +53,24 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
 
 function customRender(
   ui: ReactElement,
-  { queryClient, ...options }: CustomRenderOptions = {}
+  { queryClient, initialEntries, ...options }: CustomRenderOptions = {}
 ) {
   function Wrapper({ children }: { children: React.ReactNode }) {
     const testQueryClient = queryClient || createTestQueryClient();
-    
+
+    const Router = initialEntries ? (
+      <MemoryRouter initialEntries={initialEntries} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        {children}
+      </MemoryRouter>
+    ) : (
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        {children}
+      </BrowserRouter>
+    );
+
     return (
       <QueryClientProvider client={testQueryClient}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          {children}
-        </BrowserRouter>
+        {Router}
       </QueryClientProvider>
     );
   }
@@ -71,15 +82,21 @@ function customRender(
 }
 
 // Hook testing utility
-export function createHookWrapper() {
+export function createHookWrapper(initialEntries?: string[]) {
   const testQueryClient = createTestQueryClient();
-  
+
   return {
     wrapper: ({ children }: { children: React.ReactNode }) => (
       <QueryClientProvider client={testQueryClient}>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          {children}
-        </BrowserRouter>
+        {initialEntries ? (
+          <MemoryRouter initialEntries={initialEntries} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            {children}
+          </MemoryRouter>
+        ) : (
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            {children}
+          </BrowserRouter>
+        )}
       </QueryClientProvider>
     ),
     queryClient: testQueryClient,
@@ -89,4 +106,3 @@ export function createHookWrapper() {
 // Re-export everything from RTL
 export * from '@testing-library/react';
 export { customRender as render };
-export { createTestQueryClient, AllTheProviders };
