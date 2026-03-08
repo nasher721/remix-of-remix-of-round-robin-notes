@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MAX_MEDIA_PAYLOAD_BYTES } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MAX_MEDIA_PAYLOAD_BYTES } from '../_shared/mod.ts';
 
 interface PatientSystems {
   neuro: string;

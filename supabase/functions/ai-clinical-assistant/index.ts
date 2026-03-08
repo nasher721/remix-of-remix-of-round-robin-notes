@@ -1,6 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, LLMProviderError, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, safeLog, RATE_LIMITS, MissingAPIKeyError, LLMProviderError, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
 import { callLLM, getLLMConfig, streamLLM } from '../_shared/llm-client.ts';
 
 // AI Feature types

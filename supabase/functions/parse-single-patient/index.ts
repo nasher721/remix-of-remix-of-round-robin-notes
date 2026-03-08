@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage } from '../_shared/mod.ts';
 import { getLLMConfig } from '../_shared/llm-client.ts';
 
 interface PatientSystems {

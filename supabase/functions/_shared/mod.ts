@@ -7,15 +7,16 @@ export {
 
 export {
   getCorsHeaders,
+  corsHeaders,
   handleOptions,
+  handlePreflight,
   jsonResponse,
+  successResponse,
   errorResponse,
+  forbiddenResponse,
   STANDARD_HEADERS,
+  EXPOSED_HEADERS,
 } from './cors.ts';
-
-export { getCorsHeaders as corsHeaders } from './cors.ts';
-export { errorResponse as createErrorResponse } from './cors.ts';
-export { handleOptions as createCorsResponse } from './cors.ts';
 
 export {
   MissingAPIKeyError,
@@ -73,6 +74,10 @@ export {
   MAX_MEDIA_PAYLOAD_BYTES,
   type ValidationResult,
 } from './input-validation.ts';
+
+// Backward-compatible aliases (deprecated, use direct exports)
+/** @deprecated Use handleOptions directly */
+export { handleOptions as createCorsResponse } from './cors.ts';
 
 export {
   createSuccessResponse,

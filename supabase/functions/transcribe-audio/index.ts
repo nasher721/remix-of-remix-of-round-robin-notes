@@ -4,7 +4,6 @@ import {
   corsHeaders,
   createErrorResponse,
   checkRateLimit,
-  createCorsResponse,
   safeLog,
   RATE_LIMITS,
   parseAndValidateBody,
@@ -91,7 +90,7 @@ Return ONLY the corrected text, no explanations or commentary.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders(req) });
+    return new Response(null, { headers: corsHeaders(req) });
   }
 
   try {
