@@ -141,14 +141,9 @@ async function checkEdgeFunctions(): Promise<HealthCheckResult> {
   const startTime = performance.now();
   
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT);
-    
     const { error } = await supabase.functions.invoke('health-check', {
       body: { check: true },
     });
-    
-    clearTimeout(timeoutId);
     const latency = Math.round(performance.now() - startTime);
     
     // If the function doesn't exist, that's okay - just means no health check endpoint

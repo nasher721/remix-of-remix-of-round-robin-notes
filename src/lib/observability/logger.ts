@@ -28,20 +28,30 @@ const CORRELATION_ID_KEY = 'observability.correlationId';
 const LOG_BUFFER_SIZE = 100;
 const logBuffer: LogEntry[] = [];
 
+// Cache sessionStorage reads to avoid repeated synchronous I/O on every log call
+let cachedSessionId: string | null = null;
+let cachedCorrelationId: string | null = null;
+
 /**
  * Get or generate a session ID for the current browser session
  */
 function getSessionId(): string {
+  if (cachedSessionId) return cachedSessionId;
+
   if (typeof window === 'undefined') {
     return 'server';
   }
 
   try {
     const existing = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
-    if (existing) return existing;
+    if (existing) {
+      cachedSessionId = existing;
+      return existing;
+    }
 
     const generated = generateId();
     window.sessionStorage.setItem(SESSION_STORAGE_KEY, generated);
+    cachedSessionId = generated;
     return generated;
   } catch {
     return `session_${Date.now()}`;
@@ -59,16 +69,22 @@ export function generateCorrelationId(): string {
  * Get the current correlation ID or generate a new one
  */
 export function getCorrelationId(): string {
+  if (cachedCorrelationId) return cachedCorrelationId;
+
   if (typeof window === 'undefined') {
     return generateCorrelationId();
   }
 
   try {
     const existing = window.sessionStorage.getItem(CORRELATION_ID_KEY);
-    if (existing) return existing;
+    if (existing) {
+      cachedCorrelationId = existing;
+      return existing;
+    }
 
     const generated = generateCorrelationId();
     window.sessionStorage.setItem(CORRELATION_ID_KEY, generated);
+    cachedCorrelationId = generated;
     return generated;
   } catch {
     return generateCorrelationId();
@@ -79,6 +95,7 @@ export function getCorrelationId(): string {
  * Set a correlation ID for the current operation
  */
 export function setCorrelationId(id: string): void {
+  cachedCorrelationId = id;
   if (typeof window !== 'undefined') {
     try {
       window.sessionStorage.setItem(CORRELATION_ID_KEY, id);
@@ -92,6 +109,7 @@ export function setCorrelationId(id: string): void {
  * Clear the current correlation ID
  */
 export function clearCorrelationId(): void {
+  cachedCorrelationId = null;
   if (typeof window !== 'undefined') {
     try {
       window.sessionStorage.removeItem(CORRELATION_ID_KEY);
