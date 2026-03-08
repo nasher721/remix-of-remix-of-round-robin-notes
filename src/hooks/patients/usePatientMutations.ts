@@ -34,7 +34,13 @@ export function usePatientMutations({
     const notifications = useNotifications();
 
     const addPatient = React.useCallback(async () => {
-        if (!user) return;
+        if (!user) {
+            notifications.error({
+                title: "Authentication Required",
+                description: "Please sign in to add patients.",
+            });
+            return;
+        }
         if (!hasSupabaseConfig) {
             notifications.error({
                 title: "Configuration Error",
