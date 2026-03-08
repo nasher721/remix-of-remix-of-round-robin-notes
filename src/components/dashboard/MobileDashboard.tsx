@@ -4,8 +4,6 @@ import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
-import { IBCCPanel } from "@/components/ibcc";
-import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
 import { ChevronsUpDown, Plus, ArrowUpDown, Printer } from "lucide-react";
@@ -24,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PatientFilterType } from "@/constants/config";
 import { useMediaQuery } from "@/hooks/use-media";
-import { PatientFilterType } from "@/constants/config";
 import {
   Select,
   SelectContent,
@@ -431,8 +428,6 @@ export const MobileDashboard = () => {
         onOpenChange={setShowBatchCourse}
       />
 
-      <IBCCPanel />
-      <GuidelinesPanel />
     </div>
   );
 };
