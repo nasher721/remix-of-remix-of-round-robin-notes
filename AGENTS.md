@@ -447,3 +447,26 @@ When making changes:
 3. Verify offline functionality if modifying data layer
 4. Update types if modifying database schema
 5. Run lint before committing
+
+---
+
+## Cursor Cloud specific instructions
+
+### Services
+
+This is a frontend-only SPA (no Docker, no local database). The only local process is the **Vite dev server** on port 8080. All backend services (PostgreSQL, Auth, Edge Functions) are hosted on Supabase and configured via `.env`.
+
+### Running the app
+
+- `npm run dev` — starts dev server on port **8080** (not the Vite default 5173)
+- `npm run build:dev` — development build
+- `npm run build` — production build
+- `npm run lint` — ESLint (7 pre-existing errors, 84 warnings — all pre-existing in the codebase)
+- `npm test` or `npx vitest run` — runs all tests via Vitest (not the Node.js native test runner mentioned in some docs)
+
+### Gotchas
+
+- **Test runner is Vitest**, not the Node.js native test runner. `package.json` scripts use `vitest`. The CLAUDE.md reference to Node.js native test runner with `scripts/ts-loader.mjs` is outdated.
+- The `.env` file ships with live Supabase credentials (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`). The app gracefully degrades without them but auth/data features require them.
+- ESLint exits with code 1 due to pre-existing `@typescript-eslint/no-explicit-any` errors in `FocusedContext.tsx` and `usePatientMutations.ts`, plus a parsing error in `useReducedMotion.ts`. These are not introduced by agent changes.
+- Signup with `@example.com` domains is rejected by the Supabase backend; use realistic domains (e.g. `@hospital.org`) for test accounts.
