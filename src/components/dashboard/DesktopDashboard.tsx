@@ -170,29 +170,6 @@ export const DesktopDashboard = () => {
   }, [filter]);
 
   const shouldReduceMotion = useReducedMotion();
-  const utilityPanelRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!utilityPanelRef.current?.contains(event.target as Node)) {
-        setUtilityPanel(null);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setUtilityPanel(null);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
 
   const todayLabel = React.useMemo(
     () => new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
@@ -252,7 +229,7 @@ export const DesktopDashboard = () => {
       </motion.header>
 
       <div className="container mx-auto px-fluid-md lg:px-fluid-lg pt-4 pb-3 no-print">
-        <div ref={utilityPanelRef} className="relative rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
+        <div className="relative rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
               variant="ghost"
@@ -453,7 +430,7 @@ export const DesktopDashboard = () => {
                         const sortedPatients = [...filteredPatients].sort((a, b) => {
                           const roomA = a.bed || '';
                           const roomB = b.bed || '';
-                          return roomA.localeCompare(roomB, { numeric: true });
+                          return roomA.localeCompare(roomB, undefined, { numeric: true });
                         });
                         sortedPatients.forEach((patient, index) => {
                           onUpdatePatient(patient.id, 'patientNumber', index + 1);
@@ -584,7 +561,7 @@ export const DesktopDashboard = () => {
 
       <PhraseManager open={showPhraseManager} onOpenChange={setShowPhraseManager} />
 
-      <AICommandPalette isOpen={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
+      <AICommandPalette open={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
     </div>
     </div>
   );

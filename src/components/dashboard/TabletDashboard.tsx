@@ -28,17 +28,6 @@ export function TabletDashboard() {
     onRemovePatient,
     onDuplicatePatient,
     autotexts,
-    templates,
-    customDictionary,
-    todosMap,
-    onAddTodo,
-    onToggleTodo,
-    onDeleteTodo,
-    onAddAutotext,
-    onRemoveAutotext,
-    onAddTemplate,
-    onRemoveTemplate,
-    onImportDictionary,
   } = useDashboard();
 
   const { sortBy, setSortBy } = useSettings();
@@ -51,16 +40,6 @@ export function TabletDashboard() {
   const handleCloseDetail = useCallback(() => {
     setSelectedPatient(null);
   }, []);
-
-  const handleUpdatePatient = useCallback(
-    async (patient: Patient) => {
-      await onUpdatePatient(patient);
-      if (selectedPatient?.id === patient.id) {
-        setSelectedPatient(patient);
-      }
-    },
-    [onUpdatePatient, selectedPatient]
-  );
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -173,21 +152,11 @@ export function TabletDashboard() {
               <MobilePatientDetail
                 patient={selectedPatient}
                 onBack={handleCloseDetail}
-                onUpdatePatient={handleUpdatePatient}
-                onRemovePatient={onRemovePatient}
-                onDuplicatePatient={onDuplicatePatient}
+                onUpdate={onUpdatePatient}
+                onRemove={onRemovePatient}
+                onDuplicate={onDuplicatePatient}
+                onPrint={() => {}}
                 autotexts={autotexts}
-                templates={templates}
-                customDictionary={customDictionary}
-                todos={todosMap[selectedPatient.id] || []}
-                onAddTodo={(todo) => onAddTodo(selectedPatient.id, todo)}
-                onToggleTodo={(todoId) => onToggleTodo(selectedPatient.id, todoId)}
-                onDeleteTodo={(todoId) => onDeleteTodo(selectedPatient.id, todoId)}
-                onAddAutotext={onAddAutotext}
-                onRemoveAutotext={onRemoveAutotext}
-                onAddTemplate={onAddTemplate}
-                onRemoveTemplate={onRemoveTemplate}
-                onImportDictionary={onImportDictionary}
               />
             </ScrollArea>
           </div>
