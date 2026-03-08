@@ -7,11 +7,12 @@ export const STORAGE_KEYS = {
   PATIENT_SORT_BY: 'patientSortBy',
   SHOW_LAB_FISHBONES: 'showLabFishbones',
   SECTION_VISIBILITY: 'sectionVisibility',
-  SELECTED_SPECIALTY: 'selectedSpecialty',
-  AI_PROVIDER: 'aiProvider',
-  AI_MODEL: 'aiModel',
-  AI_CREDENTIALS: 'aiCredentials',
-  AI_FEATURE_MODELS: 'aiFeatureModels',
+  SELECTED_SPECIALTY: 'rr_selected_specialty',
+  AI_PROVIDER: 'rr_ai_provider',
+  AI_MODEL: 'rr_ai_model',
+  AI_CREDENTIALS: 'rr_ai_credentials',
+  AI_FEATURE_MODELS: 'rr_ai_feature_models',
+  NEXUS_MODE: 'rr_nexus_mode',
 
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
@@ -72,6 +73,7 @@ export const DEFAULT_CONFIG = {
   PRINT_SHOW_TIMESTAMP: true,
   PRINT_ALTERNATE_ROW_COLORS: true,
   PRINT_COMPACT_MODE: false,
+  DEFAULT_NEXUS_MODE: true,
 } as const;
 
 export type Theme = 'light' | 'dark' | 'system';

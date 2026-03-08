@@ -93,6 +93,7 @@ export type TaskCategory =
   | 'low_cost'
   | 'offline'
   | 'transcription'
+  | 'summarization'
   | 'general';
 
 export interface RoutingRule {

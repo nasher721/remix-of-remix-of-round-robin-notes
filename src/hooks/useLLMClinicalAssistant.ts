@@ -29,6 +29,7 @@ import type {
 import { stripHtml, buildClinicalContextString } from '@/lib/openai-config';
 import { getLLMRouter } from '@/services/llm';
 import type { LLMProviderName, TaskCategory } from '@/services/llm';
+import { ConsensusEngine } from '@/services/llm/ConsensusEngine';
 
 // ---------------------------------------------------------------------------
 // Feature → task category mapping
@@ -49,6 +50,29 @@ const FEATURE_TASK_MAP: Record<AIFeature, TaskCategory> = {
   icu_boards_explainer: 'reasoning',
   interval_events_generator: 'summarization',
   neuro_icu_hpi: 'clinical_note',
+  smart_draft: 'clinical_note',
+};
+
+// ---------------------------------------------------------------------------
+// NEXUS-Full Mode Configuration
+// ---------------------------------------------------------------------------
+
+const NEXUS_CONFIG: Record<string, { writer: { provider: LLMProviderName, model: string }, critic: { provider: LLMProviderName, model: string }, synthesizer: { provider: LLMProviderName, model: string } }> = {
+  clinical_note: {
+    writer: { provider: 'anthropic', model: 'claude-sonnet-4-20250514' },
+    critic: { provider: 'openai', model: 'gpt-4o' },
+    synthesizer: { provider: 'anthropic', model: 'claude-sonnet-4-20250514' }
+  },
+  reasoning: {
+    writer: { provider: 'openai', model: 'gpt-4o' },
+    critic: { provider: 'anthropic', model: 'claude-sonnet-4-20250514' },
+    synthesizer: { provider: 'openai', model: 'gpt-4o' }
+  },
+  summarization: {
+    writer: { provider: 'gemini', model: 'gemini-2.5-pro' },
+    critic: { provider: 'openai', model: 'gpt-4o-mini' },
+    synthesizer: { provider: 'gemini', model: 'gemini-2.5-pro' }
+  }
 };
 
 // System prompts matching the edge function's prompts
@@ -525,6 +549,19 @@ Requirements:
 - Include objective data when available (vitals, labs, imaging, interventions, drips, pending studies).
 - Do NOT include assessment or plan.
 - Do not invent any data.`,
+  smart_draft: `You are an expert ICU physician assistant. Your task is to generate a comprehensive, professional clinical draft based on the provided context. 
+
+Structure the draft logically:
+1. Patient Identification & Context
+2. Key Clinical Findings
+3. Assessment of current status
+4. Proposed plan or next steps
+
+Rules:
+- Professional, academic tone.
+- Use standard ICU terminology.
+- Be concise but thorough.
+- Base everything strictly on the provided context.`,
 };
 
 const FEATURE_TEMPERATURES: Record<string, number> = {
@@ -541,6 +578,7 @@ const FEATURE_TEMPERATURES: Record<string, number> = {
   icu_boards_explainer: 0.2,
   interval_events_generator: 0.1,
   neuro_icu_hpi: 0.2,
+  smart_draft: 0.3,
 };
 
 // ---------------------------------------------------------------------------
@@ -676,6 +714,74 @@ async function doRouterRequest<T>(
   return result as T;
 }
 
+async function doConsensusRequest<T>(
+  router: ReturnType<typeof getLLMRouter>,
+  feature: AIFeature,
+  text?: string,
+  context?: ClinicalContext,
+  customPrompt?: string,
+  signal?: AbortSignal,
+  setLastModel?: (m: string) => void,
+  setLastResult?: (r: unknown) => void,
+  onSuccess?: (result: unknown, feature: AIFeature) => void,
+): Promise<T | null> {
+  const engine = new ConsensusEngine(router);
+  const task = FEATURE_TASK_MAP[feature] || 'general';
+  const config = NEXUS_CONFIG[task];
+
+  if (!config) {
+    // Fall back to single model if no NEXUS config for this task
+    return doRouterRequest<T>(router, feature, text, context, customPrompt, signal, undefined, undefined, setLastModel, setLastResult, onSuccess);
+  }
+
+  const systemPrompt = customPrompt || SYSTEM_PROMPTS[feature] || '';
+  const temperature = FEATURE_TEMPERATURES[feature] || 0.3;
+
+  let userPrompt = text || '';
+  if (context) {
+    const contextString = buildClinicalContextString(context);
+    userPrompt = userPrompt
+      ? `${userPrompt}\n\n---\n\nPATIENT CONTEXT:\n${contextString}`
+      : contextString;
+  }
+
+  const responseFormat = JSON_FEATURES.includes(feature) ? 'json' as const : 'text' as const;
+
+  const result = await engine.runConsensus({
+    task,
+    request: {
+      model: config.writer.model, // Initially writer's model, engine handles switches
+      systemPrompt,
+      userPrompt,
+      temperature,
+      responseFormat,
+      maxTokens: 4000,
+      signal,
+      patientContext: context as unknown as Record<string, unknown>,
+    },
+    models: [config.writer, config.critic, config.synthesizer],
+  });
+
+  const finalOutput = result.finalContent;
+  setLastModel?.(`NEXUS/${config.writer.model}+${config.critic.model}`);
+
+  let parsed: unknown = finalOutput;
+  if (JSON_FEATURES.includes(feature)) {
+    try {
+      const jsonMatch = finalOutput.match(/```(?:json)?\s*([\s\S]*?)```/) ||
+        finalOutput.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : finalOutput;
+      parsed = JSON.parse(jsonStr.trim());
+    } catch {
+      parsed = finalOutput;
+    }
+  }
+
+  setLastResult?.(parsed);
+  onSuccess?.(parsed, feature);
+  return parsed as T;
+}
+
 async function doEdgeFunctionRequest<T>(
   feature: AIFeature,
   text?: string,
@@ -708,7 +814,7 @@ export const useLLMClinicalAssistant = (
   options: UseLLMClinicalAssistantOptions = {}
 ): UseLLMClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
-  const { aiProvider, aiModel, getModelForFeature } = useSettings();
+  const { aiProvider, aiModel, getModelForFeature, nexusMode } = useSettings();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<unknown | null>(null);
@@ -793,12 +899,20 @@ export const useLLMClinicalAssistant = (
 
       let result: T | null;
       if (hasProviders) {
-        result = await doRouterRequest<T>(
-          router, feature, text, finalContext, customPrompt,
-          abortControllerRef.current.signal,
-          overrideProvider, overrideModel,
-          setLastModel, setLastResult, onSuccess,
-        );
+        if (nexusMode && NEXUS_CONFIG[FEATURE_TASK_MAP[feature] || '']) {
+          result = await doConsensusRequest<T>(
+            router, feature, text, finalContext, customPrompt,
+            abortControllerRef.current.signal,
+            setLastModel, setLastResult, onSuccess
+          );
+        } else {
+          result = await doRouterRequest<T>(
+            router, feature, text, finalContext, customPrompt,
+            abortControllerRef.current.signal,
+            overrideProvider, overrideModel,
+            setLastModel, setLastResult, onSuccess,
+          );
+        }
       } else {
         // Fallback: use original Supabase edge function
         result = await doEdgeFunctionRequest<T>(
@@ -828,7 +942,7 @@ export const useLLMClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast, options.provider, options.model, aiProvider, aiModel, getModelForFeature]);
+  }, [onSuccess, onError, toast, options.provider, options.model, aiProvider, aiModel, getModelForFeature, nexusMode]);
 
   // -----------------------------------------------------------------------
   // Convenience methods

@@ -51,6 +51,10 @@ interface SettingsContextType {
 
   // Sync status
   isSyncingSettings: boolean;
+
+  // NEXUS Mode
+  nexusMode: boolean;
+  setNexusMode: (enabled: boolean) => void;
 }
 
 interface AppPreferences {
@@ -63,6 +67,7 @@ interface AppPreferences {
   aiModel: string;
   aiCredentials?: Partial<Record<LLMProviderName, string>>;
   aiFeatureModels?: AIFeatureModels;
+  nexusMode?: boolean;
 }
 
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
@@ -147,6 +152,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return DEFAULT_SECTION_VISIBILITY;
   });
 
+  const [nexusMode, setNexusModeState] = React.useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.NEXUS_MODE);
+    return saved !== null ? saved === 'true' : DEFAULT_CONFIG.DEFAULT_NEXUS_MODE;
+  });
+
   const buildAppPreferences = React.useCallback((): AppPreferences => ({
     globalFontSize,
     todosAlwaysVisible,
@@ -157,7 +167,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiModel,
     aiCredentials,
     aiFeatureModels,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels]);
+    nexusMode,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels, nexusMode]);
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
@@ -212,6 +223,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       } else {
         localStorage.removeItem(STORAGE_KEYS.AI_FEATURE_MODELS);
       }
+    }
+
+    if (prefs.nexusMode !== undefined) {
+      setNexusModeState(prefs.nexusMode);
+      localStorage.setItem(STORAGE_KEYS.NEXUS_MODE, String(prefs.nexusMode));
     }
   }, []);
 
@@ -352,7 +368,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         });
       }, 1000);
     }
-  }, [sectionVisibility, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
+  }, [sectionVisibility, aiCredentials, aiProvider, aiModel, aiFeatureModels, nexusMode, user, buildAppPreferences, syncSettingsToDb]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(size);
@@ -454,6 +470,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setSectionVisibilityState(DEFAULT_SECTION_VISIBILITY);
   }, []);
 
+  const setNexusMode = React.useCallback((enabled: boolean) => {
+    setNexusModeState(enabled);
+    localStorage.setItem(STORAGE_KEYS.NEXUS_MODE, String(enabled));
+  }, []);
+
   const value: SettingsContextType = React.useMemo(() => ({
     globalFontSize,
     setGlobalFontSize,
@@ -481,6 +502,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setAiFeatureModel,
     getModelForFeature,
     isSyncingSettings,
+    nexusMode,
+    setNexusMode,
   }), [
     globalFontSize,
     theme,
@@ -494,6 +517,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiCredentials,
     aiFeatureModels,
     isSyncingSettings,
+    nexusMode,
     setGlobalFontSize,
     setTheme,
     setTodosAlwaysVisible,
@@ -508,6 +532,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     getModelForFeature,
     setSectionVisibility,
     resetSectionVisibility,
+    setNexusMode,
   ]);
 
   return (
