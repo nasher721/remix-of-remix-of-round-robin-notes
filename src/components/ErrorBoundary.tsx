@@ -1,11 +1,8 @@
 import * as React from 'react';
-import { captureException, setSentryUser } from '@/lib/observability/sentry';
-import { logError, createLogger } from '@/lib/observability/logger';
+import { logError } from '@/lib/observability/logger';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-const logger = createLogger('ErrorBoundary');
 
 interface Props {
   children: React.ReactNode;
@@ -38,20 +35,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const { componentName, onError } = this.props;
     
-    // Log to console and Sentry
+    // Log to console and Sentry (logError calls captureException internally)
     logError(`Error in ${componentName || 'component'}`, {
-      error: error.message,
+      error,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
       component: componentName,
-    });
-    
-    captureException(error, {
-      tags: { component: componentName || 'unknown' },
-      extra: {
-        componentStack: errorInfo.componentStack,
-        component: componentName,
-      },
     });
 
     this.setState({ errorInfo });
@@ -210,8 +199,7 @@ export function AsyncErrorBoundary({
  */
 export function useErrorReporter() {
   const reportError = React.useCallback((error: Error, context?: Record<string, unknown>) => {
-    logger.error('Error reported from component', { error: error.message, ...context });
-    captureException(error, { extra: context });
+    logError('Error reported from component', { error, ...context });
   }, []);
 
   return { reportError };

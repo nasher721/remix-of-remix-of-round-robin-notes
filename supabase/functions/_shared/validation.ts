@@ -11,7 +11,7 @@ export interface ValidationError {
   value?: unknown;
 }
 
-export interface ValidationResult<T> {
+export interface SchemaValidationResult<T> {
   valid: boolean;
   data?: T;
   errors: ValidationError[];
@@ -170,7 +170,7 @@ export function validateSchema<T extends Record<string, unknown>>(
   data: unknown,
   schema: ObjectSchema,
   rootField = 'root'
-): ValidationResult<T> {
+): SchemaValidationResult<T> {
   const errors: ValidationError[] = [];
   
   const objectError = validateObject(data, rootField);

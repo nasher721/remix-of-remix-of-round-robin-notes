@@ -134,7 +134,12 @@ function sanitizeString(str: string): string {
 /**
  * Recursively sanitize an object
  */
-function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
+function sanitizeObject(obj: Record<string, unknown>, depth = 0): Record<string, unknown> {
+  const MAX_DEPTH = 10;
+  if (depth >= MAX_DEPTH) {
+    return { _truncated: '[max depth reached]' };
+  }
+
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(obj)) {
@@ -148,7 +153,7 @@ function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
     if (typeof value === 'string') {
       sanitized[key] = sanitizeString(value);
     } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeObject(value as Record<string, unknown>);
+      sanitized[key] = sanitizeObject(value as Record<string, unknown>, depth + 1);
     } else {
       sanitized[key] = value;
     }

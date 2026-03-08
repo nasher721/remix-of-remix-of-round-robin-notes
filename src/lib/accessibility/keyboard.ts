@@ -6,6 +6,7 @@
  */
 
 import * as React from 'react';
+import { useMediaQuery } from '@/hooks/use-media';
 
 // Common key codes
 export const Keys = {
@@ -223,36 +224,14 @@ export function useEscapeKey(
  * Check if the current device supports hover (mouse)
  */
 export function useHasHover(): boolean {
-  const [hasHover, setHasHover] = React.useState(true);
-
-  React.useEffect(() => {
-    const mediaQuery = window.matchMedia('(hover: hover)');
-    setHasHover(mediaQuery.matches);
-
-    const handler = (e: MediaQueryListEvent) => setHasHover(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
-
-  return hasHover;
+  return useMediaQuery('(hover: hover)');
 }
 
 /**
  * Check if user prefers reduced motion
  */
 export function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(false);
-
-  React.useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setPrefersReducedMotion(mediaQuery.matches);
-
-    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
-
-  return prefersReducedMotion;
+  return useMediaQuery('(prefers-reduced-motion: reduce)');
 }
 
 /**

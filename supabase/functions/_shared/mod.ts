@@ -9,7 +9,6 @@ export {
   getCorsHeaders,
   corsHeaders,
   handleOptions,
-  handlePreflight,
   jsonResponse,
   successResponse,
   errorResponse,
@@ -79,9 +78,12 @@ export {
 /** @deprecated Use handleOptions directly */
 export { handleOptions as createCorsResponse } from './cors.ts';
 
+// Backward-compatible createErrorResponse uses cors.ts errorResponse signature: (req, message, status)
+export { errorResponse as createErrorResponse } from './cors.ts';
+
 export {
   createSuccessResponse,
-  createErrorResponse,
+  createErrorResponse as createStandardErrorResponse,
   createValidationErrorResponse,
   createNotFoundResponse,
   createUnauthorizedResponse,
@@ -115,7 +117,7 @@ export {
   AI_FEATURES,
   type AIFeature,
   type ValidationError,
-  type ValidationResult,
+  type SchemaValidationResult,
   type ObjectSchema,
   type Validator,
 } from './validation.ts';

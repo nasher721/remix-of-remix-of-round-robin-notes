@@ -154,17 +154,6 @@ export function handleOptions(request: Request): Response {
 }
 
 /**
- * Handle OPTIONS preflight with custom status code
- * Use for stricter preflight responses
- */
-export function handlePreflight(request: Request, status: 204 | 200 = 204): Response {
-  return new Response(null, {
-    status,
-    headers: getCorsHeaders(request),
-  });
-}
-
-/**
  * Create a JSON response with CORS headers
  * Use this for all Edge Function responses
  */
