@@ -83,6 +83,7 @@ export const DesktopDashboard = () => {
     templates,
     customDictionary,
     todosMap,
+    lastSaved,
     onAddPatient,
     onAddPatientWithData,
     onUpdatePatient,
