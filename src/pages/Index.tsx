@@ -28,7 +28,6 @@ const Landing = React.lazy(() => import("./Landing"));
 function IndexContent(): React.ReactElement | null {
   useNetworkStatus();
   const breakpoint = useBreakpoint();
-  const isMobile = breakpoint === 'mobile';
   const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
   const { sortBy } = useSettings();
@@ -76,8 +75,8 @@ function IndexContent(): React.ReactElement | null {
 
   // Get current patient for IBCC context - use selected patient on mobile or first filtered patient
   const currentPatient = React.useMemo(
-    () => (isMobile && selectedPatient ? selectedPatient : (filteredPatients.length > 0 ? filteredPatients[0] : undefined)),
-    [filteredPatients, isMobile, selectedPatient]
+    () => (breakpoint === 'mobile' && selectedPatient ? selectedPatient : (filteredPatients.length > 0 ? filteredPatients[0] : undefined)),
+    [filteredPatients, breakpoint, selectedPatient]
   );
 
   // Update IBCC context with current patient for context-aware suggestions
