@@ -1,7 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, FileUp, Wand2, Mic, Camera } from "lucide-react";
-import { Plus, FileUp, Wand2 } from "lucide-react";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
 

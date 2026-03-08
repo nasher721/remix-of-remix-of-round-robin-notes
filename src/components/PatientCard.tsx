@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cardHover, collapseVariants } from '@/lib/animations';
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { FileText, Calendar, ChevronDown, ImageIcon, TestTube, Sparkles, Loader2, Settings2, X, Eraser } from "lucide-react";
+import { FileText, Calendar, ChevronDown, ImageIcon, TestTube, Sparkles, Loader2, Settings2, X, Eraser, Clock, ClipboardList } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";

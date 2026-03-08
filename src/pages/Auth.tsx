@@ -165,8 +165,8 @@ const Auth = () => {
 
         <div className="relative z-10 space-y-8 max-w-md">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/8 rounded-2xl backdrop-blur-sm border border-white/10">
-              <img src={rollingRoundsLogo} alt="Logo" className="h-8 w-8 brightness-0 invert" />
+            <div className="p-2.5 bg-primary/10 rounded-2xl backdrop-blur-sm border border-primary/20">
+              <img src={rollingRoundsLogo} alt="Logo" className="h-8 w-8" />
             </div>
             <span className="text-xl font-semibold tracking-tight">Rolling Rounds</span>
           </div>
@@ -199,7 +199,11 @@ const Auth = () => {
 
         <div className="relative w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl ring-1 ring-border/50 border border-border/50 space-y-7 z-10 transition-all">
           <div className="text-center lg:text-left space-y-2">
-            <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-10 mx-auto lg:mx-0 lg:hidden mb-4" width="40" height="40" />
+            <div className="lg:hidden flex justify-center mb-4">
+              <div className="p-2 bg-primary/10 rounded-xl border border-primary/20">
+                <img src={rollingRoundsLogo} alt="Logo" className="h-8 w-8" width="32" height="32" />
+              </div>
+            </div>
             <h2 id="auth-heading" className="text-2xl font-bold tracking-tight text-card-foreground">
               {isLogin ? "Welcome back" : "Create an account"}
             </h2>

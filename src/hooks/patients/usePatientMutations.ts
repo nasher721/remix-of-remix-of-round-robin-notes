@@ -317,13 +317,13 @@ export function usePatientMutations({
         if (!hasSupabaseConfig) return;
 
         try {
-            // Persist the new order to Supabase
+            // Persist the new order to Supabase using patient_number
             const { error } = await supabase
                 .from("patients")
                 .upsert(newPatients.map((p, index) => ({
                     id: p.id,
                     user_id: user.id,
-                    patient_number: p.patientNumber,
+                    patient_number: index + 1,
                     name: p.name,
                     bed: p.bed,
                     clinical_summary: p.clinicalSummary,
@@ -334,7 +334,6 @@ export function usePatientMutations({
                     medications: p.medications as any,
                     field_timestamps: p.fieldTimestamps as any,
                     collapsed: p.collapsed,
-                    rounding_order: index,
                 })));
 
             if (error) throw error;

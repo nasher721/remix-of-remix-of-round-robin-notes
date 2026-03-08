@@ -94,8 +94,6 @@ fieldTimestamps: dbPatient.field_timestamps || {},
 collapsed: dbPatient.collapsed,
 createdAt: dbPatient.created_at,
   lastModified: dbPatient.last_modified,
-  roundingOrder: dbPatient.rounding_order,
-  hasRounded: dbPatient.has_rounded,
 });
 
 /**
@@ -108,8 +106,6 @@ intervalEvents: "interval_events",
 patientNumber: "patient_number",
 createdAt: "created_at",
     lastModified: "last_modified",
-    roundingOrder: "rounding_order",
-    hasRounded: "has_rounded",
 };
 return fieldMap[field] || field;
 };

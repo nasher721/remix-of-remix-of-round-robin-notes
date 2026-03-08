@@ -78,8 +78,6 @@ collapsed: boolean;
 created_at: string;
 last_modified: string;
   age?: number;
-  rounding_order?: number;
-  has_rounded?: boolean;
 }
 
 /**
@@ -102,8 +100,6 @@ collapsed: boolean;
 createdAt: string;
 lastModified: string;
   age?: number;
-  roundingOrder?: number;
-  hasRounded?: boolean;
 }
 
 /**

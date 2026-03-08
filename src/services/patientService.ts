@@ -37,8 +37,6 @@ export const mapPatientRecord = (record: {
   collapsed: boolean;
   created_at: string;
   last_modified: string;
-  rounding_order?: number;
-  has_rounded?: boolean;
 }): Patient => ({
   id: record.id,
   patientNumber: record.patient_number,
@@ -54,8 +52,6 @@ export const mapPatientRecord = (record: {
   collapsed: record.collapsed,
   createdAt: record.created_at,
   lastModified: record.last_modified || "",
-  roundingOrder: record.rounding_order,
-  hasRounded: record.has_rounded,
 });
 
 export const buildPatientInsertPayload = (input: {
@@ -69,7 +65,6 @@ export const buildPatientInsertPayload = (input: {
   labs?: string;
   systems?: PatientSystems;
   medications?: PatientMedications;
-  roundingOrder?: number;
 }): TablesInsert<"patients"> => ({
   user_id: input.userId,
   patient_number: input.patientNumber,
@@ -82,7 +77,6 @@ export const buildPatientInsertPayload = (input: {
   systems: (input.systems ?? defaultSystemsValue) as unknown as Json,
   medications: (input.medications ?? defaultMedicationsValue) as unknown as Json,
   collapsed: false,
-  rounding_order: input.roundingOrder,
 });
 
 export const shouldTrackTimestamp = (field: string): boolean => {

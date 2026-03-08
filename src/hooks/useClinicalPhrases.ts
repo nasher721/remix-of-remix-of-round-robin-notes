@@ -13,7 +13,6 @@ import type {
   ConditionalLogic,
   PatientDataSource
 } from '@/types/phrases';
-import { logError } from '@/lib/observability/logger';
 
 // DB to UI mappers
 const mapFolder = (row: Record<string, unknown>): PhraseFolder => ({
