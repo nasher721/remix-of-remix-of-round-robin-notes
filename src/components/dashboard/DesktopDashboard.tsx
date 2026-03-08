@@ -92,6 +92,10 @@ export const DesktopDashboard = () => {
     onImportPatients,
     onReorderPatients,
     onAddAutotext,
+    onRemoveAutotext,
+    onAddTemplate,
+    onRemoveTemplate,
+    onImportDictionary,
     onSignOut,
   } = useDashboard();
   const navigate = useNavigate();
