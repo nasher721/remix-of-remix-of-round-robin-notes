@@ -1,24 +1,36 @@
 import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 /**
  * Hook to detect user's motion preference
  * Respects system preference and localStorage override
  */
 export function useMotionPreference() {
-  const prefersReducedMotion = useReducedMotion();
+  const systemPrefersReducedMotion = useReducedMotion();
+  const [storedPreference, setStoredPreference] = useState<'reduced' | 'enabled' | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncPreference = () => {
+      const stored = localStorage.getItem('motion-preference');
+      setStoredPreference(stored === 'reduced' || stored === 'enabled' ? stored : null);
+    };
+
+    syncPreference();
+    window.addEventListener('motion-preference-change', syncPreference);
+
+    return () => {
+      window.removeEventListener('motion-preference-change', syncPreference);
+    };
+  }, []);
   
   const motionPreference = useMemo(() => {
     // Check for localStorage override
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('motion-preference');
-      if (stored === 'reduced') return 'reduced';
-      if (stored === 'enabled') return 'enabled';
-    }
+    if (storedPreference) return storedPreference;
     // Fall back to system preference
-    return prefersReducedMotion ? 'reduced' : 'enabled';
-  }, [prefersReducedMotion]);
+    return systemPrefersReducedMotion ? 'reduced' : 'enabled';
+  }, [storedPreference, systemPrefersReducedMotion]);
   
   return {
     prefersReducedMotion: motionPreference === 'reduced',
@@ -29,7 +41,7 @@ export function useMotionPreference() {
         } else {
           localStorage.setItem('motion-preference', pref);
         }
-        // Trigger re-render by forcing update
+        // Trigger state sync across hook instances/tabs
         window.dispatchEvent(new Event('motion-preference-change'));
       }
     },
