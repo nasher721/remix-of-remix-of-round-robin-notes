@@ -1,5 +1,5 @@
 import { db, type QueuedMutationDB } from './database';
-import { logInfo, logWarn, logError } from '@/lib/observability/logger';
+
 export type { QueuedMutationDB };
 export type QueuedMutation = QueuedMutationDB;
 export type SyncResult = {
@@ -24,13 +24,10 @@ class IndexedDBQueueManager {
   private listeners: Set<(queue: QueuedMutation[]) => void> = new Set();
   private syncInProgress = false;
   private initialized = false;
-  private readonly isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
   
   constructor() {
-    if (this.isBrowser) {
-      this.initialize();
-      this.setupOnlineListener();
-    }
+    this.initialize();
+    this.setupOnlineListener();
   }
   
   private async initialize(): Promise<void> {
@@ -38,43 +35,28 @@ class IndexedDBQueueManager {
       await db.open();
       this.initialized = true;
       const count = await db.mutations.count();
-      logInfo('Initialized', { count, source: 'IndexedDBQueue' });
+      console.log(`[IndexedDBQueue] Initialized with ${count} pending mutations`);
     } catch (error) {
-      logError('Failed to initialize', { error, source: 'IndexedDBQueue' });
+      console.error('[IndexedDBQueue] Failed to initialize:', error);
       this.fallbackToLocalStorage();
     }
   }
   
   private fallbackToLocalStorage(): void {
-    logWarn('Falling back to localStorage mode', { source: 'IndexedDBQueue' });
+    console.warn('[IndexedDBQueue] Falling back to localStorage mode');
     this.initialized = false;
   }
   
   private setupOnlineListener(): void {
-    if (!this.isBrowser) return;
-
     window.addEventListener('online', () => {
-      logInfo('Connection restored', { source: 'IndexedDBQueue' });
+      console.log('[IndexedDBQueue] Connection restored');
       this.notifyListeners();
     });
     
     window.addEventListener('offline', () => {
-      logInfo('Connection lost', { source: 'IndexedDBQueue' });
+      console.log('[IndexedDBQueue] Connection lost');
       this.notifyListeners();
     });
-  }
-
-  private getLocalStorageQueue(): QueuedMutation[] {
-    if (!this.isBrowser) return [];
-
-    const stored = localStorage.getItem('offline-mutation-queue');
-    return stored ? JSON.parse(stored) : [];
-  }
-
-  private setLocalStorageQueue(queue: QueuedMutation[]): void {
-    if (!this.isBrowser) return;
-
-    localStorage.setItem('offline-mutation-queue', JSON.stringify(queue));
   }
   
   private notifyListeners(): void {
@@ -123,23 +105,27 @@ class IndexedDBQueueManager {
     }
     
     this.notifyListeners();
-    logInfo('Queued mutation', { type: mutation.type, operation: mutation.operation, source: 'IndexedDBQueue' });
+    console.log(`[IndexedDBQueue] Queued: ${mutation.type}/${mutation.operation}`);
     return id;
   }
   
   private enqueueToLocalStorage(mutation: QueuedMutation): void {
-    const queue = this.getLocalStorageQueue();
+    const stored = localStorage.getItem('offline-mutation-queue');
+    const queue: QueuedMutation[] = stored ? JSON.parse(stored) : [];
     queue.push(mutation);
-    this.setLocalStorageQueue(queue);
+    localStorage.setItem('offline-mutation-queue', JSON.stringify(queue));
   }
   
   async dequeue(mutationId: string): Promise<void> {
     if (this.initialized) {
       await db.mutations.delete(mutationId);
     } else {
-      const queue = this.getLocalStorageQueue();
-      const filtered = queue.filter(m => m.id !== mutationId);
-      this.setLocalStorageQueue(filtered);
+      const stored = localStorage.getItem('offline-mutation-queue');
+      if (stored) {
+        const queue: QueuedMutation[] = JSON.parse(stored);
+        const filtered = queue.filter(m => m.id !== mutationId);
+        localStorage.setItem('offline-mutation-queue', JSON.stringify(filtered));
+      }
     }
     this.notifyListeners();
   }
@@ -151,7 +137,7 @@ class IndexedDBQueueManager {
         const newRetryCount = mutation.retryCount + 1;
         
         if (newRetryCount >= mutation.maxRetries) {
-          logWarn('Mutation exceeded max retries', { mutationId, source: 'IndexedDBQueue' });
+          console.warn(`[IndexedDBQueue] Mutation ${mutationId} exceeded max retries`);
           await db.mutations.delete(mutationId);
           this.notifyListeners();
           return false;
@@ -169,7 +155,8 @@ class IndexedDBQueueManager {
     if (this.initialized) {
       return db.mutations.orderBy('timestamp').toArray();
     }
-    return this.getLocalStorageQueue();
+    const stored = localStorage.getItem('offline-mutation-queue');
+    return stored ? JSON.parse(stored) : [];
   }
   
   async getByType(type: QueuedMutation['type']): Promise<QueuedMutation[]> {
@@ -195,7 +182,7 @@ class IndexedDBQueueManager {
   async clear(): Promise<void> {
     if (this.initialized) {
       await db.mutations.clear();
-    } else if (this.isBrowser) {
+    } else {
       localStorage.removeItem('offline-mutation-queue');
     }
     this.notifyListeners();
@@ -216,15 +203,16 @@ class IndexedDBQueueManager {
   }
   
   async migrateFromLocalStorage(): Promise<number> {
-    if (!this.isBrowser || !this.initialized) return 0;
-
-    const oldQueue = this.getLocalStorageQueue();
+    const stored = localStorage.getItem('offline-mutation-queue');
+    if (!stored || !this.initialized) return 0;
+    
+    const oldQueue: QueuedMutation[] = JSON.parse(stored);
     if (oldQueue.length === 0) return 0;
     
     await db.mutations.bulkAdd(oldQueue);
     localStorage.removeItem('offline-mutation-queue');
     
-    logInfo('Migrated mutations from localStorage', { count: oldQueue.length, source: 'IndexedDBQueue' });
+    console.log(`[IndexedDBQueue] Migrated ${oldQueue.length} mutations from localStorage`);
     return oldQueue.length;
   }
 
@@ -291,6 +279,6 @@ export const indexedDBQueue = new IndexedDBQueueManager();
 export async function migrateFromOldQueue(): Promise<void> {
   const count = await indexedDBQueue.migrateFromLocalStorage();
   if (count > 0) {
-    logInfo('Migrated mutations to IndexedDB', { count, source: 'Migration' });
+    console.log(`[Migration] Migrated ${count} mutations to IndexedDB`);
   }
 }

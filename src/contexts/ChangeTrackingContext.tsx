@@ -23,11 +23,6 @@ const STORAGE_KEY = "changeTrackingSettings";
 
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
-const normalizeStyles = (styles: Partial<ChangeTrackingStyles> | null | undefined): ChangeTrackingStyles => ({
-  ...DEFAULT_STYLES,
-  ...(styles ?? {}),
-});
-
 const loadDaySettings = (date: string): DaySettings | null => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -63,7 +58,7 @@ export const ChangeTrackingProvider: React.FC<{ children: React.ReactNode }> = (
       return {
         enabled: saved.enabled,
         color: saved.color,
-        styles: normalizeStyles(saved.styles),
+        styles: saved.styles,
       };
     }
     return {
@@ -92,32 +87,28 @@ export const ChangeTrackingProvider: React.FC<{ children: React.ReactNode }> = (
   }, []);
 
   const toggleStyle = useCallback((style: keyof ChangeTrackingStyles) => {
-    setState(prev => {
-      const styles = normalizeStyles(prev.styles);
-      return {
-        ...prev,
-        styles: { ...styles, [style]: !styles[style] },
-      };
-    });
+    setState(prev => ({
+      ...prev,
+      styles: { ...prev.styles, [style]: !prev.styles[style] },
+    }));
   }, []);
 
   // Create marked span HTML
   const wrapWithMarkup = useCallback((text: string): string => {
     if (!state.enabled || !text) return text;
-    const styles = normalizeStyles(state.styles);
     
     const activeStyles: string[] = [];
     const styleStr: string[] = [];
     
-    if (styles.textColor) {
+    if (state.styles.textColor) {
       activeStyles.push("color");
       styleStr.push(`color: ${state.color}`);
     }
-    if (styles.backgroundColor) {
+    if (state.styles.backgroundColor) {
       activeStyles.push("background");
       styleStr.push(`background-color: ${state.color}33`);
     }
-    if (styles.italic) {
+    if (state.styles.italic) {
       activeStyles.push("italic");
       styleStr.push("font-style: italic");
     }

@@ -86,7 +86,7 @@ export function CriticalValueAlerts({
   React.useEffect(() => {
     if (soundEnabled && criticalCount > 0) {
       // Would integrate with audio API for actual sound
-      // Audio playback handled by browser audio API
+      console.log('Critical alert sound would play');
     }
   }, [criticalCount, soundEnabled]);
 
@@ -169,7 +169,7 @@ export function CriticalValueAlerts({
                     return severityOrder[a.severity] - severityOrder[b.severity];
                   })
                   .map((alert) => (
-                    <MemoizedAlertItem
+                    <AlertItem
                       key={alert.id}
                       alert={alert}
                       onAcknowledge={() => onAcknowledge(alert.id)}
@@ -264,8 +264,6 @@ function AlertItem({ alert, onAcknowledge, onDismiss, onNavigate }: AlertItemPro
   );
 }
 
-const MemoizedAlertItem = React.memo(AlertItem);
-
 // Floating alert badge for header/nav
 interface AlertBadgeProps {
   alerts: ClinicalAlert[];
@@ -347,7 +345,7 @@ export function AlertPanel({
               <h3 className="text-sm font-semibold mb-3">Active Alerts</h3>
               <div className="space-y-2">
                 {unacknowledged.map((alert) => (
-                  <MemoizedAlertItem
+                  <AlertItem
                     key={alert.id}
                     alert={alert}
                     onAcknowledge={() => onAcknowledge(alert.id)}

@@ -13,17 +13,9 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { useDashboard } from "@/contexts/DashboardContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { PatientFilterType } from "@/constants/config";
-import { useMediaQuery } from "@/hooks/use-media";
 import { PatientFilterType } from "@/constants/config";
 import {
   Select,
@@ -87,9 +79,6 @@ export const MobileDashboard = () => {
   const [showPhraseManager, setShowPhraseManager] = useState(false);
   const [showBatchCourse, setShowBatchCourse] = useState(false);
 
-  // Detect larger phones for split-view (375px+)
-  const isLargerPhone = useMediaQuery('(min-width: 375px)');
-
   const handlePrint = useCallback(() => {
     setShowPrintModal(true);
   }, []);
@@ -124,77 +113,8 @@ export const MobileDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Patient Detail View - Split view on larger phones, fullscreen on smaller */}
-      {selectedPatient && isLargerPhone ? (
-        <>
-          {/* Dimmed background with patient list */}
-          <div className="opacity-30 pointer-events-none">
-            {/* Tab Content - simplified header */}
-            {mobileTab === "patients" && (
-              <MobileHeader
-                title="Patient Rounding"
-                subtitle={`${filteredPatients.length} of ${patients.length} patients`}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-              />
-            )}
-          </div>
-          
-          {/* Slide-over patient detail */}
-          <Sheet open={!!selectedPatient} onOpenChange={(open) => !open && onPatientSelect(null)}>
-            <SheetContent
-              side="bottom"
-              className="h-[92vh] rounded-t-2xl p-0"
-            >
-              <div className="h-full overflow-hidden flex flex-col">
-                <SheetHeader className="px-4 py-3 border-b flex-shrink-0">
-                  <div className="flex items-center justify-between">
-                    <SheetTitle className="text-lg">{selectedPatient.name}</SheetTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onPatientSelect(null)}
-                    >
-                      Done
-                    </Button>
-                  </div>
-                </SheetHeader>
-                <div className="flex-1 overflow-y-auto">
-                  <MobilePatientDetail
-                    patient={selectedPatient}
-                    onBack={() => onPatientSelect(null)}
-                    onUpdate={onUpdatePatient}
-                    onRemove={(id) => {
-                      handleRemovePatient(id);
-                      onPatientSelect(null);
-                    }}
-                    onDuplicate={onDuplicatePatient}
-                    onPrint={handlePrint}
-                    autotexts={autotexts}
-                    globalFontSize={globalFontSize}
-                    changeTracking={changeTracking}
-                    onNext={() => {
-                      const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
-                      if (currentIndex < filteredPatients.length - 1) {
-                        onPatientSelect(filteredPatients[currentIndex + 1]);
-                      }
-                    }}
-                    onPrevious={() => {
-                      const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
-                      if (currentIndex > 0) {
-                        onPatientSelect(filteredPatients[currentIndex - 1]);
-                      }
-                    }}
-                    hasNext={filteredPatients.findIndex(p => p.id === selectedPatient.id) < filteredPatients.length - 1}
-                    hasPrevious={filteredPatients.findIndex(p => p.id === selectedPatient.id) > 0}
-                    compact
-                  />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </>
-      ) : selectedPatient ? (
+      {/* Patient Detail View */}
+      {selectedPatient ? (
         <MobilePatientDetail
           patient={selectedPatient}
           onBack={() => onPatientSelect(null)}

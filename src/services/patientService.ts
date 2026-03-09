@@ -36,7 +36,7 @@ export const mapPatientRecord = (record: {
   field_timestamps: Json | null;
   collapsed: boolean;
   created_at: string;
-  last_modified: string;
+  last_modified: string | null;
 }): Patient => ({
   id: record.id,
   patientNumber: record.patient_number,
@@ -51,7 +51,7 @@ export const mapPatientRecord = (record: {
   fieldTimestamps: parseFieldTimestampsJson(record.field_timestamps),
   collapsed: record.collapsed,
   createdAt: record.created_at,
-  lastModified: record.last_modified || "",
+  lastModified: record.last_modified,
 });
 
 export const buildPatientInsertPayload = (input: {

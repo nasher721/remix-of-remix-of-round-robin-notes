@@ -1,21 +1,9 @@
 import React, { createContext, useContext, ReactNode } from "react";
-import { Patient, PatientSystems, PatientMedications } from "@/types/patient";
+import { Patient } from "@/types/patient";
 import { AutoText, Template } from "@/types/autotext";
 import { MobileTab } from "@/components/layout";
 import { PatientTodo } from "@/types/todo";
 import { PatientFilterType } from "@/constants/config";
-
-/**
- * DashboardContext - Legacy composite context
- *
- * DEPRECATION NOTICE:
- * New code should use the focused contexts instead:
- * - usePatientData() for patient CRUD operations
- * - useFilters() for search/filter/sort state
- * - useUI() for UI state (selections, modals, panels)
- *
- * This context is maintained for backward compatibility.
- */
 
 interface DashboardContextType {
     // Data
@@ -39,31 +27,14 @@ interface DashboardContextType {
 
     // Actions
     onAddPatient: () => void;
-    onAddPatientWithData: (data: {
-        name: string;
-        bed: string;
-        clinicalSummary: string;
-        intervalEvents: string;
-        imaging: string;
-        labs: string;
-        systems: PatientSystems;
-        medications?: PatientMedications;
-    }) => Promise<void>;
+    onAddPatientWithData: (data: Partial<Patient>) => Promise<void>;
     onUpdatePatient: (id: string, field: string, value: unknown) => void;
     onRemovePatient: (id: string) => void;
     onDuplicatePatient: (id: string) => void;
     onToggleCollapse: (id: string) => void;
     onCollapseAll: () => void;
     onClearAll: () => void;
-    onImportPatients: (patients: Array<{
-        name: string;
-        bed: string;
-        clinicalSummary: string;
-        intervalEvents: string;
-        systems?: PatientSystems;
-        medications?: PatientMedications;
-    }>) => Promise<void>;
-    onReorderPatients: (activeId: string, overId: string) => void;
+    onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
 
     // Autotext Actions
     onAddAutotext: (shortcut: string, expansion: string, category: string) => Promise<boolean>;

@@ -1,5 +1,4 @@
 import * as React from "react";
-import { arrayMove } from "@dnd-kit/sortable";
 import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
 import { useAuth } from "../useAuth";
 import { useNotifications } from "../use-notifications";
@@ -10,7 +9,6 @@ import {
     mapPatientRecord,
     shouldTrackTimestamp,
 } from "@/services/patientService";
-import { logError } from "@/lib/observability/logger";
 
 export interface PatientMutationsDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
@@ -34,13 +32,7 @@ export function usePatientMutations({
     const notifications = useNotifications();
 
     const addPatient = React.useCallback(async () => {
-        if (!user) {
-            notifications.error({
-                title: "Authentication Required",
-                description: "Please sign in to add patients.",
-            });
-            return;
-        }
+        if (!user) return;
         if (!hasSupabaseConfig) {
             notifications.error({
                 title: "Configuration Error",
@@ -71,7 +63,7 @@ export function usePatientMutations({
                 description: "New patient card created.",
             });
         } catch (error) {
-            logError('Error adding patient', { error, source: 'usePatientMutations' });
+            console.error("Error adding patient:", error);
             notifications.error({
                 title: "Error",
                 description: "Failed to add patient.",
@@ -173,7 +165,7 @@ export function usePatientMutations({
                 })();
             }
         } catch (error) {
-            logError('Error updating patient', { error, source: 'usePatientMutations' });
+            console.error("Error updating patient:", error);
             fetchPatients(); // Revert on error
         }
     }, [user, fetchPatients, notifications, patientsRef, setPatients]);
@@ -203,7 +195,7 @@ export function usePatientMutations({
                 description: "Patient has been removed.",
             });
         } catch (error) {
-            logError('Error removing patient', { error, source: 'usePatientMutations' });
+            console.error("Error removing patient:", error);
             notifications.error({
                 title: "Error",
                 description: "Failed to remove patient.",
@@ -254,7 +246,7 @@ export function usePatientMutations({
                 description: "Patient card has been duplicated.",
             });
         } catch (error) {
-            logError('Error duplicating patient', { error, source: 'usePatientMutations' });
+            console.error("Error duplicating patient:", error);
             notifications.error({
                 title: "Error",
                 description: "Failed to duplicate patient.",
@@ -293,55 +285,10 @@ export function usePatientMutations({
 
             if (error) throw error;
         } catch (error) {
-            logError('Error collapsing all patients', { error, source: 'usePatientMutations' });
+            console.error("Error collapsing all patients:", error);
             fetchPatients();
         }
     }, [user, fetchPatients, notifications, patientsRef, setPatients]);
-
-    const reorderPatients = React.useCallback(async (activeId: string, overId: string) => {
-        if (!user) return;
-
-        const currentPatients = [...patientsRef.current];
-        const oldIndex = currentPatients.findIndex((p) => p.id === activeId);
-        const newIndex = currentPatients.findIndex((p) => p.id === overId);
-
-        if (oldIndex === -1 || newIndex === -1) return;
-
-        const newPatients = arrayMove(currentPatients, oldIndex, newIndex);
-
-        // Update local state immediately
-        setPatients(newPatients);
-        // Update ref to avoid stale updates
-        patientsRef.current = newPatients;
-
-        if (!hasSupabaseConfig) return;
-
-        try {
-            // Persist the new order to Supabase using patient_number
-            const { error } = await supabase
-                .from("patients")
-                .upsert(newPatients.map((p, index) => ({
-                    id: p.id,
-                    user_id: user.id,
-                    patient_number: index + 1,
-                    name: p.name,
-                    bed: p.bed,
-                    clinical_summary: p.clinicalSummary,
-                    interval_events: p.intervalEvents,
-                    imaging: p.imaging,
-                    labs: p.labs,
-                    systems: p.systems as any,
-                    medications: p.medications as any,
-                    field_timestamps: p.fieldTimestamps as any,
-                    collapsed: p.collapsed,
-                })));
-
-            if (error) throw error;
-        } catch (error) {
-            logError('Error reordering patients', { error, source: 'usePatientMutations' });
-            fetchPatients(); // Revert on error
-        }
-    }, [user, patientsRef, setPatients, fetchPatients]);
 
     const clearAll = React.useCallback(async () => {
         if (!user) return;
@@ -369,7 +316,7 @@ export function usePatientMutations({
                 description: "All patient data has been removed.",
             });
         } catch (error) {
-            logError('Error clearing patients', { error, source: 'usePatientMutations' });
+            console.error("Error clearing patients:", error);
             notifications.error({
                 title: "Error",
                 description: "Failed to clear patients.",
@@ -385,6 +332,5 @@ export function usePatientMutations({
         toggleCollapse,
         collapseAll,
         clearAll,
-        reorderPatients,
     };
 }

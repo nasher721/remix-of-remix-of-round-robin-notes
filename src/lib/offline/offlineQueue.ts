@@ -1,7 +1,6 @@
 // Offline mutation queue with persistence
-import { logInfo, logError, logWarn } from '@/lib/observability/logger';
-
 export interface QueuedMutation {
+  id: string;
   type: 'patient' | 'autotext' | 'phrase' | 'todo' | 'template' | 'dictionary';
   operation: 'create' | 'update' | 'delete';
   table: string;
@@ -37,10 +36,10 @@ class OfflineQueueManager {
       const stored = localStorage.getItem(QUEUE_STORAGE_KEY);
       if (stored) {
         this.queue = JSON.parse(stored);
-        logInfo('Loaded pending mutations', { count: this.queue.length, source: 'OfflineQueue' });
+        console.log(`[OfflineQueue] Loaded ${this.queue.length} pending mutations`);
       }
     } catch (error) {
-      logError('Failed to load queue', { error, source: 'OfflineQueue' });
+      console.error('[OfflineQueue] Failed to load queue:', error);
       this.queue = [];
     }
   }
@@ -49,18 +48,18 @@ class OfflineQueueManager {
     try {
       localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(this.queue));
     } catch (error) {
-      logError('Failed to save queue', { error, source: 'OfflineQueue' });
+      console.error('[OfflineQueue] Failed to save queue:', error);
     }
   }
   
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
-      logInfo('Connection restored, syncing', { source: 'OfflineQueue' });
+      console.log('[OfflineQueue] Connection restored, syncing...');
       this.notifyListeners();
     });
     
     window.addEventListener('offline', () => {
-      logInfo('Connection lost, queuing mutations', { source: 'OfflineQueue' });
+      console.log('[OfflineQueue] Connection lost, queuing mutations...');
       this.notifyListeners();
     });
   }
@@ -114,7 +113,7 @@ class OfflineQueueManager {
     this.saveToStorage();
     this.notifyListeners();
     
-    logInfo('Queued mutation', { type: mutation.type, operation: mutation.operation, source: 'OfflineQueue' });
+    console.log(`[OfflineQueue] Queued mutation: ${mutation.type}/${mutation.operation}`);
     return id;
   }
   
@@ -136,7 +135,7 @@ class OfflineQueueManager {
       
       if (mutation.retryCount >= mutation.maxRetries) {
         // Move to dead letter queue or remove
-        logWarn('Mutation exceeded max retries, removing', { mutationId, source: 'OfflineQueue' });
+        console.warn(`[OfflineQueue] Mutation ${mutationId} exceeded max retries, removing`);
         this.dequeue(mutationId);
         return false;
       }

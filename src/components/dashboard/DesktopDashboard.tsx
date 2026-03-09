@@ -5,7 +5,7 @@ import { scaleIn, transitions } from "@/lib/animations";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
-import { SortablePatientList } from "./SortablePatientList";
+import { VirtualizedPatientList } from "./VirtualizedPatientList";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
@@ -30,14 +30,12 @@ import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
 import { LiveRegion } from "@/components/LiveRegion";
-import { MobileAddPanel } from "@/components/mobile/MobileAddPanel";
 import { AICommandPalette, useAICommandPalette } from "@/components/tools/AICommandPalette";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
   Plus,
   Printer,
@@ -56,7 +54,6 @@ import {
   BookOpen,
   Wrench,
   SlidersHorizontal,
-  MapPin,
 } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import {
@@ -69,7 +66,7 @@ import {
 import { PatientFilterType } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
-type UtilityPanel = "resources" | "tools" | "settings" | "add" | null;
+type UtilityPanel = "resources" | "tools" | "settings" | null;
 
 export const DesktopDashboard = () => {
   const {
@@ -84,20 +81,19 @@ export const DesktopDashboard = () => {
     templates,
     customDictionary,
     todosMap,
-    lastSaved,
     onAddPatient,
     onAddPatientWithData,
     onUpdatePatient,
     onCollapseAll,
     onClearAll,
     onImportPatients,
-    onReorderPatients,
     onAddAutotext,
     onRemoveAutotext,
     onAddTemplate,
     onRemoveTemplate,
     onImportDictionary,
     onSignOut,
+    lastSaved,
   } = useDashboard();
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
@@ -109,33 +105,12 @@ export const DesktopDashboard = () => {
   const [utilityPanel, setUtilityPanel] = React.useState<UtilityPanel>(null);
   const { isOpen: isAICommandPaletteOpen, setIsOpen: setAICommandPaletteOpen } = useAICommandPalette();
   const searchInputRef = React.useRef<HTMLInputElement>(null);
-  const [selectedPatientIndex, setSelectedPatientIndex] = React.useState<number>(-1);
-
-  const navigateToNextPatient = React.useCallback(() => {
-    const nextIndex = Math.min(selectedPatientIndex + 1, filteredPatients.length - 1);
-    if (nextIndex !== selectedPatientIndex && nextIndex >= 0) {
-      setSelectedPatientIndex(nextIndex);
-      const patientElement = document.querySelector(`[data-patient-id="${filteredPatients[nextIndex].id}"]`);
-      patientElement?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [selectedPatientIndex, filteredPatients]);
-
-  const navigateToPrevPatient = React.useCallback(() => {
-    const prevIndex = Math.max(selectedPatientIndex - 1, 0);
-    if (prevIndex !== selectedPatientIndex) {
-      setSelectedPatientIndex(prevIndex);
-      const patientElement = document.querySelector(`[data-patient-id="${filteredPatients[prevIndex].id}"]`);
-      patientElement?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [selectedPatientIndex, filteredPatients]);
 
   useKeyboardShortcuts({
     onAddPatient,
     onSearch: () => searchInputRef.current?.focus(),
     onCollapseAll,
     onPrint: () => setShowPrintModal(true),
-    onNextPatient: navigateToNextPatient,
-    onPrevPatient: navigateToPrevPatient,
   });
 
   const handleExport = React.useCallback(() => {
@@ -171,6 +146,29 @@ export const DesktopDashboard = () => {
   }, [filter]);
 
   const shouldReduceMotion = useReducedMotion();
+  const utilityPanelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!utilityPanelRef.current?.contains(event.target as Node)) {
+        setUtilityPanel(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setUtilityPanel(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   const todayLabel = React.useMemo(
     () => new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
@@ -230,7 +228,7 @@ export const DesktopDashboard = () => {
       </motion.header>
 
       <div className="container mx-auto px-fluid-md lg:px-fluid-lg pt-4 pb-3 no-print">
-        <div className="relative rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
+        <div ref={utilityPanelRef} className="relative rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
               variant="ghost"
@@ -264,162 +262,105 @@ export const DesktopDashboard = () => {
             </Button>
             <div className="ml-auto flex items-center gap-1.5">
               <Button
-                onClick={() => setUtilityPanel((current) => current === "add" ? null : "add")}
+                onClick={onAddPatient}
                 size="sm"
-                className={`gap-2 h-8 rounded-lg shadow-sm text-xs font-medium transition-all duration-200 ${utilityPanel === "add" ? "bg-primary/90 border border-primary/20 text-primary-foreground" : "bg-primary text-primary-foreground hover:bg-primary/90"}`}
+                className="gap-2 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs font-medium"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Patient
-                <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "add" ? "rotate-180" : ""}`} />
               </Button>
             </div>
           </div>
 
-          {/* Resources Sheet */}
-          <Sheet open={utilityPanel === "resources"} onOpenChange={(open) => !open && setUtilityPanel(null)}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] sm:max-w-[540px] overflow-y-auto">
-              <SheetHeader className="pb-4">
-                <SheetTitle className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" /> Resources
-                </SheetTitle>
-                <SheetDescription>
-                  Clinical references and guidelines
-                </SheetDescription>
-              </SheetHeader>
-              <Tabs defaultValue="ibcc" className="w-full">
-                <TabsList className="mb-3">
-                  <TabsTrigger value="ibcc">IBCC</TabsTrigger>
-                  <TabsTrigger value="guidelines">Guidelines</TabsTrigger>
-                </TabsList>
-                <TabsContent value="ibcc" className="m-0">
-                  <div className="h-72 overflow-hidden rounded-md border border-border/30">
-                    <IBCCPanel />
-                  </div>
-                </TabsContent>
-                <TabsContent value="guidelines" className="m-0">
-                  <div className="h-72 overflow-hidden rounded-md border border-border/30">
-                    <GuidelinesPanel />
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </SheetContent>
-          </Sheet>
-
-          {/* Tools Sheet */}
-          <Sheet open={utilityPanel === "tools"} onOpenChange={(open) => !open && setUtilityPanel(null)}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] sm:max-w-[540px] overflow-y-auto">
-              <SheetHeader className="pb-4">
-                <SheetTitle className="flex items-center gap-2">
-                  <Wrench className="h-4 w-4" /> Tools
-                </SheetTitle>
-                <SheetDescription>
-                  Import, AI, and analytics tools
-                </SheetDescription>
-              </SheetHeader>
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
-                  <SmartPatientImport onImportPatient={onAddPatientWithData} />
-                  <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
-                  <Button onClick={() => setAICommandPaletteOpen(true)} className="w-full justify-start gap-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-600 dark:text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20 border border-purple-500/20">
-                    <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
-                  </Button>
-                  <TimelineDialog />
-                  <ClinicalRiskCalculator />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
-                  <UnitCensusDashboard patients={patients} />
-                  <LabTrendingPanel patients={patients} />
-                  <ContextAwareHelp />
-                  <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          {/* Settings Sheet */}
-          <Sheet open={utilityPanel === "settings"} onOpenChange={(open) => !open && setUtilityPanel(null)}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] sm:max-w-[540px] overflow-y-auto">
-              <SheetHeader className="pb-4">
-                <SheetTitle className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4" /> Settings
-                </SheetTitle>
-                <SheetDescription>
-                  Customize your workflow
-                </SheetDescription>
-              </SheetHeader>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div className="rounded-md border border-border/40 p-3 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Display</p>
-                  <Button
-                    variant={todosAlwaysVisible ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setTodosAlwaysVisible((prev) => !prev)}
-                    className="w-full gap-1.5"
-                  >
-                    <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible
-                  </Button>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Font size</span>
-                      <span>{globalFontSize}%</span>
+          {utilityPanel && (
+            <div className="mt-3 rounded-lg border border-border/40 bg-background p-3 shadow-xl">
+              {utilityPanel === "resources" && (
+                <Tabs defaultValue="ibcc" className="w-full">
+                  <TabsList className="mb-3">
+                    <TabsTrigger value="ibcc">IBCC</TabsTrigger>
+                    <TabsTrigger value="guidelines">Guidelines</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="ibcc" className="m-0">
+                    <div className="h-72 overflow-hidden rounded-md border border-border/30">
+                      <IBCCPanel />
                     </div>
-                    <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
+                  </TabsContent>
+                  <TabsContent value="guidelines" className="m-0">
+                    <div className="h-72 overflow-hidden rounded-md border border-border/30">
+                      <GuidelinesPanel />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              )}
+
+              {utilityPanel === "tools" && (
+                <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
+                    <SmartPatientImport onImportPatient={onAddPatientWithData} />
+                    <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
+                    <Button onClick={() => setAICommandPaletteOpen(true)} className="w-full justify-start gap-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-600 dark:text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20 border border-purple-500/20">
+                      <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
+                    </Button>
+                    <TimelineDialog />
+                    <ClinicalRiskCalculator />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
+                    <UnitCensusDashboard patients={patients} />
+                    <LabTrendingPanel patients={patients} />
+                    <ContextAwareHelp />
+                    <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
                   </div>
                 </div>
-                <div className="rounded-md border border-border/40 p-3 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Workflow</p>
-                  <DesktopSpecialtySelector />
-                  <DesktopAIModelSettingsDialog />
-                  <ChangeTrackingControls />
-                </div>
-                <div className="rounded-md border border-border/40 p-3 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground">Authoring</p>
-                  <AutotextManager
-                    autotexts={autotexts}
-                    templates={templates}
-                    customDictionary={customDictionary}
-                    onAddAutotext={onAddAutotext}
-                    onRemoveAutotext={onRemoveAutotext}
-                    onAddTemplate={onAddTemplate}
-                    onRemoveTemplate={onRemoveTemplate}
-                    onImportDictionary={onImportDictionary}
-                  />
-                  <Button onClick={() => setShowPhraseManager(true)} variant="outline" size="sm" className="w-full gap-1.5">
-                    <FileText className="h-3.5 w-3.5" /> Manage Phrases
-                  </Button>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+              )}
 
-          {/* Add Patient Sheet */}
-          <Sheet open={utilityPanel === "add"} onOpenChange={(open) => !open && setUtilityPanel(null)}>
-            <SheetContent side="right" className="w-[400px] sm:w-[540px] sm:max-w-[540px] overflow-y-auto">
-              <SheetHeader className="pb-4">
-                <SheetTitle className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" /> Add Patient
-                </SheetTitle>
-                <SheetDescription>
-                  Create a new patient or import existing data
-                </SheetDescription>
-              </SheetHeader>
-              <div className="mt-4">
-                <MobileAddPanel
-                  onAddPatient={() => {
-                    onAddPatient();
-                    setUtilityPanel(null);
-                  }}
-                  onOpenImport={() => setUtilityPanel("tools")}
-                  onSmartImport={async (patientData) => {
-                    await onAddPatientWithData(patientData);
-                    setUtilityPanel(null);
-                  }}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
+              {utilityPanel === "settings" && (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="rounded-md border border-border/40 p-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Display</p>
+                    <Button
+                      variant={todosAlwaysVisible ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTodosAlwaysVisible((prev) => !prev)}
+                      className="w-full gap-1.5"
+                    >
+                      <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible
+                    </Button>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Font size</span>
+                        <span>{globalFontSize}%</span>
+                      </div>
+                      <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-border/40 p-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Workflow</p>
+                    <DesktopSpecialtySelector />
+                    <DesktopAIModelSettingsDialog />
+                    <ChangeTrackingControls />
+                  </div>
+                  <div className="rounded-md border border-border/40 p-3 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Authoring</p>
+                    <AutotextManager
+                      autotexts={autotexts}
+                      templates={templates}
+                      customDictionary={customDictionary}
+                      onAddAutotext={onAddAutotext}
+                      onRemoveAutotext={onRemoveAutotext}
+                      onAddTemplate={onAddTemplate}
+                      onRemoveTemplate={onRemoveTemplate}
+                      onImportDictionary={onImportDictionary}
+                    />
+                    <Button onClick={() => setShowPhraseManager(true)} variant="outline" size="sm" className="w-full gap-1.5">
+                      <FileText className="h-3.5 w-3.5" /> Manage Phrases
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -467,146 +408,127 @@ export const DesktopDashboard = () => {
                         <SelectItem value="name">Name</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button onClick={() => setShowComparisonModal(true)} variant="ghost" size="sm" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
+                    <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline text-xs">Compare</span>
+                  </Button>
+                  <Button onClick={() => setShowPrintModal(true)} variant="ghost" size="sm" aria-label="Open print and export" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
+                    <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                    <span className="hidden sm:inline text-xs" aria-hidden="true">Print / Export</span>
+                  </Button>
+                  <SectionVisibilityPanel />
+                  {patients.length > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        const sortedPatients = [...filteredPatients].sort((a, b) => {
-                          const roomA = a.bed || '';
-                          const roomB = b.bed || '';
-                          return roomA.localeCompare(roomB, undefined, { numeric: true });
-                        });
-                        sortedPatients.forEach((patient, index) => {
-                          onUpdatePatient(patient.id, 'patientNumber', index + 1);
-                        });
-                      }}
-                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                      title="Optimize rounding order by room number"
+                      onClick={onCollapseAll}
+                      className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
+                      title={patients.every((p) => p.collapsed) ? "Expand All" : "Collapse All"}
                     >
-                      <MapPin className="h-3.5 w-3.5 mr-1" />
-                      Optimize
+                      <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="hidden xl:inline text-xs">{patients.every((p) => p.collapsed) ? "Expand All" : "Collapse All"}</span>
                     </Button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button onClick={() => setShowComparisonModal(true)} variant="ghost" size="sm" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                      <Users className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span className="hidden sm:inline text-xs">Compare</span>
-                    </Button>
-                    <Button onClick={() => setShowPrintModal(true)} variant="ghost" size="sm" aria-label="Open print and export" className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10">
-                      <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span className="hidden sm:inline text-xs" aria-hidden="true">Print / Export</span>
-                    </Button>
-                    <SectionVisibilityPanel />
-                    {patients.length > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={onCollapseAll}
-                        className="gap-1.5 h-8 text-card-foreground/60 hover:text-card-foreground hover:bg-white/10"
-                        title={patients.every((p) => p.collapsed) ? "Expand All" : "Collapse All"}
-                      >
-                        <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span className="hidden xl:inline text-xs">{patients.every((p) => p.collapsed) ? "Expand All" : "Collapse All"}</span>
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted-foreground/70 pb-3 border-b border-border/20">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
-                      <Users className="h-3 w-3" aria-hidden="true" />
-                      {filteredPatients.length} of {patients.length} patients
-                    </Badge>
-                    {searchQuery && (
-                      <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5 bg-primary/5 text-primary border-primary/20">
-                        Searching &ldquo;{searchQuery}&rdquo;
-                      </Badge>
-                    )}
-                    <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5">{filterLabel}</Badge>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" aria-hidden="true" />
-                    <span>Synced {lastSaved.toLocaleTimeString()}</span>
-                  </div>
-                  <LiveRegion
-                    message={
-                      searchQuery
-                        ? `Search results: ${filteredPatients.length} patient${filteredPatients.length === 1 ? "" : "s"} found.`
-                        : `Showing ${filterLabel.toLowerCase()}: ${filteredPatients.length} patient${filteredPatients.length === 1 ? "" : "s"}.`
-                    }
-                    politeness="polite"
-                  />
+                  )}
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 px-fluid-md py-fluid-sm">
-                {filteredPatients.length === 0 ? (
-                  <motion.div
-                    className="flex flex-col items-center justify-center py-20 text-center"
-                    variants={shouldReduceMotion ? undefined : scaleIn}
-                    initial="hidden"
-                    animate="visible"
-                    transition={{ ...transitions.spring, delay: 0.15 }}
-                  >
-                    <div className="mb-8 relative">
-                      <div className="absolute inset-0 bg-primary/8 blur-3xl rounded-full scale-150" />
-                      <div className="relative bg-gradient-to-br from-card to-secondary/30 rounded-3xl p-8 border border-border/30 shadow-sm">
-                        <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-50" />
-                      </div>
-                    </div>
-                    <h3 className="text-2xl font-semibold mb-2 text-foreground tracking-tight">
-                      {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
-                    </h3>
-                    <p className="text-muted-foreground text-sm mb-8 max-w-xs leading-relaxed">
-                      {patients.length === 0
-                        ? "Add your first patient to begin documenting rounds with your team."
-                        : "Try adjusting your search or filter criteria."}
-                    </p>
-                    {patients.length === 0 && (
-                      <Button onClick={onAddPatient} size="lg" className="gap-2.5 rounded-2xl shadow-md hover:shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 px-6">
-                        <Plus className="h-4 w-4" />
-                        Add First Patient
-                      </Button>
-                    )}
-                  </motion.div>
-                ) : (
-                  <SortablePatientList />
-                )}
-              </ScrollArea>
+              <div className="flex items-center justify-between mt-2.5 text-[11px] text-muted-foreground/70 pb-3 border-b border-border/20">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="gap-1.5 font-medium text-[11px] px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40">
+                    <Users className="h-3 w-3" aria-hidden="true" />
+                    {filteredPatients.length} of {patients.length} patients
+                  </Badge>
+                  {searchQuery && (
+                    <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5 bg-primary/5 text-primary border-primary/20">
+                      Searching &ldquo;{searchQuery}&rdquo;
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="font-medium text-[11px] px-2 py-0.5">{filterLabel}</Badge>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" aria-hidden="true" />
+                  <span>Synced {lastSaved.toLocaleTimeString()}</span>
+                </div>
+                <LiveRegion
+                  message={
+                    searchQuery
+                      ? `Search results: ${filteredPatients.length} patient${filteredPatients.length === 1 ? "" : "s"} found.`
+                      : `Showing ${filterLabel.toLowerCase()}: ${filteredPatients.length} patient${filteredPatients.length === 1 ? "" : "s"}.`
+                  }
+                  politeness="polite"
+                />
+              </div>
             </div>
+
+            <ScrollArea className="flex-1 px-fluid-md py-fluid-sm">
+              {filteredPatients.length === 0 ? (
+                <motion.div
+                  className="flex flex-col items-center justify-center py-20 text-center"
+                  variants={shouldReduceMotion ? undefined : scaleIn}
+                  initial="hidden"
+                  animate="visible"
+                  transition={{ ...transitions.spring, delay: 0.15 }}
+                >
+                  <div className="mb-8 relative">
+                    <div className="absolute inset-0 bg-primary/8 blur-3xl rounded-full scale-150" />
+                    <div className="relative bg-gradient-to-br from-card to-secondary/30 rounded-3xl p-8 border border-border/30 shadow-sm">
+                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-50" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-semibold mb-2 text-foreground tracking-tight">
+                    {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
+                  </h3>
+                  <p className="text-muted-foreground text-sm mb-8 max-w-xs leading-relaxed">
+                    {patients.length === 0
+                      ? "Add your first patient to begin documenting rounds with your team."
+                      : "Try adjusting your search or filter criteria."}
+                  </p>
+                  {patients.length === 0 && (
+                    <Button onClick={onAddPatient} size="lg" className="gap-2.5 rounded-2xl shadow-md hover:shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 px-6">
+                      <Plus className="h-4 w-4" />
+                      Add First Patient
+                    </Button>
+                  )}
+                </motion.div>
+              ) : (
+                <VirtualizedPatientList />
+              )}
+            </ScrollArea>
           </div>
         </div>
-
-        <Button
-          onClick={() => setAICommandPaletteOpen(true)}
-          className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 transition-all duration-200 border border-white/20 p-3"
-          aria-label="Open AI tools"
-          style={{ height: "3.25rem", width: "3.25rem" }}
-        >
-          <Sparkles className="h-5 w-5 drop-shadow" />
-        </Button>
-
-        <PrintExportModal
-          open={showPrintModal}
-          onOpenChange={setShowPrintModal}
-          patients={filteredPatients}
-          patientTodos={todosMap}
-          onUpdatePatient={onUpdatePatient}
-        />
-
-        <MultiPatientComparison
-          open={showComparisonModal}
-          onOpenChange={setShowComparisonModal}
-          patients={filteredPatients}
-          todosMap={todosMap}
-        />
-
-        <PhraseManager open={showPhraseManager} onOpenChange={setShowPhraseManager} />
-
-        <AICommandPalette open={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
       </div>
+
+      <Button
+        onClick={() => setAICommandPaletteOpen(true)}
+        className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 transition-all duration-200 border border-white/20 p-3"
+        aria-label="Open AI tools"
+        style={{ height: "3.25rem", width: "3.25rem" }}
+      >
+        <Sparkles className="h-5 w-5 drop-shadow" />
+      </Button>
+
+      <PrintExportModal
+        open={showPrintModal}
+        onOpenChange={setShowPrintModal}
+        patients={filteredPatients}
+        patientTodos={todosMap}
+        onUpdatePatient={onUpdatePatient}
+      />
+
+      <MultiPatientComparison
+        open={showComparisonModal}
+        onOpenChange={setShowComparisonModal}
+        patients={filteredPatients}
+        todosMap={todosMap}
+      />
+
+      <PhraseManager open={showPhraseManager} onOpenChange={setShowPhraseManager} />
+
+      <AICommandPalette isOpen={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
     </div>
   );
 };

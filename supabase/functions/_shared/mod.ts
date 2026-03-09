@@ -7,15 +7,15 @@ export {
 
 export {
   getCorsHeaders,
-  corsHeaders,
   handleOptions,
   jsonResponse,
-  successResponse,
   errorResponse,
-  forbiddenResponse,
   STANDARD_HEADERS,
-  EXPOSED_HEADERS,
 } from './cors.ts';
+
+export { getCorsHeaders as corsHeaders } from './cors.ts';
+export { errorResponse as createErrorResponse } from './cors.ts';
+export { handleOptions as createCorsResponse } from './cors.ts';
 
 export {
   MissingAPIKeyError,
@@ -73,51 +73,3 @@ export {
   MAX_MEDIA_PAYLOAD_BYTES,
   type ValidationResult,
 } from './input-validation.ts';
-
-// Backward-compatible aliases (deprecated, use direct exports)
-/** @deprecated Use handleOptions directly */
-export { handleOptions as createCorsResponse } from './cors.ts';
-
-// Backward-compatible createErrorResponse uses cors.ts errorResponse signature: (req, message, status)
-export { errorResponse as createErrorResponse } from './cors.ts';
-
-export {
-  createSuccessResponse,
-  createErrorResponse as createStandardErrorResponse,
-  createValidationErrorResponse,
-  createNotFoundResponse,
-  createUnauthorizedResponse,
-  createRateLimitResponse,
-  parseBody,
-  createPaginationInfo,
-  generateRequestId,
-  getApiVersion,
-  isApiError,
-  isApiSuccess,
-  type ApiResponse,
-  type ApiError,
-  type ApiMetadata,
-  type PaginationInfo,
-  type ErrorCode,
-} from './api-response.ts';
-
-export {
-  validateString,
-  validateEnum,
-  validateBoolean,
-  validateNumber,
-  validateObject,
-  validateArray,
-  validateOptional,
-  validateSchema,
-  formatValidationErrors,
-  ClinicalContextSchema,
-  AIClinicalAssistantSchema,
-  TranscriptionRequestSchema,
-  AI_FEATURES,
-  type AIFeature,
-  type ValidationError,
-  type SchemaValidationResult,
-  type ObjectSchema,
-  type Validator,
-} from './validation.ts';

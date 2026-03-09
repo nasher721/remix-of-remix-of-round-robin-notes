@@ -60,7 +60,7 @@ export function ContextAwareHelp() {
             <PopoverContent className="w-80 mr-6 mb-2" align="end" side="top">
                 <div className="flex items-center justify-between border-b pb-2 mb-2">
                     <h4 className="font-semibold leading-none">{currentHelp.title}</h4>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)} aria-label="Close help">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
                         <X className="h-4 w-4" />
                     </Button>
                 </div>

@@ -16,8 +16,6 @@ const CACHE_TTL = {
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/icon-192.png',
   '/favicon.ico',
   '/placeholder.svg',
 ];
@@ -60,16 +58,16 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames
           .filter((name) => {
-            return name.startsWith('static-') ||
-              name.startsWith('dynamic-') ||
-              name.startsWith('api-') ||
-              name.startsWith('images-');
+            return name.startsWith('static-') || 
+                   name.startsWith('dynamic-') || 
+                   name.startsWith('api-') ||
+                   name.startsWith('images-');
           })
           .filter((name) => {
-            return name !== STATIC_CACHE &&
-              name !== DYNAMIC_CACHE &&
-              name !== API_CACHE &&
-              name !== IMAGE_CACHE;
+            return name !== STATIC_CACHE && 
+                   name !== DYNAMIC_CACHE && 
+                   name !== API_CACHE &&
+                   name !== IMAGE_CACHE;
           })
           .map((name) => {
             console.log('[SW] Deleting old cache:', name);
@@ -110,14 +108,14 @@ self.addEventListener('fetch', (event) => {
 // Check if request is an API call
 function isApiRequest(url) {
   return CACHEABLE_API_PATTERNS.some(pattern => pattern.test(url.pathname)) ||
-    url.pathname.includes('/rest/v1/') ||
-    url.pathname.includes('/functions/v1/');
+         url.pathname.includes('/rest/v1/') ||
+         url.pathname.includes('/functions/v1/');
 }
 
 // Check if request is for an image
 function isImageRequest(url) {
   return /\.(png|jpg|jpeg|gif|svg|webp|ico)$/i.test(url.pathname) ||
-    url.pathname.includes('/storage/v1/');
+         url.pathname.includes('/storage/v1/');
 }
 
 // Check if request is for a static asset
@@ -128,40 +126,40 @@ function isStaticAsset(url) {
 // Network First with Cache Fallback (for API requests)
 async function networkFirstWithCache(request, cacheName, ttl) {
   const startTime = performance.now();
-
+  
   try {
     performanceMetrics.networkRequests++;
     const networkResponse = await fetch(request);
-
+    
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
       const responseToCache = networkResponse.clone();
-
+      
       // Add timestamp header for TTL checking
       const headers = new Headers(responseToCache.headers);
       headers.set('sw-cache-time', Date.now().toString());
-
+      
       const responseWithTime = new Response(await responseToCache.blob(), {
         status: responseToCache.status,
         statusText: responseToCache.statusText,
         headers: headers,
       });
-
+      
       cache.put(request, responseWithTime);
     }
-
+    
     return networkResponse;
   } catch (error) {
     console.log('[SW] Network failed, trying cache:', request.url);
     performanceMetrics.cacheMisses++;
-
+    
     const cachedResponse = await getCachedResponse(request, cacheName, ttl);
     if (cachedResponse) {
       performanceMetrics.cacheHits++;
       performanceMetrics.cacheRetrievalTime.push(performance.now() - startTime);
       return cachedResponse;
     }
-
+    
     throw error;
   }
 }
@@ -169,36 +167,36 @@ async function networkFirstWithCache(request, cacheName, ttl) {
 // Cache First with Network Fallback (for static assets/images)
 async function cacheFirstWithNetwork(request, cacheName, ttl) {
   const startTime = performance.now();
-
+  
   const cachedResponse = await getCachedResponse(request, cacheName, ttl);
   if (cachedResponse) {
     performanceMetrics.cacheHits++;
     performanceMetrics.cacheRetrievalTime.push(performance.now() - startTime);
     return cachedResponse;
   }
-
+  
   performanceMetrics.cacheMisses++;
   performanceMetrics.networkRequests++;
-
+  
   try {
     const networkResponse = await fetch(request);
-
+    
     if (networkResponse.ok) {
       const cache = await caches.open(cacheName);
       const responseToCache = networkResponse.clone();
-
+      
       const headers = new Headers(responseToCache.headers);
       headers.set('sw-cache-time', Date.now().toString());
-
+      
       const responseWithTime = new Response(await responseToCache.blob(), {
         status: responseToCache.status,
         statusText: responseToCache.statusText,
         headers: headers,
       });
-
+      
       cache.put(request, responseWithTime);
     }
-
+    
     return networkResponse;
   } catch (error) {
     console.log('[SW] Network failed for:', request.url);
@@ -211,13 +209,13 @@ async function staleWhileRevalidate(request, cacheName) {
   const startTime = performance.now();
   const cache = await caches.open(cacheName);
   const cachedResponse = await cache.match(request);
-
+  
   const fetchPromise = fetch(request).then((networkResponse) => {
     if (networkResponse.ok) {
       const responseToCache = networkResponse.clone();
       const headers = new Headers(responseToCache.headers);
       headers.set('sw-cache-time', Date.now().toString());
-
+      
       responseToCache.blob().then((blob) => {
         const responseWithTime = new Response(blob, {
           status: responseToCache.status,
@@ -229,13 +227,13 @@ async function staleWhileRevalidate(request, cacheName) {
     }
     return networkResponse;
   }).catch(() => cachedResponse);
-
+  
   if (cachedResponse) {
     performanceMetrics.cacheHits++;
     performanceMetrics.cacheRetrievalTime.push(performance.now() - startTime);
     return cachedResponse;
   }
-
+  
   performanceMetrics.cacheMisses++;
   return fetchPromise;
 }
@@ -244,9 +242,9 @@ async function staleWhileRevalidate(request, cacheName) {
 async function getCachedResponse(request, cacheName, ttl) {
   const cache = await caches.open(cacheName);
   const response = await cache.match(request);
-
+  
   if (!response) return null;
-
+  
   const cacheTime = response.headers.get('sw-cache-time');
   if (cacheTime && ttl) {
     const age = Date.now() - parseInt(cacheTime, 10);
@@ -256,14 +254,14 @@ async function getCachedResponse(request, cacheName, ttl) {
       return null;
     }
   }
-
+  
   return response;
 }
 
 // Message handler for cache control and metrics
 self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {};
-
+  
   switch (type) {
     case 'GET_METRICS':
       event.ports[0]?.postMessage({
@@ -276,7 +274,7 @@ self.addEventListener('message', (event) => {
           : 0,
       });
       break;
-
+      
     case 'CLEAR_CACHE':
       caches.keys().then((names) => {
         Promise.all(names.map((name) => caches.delete(name))).then(() => {
@@ -284,13 +282,13 @@ self.addEventListener('message', (event) => {
         });
       });
       break;
-
+      
     case 'CLEAR_API_CACHE':
       caches.delete(API_CACHE).then(() => {
         event.ports[0]?.postMessage({ success: true });
       });
       break;
-
+      
     case 'PRECACHE_URLS':
       if (payload?.urls) {
         caches.open(DYNAMIC_CACHE).then((cache) => {
@@ -300,7 +298,7 @@ self.addEventListener('message', (event) => {
         });
       }
       break;
-
+      
     case 'RESET_METRICS':
       performanceMetrics.cacheHits = 0;
       performanceMetrics.cacheMisses = 0;

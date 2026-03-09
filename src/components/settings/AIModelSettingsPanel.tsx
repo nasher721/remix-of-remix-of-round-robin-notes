@@ -12,7 +12,6 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { DEFAULT_CONFIG, AI_FEATURE_CATEGORIES, GATEWAY_MODELS } from '@/constants/config';
 import { Brain, Zap, Clock, Sparkles, ShieldCheck, Search, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Switch } from '@/components/ui/switch';
 
 const PROVIDER_LABELS: Record<LLMProviderName, string> = {
   openai: 'OpenAI',
@@ -62,8 +61,6 @@ export function AIModelSettingsPanel() {
     resetAiModel,
     setAiCredential,
     setAiFeatureModel,
-    nexusMode,
-    setNexusMode,
   } = useSettings();
 
   const [search, setSearch] = React.useState('');
@@ -272,61 +269,6 @@ export function AIModelSettingsPanel() {
             })}
           </RadioGroup>
         </ScrollArea>
-
-        <div className="pt-2">
-          <div className={cn(
-            "relative overflow-hidden rounded-2xl border transition-all duration-300",
-            nexusMode
-              ? "border-primary/40 bg-gradient-to-br from-primary/10 via-purple-500/5 to-background shadow-lg shadow-primary/10"
-              : "border-border bg-muted/30"
-          )}>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6">
-              <div className="flex items-start gap-4">
-                <div className={cn(
-                  "h-12 w-12 rounded-2xl flex items-center justify-center transition-transform duration-500",
-                  nexusMode ? "bg-primary text-primary-foreground scale-110 rotate-3 shadow-xl" : "bg-muted text-muted-foreground"
-                )}>
-                  <Sparkles className={cn("h-6 w-6", nexusMode && "animate-pulse")} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Label htmlFor="nexus-mode" className="text-lg font-bold tracking-tight">
-                      NEXUS-Full Orchestration
-                    </Label>
-                    {nexusMode && (
-                      <Badge variant="outline" className="animate-in fade-in zoom-in duration-500 bg-primary/20 text-primary border-primary/30 text-[10px] font-bold uppercase tracking-widest px-2 py-0">
-                        Active
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-md">
-                    Activate the 5-phase clinical orchestration pipeline:
-                    <span className="font-semibold text-foreground/80"> Normalization, Extraction, Execution, Utilization, Synthesis.</span>
-                    Uses multi-agent consensus for critical medical decisions.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-3 self-end md:self-center">
-                <div className="flex items-center gap-3 bg-background/50 backdrop-blur-sm px-4 py-2 rounded-full border border-border/50 shadow-inner">
-                  <span className={cn("text-xs font-bold transition-colors", nexusMode ? "text-primary" : "text-muted-foreground")}>
-                    {nexusMode ? 'MAX INTELLIGENCE' : 'STANDARD MODE'}
-                  </span>
-                  <Switch
-                    id="nexus-mode"
-                    checked={nexusMode}
-                    onCheckedChange={setNexusMode}
-                    className="data-[state=checked]:bg-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Animated background element for active state */}
-            {nexusMode && (
-              <div className="absolute -right-8 -bottom-8 h-32 w-32 bg-primary/10 blur-3xl rounded-full" />
-            )}
-          </div>
-        </div>
 
         <div className="pt-6 border-t border-border/60">
           <div className="flex items-center justify-between mb-4">

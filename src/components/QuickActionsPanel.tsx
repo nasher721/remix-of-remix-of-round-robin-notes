@@ -17,10 +17,6 @@ import {
   Clipboard,
   MessageSquare,
   ChevronRight,
-  PlusCircle,
-  CheckCircle,
-  StickyNote,
-  ListTodo,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -279,78 +275,17 @@ If-Then: [Add contingency plans]`;
       showToast('Code status updated');
     },
   },
-{
-id: 'clinical-rounds',
-label: 'Mark Rounded',
-description: 'Mark patient as rounded',
-icon: Stethoscope,
-category: 'clinical',
-shortcut: 'M',
-action: (patient, { updatePatient, showToast }) => {
-const timestamp = new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-updatePatient('intervalEvents', `${patient.intervalEvents}\n[${timestamp}] Rounded - examined patient, reviewed data, plan discussed with team`);
-showToast('Marked as rounded');
-},
-  },
-  // === NEW QUICK ACTIONS ===
   {
-    id: 'quick-add-problem',
-    label: 'Add Problem',
-    description: 'Quick add to active problem list',
-    icon: PlusCircle,
+    id: 'clinical-rounds',
+    label: 'Mark Rounded',
+    description: 'Mark patient as rounded',
+    icon: Stethoscope,
     category: 'clinical',
-    shortcut: 'P',
+    shortcut: 'M',
     action: (patient, { updatePatient, showToast }) => {
-      const problem = prompt('Enter problem to add:');
-      if (problem) {
-        const currentSummary = patient.clinicalSummary || '';
-        updatePatient('clinicalSummary', currentSummary ? `${currentSummary}\n• ${problem}` : `• ${problem}`);
-        showToast(`Added: ${problem}`);
-      }
-    },
-  },
-  {
-    id: 'quick-complete-todo',
-    label: 'Complete First Todo',
-    description: 'Mark top todo as complete',
-    icon: CheckCircle,
-    category: 'clinical',
-    shortcut: 'T',
-    action: (patient, { showToast }) => {
-      // This will be connected to the todo system via the component
-      showToast('Opening todos...');
-    },
-  },
-  {
-    id: 'quick-add-med',
-    label: 'Quick Medication',
-    description: 'Add a medication quickly',
-    icon: Pill,
-    category: 'clinical',
-    shortcut: 'Shift+M',
-    action: (patient, { updatePatient, showToast }) => {
-      const med = prompt('Enter medication:');
-      if (med) {
-        const currentMeds = patient.medications?.rawText || '';
-        updatePatient('medications.rawText', currentMeds ? `${currentMeds}\n${med}` : med);
-        showToast(`Added: ${med}`);
-      }
-    },
-  },
-  {
-    id: 'quick-add-note',
-    label: 'Quick Note',
-    description: 'Add a quick clinical note',
-    icon: StickyNote,
-    category: 'clinical',
-    shortcut: 'Shift+N',
-    action: (patient, { updatePatient, showToast }) => {
-      const note = prompt('Enter note:');
-      if (note) {
-        const timestamp = new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-        updatePatient('intervalEvents', `${patient.intervalEvents}\n[${timestamp}] Note: ${note}`);
-        showToast('Note added');
-      }
+      const timestamp = new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      updatePatient('intervalEvents', `${patient.intervalEvents}\n[${timestamp}] Rounded - examined patient, reviewed data, plan discussed with team`);
+      showToast('Marked as rounded');
     },
   },
 ];

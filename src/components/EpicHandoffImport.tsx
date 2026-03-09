@@ -16,7 +16,7 @@ import { extractPdfText, extractPdfAsImages } from "@/lib/import-utils";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
-import { logInfo, logError } from "@/lib/observability/logger";
+
 interface PatientSystems {
   neuro: string;
   cv: string;
@@ -104,7 +104,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
           try {
             setStatusMessage("Extracting text from PDF...");
             content = await extractPdfText(file);
-            logInfo('Extracted PDF text', { length: content.length, source: 'EpicHandoffImport' });
+            console.log("Extracted PDF text length:", content.length);
 
             // Check if meaningful content was extracted
             const meaningfulContent = content.replace(/--- Page Break ---/g, '').trim();
@@ -116,7 +116,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
               });
             }
           } catch (e) {
-            logError('PDF text extraction failed', { error: String(e), source: 'EpicHandoffImport' });
+            console.error("PDF text extraction failed:", e);
             useOcr = true;
           }
         }
@@ -144,7 +144,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
           // Enhanced error logging
           if (error) {
-            logError('Edge Function invocation error (OCR path)', { error: error.message, details: error, source: 'EpicHandoffImport' });
+            console.error("Edge Function invocation error (OCR path):", {
+              message: error.message,
+              details: error,
+              stack: error.stack,
+            });
             throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
           }
           if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -177,7 +181,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       // Enhanced error logging
       if (error) {
-        logError('Edge Function invocation error', { error: error.message, details: error, source: 'EpicHandoffImport' });
+        console.error("Edge Function invocation error:", {
+          message: error.message,
+          details: error,
+          stack: error.stack,
+        });
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -185,7 +193,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       finalizeImport(data.data?.patients || []);
 
     } catch (error) {
-      logError('Error parsing handoff', { error: String(error), source: 'EpicHandoffImport' });
+      console.error("Error parsing handoff:", error);
       toast({
         title: "Parsing failed",
         description: error instanceof Error ? error.message : "Failed to parse the handoff document.",
@@ -241,14 +249,18 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
       // Enhanced error logging
       if (error) {
-        logError('Edge Function invocation error (paste path)', { error: error.message, details: error, source: 'EpicHandoffImport' });
+        console.error("Edge Function invocation error (paste path):", {
+          message: error.message,
+          details: error,
+          stack: error.stack,
+        });
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
 
       finalizeImport(data.data?.patients || []);
     } catch (error) {
-      logError('Error parsing pasted content', { error: String(error), source: 'EpicHandoffImport' });
+      console.error("Error parsing pasted content:", error);
       toast({
         title: "Parsing failed",
         description: error instanceof Error ? error.message : "Failed to parse the pasted content.",
@@ -314,7 +326,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
       });
       handleClose();
     } catch (error) {
-      logError('Error importing patients', { error: String(error), source: 'EpicHandoffImport' });
+      console.error("Error importing patients:", error);
       toast({
         title: "Import failed",
         description: "Failed to import patients.",

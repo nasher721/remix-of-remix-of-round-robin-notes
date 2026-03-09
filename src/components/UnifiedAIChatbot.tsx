@@ -495,17 +495,6 @@ export const UnifiedAIChatbot: React.FC = () => {
             <Sparkles className="h-6 w-6" />
           </motion.button>
         )}
-        {/* Patient context indicator when closed */}
-        {!isOpen && selectedPatient && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-16 right-6 z-40 bg-violet-100 dark:bg-violet-900/80 text-violet-700 dark:text-violet-300 text-[10px] px-2 py-0.5 rounded-full border border-violet-200 dark:border-violet-700 shadow-sm"
-          >
-            <User className="h-3 w-3 mr-1" />
-            {selectedPatient.name || `Room ${selectedPatient.bed}`}
-          </motion.div>
-        )}
       </AnimatePresence>
 
       {/* ── Chat panel ── */}

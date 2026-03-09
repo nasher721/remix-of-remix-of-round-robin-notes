@@ -2,7 +2,7 @@ import { replicateSupabase } from 'rxdb/plugins/replication-supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getDatabase, PatientDocType } from './database';
 import { supabase, hasSupabaseConfig, supabaseUrl } from '@/integrations/supabase/client';
-import { logInfo, logError } from '@/lib/observability/logger';
+
 // Replication state for UI
 export interface ReplicationState {
   isSyncing: boolean;
@@ -54,7 +54,7 @@ const activeReplications: Map<string, RxDBReplication> = new Map();
  */
 export async function startReplication(userId: string): Promise<void> {
   if (!hasSupabaseConfig) {
-    logError('Missing Supabase configuration', { source: 'RxDB' });
+    console.error('[RxDB] Missing Supabase configuration');
     return;
   }
 
@@ -95,7 +95,7 @@ export async function startReplication(userId: string): Promise<void> {
   });
 
   replication.error$.subscribe((error) => {
-    logError('Replication error', { error: error.message, source: 'RxDB' });
+    console.error('[RxDB] Replication error:', error);
     updateState({ error: error.message || 'Replication error' });
   });
 
@@ -104,10 +104,10 @@ export async function startReplication(userId: string): Promise<void> {
   });
 
   replication.sent$.subscribe(() => {
-    logInfo('Pushed document to server', { source: 'RxDB' });
+    console.log('[RxDB] Pushed document to server');
   });
 
-  logInfo('Replication started', { userId, source: 'RxDB' });
+  console.log('[RxDB] Replication started for user:', userId);
 }
 
 /**
@@ -117,7 +117,7 @@ export async function stopReplication(): Promise<void> {
   for (const [userId, replication] of activeReplications) {
     await replication.cancel();
     activeReplications.delete(userId);
-    logInfo('Replication stopped', { userId, source: 'RxDB' });
+    console.log('[RxDB] Replication stopped for user:', userId);
   }
   updateState({ isSyncing: false });
 }
@@ -129,7 +129,7 @@ export async function forceResync(): Promise<void> {
   for (const replication of activeReplications.values()) {
     await replication.reSync();
   }
-  logInfo('Forced re-sync', { source: 'RxDB' });
+  console.log('[RxDB] Forced re-sync');
 }
 
 /**
@@ -142,13 +142,13 @@ export function getReplicationState(): ReplicationState {
 // Set up online/offline handlers
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
-    logInfo('Back online, forcing re-sync', { source: 'RxDB' });
+    console.log('[RxDB] Back online, forcing re-sync');
     forceResync();
     updateState({ error: null });
   });
 
   window.addEventListener('offline', () => {
-    logInfo('Gone offline', { source: 'RxDB' });
+    console.log('[RxDB] Gone offline');
     updateState({ error: 'Offline - changes will sync when back online' });
   });
 }

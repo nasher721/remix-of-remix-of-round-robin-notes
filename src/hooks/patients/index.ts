@@ -28,7 +28,6 @@ export const usePatients = () => {
         toggleCollapse,
         collapseAll,
         clearAll,
-        reorderPatients,
     } = usePatientMutations({
         patientsRef,
         setPatients,
@@ -36,8 +35,6 @@ export const usePatients = () => {
         setPatientCounter,
         fetchPatients,
     });
-
-
 
     const {
         importPatients,
@@ -61,7 +58,6 @@ export const usePatients = () => {
         clearAll,
         importPatients,
         refetch: fetchPatients,
-        reorderPatients,
     };
 };
 

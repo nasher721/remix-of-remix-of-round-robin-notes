@@ -2,20 +2,22 @@ import * as React from "react";
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { cardHover, collapseVariants } from '@/lib/animations';
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
-import { FileText, Calendar, ChevronDown, ImageIcon, TestTube, Sparkles, Loader2, Settings2, X, Eraser, Clock, ClipboardList } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
 import { FieldTimestamp } from "./FieldTimestamp";
+import { FieldHistoryViewer } from "./FieldHistoryViewer";
 import { SystemsConfigManager } from "./SystemsConfigManager";
 import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
+import { PatientAcuityBadge } from "./PatientAcuityBadge";
+import { QuickActionsPanel } from "./QuickActionsPanel";
+import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
+import { LabTrendBadge } from "./LabTrendingPanel";
+import { AppleAIAssistant } from "./AppleAIAssistant";
 import { PatientSystemsReview } from "./PatientSystemsReview";
-// Extracted sub-components
-import { PatientCardHeader } from "./PatientCardHeader";
-import { PatientAIPanel } from "./PatientAIPanel";
-import { PatientRiskNudges } from "./PatientRiskNudges";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -26,8 +28,6 @@ import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import { useDailySummaryGenerator } from "@/hooks/useDailySummaryGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
-import { useStreamingAI } from "@/hooks/useStreamingAI";
-import { useToast } from "@/hooks/use-toast";
 
 interface PatientCardProps {
   patient: Patient;
@@ -48,7 +48,6 @@ const PatientCardComponent = ({
 }: PatientCardProps) => {
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
-  const { toast } = useToast();
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
@@ -61,7 +60,7 @@ const PatientCardComponent = ({
     return (patient.imaging.match(/<img[^>]+src=["'][^"']+["'][^>]*>/gi) || []).length;
   }, [patient.imaging]);
 
-  const handleGenerateIntervalEvents = React.useCallback(async () => {
+  const handleGenerateIntervalEvents = async () => {
     const result = await generateIntervalEvents(
       patient.systems,
       patient.intervalEvents,
@@ -74,15 +73,15 @@ const PatientCardComponent = ({
         : result;
       onUpdate(patient.id, 'intervalEvents', newValue);
     }
-  }, [generateIntervalEvents, onUpdate, patient]);
+  };
 
-  const handleGenerateDailySummary = React.useCallback(async () => {
+  const handleGenerateDailySummary = async () => {
     await generateDailySummary(patient, (newValue) => {
       onUpdate(patient.id, 'intervalEvents', newValue);
     });
-  }, [generateDailySummary, onUpdate, patient]);
+  };
 
-  const addTimestamp = React.useCallback((field: string) => {
+  const addTimestamp = (field: string) => {
     const timestamp = new Date().toLocaleString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -93,108 +92,22 @@ const PatientCardComponent = ({
       : patient[field as keyof Patient];
     const newValue = `[${timestamp}] ${currentValue || ''}`;
     onUpdate(patient.id, field, newValue);
-  }, [onUpdate, patient]);
+  };
 
-  // Stable handler wrappers for inline updates
-  const handleFieldUpdate = React.useCallback(
-    <T,>(field: string, value: T) => onUpdate(patient.id, field, value),
-    [onUpdate, patient.id]
-  );
-  const handleToggleCollapse = React.useCallback(
-    () => onToggleCollapse(patient.id),
-    [onToggleCollapse, patient.id]
-  );
-  const handleDuplicate = React.useCallback(
-    () => onDuplicate(patient.id),
-    [onDuplicate, patient.id]
-  );
-  const handleRemove = React.useCallback(
-    () => onRemove(patient.id),
-    [onRemove, patient.id]
-  );
-
-  const {
-    streamWithAI: runAI,
-    isStreaming: isStreamingAI,
-    accumulatedResponse: aiOutput,
-    error: aiError,
-    cancel: cancelAI,
-    reset: resetAI,
-  } = useStreamingAI({ silent: true });
-  const [aiPanelVisible, setAIPanelVisible] = React.useState(false);
-  const [aiMode, setAIMode] = React.useState<'insights' | 'delta' | 'checklist' | 'handoff' | 'labs' | 'imaging' | null>(null);
-
-  const stripHtml = React.useCallback((value: string | undefined) => value?.replace(/<[^>]*>/g, '') ?? '', []);
-
-  const startAIMode = React.useCallback(
-    async (mode: typeof aiMode) => {
-      if (!mode) return;
-      setAIPanelVisible(true);
-      setAIMode(mode);
-      resetAI();
-
-      const prompts: Record<string, { prompt: string; text?: string }> = {
-        insights: {
-          prompt:
-            'You are an ICU bedside assistant. From patient context (systems, labs, meds, interval events), generate 2-3 concise risk/attention items with one-liner reasoning and a suggested next action. <80 words.',
-        },
-        delta: {
-          prompt:
-            'Summarize what changed since last note. Focus on new interval events, system updates, labs, meds, and todos. 3 bullets max.',
-        },
-        checklist: {
-          prompt:
-            'Generate a concise rounding checklist (3-6 items) based on current problems, systems, labs, and meds. Each item should be actionable with who/when (e.g., RN now, MD pre-round).',
-        },
-        handoff: {
-          prompt:
-            'Create SBAR handoff text from patient context. One sentence each for Situation, Background, Assessment, Recommendation. Keep terse.',
-        },
-        labs: {
-          prompt:
-            'Explain these labs in 2 bullets: key interpretation + suggested next step. Be concise.',
-          text: stripHtml(patient.labs),
-        },
-        imaging: {
-          prompt:
-            'Explain imaging findings in 2 bullets with possible implication and next step.',
-          text: stripHtml(patient.imaging),
-        },
-      };
-
-      const selected = prompts[mode];
-      await runAI('clinical_summary', {
-        patient,
-        text: selected?.text || undefined,
-        customPrompt: selected.prompt,
-      });
-    },
-    [patient, resetAI, runAI, stripHtml]
-  );
-
-  const insertAIOutput = React.useCallback(() => {
-    if (!aiOutput?.trim()) return;
-    const targetField = 'clinicalSummary';
-    const currentValue = (patient[targetField as keyof Patient] as string) || '';
-    const newValue = currentValue ? `${currentValue}\n\n---\n${aiOutput}` : aiOutput;
-    onUpdate(patient.id, targetField, newValue);
-    toast({ title: 'Inserted AI output', description: 'Added to clinical summary' });
-  }, [aiOutput, onUpdate, patient, toast]);
-
-  const clearSection = React.useCallback((field: string) => {
+  const clearSection = (field: string) => {
     if (confirm('Clear this section?')) {
       onUpdate(patient.id, field, '');
     }
-  }, [onUpdate, patient.id]);
+  };
 
-  const clearAllSystems = React.useCallback(() => {
+  const clearAllSystems = () => {
     if (confirm('Clear ALL systems review data? This cannot be undone.')) {
       // Clear each enabled system
       enabledSystems.forEach((system) => {
         onUpdate(patient.id, `systems.${system.key}`, '');
       });
     }
-  }, [enabledSystems, onUpdate, patient.id]);
+  };
 
 
 
@@ -210,41 +123,89 @@ const PatientCardComponent = ({
       whileTap="tap"
     >
       {/* Header */}
-      <PatientCardHeader
-        patient={patient}
-        onUpdate={onUpdate}
-        onFieldUpdate={handleFieldUpdate}
-        onToggleCollapse={handleToggleCollapse}
-        onDuplicate={handleDuplicate}
-        onRemove={handleRemove}
-        isStreamingAI={isStreamingAI}
-        aiMode={aiMode}
-        startAIMode={startAIMode}
-      />
+      <div className="flex justify-between items-center gap-4 px-5 py-3.5 bg-gradient-to-r from-secondary/20 to-secondary/10 border-b border-border/40 transition-colors group-hover:from-secondary/30 group-hover:to-secondary/15">
+        <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20 shadow-sm">
+            <span className="text-base font-semibold text-primary">
+              {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
+            </span>
+          </div>
+          <div className="flex gap-2.5 flex-1 flex-wrap items-center">
+            <Input
+              placeholder="Patient Name"
+              value={patient.name}
+              onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
+              aria-label="Patient name"
+              className="max-w-[220px] font-medium bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+            />
+            <Input
+              placeholder="Bed/Room"
+              value={patient.bed}
+              onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
+              aria-label="Bed or room number"
+              className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+            />
+            {/* Patient Status Badges */}
+            <div className="flex items-center gap-1.5 no-print">
+              <PatientAcuityBadge patient={patient} size="sm" />
+              <LabTrendBadge labText={patient.labs} />
+              <ProtocolBadge patient={patient} />
+            </div>
+          </div>
+        </div>
 
-      {/* AI Panel */}
-      <PatientAIPanel
-        visible={aiPanelVisible}
-        isStreaming={isStreamingAI}
-        aiMode={aiMode}
-        output={aiOutput}
-        error={aiError}
-        onCancel={cancelAI}
-        onReset={() => {
-          resetAI();
-          setAIPanelVisible(false);
-          setAIMode(null);
-        }}
-        onCopy={() => {}}
-        onInsert={insertAIOutput}
-        onCopyFailed={() => toast({ title: 'Copy failed', description: 'Could not copy to clipboard', variant: 'destructive' })}
-      />
+        <div className="flex items-center gap-0.5 no-print">
+          {/* Quick Actions & Protocol Tools */}
+          <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
+          <SmartProtocolSuggestions patient={patient} />
+          <AppleAIAssistant patient={patient} onUpdatePatient={onUpdate} compact />
+          <div className="w-px h-4 bg-border/40 mx-1" />
+          <FieldHistoryViewer
+            patientId={patient.id}
+            patientName={patient.name}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+                aria-label="View change history"
+              >
+                <History className="h-3.5 w-3.5" aria-hidden="true" />
+              </Button>
+            }
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggleCollapse(patient.id)}
+            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+            aria-label={patient.collapsed ? "Expand patient card" : "Collapse patient card"}
+            aria-expanded={!patient.collapsed}
+            aria-controls={`patient-body-${patient.id}`}
+          >
+            {patient.collapsed ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDuplicate(patient.id)}
+            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+            aria-label="Duplicate patient"
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onRemove(patient.id)}
+            className="h-8 w-8 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+            aria-label="Remove patient"
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
 
-      {/* Proactive Risk Nudges */}
-      <PatientRiskNudges
-        labsText={patient.labs}
-        onAddTodo={addTodo}
-      />
       <AnimatePresence initial={false}>
         {!patient.collapsed && (
           <motion.div
@@ -324,7 +285,7 @@ const PatientCardComponent = ({
                     <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.clinicalSummary}
-                        onChange={(value) => handleFieldUpdate('clinicalSummary', value)}
+                        onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
                         placeholder="Enter clinical summary..."
                         minHeight="80px"
                         autotexts={autotexts}
@@ -426,7 +387,7 @@ const PatientCardComponent = ({
                     <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.intervalEvents}
-                        onChange={(value) => handleFieldUpdate('intervalEvents', value)}
+                        onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
                         placeholder="Enter interval events..."
                         minHeight="80px"
                         autotexts={autotexts}
@@ -482,31 +443,21 @@ const PatientCardComponent = ({
                           >
                             <Clock className="h-3 w-3" aria-hidden="true" />
                           </Button>
-<Button
-variant="ghost"
-                            size="sm"
-                            onClick={() => startAIMode('imaging')}
-                            disabled={isStreamingAI}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-primary"
-                            type="button"
-                          >
-                            Explain
-                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-onClick={() => clearSection('imaging')}
-className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
->
-Clear
-</Button>
+                            onClick={() => clearSection('imaging')}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                          >
+                            Clear
+                          </Button>
                         </div>
                       </div>
                       <div className="space-y-1">
                         <div className="bg-background/50 rounded-xl border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <ImagePasteEditor
                             value={patient.imaging}
-                            onChange={(value) => handleFieldUpdate('imaging', value)}
+                            onChange={(value) => onUpdate(patient.id, 'imaging', value)}
                             placeholder="X-rays, CT, MRI, Echo... (paste images here)"
                             minHeight="60px"
                             autotexts={autotexts}
@@ -547,24 +498,14 @@ Clear
                             onDeleteTodo={deleteTodo}
                             onGenerateTodos={generateTodos}
                           />
-<Button
-variant="ghost"
-                            size="sm"
-                            onClick={() => startAIMode('labs')}
-                            disabled={isStreamingAI}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-primary"
-                            type="button"
-                          >
-                            Explain
-                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-onClick={() => clearSection('labs')}
-className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
->
-Clear
-</Button>
+                            onClick={() => clearSection('labs')}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                          >
+                            Clear
+                          </Button>
                         </div>
                       </div>
 
@@ -577,7 +518,7 @@ Clear
                         <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <RichTextEditor
                             value={patient.labs}
-                            onChange={(value) => handleFieldUpdate('labs', value)}
+                            onChange={(value) => onUpdate(patient.id, 'labs', value)}
                             placeholder="CBC, BMP, LFTs, coags... (e.g., Na: 140, K: 4.0, Cr: 1.0)"
                             minHeight="60px"
                             autotexts={autotexts}
@@ -597,7 +538,7 @@ Clear
                 <div className="bg-background/50 rounded-xl p-4 border border-border/40 shadow-inner transition-all duration-200 hover:border-border/60">
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
-                    onMedicationsChange={(meds) => handleFieldUpdate('medications', meds)}
+                    onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
                   />
                   <FieldTimestamp timestamp={patient.fieldTimestamps?.medications} className="pl-1 mt-2" />
                 </div>

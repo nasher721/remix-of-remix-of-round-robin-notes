@@ -523,19 +523,11 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                         {builtInLayouts.map((layout) => {
                           const Icon = VIEW_TYPE_ICONS[layout.viewType];
                           return (
-                            <div
+                            <button
                               key={layout.id}
-                              role="button"
-                              tabIndex={0}
                               onClick={() => selectLayout(layout.id)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault();
-                                  selectLayout(layout.id);
-                                }
-                              }}
                               className={cn(
-                                'w-full text-left p-2 rounded-lg border transition-all group cursor-pointer',
+                                'w-full text-left p-2 rounded-lg border transition-all group',
                                 currentLayout.id === layout.id
                                   ? 'border-primary bg-primary/5'
                                   : 'border-transparent hover:bg-muted/50'
@@ -561,7 +553,7 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                                   <Copy className="h-3 w-3" />
                                 </Button>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -577,19 +569,11 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                           {savedLayouts.map((saved) => {
                             const Icon = VIEW_TYPE_ICONS[saved.config.viewType];
                             return (
-                              <div
+                              <button
                                 key={saved.id}
-                                role="button"
-                                tabIndex={0}
                                 onClick={() => selectLayout(saved.id)}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault();
-                                    selectLayout(saved.id);
-                                  }
-                                }}
                                 className={cn(
-                                  'w-full text-left p-2 rounded-lg border transition-all group cursor-pointer',
+                                  'w-full text-left p-2 rounded-lg border transition-all group',
                                   currentLayout.id === saved.id
                                     ? 'border-primary bg-primary/5'
                                     : 'border-transparent hover:bg-muted/50'
@@ -641,7 +625,7 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                                     </Button>
                                   </div>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>

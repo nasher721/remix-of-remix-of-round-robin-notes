@@ -4,24 +4,13 @@ import {
   Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
   Indent, Outdent, Palette, Undo2, Redo2, FileText, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
-  Superscript, Subscript, Search, Table as TableIcon, ShieldCheck, ChevronDown, MoreHorizontal
+  Superscript, Subscript, Search, Table as TableIcon, ShieldCheck
 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
@@ -619,54 +608,50 @@ export const RichTextEditor = ({
         >
           <Italic className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
-        {/* More Format Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              title="More formatting options"
-              aria-label="More formatting options"
-              className="h-7 w-7 p-0"
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Format</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => execCommand('underline')}
-              className="cursor-pointer"
-            >
-              <Underline className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Underline
-              <span className="ml-auto text-xs text-muted-foreground">Ctrl+U</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => execCommand('strikeThrough')}
-              className="cursor-pointer"
-            >
-              <Strikethrough className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Strikethrough
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => execCommand('superscript')}
-              className="cursor-pointer"
-            >
-              <Superscript className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Superscript
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => execCommand('subscript')}
-              className="cursor-pointer"
-            >
-              <Subscript className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Subscript
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('underline')}
+          title="Underline (Ctrl+U)"
+          aria-label="Underline (Ctrl+U)"
+          className="h-7 w-7 p-0"
+        >
+          <Underline className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('strikeThrough')}
+          title="Strikethrough (Ctrl+Shift+X)"
+          aria-label="Strikethrough (Ctrl+Shift+X)"
+          className="h-7 w-7 p-0"
+        >
+          <Strikethrough className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('superscript')}
+          title="Superscript"
+          aria-label="Superscript"
+          className="h-7 w-7 p-0"
+        >
+          <Superscript className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('subscript')}
+          title="Subscript"
+          aria-label="Subscript"
+          className="h-7 w-7 p-0"
+        >
+          <Subscript className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
         <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Heading selector */}
@@ -715,71 +700,78 @@ export const RichTextEditor = ({
         >
           <ListOrdered className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
+        {/* Indent */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('outdent')}
+          title="Decrease Indent"
+          aria-label="Decrease indent"
+          className="h-7 w-7 p-0"
+        >
+          <Outdent className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('indent')}
+          title="Increase Indent"
+          aria-label="Increase indent"
+          className="h-7 w-7 p-0"
+        >
+          <Indent className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
-        {/* Alignment Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              title="Text alignment"
-              aria-label="Text alignment"
-              className="h-7 w-7 p-0"
-            >
-              <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />
-              <ChevronDown className="h-3 w-3 ml-0.5" aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-40">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Alignment</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => execCommand('justifyLeft')}
-              className="cursor-pointer"
-            >
-              <AlignLeft className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Align Left
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => execCommand('justifyCenter')}
-              className="cursor-pointer"
-            >
-              <AlignCenter className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Center
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => execCommand('justifyRight')}
-              className="cursor-pointer"
-            >
-              <AlignRight className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Align Right
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => execCommand('justifyFull')}
-              className="cursor-pointer"
-            >
-              <AlignJustify className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Justify
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Indent</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => execCommand('outdent')}
-              className="cursor-pointer"
-            >
-              <Outdent className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Decrease Indent
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => execCommand('indent')}
-              className="cursor-pointer"
-            >
-              <Indent className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-              Increase Indent
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Alignment */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyLeft')}
+          title="Align Left"
+          aria-label="Align left"
+          className="h-7 w-7 p-0"
+        >
+          <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyCenter')}
+          title="Align Center"
+          aria-label="Align center"
+          className="h-7 w-7 p-0"
+        >
+          <AlignCenter className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyRight')}
+          title="Align Right"
+          aria-label="Align right"
+          className="h-7 w-7 p-0"
+        >
+          <AlignRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => execCommand('justifyFull')}
+          title="Justify"
+          aria-label="Justify text"
+          className="h-7 w-7 p-0"
+        >
+          <AlignJustify className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
         <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
 
         {/* Text color */}

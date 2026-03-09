@@ -10,7 +10,8 @@
  */
 
 import { db, type AICacheEntry } from './database';
-import { logInfo, logError } from '@/lib/observability/logger';
+
+// ============================================
 // Configuration
 // ============================================
 
@@ -95,17 +96,17 @@ export async function getCachedResponse(
     if (Date.now() > cached.expiresAt) {
       // Clean up expired entry
       await db.aiCache.delete(cacheKey);
-      logInfo('Expired entry removed', { feature, source: 'AICache' });
+      console.log(`[AI Cache] Expired entry removed: ${feature}`);
       return null;
     }
     
     // Increment hit count
     await db.aiCache.update(cacheKey, { hitCount: cached.hitCount + 1 });
     
-    logInfo('Cache HIT', { feature, hits: cached.hitCount + 1, source: 'AICache' });
+    console.log(`[AI Cache] HIT: ${feature} (hits: ${cached.hitCount + 1})`);
     return cached.response;
   } catch (error) {
-    logError('Error getting cached response', { error, source: 'AICache' });
+    console.error('[AI Cache] Error getting cached response:', error);
     return null;
   }
 }
@@ -150,9 +151,9 @@ export async function cacheResponse(
       hitCount: 0
     });
     
-    logInfo('Cache stored', { feature, ttl, source: 'AICache' });
+    console.log(`[AI Cache] Stored: ${feature} (TTL: ${ttl}ms)`);
   } catch (error) {
-    logError('Error caching response', { error, source: 'AICache' });
+    console.error('[AI Cache] Error caching response:', error);
   }
 }
 
@@ -162,9 +163,9 @@ export async function cacheResponse(
 export async function invalidateFeatureCache(feature: string): Promise<void> {
   try {
     await db.aiCache.where('feature').equals(feature).delete();
-    logInfo('Cache invalidated', { feature, source: 'AICache' });
+    console.log(`[AI Cache] Invalidated: ${feature}`);
   } catch (error) {
-    logError('Error invalidating feature cache', { error, source: 'AICache' });
+    console.error('[AI Cache] Error invalidating feature cache:', error);
   }
 }
 
@@ -174,9 +175,9 @@ export async function invalidateFeatureCache(feature: string): Promise<void> {
 export async function invalidateAllCache(): Promise<void> {
   try {
     await db.aiCache.clear();
-    logInfo('All cache cleared', { source: 'AICache' });
+    console.log('[AI Cache] All cache cleared');
   } catch (error) {
-    logError('Error clearing all cache', { error, source: 'AICache' });
+    console.error('[AI Cache] Error clearing all cache:', error);
   }
 }
 
@@ -192,7 +193,7 @@ async function evictLeastUsedEntries(count: number): Promise<void> {
   const ids = entries.map(e => e.id);
   await db.aiCache.bulkDelete(ids);
   
-  logInfo('Evicted least used entries', { count: ids.length, source: 'AICache' });
+  console.log(`[AI Cache] Evicted ${ids.length} least used entries`);
 }
 
 /**
@@ -238,7 +239,7 @@ export async function cleanupExpiredCache(): Promise<number> {
   
   if (expiredIds.length > 0) {
     await db.aiCache.bulkDelete(expiredIds);
-    logInfo('Cleaned up expired entries', { count: expiredIds.length, source: 'AICache' });
+    console.log(`[AI Cache] Cleaned up ${expiredIds.length} expired entries`);
   }
   
   return expiredIds.length;

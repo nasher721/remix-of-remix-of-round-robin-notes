@@ -35,7 +35,7 @@ import {
   handleExportDOC,
   handleExportMarkdown,
 } from "./print/ExportHandlers";
-import { logError } from "@/lib/observability/logger";
+
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
 }
@@ -139,7 +139,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           { onConflict: 'user_id' }
         );
     } catch (err) {
-      logError('Failed to sync print settings', { error: String(err), source: 'PrintExportModal' });
+      console.error('Failed to sync print settings:', err);
     }
   }, [user]);
 
@@ -249,7 +249,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         }
         initialSyncDone.current = true;
       } catch (err) {
-        logError('Failed to load print settings from DB', { error: String(err), source: 'PrintExportModal' });
+        console.error('Failed to load print settings from DB:', err);
       }
     };
 
@@ -572,7 +572,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const fileName = await handleExportPDF(getExportContext(), exportRef.current);
       toast({ title: "PDF Export Complete", description: fileName });
     } catch (e) {
-      logError('Export failed', { error: String(e), format: 'PDF', source: 'PrintExportModal' });
+      console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
     } finally {
       setIsGenerating(false);
@@ -584,7 +584,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const fileName = handleExportExcel(getExportContext());
       toast({ title: "Excel Export Complete", description: fileName });
     } catch (e) {
-      logError('Export failed', { error: String(e), format: 'Excel', source: 'PrintExportModal' });
+      console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
     }
   };
@@ -594,7 +594,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const fileName = handleExportDOC(getExportContext());
       toast({ title: "Word Export Complete", description: fileName });
     } catch (e) {
-      logError('Export failed', { error: String(e), format: 'Word', source: 'PrintExportModal' });
+      console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
     }
   };
@@ -604,7 +604,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const fileName = handleExportTXT(getExportContext());
       toast({ title: "Text Export Complete", description: fileName });
     } catch (e) {
-      logError('Export failed', { error: String(e), format: 'Text', source: 'PrintExportModal' });
+      console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
     }
   };
@@ -614,7 +614,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const fileName = handleExportRTF(getExportContext());
       toast({ title: "RTF Export Complete", description: fileName });
     } catch (e) {
-      logError('Export failed', { error: String(e), format: 'RTF', source: 'PrintExportModal' });
+      console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
     }
   };
@@ -624,7 +624,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const fileName = handleExportMarkdown(getExportContext());
       toast({ title: "Markdown Export Complete", description: fileName });
     } catch (e) {
-      logError('Export failed', { error: String(e), format: 'Markdown', source: 'PrintExportModal' });
+      console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
     }
   };

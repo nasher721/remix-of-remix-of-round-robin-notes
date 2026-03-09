@@ -3,11 +3,9 @@ import * as ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { initGlobalErrorCapture } from "@/lib/observability/telemetry";
-import { initSentry } from "@/lib/observability/sentry";
 
-// Initialize error tracking early to capture all errors
+// Initialize telemetry early to capture all errors
 initGlobalErrorCapture();
-initSentry();
 
 // Register service worker outside of React to avoid HMR issues
 if ('serviceWorker' in navigator) {

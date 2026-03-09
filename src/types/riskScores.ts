@@ -83,26 +83,6 @@ export interface NEWS2Inputs {
   consciousness?: 'alert' | 'confusion' | 'voice' | 'pain' | 'unresponsive';
 }
 
-// APACHE II Score (Acute Physiology and Chronic Health Evaluation II)
-export interface APACHE2Inputs {
-  age?: number;
-  temp?: number; // Celsius
-  map?: number; // mmHg
-  heartRate?: number;
-  respRate?: number;
-  pao2?: number; // mmHg (if FiO2 < 0.5)
-  aaGradient?: number; // (if FiO2 >= 0.5)
-  arterialPh?: number;
-  sodium?: number; // mEq/L
-  potassium?: number; // mEq/L
-  creatinine?: number; // mg/dL
-  acuteRenalFailure?: boolean;
-  hematocrit?: number; // %
-  wbcCount?: number; // x10^3/uL
-  gcs?: number; // 3-15
-  chronicHealthSurg?: 'none' | 'non-operative' | 'emergency-post-op' | 'elective-post-op';
-}
-
 // Patient Acuity derived from multiple factors
 export interface PatientAcuity {
   level: 1 | 2 | 3 | 4 | 5; // 1 = stable, 5 = critical
@@ -176,8 +156,8 @@ export const calculateSOFA = (inputs: SOFAInputs): RiskScoreResult => {
 
   const interpretation = score === 0 ? 'No organ dysfunction' :
     score <= 5 ? 'Mild organ dysfunction' :
-      score <= 10 ? 'Moderate organ dysfunction' :
-        score <= 15 ? 'Severe organ dysfunction' : 'Very severe organ dysfunction';
+    score <= 10 ? 'Moderate organ dysfunction' :
+    score <= 15 ? 'Severe organ dysfunction' : 'Very severe organ dysfunction';
 
   const riskLevel = score <= 5 ? 'low' : score <= 10 ? 'moderate' : score <= 15 ? 'high' : 'critical';
 
@@ -229,7 +209,7 @@ export const calculateCURB65 = (inputs: CURB65Inputs): RiskScoreResult => {
     maxScore: 5,
     interpretation: score <= 1 ? 'Low severity - outpatient treatment possible' :
       score === 2 ? 'Moderate severity - consider hospital admission' :
-        'High severity - ICU admission recommended',
+      'High severity - ICU admission recommended',
     riskLevel,
     recommendation: `30-day mortality: ${mortality}. ${score <= 1 ? 'Outpatient treatment' : score === 2 ? 'Short hospital stay or closely supervised outpatient' : 'Hospital/ICU admission'}`,
     color: riskLevel === 'low' ? 'text-green-600' : riskLevel === 'moderate' ? 'text-amber-600' : 'text-red-600',
@@ -347,134 +327,6 @@ export const calculateNEWS2 = (inputs: NEWS2Inputs): RiskScoreResult => {
     riskLevel: score >= 7 ? 'critical' : riskLevel,
     recommendation: score <= 4 ? 'Continue routine monitoring' : score <= 6 ? 'Urgent clinical review needed' : 'Immediate clinical review - consider ICU transfer',
     color: score <= 4 ? 'text-green-600' : score <= 6 ? 'text-amber-600' : 'text-red-600',
-  };
-};
-
-export const calculateAPACHE2 = (inputs: APACHE2Inputs): RiskScoreResult => {
-  let score = 0;
-
-  // 1. Age
-  if (inputs.age !== undefined) {
-    if (inputs.age >= 75) score += 6;
-    else if (inputs.age >= 65) score += 5;
-    else if (inputs.age >= 55) score += 3;
-    else if (inputs.age >= 45) score += 2;
-  }
-
-  // 2. Temp
-  if (inputs.temp !== undefined) {
-    if (inputs.temp >= 41 || inputs.temp <= 29.9) score += 4;
-    else if (inputs.temp >= 39 || inputs.temp <= 31.9) score += 3;
-    else if (inputs.temp <= 33.9) score += 2;
-    else if (inputs.temp >= 38.5 || inputs.temp <= 35.9) score += 1;
-  }
-
-  // 3. MAP
-  if (inputs.map !== undefined) {
-    if (inputs.map >= 160 || inputs.map <= 49) score += 4;
-    else if (inputs.map >= 130) score += 3;
-    else if (inputs.map >= 110 || inputs.map <= 69) score += 2;
-  }
-
-  // 4. Heart Rate
-  if (inputs.heartRate !== undefined) {
-    if (inputs.heartRate >= 180 || inputs.heartRate <= 39) score += 4;
-    else if (inputs.heartRate >= 140 || inputs.heartRate <= 54) score += 3;
-    else if (inputs.heartRate >= 110 || inputs.heartRate <= 69) score += 2;
-  }
-
-  // 5. Respiratory Rate
-  if (inputs.respRate !== undefined) {
-    if (inputs.respRate >= 50 || inputs.respRate <= 5) score += 4;
-    else if (inputs.respRate >= 35) score += 3;
-    else if (inputs.respRate <= 9) score += 2;
-    else if (inputs.respRate >= 25 || inputs.respRate <= 11) score += 1;
-  }
-
-  // 6. Oxygenation (Simplification: using PaO2 if provided)
-  if (inputs.pao2 !== undefined) {
-    if (inputs.pao2 < 55) score += 4;
-    else if (inputs.pao2 <= 60) score += 3;
-    else if (inputs.pao2 <= 70) score += 1;
-  } else if (inputs.aaGradient !== undefined) {
-    if (inputs.aaGradient >= 500) score += 4;
-    else if (inputs.aaGradient >= 350) score += 3;
-    else if (inputs.aaGradient >= 200) score += 2;
-  }
-
-  // 7. pH
-  if (inputs.arterialPh !== undefined) {
-    if (inputs.arterialPh >= 7.7 || inputs.arterialPh < 7.15) score += 4;
-    else if (inputs.arterialPh >= 7.6 || inputs.arterialPh < 7.25) score += 3;
-    else if (inputs.arterialPh < 7.33) score += 2;
-    else if (inputs.arterialPh >= 7.5) score += 1;
-  }
-
-  // 8. Sodium
-  if (inputs.sodium !== undefined) {
-    if (inputs.sodium >= 180 || inputs.sodium <= 110) score += 4;
-    else if (inputs.sodium >= 160 || inputs.sodium <= 119) score += 3;
-    else if (inputs.sodium >= 155 || inputs.sodium <= 129) score += 2;
-    else if (inputs.sodium >= 150) score += 1;
-  }
-
-  // 9. Potassium
-  if (inputs.potassium !== undefined) {
-    if (inputs.potassium >= 7 || inputs.potassium < 2.5) score += 4;
-    else if (inputs.potassium >= 6) score += 3;
-    else if (inputs.potassium < 3) score += 2;
-    else if (inputs.potassium >= 5.5 || inputs.potassium < 3.5) score += 1;
-  }
-
-  // 10. Creatinine
-  if (inputs.creatinine !== undefined) {
-    let crScore = 0;
-    if (inputs.creatinine >= 3.5) crScore = 4;
-    else if (inputs.creatinine >= 2) crScore = 3;
-    else if (inputs.creatinine >= 1.5) crScore = 2;
-    else if (inputs.creatinine < 0.6) crScore = 2;
-
-    score += inputs.acuteRenalFailure ? crScore * 2 : crScore;
-  }
-
-  // 11. Hematocrit
-  if (inputs.hematocrit !== undefined) {
-    if (inputs.hematocrit >= 60 || inputs.hematocrit < 20) score += 4;
-    else if (inputs.hematocrit >= 50 || inputs.hematocrit < 30) score += 2;
-    else if (inputs.hematocrit >= 46) score += 1;
-  }
-
-  // 12. WBC
-  if (inputs.wbcCount !== undefined) {
-    if (inputs.wbcCount >= 40 || inputs.wbcCount < 1) score += 4;
-    else if (inputs.wbcCount >= 20 || inputs.wbcCount < 3) score += 2;
-    else if (inputs.wbcCount >= 15) score += 1;
-  }
-
-  // 13. GCS
-  if (inputs.gcs !== undefined) {
-    score += (15 - inputs.gcs);
-  }
-
-  // 14. Chronic Health
-  if (inputs.chronicHealthSurg && inputs.chronicHealthSurg !== 'none') {
-    if (inputs.chronicHealthSurg === 'non-operative' || inputs.chronicHealthSurg === 'emergency-post-op') {
-      score += 5;
-    } else if (inputs.chronicHealthSurg === 'elective-post-op') {
-      score += 2;
-    }
-  }
-
-  const riskLevel = score <= 10 ? 'low' : score <= 20 ? 'moderate' : score <= 30 ? 'high' : 'critical';
-  const mortality = score <= 4 ? '4%' : score <= 9 ? '8%' : score <= 14 ? '15%' : score <= 19 ? '25%' : score <= 24 ? '40%' : score <= 29 ? '55%' : score <= 34 ? '73%' : '85%';
-
-  return {
-    score,
-    maxScore: 71,
-    interpretation: `Estimated Non-Operative Mortality: ${mortality}`,
-    riskLevel,
-    color: score <= 10 ? 'text-green-600' : score <= 20 ? 'text-amber-600' : 'text-red-600',
-    recommendation: `Total APACHE II: ${score}. Higher scores correlate with higher risk of hospital mortality.`
   };
 };
 
