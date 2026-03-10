@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MissingAPIKeyError } from '../_shared/mod.ts';
+import { callLLM } from '../_shared/llm-client.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -26,9 +27,8 @@ serve(async (req) => {
     }
     const { patientData, section, model: requestedModel } = bodyResult.data;
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY is not configured");
+    if (!patientData || typeof patientData !== 'object') {
+      return createErrorResponse(req, 'Missing required field: patientData', 400);
     }
 
     let prompt = "";
@@ -89,49 +89,16 @@ Systems Review: ${JSON.stringify(patientData.systems || {}, null, 2)}
       );
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: requestedModel || "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a medical assistant helping generate actionable to-do items for patient care. 
+    const systemPrompt = `You are a medical assistant helping generate actionable to-do items for patient care.
 Generate concise, specific, and actionable tasks. Each task should be clear and completable.
 Return ONLY a JSON array of strings, each string being one to-do item.
 Keep each item under 100 characters. Generate 3-7 relevant items based on the content provided.
-Do not include explanations or markdown, just the JSON array.`
-          },
-          {
-            role: "user",
-            content: `${prompt}\n\nContent:\n${contextData}`
-          }
-        ],
-      }),
+Do not include explanations or markdown, just the JSON array.`;
+
+    const content = await callLLM(systemPrompt, `${prompt}\n\nContent:\n${contextData}`, {
+      model: requestedModel,
+      temperature: 0.3,
     });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "[]";
 
     // Parse the JSON array from the response
     let todos: string[] = [];
@@ -157,6 +124,12 @@ Do not include explanations or markdown, just the JSON array.`
 
   } catch (error) {
     safeLog('error', `Error generating todos: ${error}`);
+    if (error instanceof MissingAPIKeyError) {
+      return new Response(
+        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
+        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
     return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate todos'), 500);
   }
 });
