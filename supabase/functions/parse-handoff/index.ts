@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MAX_MEDIA_PAYLOAD_BYTES } from '../_shared/mod.ts';
+import { getLLMConfig, MissingAPIKeyError } from '../_shared/llm-client.ts';
 
 interface PatientSystems {
   neuro: string;
@@ -320,14 +321,15 @@ serve(async (req: Request) => {
       );
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      safeLog('error', "OPENAI_API_KEY not configured");
+    const llmConfig = getLLMConfig();
+    if (!llmConfig.apiKey) {
+      safeLog('error', "No LLM API key configured");
       return new Response(
-        JSON.stringify({ success: false, error: "AI service not configured" }),
+        JSON.stringify({ success: false, error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }),
         { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
+    const OPENAI_API_KEY = llmConfig.apiKey;
 
     safeLog('info', "Parsing Epic handoff content..." + (images ? `(${images.length} images)` : "(text)"));
 
@@ -488,19 +490,19 @@ SYSTEM MAPPING GUIDANCE:
       userContent = `Parse the following Epic Handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Parse content into the appropriate system categories:\n\n${pdfContent}`;
     }
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: requestedModel || "gpt-4o-mini",
+        model: requestedModel || llmConfig.defaultModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        max_completion_tokens: 16000,
+        max_tokens: 16000,
       }),
     });
 
@@ -703,6 +705,12 @@ SYSTEM MAPPING GUIDANCE:
     );
   } catch (error) {
     console.error("Parse handoff error:", error);
+    if (error instanceof MissingAPIKeyError) {
+      return new Response(
+        JSON.stringify({ success: false, error: error.message }),
+        { status: 503, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
+      );
+    }
     return createErrorResponse(req, safeErrorMessage(error, 'Failed to parse handoff document'), 500);
   }
 });

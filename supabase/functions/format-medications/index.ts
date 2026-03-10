@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage, MissingAPIKeyError } from '../_shared/mod.ts';
+import { getLLMConfig } from '../_shared/llm-client.ts';
 
 interface MedicationCategories {
   infusions: string[];
@@ -38,14 +39,15 @@ serve(async (req) => {
       return createErrorResponse(req, medsCheck.error, 400);
     }
 
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) {
-      safeLog('error', "OPENAI_API_KEY is not configured");
+    const llmConfig = getLLMConfig();
+    if (!llmConfig.apiKey) {
+      safeLog('error', "No LLM API key configured");
       return new Response(
-        JSON.stringify({ error: "AI service not configured" }),
+        JSON.stringify({ error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }),
         { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
       );
     }
+    const OPENAI_API_KEY = llmConfig.apiKey;
 
     const systemPrompt = `You are a medication formatting expert. Parse medication lists into structured categories.
 
@@ -77,14 +79,14 @@ OUTPUT FORMAT:
 Return a JSON object with three arrays: infusions, scheduled, prn
 Each array contains formatted medication strings.`;
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: requestedModel || "gpt-4o-mini",
+        model: requestedModel || llmConfig.defaultModel,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Parse and format these medications:\n\n${medications}` },
@@ -205,6 +207,12 @@ Each array contains formatted medication strings.`;
     });
   } catch (error) {
     safeLog('error', `Error in format-medications: ${error}`);
+    if (error instanceof MissingAPIKeyError) {
+      return new Response(
+        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
+        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
     return createErrorResponse(req, safeErrorMessage(error, 'Failed to format medications'), 500);
   }
 });

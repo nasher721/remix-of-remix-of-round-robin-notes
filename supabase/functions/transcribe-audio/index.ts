@@ -115,18 +115,23 @@ serve(async (req) => {
       return bodyResult.response;
     }
     const { audio, mimeType = 'audio/webm', enhanceMedical = true, model: requestedModel } = bodyResult.data;
-    // Safety: strip data URI prefix if present (e.g., "data:audio/webm;base64,")
-    const audioPrefixMatch = audio!.match(/^data:audio\/[a-z0-9]+;base64,/i);
-    const audioData = audioPrefixMatch ? audio!.split(',')[1] : audio;
 
-    safeLog('info', `Received audio data: ${audioData!.length} base64 chars`);
+    if (!audio || typeof audio !== 'string' || audio.trim().length === 0) {
+      return createErrorResponse(req, 'Missing required field: audio (base64-encoded audio data)', 400);
+    }
+
+    // Safety: strip data URI prefix if present (e.g., "data:audio/webm;base64,")
+    const audioPrefixMatch = audio.match(/^data:audio\/[a-z0-9]+;base64,/i);
+    const audioData = audioPrefixMatch ? audio.split(',')[1] : audio;
+
+    safeLog('info', `Received audio data: ${audioData.length} base64 chars`);
     safeLog('info', `MIME type: ${mimeType}`);
     safeLog('info', `Enhance medical: ${enhanceMedical}`);
 
     // Process audio in chunks
     let binaryAudio: Uint8Array;
     try {
-      binaryAudio = processBase64Chunks(audioData!);
+      binaryAudio = processBase64Chunks(audioData);
       safeLog('info', `Processed audio size: ${binaryAudio.length} bytes`);
     } catch (err) {
       safeLog('error', `Failed to process base64 chunks: ${err}`);

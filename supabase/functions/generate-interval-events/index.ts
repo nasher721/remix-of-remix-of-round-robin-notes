@@ -1,8 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
-
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MissingAPIKeyError } from '../_shared/mod.ts';
+import { callLLM } from '../_shared/llm-client.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -32,10 +31,6 @@ serve(async (req) => {
 
     if (!systems || typeof systems !== 'object') {
       return createErrorResponse(req, 'Missing required field: systems', 400);
-    }
-
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     // Build a summary of all system data
@@ -109,43 +104,10 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
 
     safeLog('info', `Generating interval events for ${patientName || 'patient'} from ${systemSummaries.length} systems`);
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: requestedModel || 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-      }),
+    const generatedEvents = await callLLM(systemPrompt, userPrompt, {
+      model: requestedModel,
+      temperature: 0.3,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
-
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'AI credits depleted. Please add credits to continue.' }),
-          { status: 402, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-        );
-      }
-
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const generatedEvents = data.choices?.[0]?.message?.content?.trim();
 
     if (!generatedEvents) {
       throw new Error('No response from AI');
@@ -160,6 +122,12 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
 
   } catch (error) {
     safeLog('error', `Generate interval events error: ${error}`);
+    if (error instanceof MissingAPIKeyError) {
+      return new Response(
+        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
+        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      );
+    }
     return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate interval events'), 500);
   }
 });
