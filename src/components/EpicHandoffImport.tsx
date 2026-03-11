@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
@@ -59,9 +59,10 @@ interface EpicHandoffImportProps {
     systems: PatientSystems;
     medications?: PatientMedications;
   }>) => Promise<void>;
+  noDialog?: boolean;
 }
 
-export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandoffImportProps) => {
+export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = false }: EpicHandoffImportProps) => {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -228,6 +229,23 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
   const handleTextPaste = async () => {
     try {
+      // Check clipboard permissions first
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'clipboard-read' as PermissionName });
+          if (permissionStatus.state === 'denied') {
+            toast({
+              title: "Clipboard access denied",
+              description: "Please enable clipboard permissions in your browser settings, or paste manually.",
+              variant: "destructive",
+            });
+            return;
+          }
+        } catch {
+          // Some browsers don't support clipboard-read permission query, continue anyway
+        }
+      }
+
       const text = await navigator.clipboard.readText();
       if (!text || text.length < 50) {
         toast({
@@ -347,15 +365,92 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
 
   const bedExists = (bed: string) => existingBeds.some(b => b.toLowerCase() === bed.toLowerCase());
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => o ? setOpen(true) : handleClose()}>
-      <DialogTrigger asChild>
-        <Button variant="secondary" className="bg-white/10 hover:bg-white/20">
-          <FileUp className="h-4 w-4 mr-2" />
-          Import Epic Handoff
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+  // Sync internal open state with external control when noDialog is true
+  useEffect(() => {
+    if (noDialog) {
+      setOpen(true);
+    }
+  }, [noDialog]);
+
+  const content = (
+    <>
+      <DialogHeader className="flex-shrink-0">
+        <div className="flex justify-between items-center pr-8">
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Import Epic Handoff
+          </DialogTitle>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <h4 className="font-medium leading-none">Import Settings</h4>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="ocr-enabled" className="flex flex-col gap-1">
+                      <span>Enable OCR</span>
+                      <span className="text-xs text-muted-foreground">For scanned PDFs/images</span>
+                    </Label>
+                    <Switch
+                      id="ocr-enabled"
+                      checked={settings.ocrEnabled}
+                      onCheckedChange={(c) => updateSettings({ ocrEnabled: c })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="force-ocr" className="flex flex-col gap-1">
+                      <span>Force OCR</span>
+                      <span className="text-xs text-muted-foreground">Ignore extracted text</span>
+                    </Label>
+                    <Switch
+                      id="force-ocr"
+                      checked={settings.forceOcr}
+                      onCheckedChange={(c) => updateSettings({ forceOcr: c })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Image Quality (Upscale)</Label>
+                      <span className="text-xs text-muted-foreground">{settings.imageScale}x</span>
+                    </div>
+                    <Slider
+                      min={1.0}
+                      max={3.0}
+                      step={0.5}
+                      value={[settings.imageScale]}
+                      onValueChange={([v]) => updateSettings({ imageScale: v })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Higher quality improves accuracy but takes longer.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Page Limit</Label>
+                      <span className="text-xs text-muted-foreground">{settings.pageLimit} parsed</span>
+                    </div>
+                    <Slider
+                      min={1}
+                      max={20}
+                      step={1}
+                      value={[settings.pageLimit]}
+                      onValueChange={([v]) => updateSettings({ pageLimit: v })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+      </DialogHeader>
         <DialogHeader className="flex-shrink-0">
           <div className="flex justify-between items-center pr-8">
             <DialogTitle className="flex items-center gap-2">
@@ -503,7 +598,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
                         <div className="flex items-start gap-3">
                           <Checkbox
                             checked={selectedPatients.has(index)}
-                            onChange={() => togglePatient(index)}
+                            onCheckedChange={() => togglePatient(index)}
                             className="mt-1"
                           />
                           <div className="flex-1 min-w-0">
@@ -571,6 +666,26 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients }: EpicHandof
           </div>
         )}
       </DialogContent>
+    </>
+  );
+
+  if (noDialog) {
+    return (
+      <div className="max-w-2xl max-h-[80vh] flex flex-col">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => o ? setOpen(true) : handleClose()}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" className="bg-white/10 hover:bg-white/20">
+          <FileUp className="h-4 w-4 mr-2" />
+          Import Epic Handoff
+        </Button>
+      </DialogTrigger>
+      {content}
     </Dialog>
   );
 };

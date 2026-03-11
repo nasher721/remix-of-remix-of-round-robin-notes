@@ -62,6 +62,15 @@ export const MobileAddPanel = ({ onAddPatient, onOpenImport, onSmartImport }: Mo
       <Card 
         className="p-6 cursor-pointer hover:bg-secondary/50 active:bg-secondary transition-colors"
         onClick={onOpenImport}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpenImport();
+          }
+        }}
+        aria-label="Import Epic Handoff - Upload PDF or paste handoff text"
       >
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-2xl bg-blue-500/10 flex items-center justify-center">

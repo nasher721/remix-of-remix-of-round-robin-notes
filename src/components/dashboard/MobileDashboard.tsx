@@ -312,7 +312,7 @@ export const MobileDashboard = () => {
       />
 
       <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <EpicHandoffImport
             existingBeds={patients.map(p => p.bed)}
             onImportPatients={async (importedPatients) => {
@@ -320,6 +320,7 @@ export const MobileDashboard = () => {
               setShowImportModal(false);
               setMobileTab("patients");
             }}
+            noDialog
           />
         </DialogContent>
       </Dialog>
