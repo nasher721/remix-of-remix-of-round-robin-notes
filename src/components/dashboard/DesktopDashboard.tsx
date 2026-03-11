@@ -37,6 +37,16 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Plus,
   Printer,
   Search,
@@ -97,7 +107,7 @@ export const DesktopDashboard = () => {
   } = useDashboard();
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
-  useChangeTracking();
+  const { enabled: ctEnabled, color: ctColor, styles: ctStyles, toggleEnabled: ctToggleEnabled, setColor: ctSetColor, toggleStyle: ctToggleStyle } = useChangeTracking();
 
   const [showPrintModal, setShowPrintModal] = React.useState(false);
   const [showPhraseManager, setShowPhraseManager] = React.useState(false);
@@ -133,10 +143,15 @@ export const DesktopDashboard = () => {
     URL.revokeObjectURL(url);
   }, [patients]);
 
+  const [showClearAllDialog, setShowClearAllDialog] = React.useState(false);
+
   const handleClearAll = React.useCallback(() => {
-    if (confirm("Clear all patients? This cannot be undone.")) {
-      onClearAll();
-    }
+    setShowClearAllDialog(true);
+  }, []);
+
+  const handleConfirmClearAll = React.useCallback(() => {
+    onClearAll();
+    setShowClearAllDialog(false);
   }, [onClearAll]);
 
   const filterLabel = React.useMemo(() => {
@@ -339,7 +354,14 @@ export const DesktopDashboard = () => {
                     <p className="text-xs font-medium text-muted-foreground">Workflow</p>
                     <DesktopSpecialtySelector />
                     <DesktopAIModelSettingsDialog />
-                    <ChangeTrackingControls />
+                    <ChangeTrackingControls
+                      enabled={ctEnabled}
+                      color={ctColor}
+                      styles={ctStyles}
+                      onToggleEnabled={ctToggleEnabled}
+                      onColorChange={ctSetColor}
+                      onToggleStyle={ctToggleStyle}
+                    />
                   </div>
                   <div className="rounded-md border border-border/40 p-3 space-y-2">
                     <p className="text-xs font-medium text-muted-foreground">Authoring</p>
@@ -527,7 +549,27 @@ export const DesktopDashboard = () => {
 
       <PhraseManager open={showPhraseManager} onOpenChange={setShowPhraseManager} />
 
-      <AICommandPalette isOpen={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
+      <AICommandPalette open={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
+
+      <AlertDialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear All Patients</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove all patients from rounds? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClearAll}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

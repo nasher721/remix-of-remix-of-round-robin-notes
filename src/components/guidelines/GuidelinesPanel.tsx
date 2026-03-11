@@ -1,31 +1,16 @@
 /**
- * Guidelines Panel with Floating Trigger
- * Lazy loads the panel content and shows a floating button when closed
+ * Guidelines Panel
+ * Lazy loads the panel content for performance. Renders content directly
+ * when embedded (e.g. in a tab), without a floating toggle button.
  */
 
 import React, { Suspense, memo } from 'react';
-import { FileText, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useClinicalGuidelinesState } from '@/contexts/ClinicalGuidelinesContext';
+import { Loader2 } from 'lucide-react';
 
 // Lazy load the heavy panel component
 const GuidelinesPanelContent = React.lazy(() => import('./GuidelinesPanelContent'));
 
 function GuidelinesPanelComponent() {
-  const { isOpen, togglePanel } = useClinicalGuidelinesState();
-
-  if (!isOpen) {
-    return (
-      <Button
-        onClick={togglePanel}
-        className="fixed left-4 bottom-20 z-50 h-12 w-12 rounded-full shadow-lg bg-secondary hover:bg-secondary/90 border border-border transition-all hover:scale-105"
-        title="Clinical Guidelines (Ctrl+G)"
-      >
-        <FileText className="h-5 w-5 text-foreground" />
-      </Button>
-    );
-  }
-
   return (
     <Suspense
       fallback={

@@ -13,6 +13,16 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useDashboard } from "@/contexts/DashboardContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -78,21 +88,32 @@ export const MobileDashboard = () => {
   const [showAutotextModal, setShowAutotextModal] = useState(false);
   const [showPhraseManager, setShowPhraseManager] = useState(false);
   const [showBatchCourse, setShowBatchCourse] = useState(false);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [showClearAllDialog, setShowClearAllDialog] = useState(false);
 
   const handlePrint = useCallback(() => {
     setShowPrintModal(true);
   }, []);
 
   const handleRemovePatient = useCallback((id: string) => {
-    if (confirm('Remove this patient from rounds?')) {
-      onRemovePatient(id);
+    setPendingRemoveId(id);
+  }, []);
+
+  const handleConfirmRemove = useCallback(() => {
+    if (pendingRemoveId) {
+      onRemovePatient(pendingRemoveId);
+      onPatientSelect(null);
+      setPendingRemoveId(null);
     }
-  }, [onRemovePatient]);
+  }, [pendingRemoveId, onRemovePatient, onPatientSelect]);
 
   const handleClearAll = useCallback(() => {
-    if (confirm('Clear all patients? This cannot be undone.')) {
-      onClearAll();
-    }
+    setShowClearAllDialog(true);
+  }, []);
+
+  const handleConfirmClearAll = useCallback(() => {
+    onClearAll();
+    setShowClearAllDialog(false);
   }, [onClearAll]);
 
   const handleAddPatient = useCallback(() => {
@@ -121,7 +142,6 @@ export const MobileDashboard = () => {
           onUpdate={onUpdatePatient}
           onRemove={(id) => {
             handleRemovePatient(id);
-            onPatientSelect(null);
           }}
           onDuplicate={onDuplicatePatient}
           onPrint={handlePrint}
@@ -354,6 +374,48 @@ export const MobileDashboard = () => {
 
       <IBCCPanel />
       <GuidelinesPanel />
+
+      {/* Remove patient confirmation */}
+      <AlertDialog open={pendingRemoveId !== null} onOpenChange={(open) => !open && setPendingRemoveId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this patient from rounds? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingRemoveId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRemove}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear all patients confirmation */}
+      <AlertDialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear All Patients</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove all patients from rounds? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClearAll}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
