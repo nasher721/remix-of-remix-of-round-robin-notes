@@ -87,14 +87,11 @@ export default {
 				'gradient-success': 'var(--gradient-success)'
 			},
 			boxShadow: {
-				sm: 'var(--shadow-sm)',
-				md: 'var(--shadow-md)',
-				lg: 'var(--shadow-lg)',
-				xl: 'var(--shadow-xl)',
-				'2xs': 'var(--shadow-2xs)',
-				xs: 'var(--shadow-xs)',
-				'2xl': 'var(--shadow-2xl)',
-				DEFAULT: 'var(--shadow)'
+				sm: '0 2px 4px 0 rgba(0, 0, 0, 0.02)',
+				md: '0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+				lg: '0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02)',
+				xl: '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02)',
+				'glow': '0 0 20px rgba(var(--primary-rgb), 0.15)',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -281,24 +278,17 @@ export default {
 						letterSpacing: '-0.027em'
 					}
 				],
-				// Fluid font sizes — scale smoothly with viewport
-				'fluid-xs': 'var(--text-fluid-xs)',
-				'fluid-sm': 'var(--text-fluid-sm)',
-				'fluid-base': 'var(--text-fluid-base)',
-				'fluid-lg': 'var(--text-fluid-lg)',
-				'fluid-xl': 'var(--text-fluid-xl)',
-				'fluid-2xl': 'var(--text-fluid-2xl)',
-				'fluid-3xl': 'var(--text-fluid-3xl)',
+				'5xl': [
+					'3rem',
+					{
+						lineHeight: '1.2',
+						letterSpacing: '-0.027em'
+					}
+				]
 			},
 			spacing: {
 				'18': '4.5rem',
-				'22': '5.5rem',
-				// Fluid spacing — scale smoothly with viewport
-				'fluid-xs': 'var(--space-fluid-xs)',
-				'fluid-sm': 'var(--space-fluid-sm)',
-				'fluid-md': 'var(--space-fluid-md)',
-				'fluid-lg': 'var(--space-fluid-lg)',
-				'fluid-xl': 'var(--space-fluid-xl)',
+				'22': '5.5rem'
 			},
 			containers: {
 				'xs': '320px',

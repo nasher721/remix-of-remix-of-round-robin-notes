@@ -189,7 +189,7 @@ export const DesktopDashboard = () => {
               <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-6 w-auto relative z-10" />
             </div>
             <div>
-              <h1 className="text-fluid-sm font-semibold tracking-tight leading-none text-card-foreground group-hover:text-primary transition-colors">Rolling Rounds</h1>
+              <h1 className="text-xl font-semibold tracking-tight leading-none text-card-foreground group-hover:text-primary transition-colors">Rolling Rounds</h1>
               <p className="text-[10px] text-muted-foreground font-medium tracking-widest uppercase mt-0.5">Professional</p>
             </div>
           </div>
@@ -228,7 +228,7 @@ export const DesktopDashboard = () => {
       </motion.header>
 
       <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print">
-        <div ref={utilityPanelRef} className="relative rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
+        <div ref={utilityPanelRef} className="relative rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
               variant="ghost"
@@ -366,7 +366,7 @@ export const DesktopDashboard = () => {
 
       <div className="h-[calc(100vh-11.5rem)] w-full no-print pb-4">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
-          <div className="flex flex-col h-full bg-background relative z-10 shadow-lg ring-1 ring-border/20 rounded-xl">
+          <div className="flex flex-col h-full bg-background relative z-10 shadow-lg ring-1 ring-border/30 rounded-2xl">
             <div className="p-4 md:p-6 pb-0">
               <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-4">
                 <div className="flex flex-1 gap-2.5 items-center w-full lg:w-auto">
@@ -378,7 +378,7 @@ export const DesktopDashboard = () => {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       aria-label="Search patients"
-                      className="pl-10 h-9 bg-card/60 border-border/30 focus-visible:ring-1 focus-visible:ring-white/30 focus-visible:border-white/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
+                      className="pl-10 h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:border-primary/20 rounded-xl text-sm text-card-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                   <div className="flex gap-0.5 p-0.5 bg-card/40 rounded-xl" role="group" aria-label="Filter patients">
