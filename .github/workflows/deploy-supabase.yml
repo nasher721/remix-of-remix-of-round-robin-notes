@@ -1,0 +1,42 @@
+name: Deploy Supabase
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+      
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link Supabase Project
+        run: supabase link --project-ref $PROJECT_ID
+        
+      - name: Wait for database health
+        run: supabase db ping
+
+      - name: Push Database Migrations
+        run: supabase db push
+
+      - name: Deploy Edge Functions
+        run: supabase functions deploy
+        
+      # Optional: To enforce strict type-safe databases locally vs prod
+      # - name: Verify Database Types
+      #   run: |
+      #     supabase gen types typescript --linked > types.ts
+      #     git diff --exit-code types.ts || echo "Remote types do not match local definitions. Run `supabase gen types typescript --local` and commit changes." && exit 1
