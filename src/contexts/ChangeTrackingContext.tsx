@@ -58,7 +58,7 @@ export const ChangeTrackingProvider: React.FC<{ children: React.ReactNode }> = (
       return {
         enabled: saved.enabled,
         color: saved.color,
-        styles: saved.styles,
+        styles: { ...DEFAULT_STYLES, ...saved.styles },
       };
     }
     return {
