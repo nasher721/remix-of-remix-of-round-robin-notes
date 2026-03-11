@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage, MissingAPIKeyError } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage, MissingAPIKeyError, handleOptions, jsonResponse } from '../_shared/mod.ts';
 import { getLLMConfig } from '../_shared/llm-client.ts';
 
 interface MedicationCategories {
@@ -9,9 +8,9 @@ interface MedicationCategories {
   rawText: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders(req) });
+    return handleOptions(req);
   }
 
   try {
@@ -25,7 +24,7 @@ serve(async (req) => {
     // Rate limiting check
     const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+      return rateLimit.response ?? jsonResponse(req, { error: 'Rate limit exceeded' }, 429);
     }
 
     const bodyResult = await parseAndValidateBody<{ medications?: string; model?: string }>(req);
@@ -35,17 +34,15 @@ serve(async (req) => {
     const { medications, model: requestedModel } = bodyResult.data;
 
     const medsCheck = requireString(medications, 'medications');
-    if (typeof medsCheck === 'object' && 'error' in medsCheck) {
-      return createErrorResponse(req, medsCheck.error, 400);
+    if (typeof medsCheck !== 'string') {
+      return jsonResponse(req, { error: medsCheck.error }, 400);
     }
+    const validMedications = medsCheck;
 
     const llmConfig = getLLMConfig();
     if (!llmConfig.apiKey) {
       safeLog('error', "No LLM API key configured");
-      return new Response(
-        JSON.stringify({ error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }),
-        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }, 500);
     }
     const OPENAI_API_KEY = llmConfig.apiKey;
 
@@ -89,7 +86,7 @@ Each array contains formatted medication strings.`;
         model: requestedModel || llmConfig.defaultModel,
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Parse and format these medications:\n\n${medications}` },
+          { role: "user", content: `Parse and format these medications:\n\n${validMedications}` },
         ],
         tools: [
           {
@@ -131,22 +128,13 @@ Each array contains formatted medication strings.`;
       safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
 
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again." }),
-          { status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-        );
+        return jsonResponse(req, { error: "Rate limit exceeded. Please try again." }, 429);
       }
       if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits." }),
-          { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-        );
+        return jsonResponse(req, { error: "AI credits exhausted. Please add credits." }, 402);
       }
 
-      return new Response(
-        JSON.stringify({ error: "Failed to process medications" }),
-        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Failed to process medications" }, 500);
     }
 
     const aiResponse = await response.json();
@@ -156,7 +144,7 @@ Each array contains formatted medication strings.`;
       infusions: [],
       scheduled: [],
       prn: [],
-      rawText: medications,
+      rawText: validMedications,
     };
 
     // Parse tool call response
@@ -168,7 +156,7 @@ Each array contains formatted medication strings.`;
           infusions: args.infusions || [],
           scheduled: args.scheduled || [],
           prn: args.prn || [],
-          rawText: medications,
+          rawText: validMedications,
         };
       } catch (e) {
         safeLog('error', `Failed to parse tool call arguments: ${e}`);
@@ -191,7 +179,7 @@ Each array contains formatted medication strings.`;
               infusions: parsed.infusions || [],
               scheduled: parsed.scheduled || [],
               prn: parsed.prn || [],
-              rawText: medications,
+              rawText: validMedications,
             };
           }
         } catch (e) {
@@ -202,16 +190,11 @@ Each array contains formatted medication strings.`;
 
     safeLog('info', `Parsed medications successfully`);
 
-    return new Response(JSON.stringify({ medications: parsedMeds }), {
-      headers: { ...corsHeaders(req), "Content-Type": "application/json" },
-    });
+    return jsonResponse(req, { medications: parsedMeds });
   } catch (error) {
     safeLog('error', `Error in format-medications: ${error}`);
     if (error instanceof MissingAPIKeyError) {
-      return new Response(
-        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
-        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(req, { error: error.message, code: 'MISSING_API_KEY' }, 503);
     }
     return createErrorResponse(req, safeErrorMessage(error, 'Failed to format medications'), 500);
   }

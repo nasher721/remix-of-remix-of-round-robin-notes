@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage, handleOptions, jsonResponse } from '../_shared/mod.ts';
 import { getLLMConfig } from '../_shared/llm-client.ts';
 
 interface PatientSystems {
@@ -49,10 +48,10 @@ function convertLineBreaks(text: string): string {
     .replace(/\r/g, '\n');
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders(req) });
+    return handleOptions(req);
   }
 
   try {
@@ -65,7 +64,7 @@ serve(async (req: Request) => {
     // Rate limiting check
     const rateLimit = checkRateLimit(req, RATE_LIMITS.parse, authResult.userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+      return rateLimit.response ?? jsonResponse(req, { error: 'Rate limit exceeded' }, 429);
     }
 
     const bodyResult = await parseAndValidateBody<{ content?: string; model?: string }>(req);
@@ -91,10 +90,7 @@ serve(async (req: Request) => {
 
     if (!config.apiKey) {
       safeLog('error', "No valid LLM API key found");
-      return new Response(
-        JSON.stringify({ error: "AI service not configured" }),
-        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "AI service not configured" }, 500);
     }
 
     const systemPrompt = `You organize clinical notes into sections.
@@ -220,22 +216,13 @@ ${content}`;
       safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
 
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-        );
+        return jsonResponse(req, { error: "Rate limit exceeded. Please try again in a moment." }, 429);
       }
       if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }),
-          { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-        );
+        return jsonResponse(req, { error: "AI credits exhausted. Please add credits to continue." }, 402);
       }
 
-      return new Response(
-        JSON.stringify({ error: "Failed to process clinical notes" }),
-        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { error: "Failed to process clinical notes" }, 500);
     }
 
     const aiResponse = await response.json();
@@ -263,10 +250,7 @@ ${content}`;
       const aiContent = aiResponse.choices?.[0]?.message?.content;
       if (!aiContent) {
         safeLog('error', "No content in AI response");
-        return new Response(
-          JSON.stringify({ error: "No response from AI service" }),
-          { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-        );
+        return jsonResponse(req, { error: "No response from AI service" }, 500);
       }
 
       // Extract JSON from response
@@ -297,10 +281,7 @@ ${content}`;
         try {
           parsedData = JSON.parse(repaired);
         } catch {
-          return new Response(
-            JSON.stringify({ error: "Failed to parse AI response" }),
-            { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-          );
+          return jsonResponse(req, { error: "Failed to parse AI response" }, 500);
         }
       }
     }
@@ -363,10 +344,7 @@ ${content}`;
 
     safeLog('info', "Successfully parsed patient data");
 
-    return new Response(
-      JSON.stringify({ patient: cleanedPatient }),
-      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { patient: cleanedPatient });
 
   } catch (error) {
     safeLog('error', `Error in parse-single-patient: ${error}`);

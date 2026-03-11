@@ -183,7 +183,7 @@ export const DesktopDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={transitions.smooth}
       >
-        <div className="container mx-auto px-fluid-md lg:px-fluid-lg h-14 flex items-center justify-between gap-fluid-sm">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate("/")}>
             <div className="relative flex items-center justify-center h-9 w-9 rounded-xl bg-primary/8 group-hover:bg-primary/15 transition-colors border border-primary/10">
               <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-6 w-auto relative z-10" />
@@ -227,7 +227,7 @@ export const DesktopDashboard = () => {
         </div>
       </motion.header>
 
-      <div className="container mx-auto px-fluid-md lg:px-fluid-lg pt-4 pb-3 no-print">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print">
         <div ref={utilityPanelRef} className="relative rounded-xl border border-border/30 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
           <div className="flex flex-wrap items-center gap-1.5">
             <Button
@@ -365,10 +365,10 @@ export const DesktopDashboard = () => {
       </div>
 
       <div className="h-[calc(100vh-11.5rem)] w-full no-print pb-4">
-        <div className="container mx-auto px-fluid-md lg:px-fluid-lg h-full">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
           <div className="flex flex-col h-full bg-background relative z-10 shadow-lg ring-1 ring-border/20 rounded-xl">
-            <div className="p-fluid-md pb-0">
-              <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-Fluid-sm">
+            <div className="p-4 md:p-6 pb-0">
+              <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between mb-4">
                 <div className="flex flex-1 gap-2.5 items-center w-full lg:w-auto">
                   <div className="relative flex-1 max-w-sm" role="search">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" aria-hidden="true" />
@@ -464,7 +464,7 @@ export const DesktopDashboard = () => {
               </div>
             </div>
 
-            <ScrollArea className="flex-1 px-fluid-md py-fluid-sm">
+            <ScrollArea className="flex-1 px-4 md:px-6 py-4">
               {filteredPatients.length === 0 ? (
                 <motion.div
                   className="flex flex-col items-center justify-center py-20 text-center"
@@ -473,10 +473,9 @@ export const DesktopDashboard = () => {
                   animate="visible"
                   transition={{ ...transitions.spring, delay: 0.15 }}
                 >
-                  <div className="mb-8 relative">
-                    <div className="absolute inset-0 bg-primary/8 blur-3xl rounded-full scale-150" />
-                    <div className="relative bg-gradient-to-br from-card to-secondary/30 rounded-3xl p-8 border border-border/30 shadow-sm">
-                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto mx-auto opacity-50" />
+                  <div className="mb-8 relative flex items-center justify-center">
+                    <div className="bg-secondary/30 rounded-3xl p-8 border border-border shadow-sm">
+                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto opacity-50" />
                     </div>
                   </div>
                   <h3 className="text-2xl font-semibold mb-2 text-foreground tracking-tight">

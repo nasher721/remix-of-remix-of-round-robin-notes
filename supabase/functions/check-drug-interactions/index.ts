@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   authenticateRequest,
   getCorsHeaders,
@@ -9,6 +8,7 @@ import {
   RATE_LIMITS,
   parseAndValidateBody,
   safeErrorMessage,
+  jsonResponse,
 } from '../_shared/mod.ts';
 
 interface DrugInteractionRequest {
@@ -150,7 +150,7 @@ async function checkInteraction(
   return null;
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return handleOptions(req);
   }
@@ -177,15 +177,7 @@ serve(async (req) => {
     const { medications } = bodyResult.data;
 
     if (!Array.isArray(medications) || medications.length < 2) {
-      return new Response(
-        JSON.stringify({
-          error: 'At least 2 medications required to check for interactions'
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
-        }
-      );
+      return jsonResponse(req, { error: 'At least 2 medications required to check for interactions' }, 400);
     }
 
     const normalizedMeds = medications
@@ -194,15 +186,7 @@ serve(async (req) => {
       .map(m => m.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim());
 
     if (normalizedMeds.length < 2) {
-      return new Response(
-        JSON.stringify({
-          error: 'At least 2 valid medication names required'
-        }),
-        {
-          status: 400,
-          headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
-        }
-      );
+      return jsonResponse(req, { error: 'At least 2 valid medication names required' }, 400);
     }
 
     const interactions: DrugInteraction[] = [];
@@ -228,31 +212,19 @@ serve(async (req) => {
       return severityOrder[a.severity] - severityOrder[b.severity];
     });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        interactions,
-        checkedCount: normalizedMeds.length,
-        disclaimer: 'This information is for reference only and should not replace professional medical advice. Data sourced from FDA drug labeling.',
-      }),
-      {
-        status: 200,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
-      }
-    );
+    return jsonResponse(req, {
+      success: true,
+      interactions,
+      checkedCount: normalizedMeds.length,
+      disclaimer: 'This information is for reference only and should not replace professional medical advice. Data sourced from FDA drug labeling.',
+    });
 
   } catch (error) {
     safeLog('error', 'Drug interaction check error', { errorMessage: (error as Error).message });
 
-    return new Response(
-      JSON.stringify({
-        error: safeErrorMessage(error, 'An unexpected error occurred'),
-        success: false,
-      }),
-      {
-        status: 500,
-        headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' }
-      }
-    );
+    return jsonResponse(req, {
+      error: safeErrorMessage(error, 'An unexpected error occurred'),
+      success: false,
+    }, 500);
   }
 });

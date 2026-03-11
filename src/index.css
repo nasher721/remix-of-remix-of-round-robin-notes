@@ -1,78 +1,32 @@
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap");
 @import url("https://fonts.googleapis.com/icon?family=Material+Icons");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Loading Animation */
-.loading svg polyline {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.loading svg polyline#back {
-  fill: none;
-  stroke: hsl(var(--primary) / 0.2);
-}
-
-.loading svg polyline#front {
-  fill: none;
-  stroke: hsl(var(--primary));
-  stroke-dasharray: 48, 144;
-  stroke-dashoffset: 192;
-  animation: dash_loading 1.4s linear infinite;
-}
-
-@keyframes dash_loading {
-  72.5% {
-    opacity: 0;
-  }
-
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-/* Clinical-Luxury Design System - Premium, soft, elegant UI
-   Muted zincs/slates with refined teal accents and layered elevation
-   All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    /* Light Theme - Clean, atmospheric white/zinc */
-    --background: 0 0% 98%;
-    /* Off-white, soft background */
-    --foreground: 240 10% 10%;
-    /* Rich dark text */
+    --background: 0 0% 99%;
+    --foreground: 240 10% 12%;
 
     --card: 0 0% 100%;
-    /* Pure white cards */
     --card-foreground: 240 10% 12%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 12%;
 
-    /* Brand Accent - Refined Clinical Teal */
+    /* Refined Clinical Teal */
     --primary: 185 65% 35%;
-    /* Deep premium teal */
     --primary-foreground: 0 0% 100%;
 
-    --primary-light: 185 55% 45%;
-    --primary-dark: 185 75% 25%;
-
-    --secondary: 240 5% 94%;
-    /* Gentle gray for secondary elements */
+    --secondary: 240 5% 96%;
     --secondary-foreground: 240 10% 15%;
 
-    --muted: 240 5% 94%;
+    --muted: 240 5% 96%;
     --muted-foreground: 240 5% 45%;
 
-    --accent: 185 20% 94%;
-    /* Teal-tinted hover state */
+    --accent: 185 20% 96%;
     --accent-foreground: 185 65% 30%;
 
     --destructive: 0 84% 60%;
@@ -88,88 +42,39 @@
     --input: 240 6% 90%;
     --ring: 185 65% 35%;
 
-    /* Soft, rounded corners */
-    --radius: 0.85rem;
+    --radius: 0.75rem;
 
-    /* Layered elegant shadows (Vercel-style) */
-    --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.03);
-    --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05);
-    --shadow-sm: 0 2px 6px -1px rgb(0 0 0 / 0.04), 0 1px 4px -2px rgb(0 0 0 / 0.04);
-    --shadow: 0 4px 12px -2px rgb(0 0 0 / 0.05), 0 2px 8px -3px rgb(0 0 0 / 0.05);
-    --shadow-md: 0 8px 24px -4px rgb(0 0 0 / 0.06), 0 4px 12px -6px rgb(0 0 0 / 0.06);
-    --shadow-lg: 0 12px 32px -6px rgb(0 0 0 / 0.08), 0 6px 16px -8px rgb(0 0 0 / 0.08);
-    --shadow-xl: 0 20px 48px -8px rgb(0 0 0 / 0.1), 0 10px 24px -12px rgb(0 0 0 / 0.1);
-    --shadow-2xl: 0 32px 64px -12px rgb(0 0 0 / 0.12);
+    --font-sans: 'DM Sans', sans-serif;
+    --font-heading: 'Outfit', sans-serif;
 
-    /* Medical Status Colors */
-    --medical-blue: 210 80% 55%;
-    --medical-green: 150 65% 45%;
-    --medical-red: 350 75% 55%;
-    --medical-orange: 35 90% 55%;
+    /* Replaced Fluid Scales with predictable static values */
+    --text-fluid-xs: 0.8125rem;
+    --text-fluid-sm: 0.875rem;
+    --text-fluid-base: 1rem;
+    --text-fluid-lg: 1.125rem;
+    --text-fluid-xl: 1.25rem;
+    --text-fluid-2xl: 1.5rem;
+    --text-fluid-3xl: 2rem;
 
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(185 65% 40%), hsl(190 70% 30%));
-    --gradient-header: linear-gradient(to bottom, hsl(0 0% 100% / 0.9), hsl(0 0% 100% / 0.6));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(240 5% 98%));
-
-    --chart-1: 185 65% 40%;
-    --chart-2: 210 80% 55%;
-    --chart-3: 150 65% 45%;
-    --chart-4: 35 90% 55%;
-    --chart-5: 350 75% 55%;
-
-    --sidebar: 0 0% 98%;
-    --sidebar-foreground: 240 10% 15%;
-    --sidebar-primary: 185 65% 35%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 185 20% 94%;
-    --sidebar-accent-foreground: 185 65% 30%;
-    --sidebar-border: 240 5% 90%;
-    --sidebar-ring: 185 65% 35%;
-
-    /* Elegant Typography */
-    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
-    --font-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-    --tracking-normal: -0.015em;
-    --spacing: 0.25rem;
-
-    /* Fluid type scale: min @ 320px, preferred, max @ 1920px */
-    --text-fluid-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
-    --text-fluid-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
-    --text-fluid-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
-    --text-fluid-lg: clamp(1.125rem, 1rem + 0.6vw, 1.25rem);
-    --text-fluid-xl: clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem);
-    --text-fluid-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
-    --text-fluid-3xl: clamp(1.875rem, 1.4rem + 2.25vw, 2.5rem);
-
-    /* Fluid spacing scale */
-    --space-fluid-xs: clamp(0.25rem, 0.2rem + 0.25vw, 0.5rem);
-    --space-fluid-sm: clamp(0.5rem, 0.4rem + 0.5vw, 0.75rem);
-    --space-fluid-md: clamp(1rem, 0.8rem + 1vw, 1.5rem);
-    --space-fluid-lg: clamp(1.5rem, 1rem + 2.5vw, 3rem);
-    --space-fluid-xl: clamp(2rem, 1.2rem + 4vw, 5rem);
+    --space-fluid-xs: 0.5rem;
+    --space-fluid-sm: 0.75rem;
+    --space-fluid-md: 1rem;
+    --space-fluid-lg: 1.5rem;
+    --space-fluid-xl: 2rem;
   }
 
   .dark {
-    --background: 240 5% 6%;
-    /* Deep dark charcoal/zinc */
+    --background: 240 5% 8%;
     --foreground: 0 0% 96%;
 
-    --card: 240 6% 9%;
-    /* Slightly lighter than bg */
+    --card: 240 6% 10%;
     --card-foreground: 0 0% 96%;
 
-    --popover: 240 6% 9%;
+    --popover: 240 6% 10%;
     --popover-foreground: 0 0% 96%;
 
-    /* Dark Mode Teal Accent */
     --primary: 185 60% 50%;
     --primary-foreground: 240 10% 5%;
-
-    --primary-light: 185 70% 65%;
-    --primary-dark: 185 50% 35%;
 
     --secondary: 240 5% 15%;
     --secondary-foreground: 0 0% 96%;
@@ -178,37 +83,14 @@
     --muted-foreground: 240 5% 65%;
 
     --accent: 185 40% 15%;
-    /* Bright teal tint */
     --accent-foreground: 185 70% 60%;
 
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5% 18%;
-    --input: 240 5% 18%;
+    --border: 240 5% 20%;
+    --input: 240 5% 20%;
     --ring: 185 60% 50%;
-
-    /* Dark mode layered shadows - deeper to show on dark bg */
-    --shadow-2xs: 0 1px 2px 0 rgb(0 0 0 / 0.2);
-    --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.3), 0 1px 2px -1px rgb(0 0 0 / 0.2);
-    --shadow-sm: 0 2px 6px -1px rgb(0 0 0 / 0.4), 0 1px 4px -2px rgb(0 0 0 / 0.3);
-    --shadow: 0 4px 12px -2px rgb(0 0 0 / 0.5), 0 2px 8px -3px rgb(0 0 0 / 0.4);
-    --shadow-md: 0 8px 24px -4px rgb(0 0 0 / 0.6), 0 4px 12px -6px rgb(0 0 0 / 0.5);
-    --shadow-lg: 0 12px 32px -6px rgb(0 0 0 / 0.7), 0 6px 16px -8px rgb(0 0 0 / 0.6);
-    --shadow-xl: 0 20px 48px -8px rgb(0 0 0 / 0.8), 0 10px 24px -12px rgb(0 0 0 / 0.7);
-    --shadow-2xl: 0 32px 64px -12px rgb(0 0 0 / 0.9);
-
-    --gradient-header: linear-gradient(to bottom, hsl(240 6% 9% / 0.9), hsl(240 6% 9% / 0.6));
-    --gradient-card: linear-gradient(180deg, hsl(240 6% 11%), hsl(240 6% 8%));
-
-    --sidebar: 240 5% 8%;
-    --sidebar-foreground: 0 0% 96%;
-    --sidebar-primary: 185 60% 50%;
-    --sidebar-primary-foreground: 240 10% 5%;
-    --sidebar-accent: 185 40% 15%;
-    --sidebar-accent-foreground: 185 70% 60%;
-    --sidebar-border: 240 5% 18%;
-    --sidebar-ring: 185 60% 50%;
   }
 }
 
@@ -220,27 +102,16 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-feature-settings: "cv01", "cv02", "cv03", "cv04", "cv05", "cv06", "cv09", "cv10", "cv11";
-    letter-spacing: var(--tracking-normal);
-    line-height: 1.5;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-family: 'Outfit', sans-serif;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
     font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1.2;
   }
 
   /* Refined clinical focus states */
@@ -252,210 +123,12 @@
   html {
     scroll-behavior: smooth;
   }
-
-  /* Print styles */
-  @media print {
-    * {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    body {
-      @apply bg-white;
-      color: #000;
-    }
-
-    body * {
-      visibility: hidden;
-    }
-
-    .print-export-sandbox,
-    .print-export-sandbox * {
-      visibility: visible;
-    }
-
-    .print-export-sandbox {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-    }
-
-    .no-print {
-      display: none !important;
-    }
-
-    .print-break {
-      page-break-after: always;
-    }
-
-    .print-avoid-break {
-      page-break-inside: avoid;
-    }
-
-    /* Repeat table headers on every page */
-    .print-document thead {
-      display: table-header-group;
-    }
-
-    /* Avoid breaking inside table rows */
-    .print-document tr {
-      page-break-inside: avoid;
-    }
-
-    /* Page break between patients when one-per-page is active */
-    .print-patient-break {
-      page-break-after: always;
-      break-after: page;
-    }
-
-    /* Preserve change tracking markup colors in print */
-    [data-marked="true"] {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    /* Preserve inline text colors in print */
-    [style*="color"] {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    /* Preserve background colors */
-    [style*="background"] {
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-    }
-
-    @page {
-      margin: 0;
-    }
-  }
-
-  .print-export-sandbox {
-    position: fixed;
-    left: -10000px;
-    top: 0;
-    pointer-events: none;
-  }
-
-  .print-document,
-  .print-document * {
-    box-sizing: border-box;
-  }
-
-  .print-document {
-    width: var(--print-page-width, 210mm);
-    min-height: var(--print-page-height, 297mm);
-    padding: var(--print-page-margin, 15mm);
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  .print-document table {
-    width: 100%;
-    table-layout: fixed;
-    border-collapse: collapse;
-    max-width: 100%;
-  }
-
-  .print-document th,
-  .print-document td {
-    overflow-wrap: anywhere;
-    word-break: break-word;
-  }
-
-  .print-document img {
-    max-width: 100%;
-    height: auto;
-  }
-
-  .print-document pre,
-  .print-document code {
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
-  /* Change tracking tooltip on hover */
-  [data-marked="true"] {
-    position: relative;
-    cursor: help;
-  }
-
-  [data-marked="true"]:hover::after {
-    content: "Edited: " attr(data-date);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: hsl(var(--popover));
-    color: hsl(var(--popover-foreground));
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.625rem;
-    white-space: nowrap;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    z-index: 100;
-    pointer-events: none;
-  }
-
-  /* Rich text editor placeholder */
-  [contenteditable][data-placeholder]:empty::before {
-    content: attr(data-placeholder);
-    color: hsl(var(--muted-foreground));
-    font-style: normal;
-    opacity: 0.6;
-    pointer-events: none;
-  }
-
-  /* Rich text editor prose styles */
-  [contenteditable] {
-
-    ul,
-    ol {
-      padding-left: 1.5rem;
-      margin: 0.25rem 0;
-    }
-
-    ul {
-      list-style-type: disc;
-    }
-
-    ol {
-      list-style-type: decimal;
-    }
-
-    b,
-    strong {
-      font-weight: 600;
-    }
-
-    i,
-    em {
-      font-style: italic;
-    }
-
-    u {
-      text-decoration: underline;
-    }
-  }
 }
 
-/* Text selection color */
-::selection {
-  background-color: hsl(var(--primary) / 0.2);
-  color: hsl(var(--foreground));
-}
-
-::-moz-selection {
-  background-color: hsl(var(--primary) / 0.2);
-  color: hsl(var(--foreground));
-}
-
-/* Global refined scrollbar */
+/* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -463,274 +136,108 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--muted-foreground) / 0.25);
+  background-color: hsl(var(--muted-foreground) / 0.3);
   border-radius: 99px;
-  transition: background-color 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--muted-foreground) / 0.45);
+  background-color: hsl(var(--muted-foreground) / 0.5);
 }
 
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.25) transparent;
-}
-
-/* Morrow-style utility classes */
+/* Simplified Utility Classes */
 @layer utilities {
-  .morrow-blur {
-    -webkit-backdrop-filter: saturate(120%) blur(24px);
-    backdrop-filter: saturate(120%) blur(24px);
-    background-color: hsl(var(--background) / 0.75);
-  }
-
-  .text-gradient {
-    background: linear-gradient(160deg, hsl(var(--foreground)) 0%, hsl(var(--muted-foreground)) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .text-gradient-primary {
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   .hover-lift {
-    @apply transition-all duration-300 ease-out;
+    @apply transition-transform duration-200 ease-out;
   }
-
   .hover-lift:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-xl);
-  }
-
-  /* Card hover effect */
-  .card-hover {
-    @apply transition-all duration-200 ease-out;
-  }
-
-  .card-hover:hover {
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.2), 0 6px 12px -4px rgb(0 0 0 / 0.1);
   }
 
-  /* Smooth transitions */
-  .transition-morrow {
-    transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  .card-hover {
+    @apply transition-shadow duration-200 ease-out;
   }
-
-  /* Glass morphism panel */
+  .card-hover:hover {
+    @apply shadow-md;
+  }
+  
+  /* Fallbacks for removed complex classes to prevent breaking the UI */
+  .morrow-blur {
+    @apply bg-background/90 backdrop-blur-md;
+  }
   .glass-panel {
-    -webkit-backdrop-filter: saturate(120%) blur(24px);
-    backdrop-filter: saturate(120%) blur(24px);
-    background-color: hsl(180 10% 12% / 0.85);
-    border: 1px solid hsl(var(--border) / 0.3);
+    @apply bg-card/90 backdrop-blur-md border border-border;
   }
-
-  /* Subtle section divider line */
-  .section-divider {
-    border-top: 1px solid hsl(var(--border) / 0.4);
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
+  .text-gradient {
+    @apply text-foreground;
   }
-
-  /* Shimmering gradient for loading states */
+  .text-gradient-primary {
+    @apply text-primary;
+  }
   .shimmer {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--muted)) 25%,
-      hsl(var(--secondary)) 50%,
-      hsl(var(--muted)) 75%
-    );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+    @apply animate-pulse bg-muted;
   }
-
-  @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+  .noise-overlay {
+    /* Removed for performance & clarity */
   }
-
-  /* Clinical badge style */
+  
+  /* Standard utilities */
+  .section-divider {
+    @apply border-t border-border mt-4 pt-4;
+  }
   .badge-clinical {
     @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide border;
   }
-
-  /* Subtle inset shadow for editors */
-  .editor-inset {
-    box-shadow: inset 0 1px 3px 0 rgb(0 0 0 / 0.04), inset 0 1px 2px -1px rgb(0 0 0 / 0.04);
-  }
-
-  /* Safe area insets for mobile devices */
-  .safe-area-top {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .safe-area-left {
-    padding-left: env(safe-area-inset-left);
-  }
-
-  .safe-area-right {
-    padding-right: env(safe-area-inset-right);
-  }
-
-  /* Mobile bottom nav spacing */
-  .pb-mobile-nav {
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* Touch-friendly targets */
-  .touch-target {
-    min-height: 44px;
-    min-width: 44px;
-  }
-
-  /* Move long noise SVG to a class to satisfy linting */
-  .noise-overlay {
-    background-image: url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E");
-  }
-
-  /* Print system utilities to avoid inline styles */
-  .print-table {
-    table-layout: fixed;
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .print-col-dynamic {
-    width: var(--col-width, auto);
-    font-size: var(--print-fs, inherit);
-  }
-
+  
+  /* Safe areas */
+  .safe-area-top { padding-top: env(safe-area-inset-top); }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-area-left { padding-left: env(safe-area-inset-left); }
+  .safe-area-right { padding-right: env(safe-area-inset-right); }
 }
 
-/* Reduced motion: disable CSS transitions and animations for accessibility */
-@media (prefers-reduced-motion: reduce) {
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+/* Print Styles that must remain for clinical functionality */
+@media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    @apply bg-white text-black;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-break {
+    page-break-after: always;
+  }
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+  @page {
+    margin: 0;
   }
 }
 
-/* Custom scrollbar for editor text boxes - must be outside @layer for specificity */
-.editor-scroll-container {
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
-  position: relative;
-  /* Ensure container respects document flow */
-  display: block;
+/* Loading Spinner */
+.loading svg polyline {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.editor-scroll-container::-webkit-scrollbar {
-  width: 10px;
-  display: block !important;
+.loading svg polyline#back {
+  stroke: hsl(var(--primary) / 0.2);
 }
 
-.editor-scroll-container::-webkit-scrollbar-track {
-  background: hsl(var(--muted) / 0.3);
-  border-radius: 5px;
+.loading svg polyline#front {
+  stroke: hsl(var(--primary));
+  stroke-dasharray: 48, 144;
+  stroke-dashoffset: 192;
+  animation: dash_loading 1.4s linear infinite;
 }
 
-.editor-scroll-container::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--muted-foreground) / 0.4);
-  border-radius: 5px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-
-.editor-scroll-container::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--muted-foreground) / 0.6);
-}
-
-/* Editor Content Styles */
-.prose table {
-  border-collapse: collapse;
-  width: 100%;
-  margin-top: 1em;
-  margin-bottom: 1em;
-}
-
-.prose table th,
-.prose table td {
-  border: 1px solid hsl(var(--border));
-  padding: 0.5rem;
-}
-
-.prose table th {
-  background-color: hsl(var(--muted));
-  font-weight: 600;
-  text-align: left;
-}
-
-/* Ensure highlights work with specific colors */
-.prose mark {
-  background-color: transparent;
-  color: inherit;
-}
-
-/* Enhanced Focus Indicators for Accessibility */
-*:focus-visible {
-  outline: 2px solid hsl(var(--ring) / 0.8);
-  outline-offset: 2px;
-}
-
-/* Subtle focus for inputs */
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
-[contenteditable]:focus-visible {
-  outline: 2px solid hsl(var(--ring) / 0.6);
-  outline-offset: 1px;
-}
-
-/* Focus ring for buttons */
-button:focus-visible,
-[role="button"]:focus-visible {
-  outline: 2px solid hsl(var(--ring) / 0.8);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 4px hsl(var(--ring) / 0.2);
-}
-
-/* Remove default focus for mouse users - show only on keyboard */
-*:focus:not(:focus-visible) {
-  outline: none;
-}
-
-/* Smooth transitions for interactive elements */
-button,
-input,
-textarea,
-select,
-a {
-  transition: all 0.15s ease;
-}
-
-/* Touch-friendly tap highlight on mobile */
-@media (hover: none) and (pointer: coarse) {
-  button,
-  [role="button"],
-  a,
-  select {
-    -webkit-tap-highlight-color: hsl(var(--primary) / 0.1);
-  }
-}
-.prose mark {
-  background-color: transparent;
-  color: inherit;
+@keyframes dash_loading {
+  72.5% { opacity: 0; }
+  to { stroke-dashoffset: 0; }
 }

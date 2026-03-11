@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MAX_MEDIA_PAYLOAD_BYTES } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MAX_MEDIA_PAYLOAD_BYTES, handleOptions, jsonResponse } from '../_shared/mod.ts';
 import { getLLMConfig, MissingAPIKeyError } from '../_shared/llm-client.ts';
 
 interface PatientSystems {
@@ -289,9 +288,9 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
   return result;
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders(req) });
+    return handleOptions(req);
   }
 
   try {
@@ -305,7 +304,7 @@ serve(async (req: Request) => {
     // Rate limiting check
     const rateLimit = checkRateLimit(req, RATE_LIMITS.parse, authResult.userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+      return rateLimit.response ?? jsonResponse(req, { error: 'Rate limit exceeded' }, 429);
     }
 
     const bodyResult = await parseAndValidateBody<{ pdfContent?: string; images?: string[]; model?: string }>(req, { maxBytes: MAX_MEDIA_PAYLOAD_BYTES });
@@ -315,19 +314,13 @@ serve(async (req: Request) => {
     const { pdfContent, images, model: requestedModel } = bodyResult.data;
 
     if (!pdfContent && (!images || images.length === 0)) {
-      return new Response(
-        JSON.stringify({ success: false, error: "PDF content or images are required" }),
-        { status: 400, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { success: false, error: "PDF content or images are required" }, 400);
     }
 
     const llmConfig = getLLMConfig();
     if (!llmConfig.apiKey) {
       safeLog('error', "No LLM API key configured");
-      return new Response(
-        JSON.stringify({ success: false, error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }),
-        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { success: false, error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }, 500);
     }
     const OPENAI_API_KEY = llmConfig.apiKey;
 
@@ -508,23 +501,14 @@ SYSTEM MAPPING GUIDANCE:
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Rate limit exceeded. Please try again later." }),
-          { status: 429, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-        );
+        return jsonResponse(req, { success: false, error: "Rate limit exceeded. Please try again later." }, 429);
       }
       if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ success: false, error: "AI credits exhausted. Please add funds." }),
-          { status: 402, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-        );
+        return jsonResponse(req, { success: false, error: "AI credits exhausted. Please add funds." }, 402);
       }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      return new Response(
-        JSON.stringify({ success: false, error: "AI processing failed" }),
-        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { success: false, error: "AI processing failed" }, 500);
     }
 
     const aiResponse = await response.json();
@@ -654,10 +638,7 @@ SYSTEM MAPPING GUIDANCE:
       console.error("Failed to parse AI response:", parseError);
       console.log("Raw content (first 1000 chars):", content.substring(0, 1000));
       console.log("Raw content (last 500 chars):", content.substring(content.length - 500));
-      return new Response(
-        JSON.stringify({ success: false, error: "Failed to parse AI response. The document may be too complex. Try splitting into smaller sections." }),
-        { status: 500, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { success: false, error: "Failed to parse AI response. The document may be too complex. Try splitting into smaller sections." }, 500);
     }
 
     console.log(`Initial parse: ${parsedData.patients?.length || 0} patients`);
@@ -699,17 +680,11 @@ SYSTEM MAPPING GUIDANCE:
 
     console.log(`After deduplication: ${parsedData.patients?.length || 0} patients`);
 
-    return new Response(
-      JSON.stringify({ success: true, data: parsedData }),
-      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-    );
+    return jsonResponse(req, { success: true, data: parsedData });
   } catch (error) {
     console.error("Parse handoff error:", error);
     if (error instanceof MissingAPIKeyError) {
-      return new Response(
-        JSON.stringify({ success: false, error: error.message }),
-        { status: 503, headers: { ...corsHeaders(req), "Content-Type": "application/json" } }
-      );
+      return jsonResponse(req, { success: false, error: error.message }, 503);
     }
     return createErrorResponse(req, safeErrorMessage(error, 'Failed to parse handoff document'), 500);
   }

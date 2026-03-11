@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   authenticateRequest,
   corsHeaders,
@@ -11,6 +10,8 @@ import {
   requireString,
   safeErrorMessage,
   MAX_MEDIA_PAYLOAD_BYTES,
+  handleOptions,
+  jsonResponse,
 } from "../_shared/mod.ts";
 import { getLLMConfig, callLLM } from "../_shared/llm-client.ts";
 
@@ -89,9 +90,9 @@ TRANSFORMATION RULES:
 
 Return ONLY the corrected text, no explanations or commentary.`;
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders(req) });
+    return handleOptions(req);
   }
 
   try {
@@ -213,15 +214,12 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({
-        text: finalText,
-        rawText: rawTranscript,
-        enhanced: enhanceMedical && finalText !== rawTranscript,
-        enhancementModel: enhancementModel !== 'none' ? enhancementModel : undefined
-      }),
-      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse(req, {
+      text: finalText,
+      rawText: rawTranscript,
+      enhanced: enhanceMedical && finalText !== rawTranscript,
+      enhancementModel: enhancementModel !== 'none' ? enhancementModel : undefined
+    });
 
   } catch (error: unknown) {
     safeLog('error', 'Transcription error');

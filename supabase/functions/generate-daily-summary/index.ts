@@ -1,6 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, parseAndValidateBody, safeErrorMessage } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, parseAndValidateBody, safeErrorMessage, handleOptions, jsonResponse } from '../_shared/mod.ts';
 import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
 
 interface Todo {
@@ -30,9 +29,9 @@ interface PatientMedications {
   rawText?: string;
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders(req) });
+    return handleOptions(req);
   }
 
   try {
@@ -47,7 +46,7 @@ serve(async (req) => {
     // Rate limiting check
     const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+      return rateLimit.response ?? jsonResponse(req, { error: 'Rate limit exceeded' }, 429);
     }
 
     const bodyResult = await parseAndValidateBody<{
@@ -151,10 +150,7 @@ serve(async (req) => {
 
     // Check if we have any content
     if (patientContext.length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'No patient data to summarize. Add content to clinical fields first.' }),
-        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(req, { error: 'No patient data to summarize. Add content to clinical fields first.' }, 400);
     }
 
     // Process todos
@@ -239,10 +235,7 @@ RULES:
     } catch (err) {
       safeLog('error', `LLM error: ${err}`);
       if (err instanceof Error && (err.message.includes('429') || err.message.includes('Rate limit'))) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.' }),
-          { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-        );
+        return jsonResponse(req, { error: 'Rate limit exceeded. Please try again in a moment.' }, 429);
       }
       throw err;
     }
@@ -266,19 +259,13 @@ RULES:
 
     safeLog('info', `Successfully generated daily summary: ${summary.length} characters`);
 
-    return new Response(
-      JSON.stringify({ summary: finalContent, summaryOnly: summary }),
-      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-    );
+    return jsonResponse(req, { summary: finalContent, summaryOnly: summary });
 
   } catch (error) {
     safeLog('error', `Generate daily summary error: ${error}`);
     // Handle missing API key configuration
     if (error instanceof MissingAPIKeyError) {
-      return new Response(
-        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
-        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse(req, { error: error.message, code: 'MISSING_API_KEY' }, 503);
     }
     return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate daily summary'), 500);
   }
