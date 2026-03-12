@@ -112,7 +112,6 @@ export const DesktopDashboard = () => {
   const [showPrintModal, setShowPrintModal] = React.useState(false);
   const [showPhraseManager, setShowPhraseManager] = React.useState(false);
   const [showComparisonModal, setShowComparisonModal] = React.useState(false);
-  const [utilityPanel, setUtilityPanel] = React.useState<UtilityPanel>(null);
   const { isOpen: isAICommandPaletteOpen, setIsOpen: setAICommandPaletteOpen } = useAICommandPalette();
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -161,29 +160,6 @@ export const DesktopDashboard = () => {
   }, [filter]);
 
   const shouldReduceMotion = useReducedMotion();
-  const utilityPanelRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!utilityPanelRef.current?.contains(event.target as Node)) {
-        setUtilityPanel(null);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setUtilityPanel(null);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
 
   const todayLabel = React.useMemo(
     () => new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
@@ -243,147 +219,33 @@ export const DesktopDashboard = () => {
       </motion.header>
 
       <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print">
-        <div ref={utilityPanelRef} className="relative rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "resources" ? "bg-primary/10 text-primary border border-primary/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
-              onClick={() => setUtilityPanel((current) => current === "resources" ? null : "resources")}
-            >
-              <BookOpen className="h-3.5 w-3.5" />
-              Resources
-              <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "resources" ? "rotate-180" : ""}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "tools" ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
-              onClick={() => setUtilityPanel((current) => current === "tools" ? null : "tools")}
-            >
-              <Wrench className="h-3.5 w-3.5" />
-              Tools
-              <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "tools" ? "rotate-180" : ""}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "settings" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
-              onClick={() => setUtilityPanel((current) => current === "settings" ? null : "settings")}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Settings
-              <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "settings" ? "rotate-180" : ""}`} />
-            </Button>
-            <div className="ml-auto flex items-center gap-1.5">
-              <Button
-                onClick={onAddPatient}
-                size="sm"
-                className="gap-2 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs font-medium"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Patient
-              </Button>
-            </div>
-          </div>
-
-          {utilityPanel && (
-            <div className="mt-3 rounded-lg border border-border/40 bg-background p-3 shadow-xl">
-              {utilityPanel === "resources" && (
-                <Tabs defaultValue="ibcc" className="w-full">
-                  <TabsList className="mb-3">
-                    <TabsTrigger value="ibcc">IBCC</TabsTrigger>
-                    <TabsTrigger value="guidelines">Guidelines</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="ibcc" className="m-0">
-                    <div className="h-72 overflow-hidden rounded-md border border-border/30">
-                      <IBCCPanel />
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="guidelines" className="m-0">
-                    <div className="h-72 overflow-hidden rounded-md border border-border/30">
-                      <GuidelinesPanel />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              )}
-
-              {utilityPanel === "tools" && (
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
-                    <SmartPatientImport onImportPatient={onAddPatientWithData} />
-                    <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
-                    <Button onClick={() => setAICommandPaletteOpen(true)} className="w-full justify-start gap-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-600 dark:text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20 border border-purple-500/20">
-                      <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
-                    </Button>
-                    <TimelineDialog />
-                    <ClinicalRiskCalculator />
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
-                    <UnitCensusDashboard patients={patients} />
-                    <LabTrendingPanel patients={patients} />
-                    <ContextAwareHelp />
-                    <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
-                  </div>
-                </div>
-              )}
-
-              {utilityPanel === "settings" && (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <div className="rounded-md border border-border/40 p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Display</p>
-                    <Button
-                      variant={todosAlwaysVisible ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setTodosAlwaysVisible((prev) => !prev)}
-                      className="w-full gap-1.5"
-                    >
-                      <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible
-                    </Button>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>Font size</span>
-                        <span>{globalFontSize}%</span>
-                      </div>
-                      <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
-                    </div>
-                  </div>
-                  <div className="rounded-md border border-border/40 p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Workflow</p>
-                    <DesktopSpecialtySelector />
-                    <DesktopAIModelSettingsDialog />
-                    <ChangeTrackingControls
-                      enabled={ctEnabled}
-                      color={ctColor}
-                      styles={ctStyles}
-                      onToggleEnabled={ctToggleEnabled}
-                      onColorChange={ctSetColor}
-                      onToggleStyle={ctToggleStyle}
-                    />
-                  </div>
-                  <div className="rounded-md border border-border/40 p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Authoring</p>
-                    <AutotextManager
-                      autotexts={autotexts}
-                      templates={templates}
-                      customDictionary={customDictionary}
-                      onAddAutotext={onAddAutotext}
-                      onRemoveAutotext={onRemoveAutotext}
-                      onAddTemplate={onAddTemplate}
-                      onRemoveTemplate={onRemoveTemplate}
-                      onImportDictionary={onImportDictionary}
-                    />
-                    <Button onClick={() => setShowPhraseManager(true)} variant="outline" size="sm" className="w-full gap-1.5">
-                      <FileText className="h-3.5 w-3.5" /> Manage Phrases
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <DesktopUtilityPanel
+          patients={patients}
+          autotexts={autotexts}
+          templates={templates}
+          customDictionary={customDictionary}
+          todosAlwaysVisible={todosAlwaysVisible}
+          globalFontSize={globalFontSize}
+          setTodosAlwaysVisible={setTodosAlwaysVisible}
+          setGlobalFontSize={setGlobalFontSize}
+          ctEnabled={ctEnabled}
+          ctColor={ctColor}
+          ctStyles={ctStyles}
+          ctToggleEnabled={ctToggleEnabled}
+          ctSetColor={ctSetColor}
+          ctToggleStyle={ctToggleStyle}
+          onAddPatient={onAddPatient}
+          onAddPatientWithData={onAddPatientWithData}
+          onImportPatients={onImportPatients}
+          onUpdatePatient={onUpdatePatient}
+          onAddAutotext={onAddAutotext}
+          onRemoveAutotext={onRemoveAutotext}
+          onAddTemplate={onAddTemplate}
+          onRemoveTemplate={onRemoveTemplate}
+          onImportDictionary={onImportDictionary}
+          onOpenPhraseManager={() => setShowPhraseManager(true)}
+          onOpenAICommandPalette={() => setAICommandPaletteOpen(true)}
+        />
       </div>
 
       <div className="h-[calc(100vh-11.5rem)] w-full no-print pb-4">
@@ -570,6 +432,231 @@ export const DesktopDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+};
+
+interface DesktopUtilityPanelProps {
+  patients: ReturnType<typeof useDashboard>["patients"];
+  autotexts: ReturnType<typeof useDashboard>["autotexts"];
+  templates: ReturnType<typeof useDashboard>["templates"];
+  customDictionary: ReturnType<typeof useDashboard>["customDictionary"];
+  todosAlwaysVisible: boolean;
+  globalFontSize: number;
+  setTodosAlwaysVisible: (updater: (prev: boolean) => boolean) => void;
+  setGlobalFontSize: (size: number) => void;
+  ctEnabled: boolean;
+  ctColor: string;
+  ctStyles: unknown;
+  ctToggleEnabled: () => void;
+  ctSetColor: (color: string) => void;
+  ctToggleStyle: () => void;
+  onAddPatient: () => void;
+  onAddPatientWithData: (data: unknown) => Promise<void> | void;
+  onImportPatients: (patients: unknown) => Promise<void> | void;
+  onUpdatePatient: (id: string, field: string, value: unknown) => void;
+  onAddAutotext: ReturnType<typeof useDashboard>["onAddAutotext"];
+  onRemoveAutotext: ReturnType<typeof useDashboard>["onRemoveAutotext"];
+  onAddTemplate: ReturnType<typeof useDashboard>["onAddTemplate"];
+  onRemoveTemplate: ReturnType<typeof useDashboard>["onRemoveTemplate"];
+  onImportDictionary: ReturnType<typeof useDashboard>["onImportDictionary"];
+  onOpenPhraseManager: () => void;
+  onOpenAICommandPalette: () => void;
+}
+
+const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
+  patients,
+  autotexts,
+  templates,
+  customDictionary,
+  todosAlwaysVisible,
+  globalFontSize,
+  setTodosAlwaysVisible,
+  setGlobalFontSize,
+  ctEnabled,
+  ctColor,
+  ctStyles,
+  ctToggleEnabled,
+  ctSetColor,
+  ctToggleStyle,
+  onAddPatient,
+  onAddPatientWithData,
+  onImportPatients,
+  onUpdatePatient,
+  onAddAutotext,
+  onRemoveAutotext,
+  onAddTemplate,
+  onRemoveTemplate,
+  onImportDictionary,
+  onOpenPhraseManager,
+  onOpenAICommandPalette,
+}) => {
+  const [utilityPanel, setUtilityPanel] = React.useState<UtilityPanel>(null);
+  const utilityPanelRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!utilityPanelRef.current?.contains(event.target as Node)) {
+        setUtilityPanel(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setUtilityPanel(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  return (
+    <div ref={utilityPanelRef} className="relative rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm p-2 shadow-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "resources" ? "bg-primary/10 text-primary border border-primary/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
+          onClick={() => setUtilityPanel((current) => current === "resources" ? null : "resources")}
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          Resources
+          <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "resources" ? "rotate-180" : ""}`} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "tools" ? "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
+          onClick={() => setUtilityPanel((current) => current === "tools" ? null : "tools")}
+        >
+          <Wrench className="h-3.5 w-3.5" />
+          Tools
+          <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "tools" ? "rotate-180" : ""}`} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all duration-200 ${utilityPanel === "settings" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
+          onClick={() => setUtilityPanel((current) => current === "settings" ? null : "settings")}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Settings
+          <ChevronDown className={`h-3 w-3 opacity-50 transition-transform duration-200 ${utilityPanel === "settings" ? "rotate-180" : ""}`} />
+        </Button>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            onClick={onAddPatient}
+            size="sm"
+            className="gap-2 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs font-medium"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Patient
+          </Button>
+        </div>
+      </div>
+
+      {utilityPanel && (
+        <div className="mt-3 rounded-lg border border-border/40 bg-background p-3 shadow-xl">
+          {utilityPanel === "resources" && (
+            <Tabs defaultValue="ibcc" className="w-full">
+              <TabsList className="mb-3">
+                <TabsTrigger value="ibcc">IBCC</TabsTrigger>
+                <TabsTrigger value="guidelines">Guidelines</TabsTrigger>
+              </TabsList>
+              <TabsContent value="ibcc" className="m-0">
+                <div className="h-72 overflow-hidden rounded-md border border-border/30">
+                  <IBCCPanel />
+                </div>
+              </TabsContent>
+              <TabsContent value="guidelines" className="m-0">
+                <div className="h-72 overflow-hidden rounded-md border border-border/30">
+                  <GuidelinesPanel />
+                </div>
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {utilityPanel === "tools" && (
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
+                <SmartPatientImport onImportPatient={onAddPatientWithData} />
+                <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
+                <Button onClick={onOpenAICommandPalette} className="w-full justify-start gap-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-600 dark:text-purple-400 hover:from-purple-500/20 hover:to-blue-500/20 border border-purple-500/20">
+                  <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
+                </Button>
+                <TimelineDialog />
+                <ClinicalRiskCalculator />
+              </div>
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
+                <UnitCensusDashboard patients={patients} />
+                <LabTrendingPanel patients={patients} />
+                <ContextAwareHelp />
+                <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
+              </div>
+            </div>
+          )}
+
+          {utilityPanel === "settings" && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-md border border-border/40 p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Display</p>
+                <Button
+                  variant={todosAlwaysVisible ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTodosAlwaysVisible((prev) => !prev)}
+                  className="w-full gap-1.5"
+                >
+                  <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible
+                </Button>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Font size</span>
+                    <span>{globalFontSize}%</span>
+                  </div>
+                  <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
+                </div>
+              </div>
+              <div className="rounded-md border border-border/40 p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Workflow</p>
+                <DesktopSpecialtySelector />
+                <DesktopAIModelSettingsDialog />
+                <ChangeTrackingControls
+                  enabled={ctEnabled}
+                  color={ctColor}
+                  styles={ctStyles}
+                  onToggleEnabled={ctToggleEnabled}
+                  onColorChange={ctSetColor}
+                  onToggleStyle={ctToggleStyle}
+                />
+              </div>
+              <div className="rounded-md border border-border/40 p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Authoring</p>
+                <AutotextManager
+                  autotexts={autotexts}
+                  templates={templates}
+                  customDictionary={customDictionary}
+                  onAddAutotext={onAddAutotext}
+                  onRemoveAutotext={onRemoveAutotext}
+                  onAddTemplate={onAddTemplate}
+                  onRemoveTemplate={onRemoveTemplate}
+                  onImportDictionary={onImportDictionary}
+                />
+                <Button onClick={onOpenPhraseManager} variant="outline" size="sm" className="w-full gap-1.5">
+                  <FileText className="h-3.5 w-3.5" /> Manage Phrases
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -116,6 +116,94 @@ QueryClientProvider
 4. **Supabase Edge Functions** handle AI/server-side operations
 5. Optimistic updates provide responsive UX
 
+## Critical User Flows
+
+### 1. Authentication & Entry
+
+- **Route**: `/auth` → `[src/pages/Auth.tsx](src/pages/Auth.tsx)`
+- **Purpose**: Email/password + OAuth login and signup, then redirect to the main dashboard.
+- **Key hooks & components**:
+  - `useAuth` (`src/hooks/useAuth.tsx`) for `signIn`, `signUp`, and current `user`.
+  - `useToast` for error/success feedback to the user.
+  - shadcn `Button`, `Input`, and `Label` from `src/components/ui/` for form UI.
+- **Flow**:
+  1. User lands on `/auth`.
+  2. Submits credentials (or uses Google/Apple OAuth).
+  3. On success, navigates to `/` where the main dashboard is rendered.
+
+### 2. Patient Dashboard & Rounding
+
+- **Route**: `/` → `[src/pages/Index.tsx](src/pages/Index.tsx)`
+- **Purpose**: Central workspace for rounding—patient list, filtering/sorting, note entry, analytics, and tools.
+- **Entry components & contexts**:
+  - `Index` wraps `IndexContent` in `ChangeTrackingProvider`.
+  - `IndexContent` chooses `DesktopDashboard` vs `MobileDashboard` based on `useIsMobile`.
+  - `DashboardProvider` (`src/contexts/DashboardContext.tsx`) supplies shared dashboard state/actions.
+- **Key hooks**:
+  - `usePatients` (`src/hooks/usePatients.ts` → `src/hooks/patients/index.ts`) for loading patients and CRUD:
+    - `patients`, `loading`, `addPatient`, `addPatientWithData`, `updatePatient`, `removePatient`, `duplicatePatient`,
+      `toggleCollapse`, `collapseAll`, `clearAll`, `importPatients`, `refetch`.
+  - `useAllPatientTodos` for per-patient todos (printed and summarized in dashboards).
+  - `usePatientFilter` for search/filtering/sorting logic.
+  - `useSettings` for user preferences (e.g. `sortBy`, font size).
+  - `useIBCCState` for context-aware clinical guidance tied to current patient.
+- **Desktop dashboard** (`src/components/dashboard/DesktopDashboard.tsx`):
+  - Header: app chrome, patient count, presence, theme toggle, sign-out.
+  - Utility bar: resources (IBCC, guidelines), tools (imports, AI, analytics), settings (display, workflow, authoring).
+  - Main workspace:
+    - Search/filter/sort controls.
+    - Summary badges (filtered vs total patients, sync status).
+    - `VirtualizedPatientList` for patient cards (non-virtualized on purpose for rich content).
+    - `PatientNavigator` sticky quick-jump panel on the right.
+  - Overlays/modals: `PrintExportModal`, `MultiPatientComparison`, `PhraseManager`, `AICommandPalette`, destructive action dialogs.
+- **Mobile dashboard** (`src/components/dashboard/MobileDashboard.tsx`):
+  - `MobileHeader` + `MobileNavBar` for tabbed navigation (`patients`, `add`, `reference`, `settings`).
+  - `VirtualizedMobilePatientList` for list view; `MobilePatientDetail` for focused editing per patient.
+  - Mobile panels: `MobileAddPanel`, `MobileReferencePanel`, `MobileSettingsPanel`, `MobileBatchCourseGenerator`.
+
+### 3. Patient Detail & Note Editing
+
+- **Surfaces**:
+  - **Desktop**: `PatientCard` and related systems/notes components within `VirtualizedPatientList` (`src/components/dashboard/VirtualizedPatientList.tsx` and `src/components/PatientCard.tsx`).
+  - **Mobile**: `MobilePatientDetail` (`src/components/mobile/MobilePatientDetail.tsx`).
+- **Data & mutations**:
+  - All field edits funnel through `usePatients().updatePatient(id, field, value)`, which is implemented via:
+    - `usePatientMutations` (`src/hooks/patients/usePatientMutations.ts`) and
+    - `patientService` / mappers (`src/services/patientService.ts`, `src/lib/mappers/patientMapper.ts`).
+  - Systems and medications are structured using `PatientSystems` / `PatientMedications` and helpers in `patientService`.
+- **Supporting contexts**:
+  - `ChangeTrackingContext` to record field-level timestamps and visualize recent changes.
+  - `SettingsContext` for font size, layout, and visibility settings.
+  - `DashboardContext` for patient selection and shared actions (duplicate, remove, collapse, etc.).
+
+### 4. FHIR / EHR Import
+
+- **Route**: `/fhir/callback` → `[src/pages/FHIRCallback.tsx](src/pages/FHIRCallback.tsx)`
+- **Purpose**: Handle SMART-on-FHIR callback, pull patient demographics/medications, and create a new patient in the app.
+- **Key pieces**:
+  - `handleCallback`, `fetchPatientData` from `src/integrations/fhir`.
+  - `usePatients().addPatientWithData` to create a patient based on FHIR data.
+- **Flow**:
+  1. User completes EHR launch and is redirected to `/fhir/callback`.
+  2. `handleCallback` initializes the FHIR client.
+  3. `fetchPatientData` grabs patient and medications.
+  4. A synthesized `patientData` object is built and passed to `addPatientWithData`.
+  5. On success, the app redirects back to `/` with the new patient available in the dashboard.
+
+### 5. Print & Export
+
+- **Surface**:
+  - In-app modal: `PrintExportModal` (`src/components/PrintExportModal.tsx`) from desktop and mobile dashboards.
+  - Dev harness: `/__print-export-test` → `[src/pages/PrintExportTest.tsx](src/pages/PrintExportTest.tsx)` in dev only.
+- **Core components & types**:
+  - `PrintDocument` (`src/components/print/PrintDocument.tsx`) renders printable layouts.
+  - `PrintSettings` (`src/lib/print/types.ts`) and defaults/utilities in `src/components/print/constants.ts`.
+- **Flow**:
+  1. User opens Print/Export from dashboard.
+  2. `PrintExportModal` composes `patients`, per-patient todos (`useAllPatientTodos` map), and user-selected `PrintSettings`.
+  3. `PrintDocument` renders the final preview/print layout.
+  4. `PrintExportTest` exercises edge-case layouts (wide tables, long notes, large images) and exposes `window.runPrintExportTest` for automated visual regression/overflow checks.
+
 ### React Query Defaults
 
 - `staleTime`: 60s

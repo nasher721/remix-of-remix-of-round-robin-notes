@@ -1,0 +1,8 @@
+{
+  "setup": [
+    "bun install",
+    "[ ! -f .env ] && cp .env.example .env",
+    "fnm use --install-if-missing || nvm use"
+  ],
+  "teardown": []
+}

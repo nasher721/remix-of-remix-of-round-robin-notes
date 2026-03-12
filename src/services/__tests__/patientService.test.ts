@@ -48,6 +48,40 @@ test("builds patient insert payload with defaults", () => {
   assert.deepEqual(payload.systems, defaultSystemsValue);
 });
 
+test("builds patient insert payload with explicit systems and medications", () => {
+  const payload = buildPatientInsertPayload({
+    userId: "user-2",
+    patientNumber: 4,
+    name: "Alex",
+    bed: "C1",
+    clinicalSummary: "Custom summary",
+    systems: {
+      ...defaultSystemsValue,
+      neuro: "Awake",
+      cv: "Stable",
+    },
+    medications: {
+      ...defaultMedicationsValue,
+      infusions: ["Norepinephrine"],
+      scheduled: ["Aspirin"],
+    },
+  });
+
+  assert.equal(payload.user_id, "user-2");
+  assert.equal(payload.patient_number, 4);
+  assert.equal(payload.clinical_summary, "Custom summary");
+  assert.deepEqual(payload.systems, {
+    ...defaultSystemsValue,
+    neuro: "Awake",
+    cv: "Stable",
+  });
+  assert.deepEqual(payload.medications, {
+    ...defaultMedicationsValue,
+    infusions: ["Norepinephrine"],
+    scheduled: ["Aspirin"],
+  });
+});
+
 test("tracks all major field types", () => {
   assert.equal(shouldTrackTimestamp("clinicalSummary"), true);
   assert.equal(shouldTrackTimestamp("medications"), true);
