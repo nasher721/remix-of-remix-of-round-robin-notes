@@ -1,11 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { jsonResponse, handleOptions } from "../_shared/mod.ts";
 
-export const corsHeaders = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGINS") || "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
 /**
  * Healthcheck Edge Function
  * Purpose: Provide a public, deterministic 200 OK endpoint to integration test the DB and Edge Function regional connectivity.

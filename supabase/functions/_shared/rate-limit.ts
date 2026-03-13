@@ -14,7 +14,7 @@
  *   }
  */
 
-import { errorResponse } from "./cors.ts";
+import { errorResponse, getCorsHeaders } from "./cors.ts";
 
 export interface RateLimitConfig {
   windowMs: number;      // Time window in milliseconds
@@ -151,6 +151,7 @@ export function checkRateLimit(
         {
           status: 429,
           headers: {
+            ...getCorsHeaders(req),
             'Content-Type': 'application/json',
             'Retry-After': String(retryAfter),
           },

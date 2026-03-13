@@ -1,11 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MissingAPIKeyError } from '../_shared/mod.ts';
+import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MissingAPIKeyError, handleOptions } from '../_shared/mod.ts';
 import { callLLM } from '../_shared/llm-client.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders(req) });
+    return handleOptions(req);
   }
 
   try {
