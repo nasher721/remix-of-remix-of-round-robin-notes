@@ -1,40 +1,46 @@
 project_id = "qrlonfgafvyfqqtsasfc"
 
-# All Edge Functions require JWT authentication (defense-in-depth).
-# Functions also perform internal auth via authenticateRequest() in _shared/auth.ts.
+# Gateway-level JWT verification is disabled because the project now issues ES256
+# (asymmetric ECDSA) tokens, but the Supabase edge-function gateway verifies with
+# the legacy HS256/JWT_SECRET and rejects valid ES256 tokens with "Invalid JWT".
+#
+# Authentication is still enforced: every function calls authenticateRequest() from
+# _shared/auth.ts, which uses supabaseClient.auth.getUser(token) — a server-side
+# round-trip to Supabase Auth that correctly validates ES256 tokens regardless of
+# algorithm. This is defense-in-depth at the application layer.
 
 [functions.healthcheck]
 verify_jwt = false
 
 [functions.ai-clinical-assistant]
-verify_jwt = true
+verify_jwt = false
 
 [functions.check-drug-interactions]
-verify_jwt = true
+verify_jwt = false
 
 [functions.format-medications]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-daily-summary]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-interval-events]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-patient-course]
-verify_jwt = true
+verify_jwt = false
 
 [functions.generate-todos]
-verify_jwt = true
+verify_jwt = false
 
 [functions.parse-handoff]
-verify_jwt = true
+verify_jwt = false
 
 [functions.parse-single-patient]
-verify_jwt = true
+verify_jwt = false
 
 [functions.transcribe-audio]
-verify_jwt = true
+verify_jwt = false
 
 [functions.transform-text]
-verify_jwt = true
+verify_jwt = false
