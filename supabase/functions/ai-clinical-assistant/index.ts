@@ -647,6 +647,10 @@ serve(async (req) => {
       stream: shouldStream,
     } = bodyResult.data;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H2',location:'ai-clinical-assistant/index.ts:body',message:'Parsed AI clinical assistant request body',data:{feature,hasText:!!text,hasContext:!!context,requestedModel,shouldStream:!!shouldStream},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     if (!feature) {
       throw new Error('Feature type is required');
     }
@@ -723,6 +727,9 @@ serve(async (req) => {
       safeLog('info', `LLM response received: ${result?.length || 0} chars`);
     } catch (err) {
       safeLog('error', `LLM error: ${err}`);
+      // #region agent log
+      fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H2',location:'ai-clinical-assistant/index.ts:callLLM',message:'callLLM threw inside AI clinical assistant',data:{error:err instanceof Error?err.message:String(err),isMissingKey:err instanceof MissingAPIKeyError},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       if (err instanceof MissingAPIKeyError) {
         throw err;
       }
@@ -762,6 +769,9 @@ serve(async (req) => {
 
   } catch (error) {
     safeLog('error', `AI Clinical Assistant error: ${error}`);
+    // #region agent log
+    fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H3',location:'ai-clinical-assistant/index.ts:catch',message:'AI clinical assistant top-level error',data:{error:error instanceof Error?error.message:String(error),isMissingKey:error instanceof MissingAPIKeyError},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     if (error instanceof MissingAPIKeyError) {
       return new Response(
         JSON.stringify({ success: false, error: error.message }),

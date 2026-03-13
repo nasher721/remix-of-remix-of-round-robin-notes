@@ -341,6 +341,9 @@ export const AIClinicalAssistant = ({
               <ClipboardCheck className="h-5 w-5" />
               Documentation Quality Check
             </DialogTitle>
+            <DialogDescription>
+              Structured review of documentation completeness and strengths for the current patient.
+            </DialogDescription>
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
@@ -436,6 +439,9 @@ export const AIClinicalAssistant = ({
               <FileText className="h-5 w-5" />
               SOAP Note Format
             </DialogTitle>
+            <DialogDescription>
+              AI-generated SOAP note organized into Subjective, Objective, Assessment, and Plan sections.
+            </DialogDescription>
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
@@ -498,6 +504,9 @@ export const AIClinicalAssistant = ({
               <ListChecks className="h-5 w-5" />
               Assessment & Plan
             </DialogTitle>
+            <DialogDescription>
+              Problem-based assessment and plan synthesized from the current patient&apos;s data.
+            </DialogDescription>
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">
@@ -563,6 +572,9 @@ export const AIClinicalAssistant = ({
               <Brain className="h-5 w-5" />
               {advancedTitle || 'AI Clinical Summary'}
             </DialogTitle>
+            <DialogDescription>
+              Generated narrative output for the selected AI feature and patient context.
+            </DialogDescription>
           </DialogHeader>
           {renderResponseBadges()}
           <ScrollArea className="max-h-[60vh]">

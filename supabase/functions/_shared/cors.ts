@@ -26,14 +26,21 @@ const DEFAULT_ALLOWED_ORIGINS = [
 ];
 
 /**
- * Get allowed origins from environment or defaults
+ * Get allowed origins from environment merged with defaults.
+ * When ALLOWED_ORIGINS is set, it is merged with DEFAULT_ALLOWED_ORIGINS so
+ * the app's production and local origins are always allowed (avoids CORS
+ * failures when the secret only adds extra origins).
  */
 function getAllowedOrigins(): string[] {
   const envOrigins = Deno.env.get('ALLOWED_ORIGINS');
-  if (envOrigins) {
-    return envOrigins.split(',').map(o => o.trim()).filter(Boolean);
+  const fromEnv = envOrigins
+    ? envOrigins.split(',').map(o => o.trim()).filter(Boolean)
+    : [];
+  const combined = [...DEFAULT_ALLOWED_ORIGINS];
+  for (const o of fromEnv) {
+    if (o && !combined.includes(o)) combined.push(o);
   }
-  return DEFAULT_ALLOWED_ORIGINS;
+  return combined;
 }
 
 /**
