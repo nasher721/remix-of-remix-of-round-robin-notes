@@ -13,6 +13,10 @@ export const STORAGE_KEYS = {
   AI_CREDENTIALS: 'aiCredentials',
   AI_FEATURE_MODELS: 'aiFeatureModels',
 
+  // Editor toolbar (affects all text boxes)
+  EDITOR_TOOLBAR_MODE: 'editorToolbarMode',
+  EDITOR_TOOLBAR_BUTTONS: 'editorToolbarButtons',
+
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
   PRINT_COLUMN_PREFS: 'printColumnPrefs',

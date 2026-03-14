@@ -81,7 +81,7 @@ export const MobileDashboard = () => {
   } = useDashboard();
   const todosMap = useDashboardTodos();
 
-  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones } = useSettings();
+  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones, editorToolbarMode, setEditorToolbarMode } = useSettings();
   const changeTracking = useChangeTracking();
 
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -310,6 +310,8 @@ export const MobileDashboard = () => {
                   showLabFishbones={showLabFishbones}
                   onShowLabFishbonesChange={setShowLabFishbones}
                   patientCount={patients.length}
+                  editorToolbarMode={editorToolbarMode}
+                  onEditorToolbarModeChange={setEditorToolbarMode}
                 />
               </div>
             </>

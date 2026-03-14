@@ -4,13 +4,28 @@ import {
   Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
   Indent, Outdent, Palette, Undo2, Redo2, FileText, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
-  Superscript, Subscript, Search, Table as TableIcon, ShieldCheck
+  Superscript, Subscript, Search, Table as TableIcon, ShieldCheck,
+  ChevronDown, Maximize2, Minimize2
 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
@@ -52,6 +67,8 @@ const highlightColors = [
 
 // Rich text editor with formatting, autotexts, and optional change tracking
 
+const ESSENTIAL_TOOLBAR_IDS = ['undo', 'redo', 'bold', 'italic', 'bulletList', 'numberedList'] as const;
+
 interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -66,6 +83,10 @@ interface RichTextEditorProps {
   } | null;
   patient?: Patient;
   section?: string;
+  /** When true, show an expand button to open this editor in a large focus overlay */
+  popOutAvailable?: boolean;
+  /** Internal: when true, this instance is the one rendered inside the pop-out dialog */
+  isPopOutInstance?: boolean;
 }
 
 export const RichTextEditor = ({
@@ -77,8 +98,11 @@ export const RichTextEditor = ({
   fontSize = 14,
   changeTracking = null,
   patient,
-  section
+  section,
+  popOutAvailable = false,
+  isPopOutInstance = false,
 }: RichTextEditorProps) => {
+  const { editorToolbarMode, editorToolbarButtons } = useSettings();
   const editorRef = React.useRef<HTMLDivElement>(null);
   const fontSizeRef = React.useRef(fontSize);
   const [showAutocomplete, setShowAutocomplete] = React.useState(false);
@@ -87,13 +111,17 @@ export const RichTextEditor = ({
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const lastWordRef = React.useRef("");
   const isInternalUpdate = React.useRef(false);
-  // Per-editor toggle: null means follow global setting, false means disabled for this editor
   const [localMarkingDisabled, setLocalMarkingDisabled] = React.useState(false);
-  // Find & replace state
   const [findReplaceMode, setFindReplaceMode] = React.useState<"find" | "replace" | null>(null);
-  // Table picker state
   const [showTablePicker, setShowTablePicker] = React.useState(false);
   const [tableHover, setTableHover] = React.useState({ rows: 0, cols: 0 });
+  const [isPoppedOut, setIsPoppedOut] = React.useState(false);
+
+  const showButtonInBar = (id: string) => {
+    if (editorToolbarMode === 'full') return true;
+    if (editorToolbarMode === 'minimal') return (ESSENTIAL_TOOLBAR_IDS as readonly string[]).includes(id);
+    return editorToolbarButtons.includes(id);
+  };
 
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
@@ -542,8 +570,43 @@ export const RichTextEditor = ({
     }
   }, [value]);
 
-  return (
-    <div className={cn("border-2 border-border rounded-md bg-card relative h-auto", className)}>
+  const editorArea = (
+    <>
+      <div className={cn("max-h-[380px] overflow-y-auto editor-scroll-container relative", isPoppedOut && isPopOutInstance && "min-h-[60vh] max-h-[70vh]")}>
+        <div
+          ref={editorRef}
+          role="textbox"
+          aria-multiline="true"
+          aria-label={section ? `${section} notes` : placeholder}
+          contentEditable
+          className={cn(
+            "p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
+            isPopOutInstance ? "min-h-[55vh]" : "min-h-[120px]"
+          )}
+          style={{ fontSize: `${fontSizeRef.current}px` }}
+          onInput={handleInput}
+          onPaste={handlePaste}
+          onKeyDown={handleKeyDown}
+          onKeyUp={handleKeyUp}
+          data-placeholder={placeholder}
+          onFocus={(e) => {
+            if (e.currentTarget.innerHTML === '' || e.currentTarget.innerHTML === '<br>') {
+              e.currentTarget.dataset.empty = 'true';
+            }
+          }}
+          onBlur={(e) => {
+            delete e.currentTarget.dataset.empty;
+            setShowAutocomplete(false);
+          }}
+          suppressContentEditableWarning
+        />
+      </div>
+      <EditorStatusBar html={value} />
+    </>
+  );
+
+  const toolbarContent = (
+    <>
       {/* Find & Replace Panel */}
       {findReplaceMode && (
         <EditorFindReplace
@@ -561,220 +624,176 @@ export const RichTextEditor = ({
 
       {/* Toolbar */}
       <div role="toolbar" aria-label="Text formatting" className="flex items-center gap-1 p-2 border-b border-border bg-muted/50 flex-wrap">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('undo')}
-          title="Undo (Ctrl+Z)"
-          aria-label="Undo (Ctrl+Z)"
-          className="h-7 w-7 p-0"
-        >
-          <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('redo')}
-          title="Redo (Ctrl+Y)"
-          aria-label="Redo (Ctrl+Y)"
-          className="h-7 w-7 p-0"
-        >
-          <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+        {popOutAvailable && !isPopOutInstance && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => setIsPoppedOut(true)} title="Expand to focus mode" aria-label="Expand to focus mode" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+        {popOutAvailable && !isPopOutInstance && <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />}
+        {showButtonInBar('undo') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('undo')} title="Undo (Ctrl+Z)" aria-label="Undo (Ctrl+Z)" className="h-7 w-7 p-0">
+            <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('redo') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('redo')} title="Redo (Ctrl+Y)" aria-label="Redo (Ctrl+Y)" className="h-7 w-7 p-0">
+            <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {(showButtonInBar('undo') || showButtonInBar('redo')) && <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />}
 
-        {/* Text formatting */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('bold')}
-          title="Bold (Ctrl+B)"
-          aria-label="Bold (Ctrl+B)"
-          className="h-7 w-7 p-0"
-        >
-          <Bold className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('italic')}
-          title="Italic (Ctrl+I)"
-          aria-label="Italic (Ctrl+I)"
-          className="h-7 w-7 p-0"
-        >
-          <Italic className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('underline')}
-          title="Underline (Ctrl+U)"
-          aria-label="Underline (Ctrl+U)"
-          className="h-7 w-7 p-0"
-        >
-          <Underline className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('strikeThrough')}
-          title="Strikethrough (Ctrl+Shift+X)"
-          aria-label="Strikethrough (Ctrl+Shift+X)"
-          className="h-7 w-7 p-0"
-        >
-          <Strikethrough className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('superscript')}
-          title="Superscript"
-          aria-label="Superscript"
-          className="h-7 w-7 p-0"
-        >
-          <Superscript className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('subscript')}
-          title="Subscript"
-          aria-label="Subscript"
-          className="h-7 w-7 p-0"
-        >
-          <Subscript className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+        {showButtonInBar('bold') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('bold')} title="Bold (Ctrl+B)" aria-label="Bold (Ctrl+B)" className="h-7 w-7 p-0">
+            <Bold className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('italic') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('italic')} title="Italic (Ctrl+I)" aria-label="Italic (Ctrl+I)" className="h-7 w-7 p-0">
+            <Italic className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('underline') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('underline')} title="Underline (Ctrl+U)" aria-label="Underline (Ctrl+U)" className="h-7 w-7 p-0">
+            <Underline className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('strikethrough') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('strikeThrough')} title="Strikethrough" aria-label="Strikethrough" className="h-7 w-7 p-0">
+            <Strikethrough className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('superscript') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('superscript')} title="Superscript" aria-label="Superscript" className="h-7 w-7 p-0">
+            <Superscript className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('subscript') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('subscript')} title="Subscript" aria-label="Subscript" className="h-7 w-7 p-0">
+            <Subscript className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {(showButtonInBar('bold') || showButtonInBar('italic') || showButtonInBar('underline') || showButtonInBar('strikethrough') || showButtonInBar('superscript') || showButtonInBar('subscript')) && <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />}
 
-        {/* Heading selector */}
-        <select
-          onChange={(e) => {
-            const val = e.target.value;
-            if (val === "p") {
-              execCommand("formatBlock", "<p>");
-            } else {
-              execCommand("formatBlock", `<${val}>`);
-            }
-          }}
-          defaultValue="p"
-          aria-label="Heading level"
-          className="h-7 px-1 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
-          title="Heading level"
-        >
-          <option value="p">Normal</option>
-          <option value="h1">Heading 1</option>
-          <option value="h2">Heading 2</option>
-          <option value="h3">Heading 3</option>
-          <option value="h4">Heading 4</option>
-        </select>
-        <div className="w-px h-5 bg-border mx-1" />
+        {showButtonInBar('heading') && (
+          <>
+            <select
+              onChange={(e) => { const val = e.target.value; if (val === "p") execCommand("formatBlock", "<p>"); else execCommand("formatBlock", `<${val}>`); }}
+              defaultValue="p"
+              aria-label="Heading level"
+              className="h-7 px-1 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              title="Heading level"
+            >
+              <option value="p">Normal</option>
+              <option value="h1">Heading 1</option>
+              <option value="h2">Heading 2</option>
+              <option value="h3">Heading 3</option>
+              <option value="h4">Heading 4</option>
+            </select>
+            <div className="w-px h-5 bg-border mx-1" />
+          </>
+        )}
 
-        {/* Lists */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('insertUnorderedList')}
-          title="Bullet List (Ctrl+Shift+8)"
-          aria-label="Bullet list (Ctrl+Shift+8)"
-          className="h-7 w-7 p-0"
-        >
-          <List className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('insertOrderedList')}
-          title="Numbered List (Ctrl+Shift+7)"
-          aria-label="Numbered list (Ctrl+Shift+7)"
-          className="h-7 w-7 p-0"
-        >
-          <ListOrdered className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+        {showButtonInBar('bulletList') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('insertUnorderedList')} title="Bullet List" aria-label="Bullet list" className="h-7 w-7 p-0">
+            <List className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('numberedList') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('insertOrderedList')} title="Numbered List" aria-label="Numbered list" className="h-7 w-7 p-0">
+            <ListOrdered className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {(showButtonInBar('bulletList') || showButtonInBar('numberedList')) && <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />}
 
-        {/* Indent */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('outdent')}
-          title="Decrease Indent"
-          aria-label="Decrease indent"
-          className="h-7 w-7 p-0"
-        >
-          <Outdent className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('indent')}
-          title="Increase Indent"
-          aria-label="Increase indent"
-          className="h-7 w-7 p-0"
-        >
-          <Indent className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+        {showButtonInBar('indent') && (
+          <>
+            <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('outdent')} title="Decrease Indent" aria-label="Decrease indent" className="h-7 w-7 p-0">
+              <Outdent className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('indent')} title="Increase Indent" aria-label="Increase indent" className="h-7 w-7 p-0">
+              <Indent className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+          </>
+        )}
 
-        {/* Alignment */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('justifyLeft')}
-          title="Align Left"
-          aria-label="Align left"
-          className="h-7 w-7 p-0"
-        >
-          <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('justifyCenter')}
-          title="Align Center"
-          aria-label="Align center"
-          className="h-7 w-7 p-0"
-        >
-          <AlignCenter className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('justifyRight')}
-          title="Align Right"
-          aria-label="Align right"
-          className="h-7 w-7 p-0"
-        >
-          <AlignRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('justifyFull')}
-          title="Justify"
-          aria-label="Justify text"
-          className="h-7 w-7 p-0"
-        >
-          <AlignJustify className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+        {showButtonInBar('alignLeft') && (
+          <>
+            <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('justifyLeft')} title="Align Left" aria-label="Align left" className="h-7 w-7 p-0">
+              <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('justifyCenter')} title="Align Center" aria-label="Align center" className="h-7 w-7 p-0">
+              <AlignCenter className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('justifyRight')} title="Align Right" aria-label="Align right" className="h-7 w-7 p-0">
+              <AlignRight className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('justifyFull')} title="Justify" aria-label="Justify text" className="h-7 w-7 p-0">
+              <AlignJustify className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+          </>
+        )}
 
-        {/* Text color */}
+        {/* More dropdown: actions not visible in bar (minimal/custom mode) */}
+        {editorToolbarMode !== 'full' && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2" aria-label="More formatting options">
+                <span className="text-xs font-medium">More</span>
+                <ChevronDown className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto w-56">
+              {!showButtonInBar('underline') && <DropdownMenuItem onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5 mr-2" /> Underline</DropdownMenuItem>}
+              {!showButtonInBar('strikethrough') && <DropdownMenuItem onClick={() => execCommand('strikeThrough')}><Strikethrough className="h-3.5 w-3.5 mr-2" /> Strikethrough</DropdownMenuItem>}
+              {!showButtonInBar('superscript') && <DropdownMenuItem onClick={() => execCommand('superscript')}><Superscript className="h-3.5 w-3.5 mr-2" /> Superscript</DropdownMenuItem>}
+              {!showButtonInBar('subscript') && <DropdownMenuItem onClick={() => execCommand('subscript')}><Subscript className="h-3.5 w-3.5 mr-2" /> Subscript</DropdownMenuItem>}
+              {!showButtonInBar('heading') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => execCommand('formatBlock', '<p>')}>Normal text</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h1>')}>Heading 1</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h2>')}>Heading 2</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h3>')}>Heading 3</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h4>')}>Heading 4</DropdownMenuItem>
+                </>
+              )}
+              {(!showButtonInBar('bulletList') || !showButtonInBar('numberedList')) && <DropdownMenuSeparator />}
+              {!showButtonInBar('bulletList') && <DropdownMenuItem onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5 mr-2" /> Bullet list</DropdownMenuItem>}
+              {!showButtonInBar('numberedList') && <DropdownMenuItem onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5 mr-2" /> Numbered list</DropdownMenuItem>}
+              {!showButtonInBar('indent') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => execCommand('outdent')}><Outdent className="h-3.5 w-3.5 mr-2" /> Decrease indent</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('indent')}><Indent className="h-3.5 w-3.5 mr-2" /> Increase indent</DropdownMenuItem>
+                </>
+              )}
+              {!showButtonInBar('alignLeft') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5 mr-2" /> Align left</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5 mr-2" /> Align center</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5 mr-2" /> Align right</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => execCommand('justifyFull')}><AlignJustify className="h-3.5 w-3.5 mr-2" /> Justify</DropdownMenuItem>
+                </>
+              )}
+              {(!showButtonInBar('link') || !showButtonInBar('find')) && <DropdownMenuSeparator />}
+              {!showButtonInBar('link') && <DropdownMenuItem onClick={handleInsertLink}><Link2 className="h-3.5 w-3.5 mr-2" /> Insert link</DropdownMenuItem>}
+              {!showButtonInBar('link') && <DropdownMenuItem onClick={() => execCommand('insertHorizontalRule')}><Minus className="h-3.5 w-3.5 mr-2" /> Horizontal rule</DropdownMenuItem>}
+              {!showButtonInBar('table') && <DropdownMenuItem onClick={() => insertTable(3, 3)}><TableIcon className="h-3.5 w-3.5 mr-2" /> Insert table (3×3)</DropdownMenuItem>}
+              {!showButtonInBar('find') && <DropdownMenuItem onClick={() => setFindReplaceMode(findReplaceMode ? null : 'find')}><Search className="h-3.5 w-3.5 mr-2" /> Find & replace</DropdownMenuItem>}
+              {!showButtonInBar('fontSize') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { handleFontSizeChange([14]); applyFontSizeToSelection(); }}><Type className="h-3.5 w-3.5 mr-2" /> Font size 14px</DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
+        {showButtonInBar('textColor') && (
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -818,18 +837,12 @@ export const RichTextEditor = ({
             </div>
           </PopoverContent>
         </Popover>
+        )}
 
-        {/* Highlight / background color */}
+        {showButtonInBar('highlight') && (
         <Popover>
           <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              title="Highlight Color"
-              aria-label="Highlight color"
-              className="h-7 w-7 p-0"
-            >
+            <Button type="button" variant="ghost" size="sm" title="Highlight Color" aria-label="Highlight color" className="h-7 w-7 p-0">
               <Highlighter className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
@@ -838,71 +851,35 @@ export const RichTextEditor = ({
               {highlightColors.map((color) => (
                 <button
                   key={color.name}
-                  onClick={() => {
-                    if (color.value) {
-                      execCommand('hiliteColor', color.value);
-                    } else {
-                      execCommand('hiliteColor', 'transparent');
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
-                    !color.value && "border border-dashed border-muted-foreground/30"
-                  )}
+                  onClick={() => { if (color.value) execCommand('hiliteColor', color.value); else execCommand('hiliteColor', 'transparent'); }}
+                  className={cn("flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors", !color.value && "border border-dashed border-muted-foreground/30")}
                   title={color.name}
                   aria-label={`Highlight ${color.name}`}
                 >
-                  <span
-                    className="w-4 h-4 rounded border border-border"
-                    style={{ backgroundColor: color.value || 'transparent' }}
-                    aria-hidden="true"
-                  />
+                  <span className="w-4 h-4 rounded border border-border" style={{ backgroundColor: color.value || 'transparent' }} aria-hidden="true" />
                   <span className="text-foreground">{color.name}</span>
                 </button>
               ))}
             </div>
           </PopoverContent>
         </Popover>
-        <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />
+        )}
+        {(showButtonInBar('textColor') || showButtonInBar('highlight')) && <div className="w-px h-5 bg-border mx-1" aria-hidden="true" />}
 
-        {/* Insert link */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={handleInsertLink}
-          title="Insert Link (Ctrl+K)"
-          aria-label="Insert link (Ctrl+K)"
-          className="h-7 w-7 p-0"
-        >
-          <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-
-        {/* Insert horizontal rule */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => execCommand('insertHorizontalRule')}
-          title="Horizontal Rule"
-          aria-label="Insert horizontal rule"
-          className="h-7 w-7 p-0"
-        >
-          <Minus className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-
-        {/* Insert table */}
+        {showButtonInBar('link') && (
+          <Button type="button" variant="ghost" size="sm" onClick={handleInsertLink} title="Insert Link (Ctrl+K)" aria-label="Insert link (Ctrl+K)" className="h-7 w-7 p-0">
+            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('hr') && (
+          <Button type="button" variant="ghost" size="sm" onClick={() => execCommand('insertHorizontalRule')} title="Horizontal Rule" aria-label="Insert horizontal rule" className="h-7 w-7 p-0">
+            <Minus className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('table') && (
         <Popover open={showTablePicker} onOpenChange={setShowTablePicker}>
           <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              title="Insert Table"
-              aria-label="Insert table"
-              aria-haspopup="true"
-              className="h-7 w-7 p-0"
-            >
+            <Button type="button" variant="ghost" size="sm" title="Insert Table" aria-label="Insert table" aria-haspopup="true" className="h-7 w-7 p-0">
               <TableIcon className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </PopoverTrigger>
@@ -910,23 +887,13 @@ export const RichTextEditor = ({
             <div className="text-xs text-muted-foreground mb-1" aria-live="polite" aria-atomic="true">
               {tableHover.rows > 0 ? `${tableHover.rows} × ${tableHover.cols}` : "Select size"}
             </div>
-            <div
-              className="grid gap-0.5"
-              style={{ gridTemplateColumns: "repeat(6, 1fr)" }}
-              role="grid"
-              aria-label="Table size picker"
-            >
+            <div className="grid gap-0.5" style={{ gridTemplateColumns: "repeat(6, 1fr)" }} role="grid" aria-label="Table size picker">
               {Array.from({ length: 6 }, (_, r) =>
                 Array.from({ length: 6 }, (_, c) => (
                   <button
                     key={`${r}-${c}`}
                     aria-label={`${r + 1} rows by ${c + 1} columns`}
-                    className={cn(
-                      "w-5 h-5 border border-border rounded-[2px] transition-colors",
-                      r < tableHover.rows && c < tableHover.cols
-                        ? "bg-primary/30 border-primary/50"
-                        : "bg-muted/30 hover:bg-muted/60"
-                    )}
+                    className={cn("w-5 h-5 border border-border rounded-[2px] transition-colors", r < tableHover.rows && c < tableHover.cols ? "bg-primary/30 border-primary/50" : "bg-muted/30 hover:bg-muted/60")}
                     onMouseEnter={() => setTableHover({ rows: r + 1, cols: c + 1 })}
                     onMouseLeave={() => setTableHover({ rows: 0, cols: 0 })}
                     onClick={() => insertTable(r + 1, c + 1)}
@@ -936,23 +903,25 @@ export const RichTextEditor = ({
             </div>
           </PopoverContent>
         </Popover>
+        )}
 
-        {/* Find */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
-          title="Find & Replace (Ctrl+F)"
-          aria-label="Find and replace (Ctrl+F)"
-          aria-pressed={!!findReplaceMode}
-          className="h-7 w-7 p-0"
-        >
-          <Search className="h-3.5 w-3.5" aria-hidden="true" />
-        </Button>
-        <div className="w-px h-5 bg-border mx-1" />
+        {showButtonInBar('find') && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
+            title="Find & Replace (Ctrl+F)"
+            aria-label="Find and replace (Ctrl+F)"
+            aria-pressed={!!findReplaceMode}
+            className="h-7 w-7 p-0"
+          >
+            <Search className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        )}
+        {showButtonInBar('find') && <div className="w-px h-5 bg-border mx-1" />}
 
-        {/* Font size */}
+        {showButtonInBar('fontSize') && (
         <div className="flex items-center gap-2">
           <Type className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           <select
@@ -966,17 +935,11 @@ export const RichTextEditor = ({
               <option key={size} value={size}>{size}px</option>
             ))}
           </select>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={applyFontSizeToSelection}
-            title="Apply size to selection"
-            className="h-6 text-xs px-2"
-          >
+          <Button type="button" variant="outline" size="sm" onClick={applyFontSizeToSelection} title="Apply size to selection" className="h-6 text-xs px-2">
             Apply
           </Button>
         </div>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <DocumentImport
             onImport={(content) => {
@@ -1136,37 +1099,50 @@ export const RichTextEditor = ({
           </div>
         </div>
       </div>
+    </>
+  );
 
-      {/* Editor with scroll container - relative positioning ensures proper document flow */}
-      <div className="max-h-[300px] editor-scroll-container relative">
-        <div
-          ref={editorRef}
-          role="textbox"
-          aria-multiline="true"
-          aria-label={section ? `${section} notes` : placeholder}
-          contentEditable
-          className="p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none min-h-[80px] relative whitespace-pre-wrap text-foreground"
-          style={{ fontSize: `${fontSizeRef.current}px` }}
-          onInput={handleInput}
-          onPaste={handlePaste}
-          onKeyDown={handleKeyDown}
-          onKeyUp={handleKeyUp}
-          data-placeholder={placeholder}
-          onFocus={(e) => {
-            if (e.currentTarget.innerHTML === '' || e.currentTarget.innerHTML === '<br>') {
-              e.currentTarget.dataset.empty = 'true';
-            }
-          }}
-          onBlur={(e) => {
-            delete e.currentTarget.dataset.empty;
-            setShowAutocomplete(false);
-          }}
-          suppressContentEditableWarning
-        />
-      </div>
-
-      {/* Status bar */}
-      <EditorStatusBar html={value} />
+  return (
+    <>
+      {isPoppedOut && popOutAvailable && !isPopOutInstance && (
+        <>
+          <Dialog open={isPoppedOut} onOpenChange={(open) => !open && setIsPoppedOut(false)}>
+            <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0">
+              <DialogHeader className="p-3 border-b shrink-0">
+                <DialogTitle>Focus mode</DialogTitle>
+              </DialogHeader>
+              <div className="min-h-[60vh] overflow-hidden flex flex-col p-3">
+                <RichTextEditor
+                  value={value}
+                  onChange={onChange}
+                  placeholder={placeholder}
+                  className="border-0 shadow-none"
+                  minHeight={minHeight}
+                  autotexts={autotexts}
+                  fontSize={fontSize}
+                  changeTracking={changeTracking}
+                  patient={patient}
+                  section={section}
+                  isPopOutInstance
+                  popOutAvailable={false}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 flex items-center justify-between gap-2">
+            <span className="text-sm text-muted-foreground">Editing in expanded view</span>
+            <Button variant="outline" size="sm" onClick={() => setIsPoppedOut(false)}>
+              <Minimize2 className="h-3.5 w-3.5 mr-1" />
+              Return to card
+            </Button>
+          </div>
+        </>
+      )}
+      {(isPopOutInstance || !isPoppedOut) && (
+    <div className={cn("border-2 border-border rounded-md bg-card relative h-auto", className)}>
+      {toolbarContent}
+      {/* Editor area (larger default min-height; pop-out instance uses min-h-[55vh]) */}
+      {editorArea}
 
       {/* Autocomplete dropdown */}
       {showAutocomplete && autocompleteOptions.length > 0 && (
@@ -1215,5 +1191,7 @@ export const RichTextEditor = ({
         />
       )}
     </div>
+      )}
+    </>
   );
 };

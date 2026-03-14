@@ -135,10 +135,13 @@ export const PatientSystemsReview = ({
                                     value={patient.systems[system.key as keyof PatientSystems] || ''}
                                     onChange={(value) => onUpdate(patient.id, `systems.${system.key}`, value)}
                                     placeholder={`${system.label}...`}
-                                    minHeight="50px"
+                                    minHeight="80px"
                                     autotexts={autotexts}
                                     fontSize={globalFontSize}
                                     changeTracking={changeTracking}
+                                    patient={patient}
+                                    section={system.key}
+                                    popOutAvailable
                                 />
                                 <FieldTimestamp
                                     timestamp={patient.fieldTimestamps?.[`systems.${system.key}` as keyof typeof patient.fieldTimestamps]}

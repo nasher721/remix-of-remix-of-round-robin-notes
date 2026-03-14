@@ -73,6 +73,8 @@ interface MobileSettingsPanelProps {
   showLabFishbones?: boolean;
   onShowLabFishbonesChange?: (show: boolean) => void;
   patientCount?: number;
+  editorToolbarMode?: 'minimal' | 'full' | 'custom';
+  onEditorToolbarModeChange?: (mode: 'minimal' | 'full' | 'custom') => void;
 }
 
 const colorPresets = [
@@ -102,6 +104,8 @@ export const MobileSettingsPanel = ({
   showLabFishbones = true,
   onShowLabFishbonesChange,
   patientCount = 0,
+  editorToolbarMode = 'minimal',
+  onEditorToolbarModeChange,
 }: MobileSettingsPanelProps) => {
   const { sectionVisibility, setSectionVisibility, resetSectionVisibility } = useSettings();
   const { theme, setTheme } = useTheme();
@@ -143,6 +147,22 @@ export const MobileSettingsPanel = ({
             className="w-full"
           />
         </div>
+
+        {onEditorToolbarModeChange && (
+          <div className="space-y-2">
+            <span className="text-sm">Text box toolbar</span>
+            <Select value={editorToolbarMode} onValueChange={(v) => onEditorToolbarModeChange(v as 'minimal' | 'full' | 'custom')}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="minimal">Minimal (essential + More)</SelectItem>
+                <SelectItem value="full">Full</SelectItem>
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

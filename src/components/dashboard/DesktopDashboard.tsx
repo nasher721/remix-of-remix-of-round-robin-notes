@@ -107,7 +107,7 @@ export const DesktopDashboard = () => {
   } = useDashboard();
   const todosMap = useDashboardTodos();
   const navigate = useNavigate();
-  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
+  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, editorToolbarMode, setEditorToolbarMode } = useSettings();
   const { enabled: ctEnabled, color: ctColor, styles: ctStyles, toggleEnabled: ctToggleEnabled, setColor: ctSetColor, toggleStyle: ctToggleStyle } = useChangeTracking();
 
   const [showPrintModal, setShowPrintModal] = React.useState(false);
@@ -623,6 +623,19 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                     <span>{globalFontSize}%</span>
                   </div>
                   <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Text box toolbar</p>
+                  <select
+                    value={editorToolbarMode}
+                    onChange={(e) => setEditorToolbarMode(e.target.value as 'minimal' | 'full' | 'custom')}
+                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    aria-label="Toolbar style for all text boxes"
+                  >
+                    <option value="minimal">Minimal (essential + More)</option>
+                    <option value="full">Full</option>
+                    <option value="custom">Custom</option>
+                  </select>
                 </div>
               </div>
               <div className="rounded-md border border-border/40 p-3 space-y-2">
