@@ -634,7 +634,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
-        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b flex-shrink-0">
+        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b border-border/50 flex-shrink-0">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2">
             <DialogTitle className="flex items-center gap-2">
               <Printer className="h-5 w-5" />
@@ -714,7 +714,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                   ) : (
                     <div className="space-y-2">
                       {templatePresets.map(preset => (
-                        <div key={preset.id} className="flex items-center justify-between rounded-md border p-2">
+                        <div key={preset.id} className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                           <div>
                             <div className="text-sm font-medium">{preset.name}</div>
                             <div className="text-xs text-muted-foreground">

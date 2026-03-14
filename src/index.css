@@ -42,12 +42,27 @@
     --input: 214 32% 91%;
     --ring: 198 70% 30%;
 
+    /* Radius: one base, one small for inputs/chips */
     --radius: 0.75rem;
+    --radius-sm: 0.5rem;
+
+    /* Shadows: card and modal for consistent elevation */
+    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+    --shadow-modal: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+
+    /* Spacing scale (4px base): use for padding/gap consistency */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
 
     --font-heading: 'Outfit', sans-serif;
     --font-sans: 'DM Sans', sans-serif;
 
-    /* Replaced Fluid Scales with predictable static values */
+    /* Typography scale (align with fluid where used) */
     --text-fluid-xs: 0.8125rem;
     --text-fluid-sm: 0.875rem;
     --text-fluid-base: 1rem;
@@ -56,11 +71,11 @@
     --text-fluid-2xl: 1.5rem;
     --text-fluid-3xl: 2rem;
 
-    --space-fluid-xs: 0.5rem;
-    --space-fluid-sm: 0.75rem;
-    --space-fluid-md: 1rem;
-    --space-fluid-lg: 1.5rem;
-    --space-fluid-xl: 2rem;
+    --space-fluid-xs: var(--space-2);
+    --space-fluid-sm: var(--space-3);
+    --space-fluid-md: var(--space-4);
+    --space-fluid-lg: var(--space-6);
+    --space-fluid-xl: var(--space-8);
   }
 
   .dark {

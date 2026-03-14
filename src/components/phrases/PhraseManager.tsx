@@ -762,14 +762,14 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle>Clinical Phrase Manager</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar - Folders */}
-          <div className="w-64 border-r flex flex-col">
-            <div className="p-3 border-b">
+          <div className="w-64 border-r border-border/50 flex flex-col">
+            <div className="p-3 border-b border-border/50">
               <Button
                 variant="outline"
                 size="sm"
@@ -783,7 +783,7 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
             <ScrollArea className="flex-1">
               <div className="p-2">
                 <div
-                  className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent ${
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-accent ${
                     !selectedFolder ? 'bg-accent' : ''
                   }`}
                   onClick={() => setSelectedFolder(null)}
@@ -802,7 +802,7 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
 
           {/* Main content - Phrases */}
           <div className="flex-1 flex flex-col">
-            <div className="p-3 border-b flex items-center gap-2">
+            <div className="p-3 border-b border-border/50 flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input

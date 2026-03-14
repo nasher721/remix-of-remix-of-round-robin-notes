@@ -118,7 +118,7 @@ const PatientCardComponent = ({
 
   return (
     <motion.article
-      className="print-avoid-break bg-card rounded-2xl border border-border/40 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden relative group ring-1 ring-black/5 dark:ring-white/5"
+      className="print-avoid-break bg-card rounded-lg border border-border/40 shadow-card hover:shadow-md transition-all duration-300 overflow-hidden relative group"
       aria-label={`Patient: ${patient.name || 'Unnamed'}`}
       variants={shouldReduceMotion ? undefined : cardHover}
       initial="rest"
@@ -126,9 +126,9 @@ const PatientCardComponent = ({
       whileTap="tap"
     >
       {/* Header */}
-      <div className="flex justify-between items-center gap-4 px-5 py-3.5 bg-gradient-to-r from-secondary/20 to-secondary/10 border-b border-border/40 transition-colors group-hover:from-secondary/30 group-hover:to-secondary/15">
+      <div className="flex justify-between items-center gap-4 px-4 py-3 bg-secondary/30 border-b border-border/30 transition-colors group-hover:bg-secondary/40">
         <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20 shadow-sm">
+          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
             <span className="text-base font-semibold text-primary">
               {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
             </span>
@@ -220,7 +220,7 @@ const PatientCardComponent = ({
             exit="closed"
             className="overflow-hidden"
           >
-            <div className="p-5 space-y-4">
+            <div className="p-4 space-y-4">
               {/* Patient-Wide Todos */}
               <div className={todosAlwaysVisible ? "" : "flex items-center gap-2 pb-2 border-b border-border"}>
                 {!todosAlwaysVisible && (
@@ -247,7 +247,7 @@ const PatientCardComponent = ({
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                         <FileText className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Clinical Summary</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Summary</h3>
                       {patient.clinicalSummary && (
                         <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                           {patient.clinicalSummary.length}
@@ -285,7 +285,7 @@ const PatientCardComponent = ({
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                    <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.clinicalSummary}
                         onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
@@ -306,10 +306,10 @@ const PatientCardComponent = ({
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 rounded flex items-center justify-center bg-violet-500/10 border border-violet-500/15">
-                        <Calendar className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400" aria-hidden="true" />
+                      <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
+                        <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Interval Events</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Interval Events</h3>
                       {patient.intervalEvents && (
                         <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                           {patient.intervalEvents.length}
@@ -387,7 +387,7 @@ const PatientCardComponent = ({
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                    <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.intervalEvents}
                         onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
@@ -411,10 +411,10 @@ const PatientCardComponent = ({
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded flex items-center justify-center bg-sky-500/10 border border-sky-500/15">
-                            <ImageIcon className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" aria-hidden="true" />
+                          <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
+                            <ImageIcon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                           </div>
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Imaging</h3>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Imaging</h3>
                           {patient.imaging && (
                             <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                               {patient.imaging.replace(/<[^>]*>/g, '').length}
@@ -457,7 +457,7 @@ const PatientCardComponent = ({
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <div className="bg-background/50 rounded-xl border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                        <div className="bg-background/50 rounded-lg border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <ImagePasteEditor
                             value={patient.imaging}
                             onChange={(value) => onUpdate(patient.id, 'imaging', value)}
@@ -480,10 +480,10 @@ const PatientCardComponent = ({
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <div className="h-5 w-5 rounded flex items-center justify-center bg-amber-500/10 border border-amber-500/15">
-                            <TestTube className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" aria-hidden="true" />
+                          <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
+                            <TestTube className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                           </div>
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Labs</h3>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Labs</h3>
                           {patient.labs && (
                             <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                               {patient.labs.length}
@@ -518,7 +518,7 @@ const PatientCardComponent = ({
                       )}
 
                       <div className="space-y-1">
-                        <div className="bg-background/50 rounded-xl p-3 border border-border/40 shadow-inner transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                        <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <RichTextEditor
                             value={patient.labs}
                             onChange={(value) => onUpdate(patient.id, 'labs', value)}
@@ -538,7 +538,7 @@ const PatientCardComponent = ({
 
               {/* Medications */}
               {sectionVisibility.medications && (
-                <div className="bg-background/50 rounded-xl p-4 border border-border/40 shadow-inner transition-all duration-200 hover:border-border/60">
+                <div className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60">
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                     onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}

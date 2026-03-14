@@ -72,7 +72,7 @@ export const PatientSystemsReview = ({
                     <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                         <span className="text-[13px] leading-none" aria-hidden="true">⚕️</span>
                     </div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wide text-card-foreground/70">Systems Review</h3>
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Systems Review</h3>
                 </div>
                 <div className="flex gap-1 no-print">
                     <Button
@@ -104,8 +104,8 @@ export const PatientSystemsReview = ({
                     return (
                         <div
                             key={system.key}
-                            className={`rounded-xl p-3 border transition-all duration-200 ${filled
-                                ? `${accent.bg} ${accent.border} shadow-sm`
+                            className={`rounded-lg p-3 border transition-all duration-200 ${filled
+                                ? `${accent.bg} ${accent.border} shadow-card`
                                 : 'bg-secondary/20 border-border/40 hover:border-border/60 hover:bg-secondary/30'
                             }`}
                         >

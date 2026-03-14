@@ -966,7 +966,7 @@ export const ImagePasteEditor = ({
   return (
     <div
       className={cn(
-        "border-2 border-border rounded-md bg-card relative h-auto transition-colors",
+        "border border-border/50 rounded-lg bg-card relative h-auto transition-colors shadow-card",
         isDragActive && "ring-2 ring-ring/40 bg-accent/20",
         className
       )}
@@ -1823,7 +1823,7 @@ export const ImagePasteEditor = ({
                 key={`${url}-${index}`}
                 type="button"
                 onClick={() => openLightbox(index)}
-                className="relative group rounded-md overflow-hidden border-2 border-border hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                className="relative group rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
                 <img
                   src={url}
@@ -1862,7 +1862,7 @@ export const ImagePasteEditor = ({
         onDragLeave={handleDragLeave}
       >
         {isDragActive && (
-          <div className="absolute inset-2 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-ring/60 bg-accent/80 text-accent-foreground text-sm font-medium pointer-events-none">
+          <div className="absolute inset-2 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-accent/80 text-accent-foreground text-sm font-medium pointer-events-none">
             Drop images to upload
           </div>
         )}
@@ -1968,7 +1968,7 @@ export const ImagePasteEditor = ({
             <div className="rounded-lg border bg-muted/20 p-2 flex justify-center">
               <canvas
                 ref={canvasRef}
-                className="max-h-[65vh] w-full max-w-3xl rounded-md border bg-white touch-none"
+                className="max-h-[65vh] w-full max-w-3xl rounded-lg border border-border bg-white touch-none"
                 onPointerDown={handleCanvasPointerDown}
                 onPointerMove={handleCanvasPointerMove}
                 onPointerUp={handleCanvasPointerUp}

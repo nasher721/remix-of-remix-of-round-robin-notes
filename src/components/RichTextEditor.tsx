@@ -580,7 +580,7 @@ export const RichTextEditor = ({
           aria-label={section ? `${section} notes` : placeholder}
           contentEditable
           className={cn(
-            "p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
+            "p-3 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 transition-all prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
             isPopOutInstance ? "min-h-[55vh]" : "min-h-[120px]"
           )}
           style={{ fontSize: `${fontSizeRef.current}px` }}
@@ -623,7 +623,7 @@ export const RichTextEditor = ({
       )}
 
       {/* Toolbar */}
-      <div role="toolbar" aria-label="Text formatting" className="flex items-center gap-1 p-2 border-b border-border bg-muted/50 flex-wrap">
+      <div role="toolbar" aria-label="Text formatting" className="flex items-center gap-1.5 p-2 border-b border-border/50 bg-muted/40 rounded-t-lg flex-wrap">
         {popOutAvailable && !isPopOutInstance && (
           <Button type="button" variant="ghost" size="sm" onClick={() => setIsPoppedOut(true)} title="Expand to focus mode" aria-label="Expand to focus mode" className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground">
             <Maximize2 className="h-3.5 w-3.5" />
@@ -680,7 +680,7 @@ export const RichTextEditor = ({
               onChange={(e) => { const val = e.target.value; if (val === "p") execCommand("formatBlock", "<p>"); else execCommand("formatBlock", `<${val}>`); }}
               defaultValue="p"
               aria-label="Heading level"
-              className="h-7 px-1 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              className="h-7 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
               title="Heading level"
             >
               <option value="p">Normal</option>
@@ -927,7 +927,7 @@ export const RichTextEditor = ({
           <select
             value={fontSizeRef.current}
             onChange={(e) => handleFontSizeChange([parseInt(e.target.value)])}
-            className="h-7 px-2 text-xs bg-background border border-input rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-7 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
             title="Font size"
             aria-label="Font size"
           >
@@ -1129,7 +1129,7 @@ export const RichTextEditor = ({
               </div>
             </DialogContent>
           </Dialog>
-          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 flex items-center justify-between gap-2">
+          <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2 flex items-center justify-between gap-2">
             <span className="text-sm text-muted-foreground">Editing in expanded view</span>
             <Button variant="outline" size="sm" onClick={() => setIsPoppedOut(false)}>
               <Minimize2 className="h-3.5 w-3.5 mr-1" />
@@ -1139,7 +1139,7 @@ export const RichTextEditor = ({
         </>
       )}
       {(isPopOutInstance || !isPoppedOut) && (
-    <div className={cn("border-2 border-border rounded-md bg-card relative h-auto", className)}>
+    <div className={cn("border border-border/50 rounded-lg bg-card relative h-auto shadow-card", className)}>
       {toolbarContent}
       {/* Editor area (larger default min-height; pop-out instance uses min-h-[55vh]) */}
       {editorArea}
@@ -1149,7 +1149,7 @@ export const RichTextEditor = ({
         <ul
           role="listbox"
           aria-label="Autotext suggestions"
-          className="absolute z-50 bg-popover border border-border rounded-md shadow-lg overflow-hidden list-none m-0 p-0"
+          className="absolute z-50 bg-popover border border-border rounded-lg shadow-modal overflow-hidden list-none m-0 p-0"
           style={{ top: autocompletePosition.top, left: autocompletePosition.left, minWidth: 200 }}
         >
           {autocompleteOptions.map((option, index) => (
