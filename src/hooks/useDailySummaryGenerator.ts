@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
+import type { PatientTodo } from '@/types/todo';
 import { ensureString } from '@/lib/ai-response-utils';
 import { useSettings } from '@/contexts/SettingsContext';
 
@@ -10,11 +11,20 @@ export const useDailySummaryGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  type TodoRow = { content: string | null; completed: boolean; section: string | null; created_at: string };
+
+  const toTodoRow = (t: PatientTodo): TodoRow => ({
+    content: t.content ?? null,
+    completed: t.completed,
+    section: t.section,
+    created_at: t.createdAt,
+  });
+
   const generateDailySummary = useCallback(async (
     patient: Patient,
-    onUpdate?: (intervalEvents: string) => void
+    onUpdate?: (intervalEvents: string) => void,
+    existingTodos?: PatientTodo[] | TodoRow[]
   ): Promise<string | null> => {
-    // Cancel any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -23,17 +33,19 @@ export const useDailySummaryGenerator = () => {
     setIsGenerating(true);
 
     try {
-      // Fetch todos for this patient
-      const { data: todos, error: todosError } = await supabase
-        .from('patient_todos')
-        .select('content, completed, section, created_at')
-        .eq('patient_id', patient.id);
-
-      if (todosError) {
-        console.error('Error fetching todos:', todosError);
+      let todos: TodoRow[] | null = null;
+      if (existingTodos?.length) {
+        todos = 'created_at' in existingTodos[0] ? (existingTodos as TodoRow[]) : (existingTodos as PatientTodo[]).map(toTodoRow);
+      }
+      if (todos === null) {
+        const { data, error: todosError } = await supabase
+          .from('patient_todos')
+          .select('content, completed, section, created_at')
+          .eq('patient_id', patient.id);
+        if (todosError) console.error('Error fetching todos:', todosError);
+        todos = data;
       }
 
-      // Check if aborted
       if (abortControllerRef.current?.signal.aborted) {
         return null;
       }
@@ -48,7 +60,7 @@ export const useDailySummaryGenerator = () => {
           labs: patient.labs,
           systems: patient.systems,
           medications: patient.medications,
-          todos: todos || [],
+          todos: todos ?? [],
           existingIntervalEvents: patient.intervalEvents,
           model: getModelForFeature('daily_summary'),
         },

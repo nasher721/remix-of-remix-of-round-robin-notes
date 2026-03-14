@@ -1,3 +1,8 @@
+/**
+ * Patient service: Supabase access and row-level mapping.
+ * Owns mapPatientRecord (DB row → Patient), buildPatientInsertPayload, and shouldTrackTimestamp.
+ * JSON parsing and update-payload building live in @/lib/mappers/patientMapper.
+ */
 import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import type { Patient, PatientMedications, PatientSystems } from "@/types/patient";
 import { parseFieldTimestampsJson, parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";

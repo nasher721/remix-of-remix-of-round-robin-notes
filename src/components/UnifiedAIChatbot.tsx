@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useStreamingAI } from '@/hooks/useStreamingAI';
-import { usePatients } from '@/hooks/usePatients';
+import { useCurrentPatients } from '@/contexts/CurrentPatientsContext';
 import { useAuth } from '@/hooks/useAuth';
 import type { AIFeature } from '@/lib/openai-config';
 
@@ -277,7 +277,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCopy, copiedId
 
 export const UnifiedAIChatbot: React.FC = () => {
   const { user } = useAuth();
-  const { patients } = usePatients();
+  const patients = useCurrentPatients();
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);

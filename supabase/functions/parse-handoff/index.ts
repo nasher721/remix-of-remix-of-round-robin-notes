@@ -238,7 +238,7 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
     const normalizedBed = patient.bed.trim().toLowerCase();
 
     if (!normalizedBed) {
-      console.log("Skipping patient with empty bed:", patient.name);
+      console.log("Skipping patient with empty bed (redacted)");
       continue;
     }
 
@@ -248,7 +248,7 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
       bedMap.set(normalizedBed, patient);
     } else {
       // Merge: keep the version with more content, combine if needed
-      console.log(`Merging duplicate bed ${patient.bed}: existing vs new`);
+      console.log("Merging duplicate bed (redacted): existing vs new");
 
       const merged: ParsedPatient = {
         bed: patient.bed || existing.bed,
@@ -514,13 +514,7 @@ SYSTEM MAPPING GUIDANCE:
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || "";
 
-    // LOG RAW RESPONSE for debugging
-    console.log("=== RAW AI RESPONSE START ===");
-    console.log(content.substring(0, 2000));
-    if (content.length > 2000) {
-      console.log("... (truncated, total length:", content.length, ")");
-    }
-    console.log("=== RAW AI RESPONSE END ===");
+    console.log("AI response received, length:", content.length, "chars (content redacted to avoid PHI)");
 
     // Extract and repair JSON from the response
     let parsedData: { patients: ParsedPatient[] };
@@ -636,8 +630,7 @@ SYSTEM MAPPING GUIDANCE:
       }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      console.log("Raw content (first 1000 chars):", content.substring(0, 1000));
-      console.log("Raw content (last 500 chars):", content.substring(content.length - 500));
+      console.log("Raw content length:", content.length, "chars (content redacted to avoid PHI)");
       return jsonResponse(req, { success: false, error: "Failed to parse AI response. The document may be too complex. Try splitting into smaller sections." }, 500);
     }
 

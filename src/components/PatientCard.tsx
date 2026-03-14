@@ -21,7 +21,7 @@ import { PatientSystemsReview } from "./PatientSystemsReview";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
-import type { TodoSection } from "@/types/todo";
+import type { PatientTodo, TodoSection } from "@/types/todo";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
@@ -36,6 +36,8 @@ interface PatientCardProps {
   onDuplicate: (id: string) => void;
   onToggleCollapse: (id: string) => void;
   autotexts?: AutoText[];
+  /** When provided (e.g. from dashboard todosMap), used as initial todos and avoids a duplicate fetch. */
+  initialTodos?: PatientTodo[];
 }
 
 const PatientCardComponent = ({
@@ -45,13 +47,14 @@ const PatientCardComponent = ({
   onDuplicate,
   onToggleCollapse,
   autotexts = defaultAutotexts,
+  initialTodos,
 }: PatientCardProps) => {
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
-  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
+  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id, { initialTodos });
   const { generateIntervalEvents, isGenerating: isGeneratingEvents, cancelGeneration } = useIntervalEventsGenerator();
   const { generateDailySummary, isGenerating: isGeneratingSummary, cancelGeneration: cancelSummary } = useDailySummaryGenerator();
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
@@ -78,7 +81,7 @@ const PatientCardComponent = ({
   const handleGenerateDailySummary = async () => {
     await generateDailySummary(patient, (newValue) => {
       onUpdate(patient.id, 'intervalEvents', newValue);
-    });
+    }, todos.length ? todos : undefined);
   };
 
   const addTimestamp = (field: string) => {

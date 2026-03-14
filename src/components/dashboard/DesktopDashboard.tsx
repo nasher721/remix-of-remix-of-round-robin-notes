@@ -5,6 +5,7 @@ import { scaleIn, transitions } from "@/lib/animations";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
+import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
 import { VirtualizedPatientList } from "./VirtualizedPatientList";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
@@ -90,7 +91,6 @@ export const DesktopDashboard = () => {
     autotexts,
     templates,
     customDictionary,
-    todosMap,
     onAddPatient,
     onAddPatientWithData,
     onUpdatePatient,
@@ -105,6 +105,7 @@ export const DesktopDashboard = () => {
     onSignOut,
     lastSaved,
   } = useDashboard();
+  const todosMap = useDashboardTodos();
   const navigate = useNavigate();
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy } = useSettings();
   const { enabled: ctEnabled, color: ctColor, styles: ctStyles, toggleEnabled: ctToggleEnabled, setColor: ctSetColor, toggleStyle: ctToggleStyle } = useChangeTracking();
@@ -599,7 +600,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                 <UnitCensusDashboard patients={patients} />
                 <LabTrendingPanel patients={patients} />
                 <ContextAwareHelp />
-                <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} />
+                <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} todosMap={todosMap} />
               </div>
             </div>
           )}

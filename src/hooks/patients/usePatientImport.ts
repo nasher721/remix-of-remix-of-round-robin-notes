@@ -65,6 +65,7 @@ export function usePatientImport({
                     .single();
 
                 if (error) throw error;
+                if (data == null) throw new Error("No data returned from insert");
 
                 newPatients.push(mapPatientRecord(data));
 
@@ -126,6 +127,7 @@ export function usePatientImport({
                 .single();
 
             if (error) throw error;
+            if (data == null) throw new Error("No data returned from insert");
 
             const newPatient = mapPatientRecord(data);
 

@@ -6,8 +6,14 @@ import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
 
-export function usePatientTodos(patientId: string | null) {
-  const [todos, setTodos] = useState<PatientTodo[]>([]);
+export interface UsePatientTodosOptions {
+  /** When provided, use as initial state and skip the initial fetch (avoids duplicate fetches when parent already has todos, e.g. from todosMap). */
+  initialTodos?: PatientTodo[];
+}
+
+export function usePatientTodos(patientId: string | null, options?: UsePatientTodosOptions) {
+  const initialTodos = options?.initialTodos;
+  const [todos, setTodos] = useState<PatientTodo[]>(() => initialTodos ?? []);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const { user } = useAuth();
@@ -45,8 +51,9 @@ export function usePatientTodos(patientId: string | null) {
   }, [patientId, user]);
 
   useEffect(() => {
+    if (initialTodos !== undefined) return;
     fetchTodos();
-  }, [fetchTodos]);
+  }, [fetchTodos, initialTodos]);
 
   const addTodo = useCallback(async (content: string, section: string | null = null) => {
     if (!patientId || !user) return;
@@ -65,6 +72,10 @@ export function usePatientTodos(patientId: string | null) {
         .single();
 
       if (error) throw error;
+      if (data == null) {
+        toast({ title: "Error", description: "No data returned from insert", variant: "destructive" });
+        return;
+      }
 
       const newTodo: PatientTodo = {
         id: data.id,

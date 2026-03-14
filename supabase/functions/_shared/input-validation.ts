@@ -183,7 +183,6 @@ export function safeErrorMessage(error: unknown, fallback = 'An unexpected error
         const safePatterns = [
             'Rate limit exceeded',
             'not configured',
-            'OPENAI_API_KEY',
             'No audio data',
             'Missing required',
             'Invalid',
@@ -192,7 +191,12 @@ export function safeErrorMessage(error: unknown, fallback = 'An unexpected error
             'Payment required',
             'credits',
         ];
-
+        const envVarPatterns = ['API_KEY', 'SECRET', 'PASSWORD', 'TOKEN'];
+        for (const env of envVarPatterns) {
+            if (error.message.includes(env)) {
+                return fallback;
+            }
+        }
         for (const pattern of safePatterns) {
             if (error.message.includes(pattern)) {
                 return error.message;

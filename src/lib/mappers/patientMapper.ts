@@ -1,9 +1,15 @@
 /**
  * Patient Mapper
- * Transforms between database and UI patient representations
+ * Transforms between database and UI patient representations.
+ *
+ * Responsibility split: patientService owns Supabase row → Patient (mapPatientRecord,
+ * buildPatientInsertPayload, shouldTrackTimestamp). This module owns JSON parsing
+ * (parseSystemsJson, parseMedicationsJson, parseFieldTimestampsJson), DB↔UI field
+ * name mapping (uiFieldToDbField, dbToUiPatient), and building update payloads
+ * (prepareUpdateData) from field-level edits.
  */
 
-import type { DbPatient, Patient, PatientSystems, PatientMedications, FieldTimestamps, defaultMedications } from "@/types/patient";
+import type { DbPatient, Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
 import type { Json } from "@/integrations/supabase/types";
 
 /**

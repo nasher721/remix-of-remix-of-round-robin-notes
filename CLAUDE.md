@@ -53,7 +53,8 @@ src/
 │   ├── IBCCContext.tsx
 │   ├── ClinicalGuidelinesContext.tsx
 │   ├── ChangeTrackingContext.tsx
-│   └── DashboardContext.tsx
+│   ├── DashboardContext.tsx
+│   └── DashboardTodosContext.tsx
 ├── pages/               # Route pages
 │   ├── Index.tsx         # Main dashboard (responsive desktop/mobile)
 │   ├── Auth.tsx          # Login/signup
@@ -99,19 +100,23 @@ supabase/
 ### Provider Hierarchy (App.tsx)
 
 ```
-QueryClientProvider
-  └── AuthProvider
-        └── SettingsProvider
-              └── IBCCProvider
-                    └── ClinicalGuidelinesProvider
-                          └── TooltipProvider
-                                └── BrowserRouter (Routes)
+GlobalErrorBoundary
+  └── QueryClientProvider (createOptimizedQueryClient)
+        └── ThemeProvider
+              └── AuthProvider
+                    └── SettingsProvider
+                          └── IBCCProvider
+                                └── ClinicalGuidelinesProvider
+                                      └── TooltipProvider
+                                            └── BrowserRouter (Routes)
 ```
+
+Route-scoped: `ChangeTrackingProvider` and `DashboardProvider` wrap only the Index route (`/`), not `/auth` or `/fhir/callback`.
 
 ### Data Flow
 
 1. **Components** call **custom hooks** (e.g., `usePatients`)
-2. Hooks use **React Query** for server state (Supabase queries)
+2. Hooks use **React Query** (where adopted) or **useState + Supabase** for server state
 3. **Context providers** manage global app state (auth, settings, IBCC, guidelines)
 4. **Supabase Edge Functions** handle AI/server-side operations
 5. Optimistic updates provide responsive UX

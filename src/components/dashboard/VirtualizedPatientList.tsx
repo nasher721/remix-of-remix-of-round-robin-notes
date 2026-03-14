@@ -4,6 +4,7 @@ import type { Patient } from "@/types/patient";
 import type { AutoText } from "@/types/autotext";
 
 import { useDashboard } from "@/contexts/DashboardContext";
+import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ export const VirtualizedPatientList = React.memo(() => {
     onDuplicatePatient,
     onToggleCollapse
   } = useDashboard();
+  const todosMap = useDashboardTodos();
 
   const [pendingRemoveId, setPendingRemoveId] = React.useState<string | null>(null);
 
@@ -81,6 +83,7 @@ export const VirtualizedPatientList = React.memo(() => {
             onDuplicate={onDuplicatePatient}
             onToggleCollapse={onToggleCollapse}
             autotexts={autotexts}
+            initialTodos={todosMap[patient.id]}
           />
         ))}
       </div>

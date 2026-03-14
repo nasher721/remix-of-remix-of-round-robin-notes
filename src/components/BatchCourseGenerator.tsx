@@ -31,17 +31,20 @@ import {
 import { useBatchCourseGenerator, type BatchResult, type BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
 import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
+import type { PatientTodo } from '@/types/todo';
 import { cn } from '@/lib/utils';
 
 interface BatchCourseGeneratorProps {
   patients: Patient[];
   onUpdatePatient: (id: string, field: string, value: unknown) => void;
+  todosMap?: Record<string, PatientTodo[]>;
   className?: string;
 }
 
 export const BatchCourseGenerator = ({
   patients,
   onUpdatePatient,
+  todosMap,
   className = '',
 }: BatchCourseGeneratorProps) => {
   const {
@@ -114,7 +117,8 @@ export const BatchCourseGenerator = ({
     const batchResults = await generateBatch(
       selectedPatients,
       generationType,
-      autoInsert ? onUpdatePatient : undefined
+      autoInsert ? onUpdatePatient : undefined,
+      generationType === 'dailySummary' ? todosMap : undefined
     );
     
     setResults(batchResults);

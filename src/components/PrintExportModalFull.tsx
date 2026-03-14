@@ -1,6 +1,5 @@
 import * as React from "react";
 import type { Patient } from "@/types/patient";
-import type { PatientTodo } from "@/types/todo";
 import {
   Dialog,
   DialogContent,
@@ -35,20 +34,9 @@ import {
   handleExportDOC,
   handleExportMarkdown,
 } from "./print/ExportHandlers";
+import type { PrintExportModalProps, PatientTodosMap } from "./print/types";
 
-export interface PatientTodosMap {
-  [patientId: string]: PatientTodo[];
-}
-
-interface PrintExportModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  patients: Patient[];
-  patientTodos?: PatientTodosMap;
-  onUpdatePatient?: (id: string, field: string, value: string) => void;
-  totalPatientCount?: number;
-  isFiltered?: boolean;
-}
+export type { PrintExportModalProps, PatientTodosMap };
 
 export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = {}, onUpdatePatient, totalPatientCount, isFiltered = false }: PrintExportModalProps) => {
   const { user } = useAuth();

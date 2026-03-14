@@ -12,6 +12,8 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DashboardProvider } from "@/contexts/DashboardContext";
+import { DashboardTodosProvider } from "@/contexts/DashboardTodosContext";
+import { useSetCurrentPatients } from "@/contexts/CurrentPatientsContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
 import { Loader2 } from "lucide-react";
 import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
@@ -42,6 +44,13 @@ function IndexContent(): React.ReactElement | null {
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
   const { customDictionary, importDictionary } = useCloudDictionary();
+  const setCurrentPatients = useSetCurrentPatients();
+
+  // Sync dashboard patients to shared context so UnifiedAIChatbot (and others) use the same source
+  React.useEffect(() => {
+    setCurrentPatients(patients);
+    return () => setCurrentPatients([]);
+  }, [patients, setCurrentPatients]);
 
   // Fetch todos for all patients for print/export
   const patientIds = React.useMemo(() => patients.map(p => p.id), [patients]);
@@ -109,7 +118,7 @@ function IndexContent(): React.ReactElement | null {
     }
   }, [navigate, signOut]);
 
-  // Build dashboard context value - must be before any conditional returns to satisfy Rules of Hooks
+  // Build dashboard context value (todosMap is in DashboardTodosContext to reduce re-renders)
   const dashboardContextValue = React.useMemo(() => ({
     user,
     patients,
@@ -121,7 +130,6 @@ function IndexContent(): React.ReactElement | null {
     autotexts,
     templates,
     customDictionary,
-    todosMap,
     onAddPatient: handleAddPatient,
     onAddPatientWithData: addPatientWithData,
     onUpdatePatient: handleUpdatePatient,
@@ -153,7 +161,6 @@ function IndexContent(): React.ReactElement | null {
     autotexts,
     templates,
     customDictionary,
-    todosMap,
     handleAddPatient,
     addPatientWithData,
     handleUpdatePatient,
@@ -214,7 +221,9 @@ function IndexContent(): React.ReactElement | null {
   if (isMobile) {
     return (
       <DashboardProvider {...dashboardContextValue}>
-        <MobileDashboard />
+        <DashboardTodosProvider todosMap={todosMap}>
+          <MobileDashboard />
+        </DashboardTodosProvider>
       </DashboardProvider>
     );
   }
@@ -222,7 +231,9 @@ function IndexContent(): React.ReactElement | null {
   // Desktop Layout
   return (
     <DashboardProvider {...dashboardContextValue}>
-      <DesktopDashboard />
+      <DashboardTodosProvider todosMap={todosMap}>
+        <DesktopDashboard />
+      </DashboardTodosProvider>
     </DashboardProvider>
   );
 }

@@ -2,9 +2,9 @@ import React, { createContext, useContext, ReactNode } from "react";
 import { Patient } from "@/types/patient";
 import { AutoText, Template } from "@/types/autotext";
 import { MobileTab } from "@/components/layout";
-import { PatientTodo } from "@/types/todo";
 import { PatientFilterType } from "@/constants/config";
 
+/** Todos are provided via DashboardTodosContext (useDashboardTodos) to limit re-renders when only todos change. */
 interface DashboardContextType {
     // Data
     user: { email?: string } | null;
@@ -13,7 +13,6 @@ interface DashboardContextType {
     autotexts: AutoText[];
     templates: Template[];
     customDictionary: Record<string, string>;
-    todosMap: Record<string, PatientTodo[]>;
 
     // State
     searchQuery: string;

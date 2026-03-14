@@ -1,4 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+/**
+ * Runs multi-step AI workflows by calling Edge Functions in sequence.
+ * Not yet wired to UI; use when workflow/automation feature is added.
+ */
+import { useState, useCallback, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AIWorkflowStep = {
   id: string;
@@ -39,11 +44,13 @@ export function useAIWorkflow(): UseAIWorkflowReturn {
     functionName: string,
     input: Record<string, unknown>
   ): Promise<{ data?: unknown; error?: string }> => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token ?? import.meta.env.VITE_SUPABASE_ANON_KEY;
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(input),
     });

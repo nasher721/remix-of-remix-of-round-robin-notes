@@ -2,6 +2,7 @@ import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
+import type { PatientTodo } from '@/types/todo';
 import { ensureString } from '@/lib/ai-response-utils';
 import { useSettings } from '@/contexts/SettingsContext';
 
@@ -39,10 +40,18 @@ export const useBatchCourseGenerator = () => {
   const [undoStack, setUndoStack] = React.useState<UndoEntry[][]>([]);
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
+  const toTodoRow = (t: PatientTodo): { content: string | null; completed: boolean; section: string | null; created_at: string } => ({
+    content: t.content ?? null,
+    completed: t.completed,
+    section: t.section,
+    created_at: t.createdAt,
+  });
+
   const generateBatch = React.useCallback(async (
     patients: Patient[],
     type: BatchGenerationType,
-    onUpdatePatient?: (id: string, field: string, value: unknown) => void
+    onUpdatePatient?: (id: string, field: string, value: unknown) => void,
+    todosByPatientId?: Record<string, PatientTodo[]>
   ): Promise<BatchResult[]> => {
     // Filter patients with content based on generation type
     const patientsWithContent = patients.filter(patient => {
@@ -117,14 +126,20 @@ export const useBatchCourseGenerator = () => {
           data = response.data;
           error = response.error;
         } else if (type === 'dailySummary') {
-          // Fetch todos for this patient
-          const { data: todos } = await supabase
-            .from('patient_todos')
-            .select('content, completed, section, created_at')
-            .eq('patient_id', patient.id);
+          let todoRows: { content: string | null; completed: boolean; section: string | null; created_at: string }[];
+          const existing = todosByPatientId?.[patient.id];
+          if (existing?.length) {
+            todoRows = existing.map(toTodoRow);
+          } else {
+            const { data } = await supabase
+              .from('patient_todos')
+              .select('content, completed, section, created_at')
+              .eq('patient_id', patient.id);
+            todoRows = data ?? [];
+          }
 
           const response = await supabase.functions.invoke('generate-daily-summary', {
-            body: { 
+            body: {
               patientName: patient.name,
               clinicalSummary: patient.clinicalSummary,
               intervalEvents: patient.intervalEvents,
@@ -132,7 +147,7 @@ export const useBatchCourseGenerator = () => {
               labs: patient.labs,
               systems: patient.systems,
               medications: patient.medications,
-              todos: todos || [],
+              todos: todoRows,
               existingIntervalEvents: patient.intervalEvents,
               model: getModelForFeature('daily_summary'),
             },

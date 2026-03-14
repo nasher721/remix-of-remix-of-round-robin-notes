@@ -26,6 +26,7 @@ import {
   Upload
 } from "lucide-react";
 import { medicalDictionary } from "@/data/autotexts";
+import { stripHtml } from "@/lib/sanitize";
 import type { AutoText, Template } from "@/types/autotext";
 import { useToast } from "@/hooks/use-toast";
 
@@ -389,10 +390,10 @@ export const AutotextManager = ({
                                 )}
                               </div>
                             </div>
-                            <div 
-                              className="text-xs text-muted-foreground line-clamp-3"
-                              dangerouslySetInnerHTML={{ __html: template.content.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }}
-                            />
+                            <div className="text-xs text-muted-foreground line-clamp-3">
+                              {stripHtml(template.content).substring(0, 150)}
+                              {template.content.length > 150 ? "…" : ""}
+                            </div>
                           </Card>
                         ))}
                       </div>
