@@ -32,7 +32,7 @@ Generated from extensive code review (security, performance, architecture, simpl
 | 2.1 | **Use optimized QueryClient** | Perf, Arch | In `App.tsx`, use `createOptimizedQueryClient()` from `src/lib/cache/queryClientConfig.ts` instead of inline `new QueryClient()`. | ✅ |
 | 2.2 | **Duplicate todo fetches** | Perf | Have `PatientCard` and mobile detail use `todosMap` from context for **read**; use `usePatientTodos` only for **mutations** (or single query backing both). | ✅ |
 | 2.3 | **Stabilize dashboard context** | Perf, Arch | Split or restructure so `todosMap` (and other high-churn data) doesn’t replace the whole context value; e.g. separate “data” context or ref + stable getter. | ✅ |
-| 2.4 | **Patient list on React Query** | Arch, Perf | Refactor `usePatientFetch` to `useQuery` with `QUERY_KEYS.patients`; dashboard and cache warming read/write same cache. | — |
+| 2.4 | **Patient list on React Query** | Arch, Perf | Refactor `usePatientFetch` to `useQuery` with `QUERY_KEYS.patients`; dashboard and cache warming read/write same cache. | ✅ |
 | 2.5 | **Use todos in generators** | Perf | Accept todos from caller in both generators; BatchCourseGenerator and PatientCard pass `todosMap`/`todos` when available. | ✅ |
 | 2.6 | **OfflineSyncIndicator / Provider** | Arch | Either mount `OfflineSyncProvider` and render `OfflineSyncIndicator`, or remove dead import and document that offline UI is not wired. | ✅ |
 | 2.7 | **UnifiedAIChatbot patient source** | Arch | Feed chatbot from same patient source as dashboard (e.g. pass `patients` from Index or shared cache) so one source of truth. | ✅ |
@@ -50,7 +50,7 @@ Generated from extensive code review (security, performance, architecture, simpl
 | 3.1 | **Healthcheck: no raw DB error** | Security | Do not return `dbError.message` to client; return generic "Database unavailable". | ✅ |
 | 3.2 | **parse-handoff: no PHI in logs** | Security | Redact patient names/beds in logs; log AI response length only (no content). | ✅ |
 | 3.3 | **safeErrorMessage** | Security | Do not forward messages containing API_KEY, SECRET, PASSWORD, TOKEN to client. | ✅ |
-| 3.4 | **Dependency upgrades** | Security | Upgrade react-router-dom, dompurify, ajv (or rxdb) to address advisories; run tests after. | — |
+| 3.4 | **Dependency upgrades** | Security | Upgrade react-router-dom, dompurify, ajv (or rxdb) to address advisories; run tests after. | ✅ |
 
 **Deliverables:** Edge functions return generic errors and don’t log PHI; dependencies updated.
 
@@ -77,9 +77,9 @@ Generated from extensive code review (security, performance, architecture, simpl
 
 | # | Item | Action | Done |
 |---|------|--------|------|
-| 5.1 | Auth flow tests | Unit tests for `useAuth` and Auth.tsx (mocked Supabase). | — |
-| 5.2 | Patient CRUD hook tests | Unit tests for `usePatientMutations` / `usePatientImport` with mocked Supabase. | — |
-| 5.3 | E2E / integration | At least one flow: login → dashboard; optional: print/export open → export. | — |
+| 5.1 | Auth flow tests | Unit tests for `useAuth` and Auth.tsx (mocked Supabase). | ✅ |
+| 5.2 | Patient CRUD hook tests | Unit tests for `usePatientMutations` / `usePatientImport` with mocked Supabase. | ✅ |
+| 5.3 | E2E / integration | At least one flow: login → dashboard; optional: print/export open → export. | ✅ |
 | 5.4 | Null checks | After Supabase `.single()` (and similar), check `data == null` before mapping. | ✅ |
 
 ---

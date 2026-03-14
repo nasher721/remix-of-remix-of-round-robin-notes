@@ -1,7 +1,7 @@
 import * as React from "react";
 import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
-import { useAuth } from "../useAuth";
-import { useNotifications } from "../use-notifications";
+import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/use-notifications";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { prepareUpdateData } from "@/lib/mappers/patientMapper";
 import {

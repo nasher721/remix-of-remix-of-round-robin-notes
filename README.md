@@ -56,8 +56,14 @@ npm run build      # Production build
 npm run build:dev  # Development build
 npm run lint       # Run ESLint
 npm run preview    # Preview production build
-npm test           # Run tests
+npm test           # Unit/integration tests (Node test runner)
+npm run test:e2e   # E2E tests (Playwright); see e2e/README.md for login credentials
 ```
+
+## Testing
+
+- **Unit/integration**: `npm test` (Node test runner).
+- **E2E (Playwright)**: `npm run test:e2e`. The auth-page smoke runs without config; for login → dashboard and print/export flows set `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` (real Supabase required). See [e2e/README.md](e2e/README.md).
 
 ## Deployment
 

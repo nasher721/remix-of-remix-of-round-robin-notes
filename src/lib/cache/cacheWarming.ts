@@ -2,6 +2,8 @@ import { QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { QUERY_KEYS, CACHE_CONFIG } from './cacheConfig';
 import { logInfo } from '@/lib/observability/logger';
+import { mapPatientRecord } from '@/services/patientService';
+import type { Patient } from '@/types/patient';
 
 export interface WarmingProgress {
   total: number;
@@ -48,7 +50,7 @@ export const cacheWarming = {
     }
   },
   
-  // Warm patients data
+  // Warm patients data (same Patient[] shape as usePatientFetch for single source of truth)
   async warmPatients(queryClient: QueryClient, userId: string): Promise<void> {
     const { data, error } = await supabase
       .from('patients')
@@ -58,14 +60,15 @@ export const cacheWarming = {
     
     if (error) throw error;
     
-    queryClient.setQueryData(QUERY_KEYS.patients, data || [], {
+    const patients: Patient[] = (data || []).map(mapPatientRecord);
+    queryClient.setQueryData<Patient[]>(QUERY_KEYS.patients, patients, {
       updatedAt: Date.now(),
     });
     
     logInfo('cache.warming.completed', {
       userId,
       entity: 'patients',
-      count: data?.length || 0,
+      count: patients.length,
     });
   },
   

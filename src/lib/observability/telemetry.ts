@@ -11,7 +11,7 @@
  * - PHI-safe: never captures patient data in telemetry
  */
 
-import { logError, logWarn, logInfo, type LogContext } from './logger';
+import { logError, logWarn, logInfo, type LogContext } from "@/lib/observability/logger";
 
 // ---------------------------------------------------------------------------
 // Types
