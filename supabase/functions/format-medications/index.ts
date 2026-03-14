@@ -13,6 +13,9 @@ Deno.serve(async (req: Request) => {
     return handleOptions(req);
   }
 
+  const requestId = crypto.randomUUID?.() ?? `req_${Date.now()}`;
+  const startMs = performance.now();
+
   try {
     // Authenticate the request
     const authResult = await authenticateRequest(req);
@@ -20,7 +23,7 @@ Deno.serve(async (req: Request) => {
       return authResult.error;
     }
     const userId = authResult.userId;
-    safeLog('info', `Authenticated request from user: ${userId}`);
+    safeLog('info', `Authenticated request from user: ${userId}`, { requestId, function: 'format-medications' });
     // Rate limiting check
     const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
@@ -194,11 +197,13 @@ Each array contains formatted medication strings.`;
       }
     }
 
-    safeLog('info', `Parsed medications successfully`);
+    const durationMs = Math.round(performance.now() - startMs);
+    safeLog('info', 'format-medications completed', { requestId, function: 'format-medications', durationMs, status: 'success' });
 
     return jsonResponse(req, { medications: parsedMeds });
   } catch (error) {
-    safeLog('error', `Error in format-medications: ${error}`);
+    const durationMs = Math.round(performance.now() - startMs);
+    safeLog('error', `Error in format-medications: ${error}`, { requestId, function: 'format-medications', durationMs, status: 'error' });
     if (error instanceof MissingAPIKeyError) {
       return jsonResponse(req, { error: error.message, code: 'MISSING_API_KEY' }, 503);
     }

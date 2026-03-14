@@ -4,7 +4,7 @@ import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
 import { useAuth } from "../useAuth";
 import { useNotifications } from "../use-notifications";
 import type { Patient } from "@/types/patient";
-import { logMetric } from "@/lib/observability/logger";
+import { logMetric, generateRequestId } from "@/lib/observability/logger";
 import {
     getNextPatientCounter,
     mapPatientRecord,
@@ -24,14 +24,33 @@ export interface PatientFetchState {
 }
 
 async function fetchPatientsFromSupabase(): Promise<Patient[]> {
-    const { data, error } = await supabase
-        .from("patients")
-        .select("*")
-        .order("patient_number", { ascending: true });
+    const requestId = generateRequestId();
+    const start = performance.now();
 
-    if (error) throw error;
-    const patients = (data || []).map(mapPatientRecord);
-    return patients;
+    try {
+        const { data, error } = await supabase
+            .from("patients")
+            .select("*")
+            .order("patient_number", { ascending: true });
+
+        if (error) throw error;
+        const patients = (data || []).map(mapPatientRecord);
+        const durationMs = Math.round(performance.now() - start);
+        logMetric("patients.fetch.duration_ms", durationMs, "ms", {
+            requestId,
+            count: patients.length,
+            status: "success",
+        });
+        logMetric("patients.fetch.success", 1, "count", { requestId });
+        return patients;
+    } catch (err) {
+        const durationMs = Math.round(performance.now() - start);
+        logMetric("patients.fetch.duration_ms", durationMs, "ms", {
+            requestId,
+            status: "error",
+        });
+        throw err;
+    }
 }
 
 /**
@@ -79,7 +98,10 @@ export function usePatientFetch(): PatientFetchState {
             await query.refetch();
         } catch (error) {
             console.error("Error fetching patients:", error);
-            logMetric("patients.fetch.error", 1, "count", { userId: user.id });
+            logMetric("patients.fetch.error", 1, "count", {
+                userId: user.id,
+                requestId: generateRequestId(),
+            });
             notifications.error({
                 title: "Error",
                 description: "Failed to load patients.",
@@ -95,7 +117,10 @@ export function usePatientFetch(): PatientFetchState {
 
     React.useEffect(() => {
         if (query.isError && user) {
-            logMetric("patients.fetch.error", 1, "count", { userId: user.id });
+            logMetric("patients.fetch.error", 1, "count", {
+                userId: user.id,
+                requestId: generateRequestId(),
+            });
             notifications.error({
                 title: "Error",
                 description: "Failed to load patients.",

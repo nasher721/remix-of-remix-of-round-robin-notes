@@ -1,3 +1,5 @@
+import { push as collect } from './collector';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export type LogContext = Record<string, unknown>;
@@ -20,6 +22,11 @@ function getSessionId(): string {
   } catch {
     return `session_${Date.now()}`;
   }
+}
+
+/** Generate a request/correlation ID for tracing a single operation across logs. */
+export function generateRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `req_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 function basePayload() {
@@ -50,6 +57,12 @@ function emitLog(level: LogLevel, message: string, context: LogContext = {}) {
       break;
     default:
       console.log(line);
+  }
+
+  try {
+    collect(payload);
+  } catch {
+    // Collector optional; never break logging
   }
 }
 
