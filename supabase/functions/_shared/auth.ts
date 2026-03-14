@@ -110,9 +110,9 @@ export async function verifyUserRole(
   if ('error' in authResult) {
     return authResult;
   }
-  
-  // TODO: Implement role checking based on your auth schema
-  // For now, all authenticated users pass
+
+  // Role checking: not implemented. When you add app-wide roles (e.g. JWT app_metadata.role
+  // or a user_roles table), compare _requiredRole to the resolved role and return 403 if missing.
   return authResult;
 }
 
