@@ -81,7 +81,7 @@ const Landing: React.FC = () => {
       };
 
   return (
-    <div className="landing-page min-h-screen relative overflow-hidden bg-background text-foreground">
+    <div id="main-content" className="landing-page min-h-screen relative overflow-hidden bg-background text-foreground" role="main">
       {/* Ambient glow orbs */}
       <motion.div
         className="pointer-events-none absolute -left-32 -top-40 h-[500px] w-[500px] rounded-full bg-primary/15 blur-3xl"
@@ -140,6 +140,7 @@ const Landing: React.FC = () => {
 
           <motion.div variants={fadeUp} className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
             <motion.button
+              type="button"
               whileHover={{ y: shouldReduceMotion ? 0 : -3, scale: shouldReduceMotion ? 1 : 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={handleLaunchPortal}

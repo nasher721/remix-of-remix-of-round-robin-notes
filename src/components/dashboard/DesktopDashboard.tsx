@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { scaleIn, transitions } from "@/lib/animations";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -179,24 +179,24 @@ export const DesktopDashboard = () => {
   return (
     <div className="min-h-screen bg-background" id="main-content" role="main">
       <motion.header
-        className="sticky top-0 z-50 border-b border-border/20 bg-card/95 backdrop-blur-xl no-print shadow-card"
+        className="sticky top-0 z-50 isolate border-b border-border/20 bg-card/95 backdrop-blur-xl no-print shadow-card"
         initial={shouldReduceMotion ? false : { opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={transitions.smooth}
       >
         <div className="container mx-auto px-4 md:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2.5 group cursor-pointer shrink-0" onClick={() => navigate("/")}>
+            <Link to="/" className="flex items-center gap-2.5 group cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
               <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors border border-primary/10">
                 <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-5 w-auto" />
               </div>
               <h1 className="text-lg font-semibold tracking-tight text-card-foreground group-hover:text-primary transition-colors hidden sm:block">Rolling Rounds</h1>
-            </div>
-            <Button onClick={onAddPatient} size="sm" className="gap-1.5 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium shadow-sm">
+            </Link>
+            <Button type="button" onClick={onAddPatient} size="sm" className="gap-1.5 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium shadow-sm">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               Add patient
             </Button>
-            <Button onClick={() => setShowPrintModal(true)} variant="outline" size="sm" className="gap-1.5 h-8 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60">
+            <Button type="button" onClick={() => setShowPrintModal(true)} variant="outline" size="sm" className="gap-1.5 h-8 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60">
               <Printer className="h-3.5 w-3.5" aria-hidden="true" />
               Print
             </Button>
@@ -217,14 +217,14 @@ export const DesktopDashboard = () => {
             <PresenceIndicator />
             <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
             <ThemeToggle />
-            <Button onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
+            <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </div>
         </div>
       </motion.header>
 
-      <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print relative z-0">
         <DesktopUtilityPanel
           patients={patients}
           autotexts={autotexts}
@@ -512,6 +512,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
     <div ref={panelRef} className="relative rounded-lg border border-border/40 bg-card/80 backdrop-blur-sm shadow-card overflow-hidden">
       <div className="flex items-center p-2">
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all ${menuOpen ? "bg-primary/10 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}

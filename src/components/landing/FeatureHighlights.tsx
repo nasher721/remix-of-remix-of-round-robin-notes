@@ -233,6 +233,7 @@ const BottomCTA: React.FC = () => {
             Join clinical teams already using Rolling Rounds for faster, smarter patient care.
           </p>
           <button
+            type="button"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="bg-white/95 text-primary px-10 py-3.5 rounded-2xl text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-xl hover:-translate-y-0.5 hover:shadow-2xl transition-all duration-200 cursor-pointer border-none outline-none"
           >
