@@ -1,10 +1,10 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
-  Bold, Italic, Underline, List, ListOrdered, Type, Sparkles, Highlighter,
+  Bold, Italic, Underline, List, ListOrdered, Type, Highlighter,
   Indent, Outdent, Palette, Undo2, Redo2, FileText, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
-  Superscript, Subscript, Search, Table as TableIcon, ShieldCheck,
+  Superscript, Subscript, Search, Table as TableIcon,
   ChevronDown, Maximize2, Minimize2
 } from "lucide-react";
 import {
@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import type { AutoText } from "@/types/autotext";
 import { DictationButton } from "./DictationButton";
-import { AppleAIAssistant } from "./AppleAIAssistant";
+import { UnifiedAIDropdown } from "./UnifiedAIDropdown";
 import { DocumentImport } from "./DocumentImport";
 import { PhrasePicker, PhraseFormDialog } from "./phrases";
 import { usePhraseExpansion } from "@/hooks/usePhraseExpansion";
@@ -40,8 +40,6 @@ import { EditorFindReplace } from "./EditorFindReplace";
 import { EditorStatusBar } from "./EditorStatusBar";
 import type { Patient } from "@/types/patient";
 import { QuickModelSwitcher } from "./settings/QuickModelSwitcher";
-import { useAIClinicalAssistant } from "@/hooks/useAIClinicalAssistant";
-import { toast } from "sonner";
 
 const textColors = [
   { name: "Default", value: "" },
@@ -128,9 +126,6 @@ export const RichTextEditor = ({
 
   // Clinical phrase system
   const { folders } = useClinicalPhrases();
-
-  // AI Assistant hook
-  const { checkDocumentation, processWithAI, generateDraft } = useAIClinicalAssistant();
 
   // Insert phrase content handler
   const insertPhraseContent = React.useCallback((content: string) => {
@@ -955,65 +950,7 @@ export const RichTextEditor = ({
             }}
           />
           <QuickModelSwitcher />
-          {patient && (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                title="AI Smart Draft (Draft from patient data)"
-                className="h-7 px-2 gap-1 text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                onClick={async () => {
-                  try {
-                    toast.info("AI is drafting your note...");
-                    const draft = await generateDraft(patient);
-                    if (draft && editorRef.current) {
-                      // If editor is empty or just has a <br>, replace content
-                      // Otherwise append
-                      const isEmpty = editorRef.current.innerText.trim() === "";
-                      const separator = isEmpty ? "" : "<br/><br/>";
-                      const newContent = isEmpty ? draft : `${editorRef.current.innerHTML}${separator}${draft}`;
-
-                      editorRef.current.innerHTML = newContent;
-                      isInternalUpdate.current = true;
-                      onChange(newContent);
-                      toast.success("Draft generated!");
-                    }
-                  } catch (err) {
-                    toast.error("Drafting failed. Please try again.");
-                  }
-                }}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-xs font-medium">Draft Note</span>
-              </Button>
-              <div className="w-px h-5 bg-border" />
-            </>
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            title="AI Sense Check (Check for inconsistencies)"
-            className="h-7 px-2 gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-            onClick={async () => {
-              if (!editorRef.current?.innerText.trim()) {
-                toast.error("Please enter some text to check.");
-                return;
-              }
-              try {
-                toast.info("AI is sense-checking your note...");
-                // Use processWithAI directly if we only have text, as checkDocumentation expects a Patient object
-                await processWithAI('documentation_check', { text: editorRef.current.innerText });
-              } catch (err) {
-                toast.error("Sense check failed. Please try again.");
-              }
-            }}
-          >
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline text-xs font-medium">Sense Check</span>
-          </Button>
-          <AppleAIAssistant
+          <UnifiedAIDropdown
             getSelectedText={() => {
               const selection = window.getSelection();
               if (!selection || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
@@ -1050,6 +987,17 @@ export const RichTextEditor = ({
               isInternalUpdate.current = true;
               onChange(editorRef.current!.innerHTML);
             }}
+            getDocumentText={() => editorRef.current?.innerText ?? null}
+            onDraftNoteGenerated={(draft) => {
+              if (!editorRef.current) return;
+              const isEmpty = editorRef.current.innerText.trim() === "";
+              const separator = isEmpty ? "" : "<br/><br/>";
+              const newContent = isEmpty ? draft : `${editorRef.current.innerHTML}${separator}${draft}`;
+              editorRef.current.innerHTML = newContent;
+              isInternalUpdate.current = true;
+              onChange(newContent);
+            }}
+            patient={patient}
           />
           <DictationButton
             onTranscript={handleDictationTranscript}
