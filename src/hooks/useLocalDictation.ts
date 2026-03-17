@@ -10,6 +10,16 @@ export interface LocalDictationState {
     error: string | null;
 }
 
+type LocalDictationWorkerMessage =
+    | { type: 'progress'; info?: { status?: string; progress?: number } }
+    | { type: 'ready' }
+    | { type: 'result'; text: string }
+    | { type: 'error'; error: string };
+
+type ExtendedWindow = Window & {
+    webkitAudioContext?: typeof AudioContext;
+};
+
 export function useLocalDictation() {
     const [state, setState] = useState<LocalDictationState>({
         isReady: false,
@@ -31,25 +41,25 @@ export function useLocalDictation() {
             type: 'module',
         });
 
-        workerRef.current.onmessage = (e) => {
-            const { type, info, text, error } = e.data;
+        workerRef.current.onmessage = (e: MessageEvent<LocalDictationWorkerMessage>) => {
+            const message = e.data;
 
-            if (type === 'progress') {
-                if (info.status === 'progress') {
-                    setState((prev) => ({ ...prev, isModelLoading: true, progress: Math.round(info.progress || 0) }));
-                } else if (info.status === 'ready') {
+            if (message.type === 'progress') {
+                if (message.info?.status === 'progress') {
+                    setState((prev) => ({ ...prev, isModelLoading: true, progress: Math.round(message.info.progress || 0) }));
+                } else if (message.info?.status === 'ready') {
                     setState((prev) => ({ ...prev, progress: 100, isModelLoading: false, isReady: true }));
                 }
-            } else if (type === 'ready') {
+            } else if (message.type === 'ready') {
                 setState((prev) => ({ ...prev, isReady: true, isModelLoading: false, progress: 100 }));
-            } else if (type === 'result') {
+            } else if (message.type === 'result') {
                 setState((prev) => ({
                     ...prev,
-                    text: prev.text ? prev.text + ' ' + text.trim() : text.trim(),
-                    isTranscribing: false
+                    text: prev.text ? `${prev.text} ${message.text.trim()}` : message.text.trim(),
+                    isTranscribing: false,
                 }));
-            } else if (type === 'error') {
-                setState((prev) => ({ ...prev, error, isModelLoading: false, isTranscribing: false }));
+            } else if (message.type === 'error') {
+                setState((prev) => ({ ...prev, error: message.error, isModelLoading: false, isTranscribing: false }));
             }
         };
 
@@ -86,27 +96,30 @@ export function useLocalDictation() {
             mediaRecorder.onstop = async () => {
                 const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
 
-                setState(prev => ({ ...prev, isTranscribing: true, isRecording: false }));
+                setState((prev) => ({ ...prev, isTranscribing: true, isRecording: false }));
                 try {
                     const arrayBuffer = await audioBlob.arrayBuffer();
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+                    const AudioContextCtor = window.AudioContext || (window as ExtendedWindow).webkitAudioContext;
+                    if (!AudioContextCtor) {
+                        throw new Error('Web Audio API is not supported in this browser.');
+                    }
+                    const audioContext = new AudioContextCtor({ sampleRate: 16000 });
                     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
                     const audioData = audioBuffer.getChannelData(0); // Whisper expects 16kHz Float32Array
 
                     workerRef.current?.postMessage({ type: 'transcribe', audio: audioData });
                 } catch (e: unknown) {
                     const message = e instanceof Error ? e.message : 'Unknown error';
-                    setState(prev => ({ ...prev, error: "Audio processing failed: " + message, isTranscribing: false }));
+                    setState((prev) => ({ ...prev, error: `Audio processing failed: ${message}`, isTranscribing: false }));
                 }
 
                 // Release microphone
-                stream.getTracks().forEach(track => track.stop());
+                stream.getTracks().forEach((track) => track.stop());
             };
 
             mediaRecorder.start();
             setState((prev) => ({ ...prev, isRecording: true, error: null }));
-        } catch (err: unknown) {
+        } catch (_err: unknown) {
             setState((prev) => ({ ...prev, error: 'Microphone access denied.' }));
         }
     }, [state.isReady, loadModel]);

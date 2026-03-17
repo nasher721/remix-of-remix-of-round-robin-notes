@@ -8,7 +8,7 @@
  * and into separate chunks that load asynchronously.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 type LazyDataState<T> = {
   data: T | null;
@@ -37,25 +37,30 @@ export function useLazyData<TModule, TData>(
     loading: true,
     error: null,
   });
-  const loaderRef = useRef(loader);
 
   useEffect(() => {
     let cancelled = false;
 
-    loaderRef.current().then((mod) => {
-      if (!cancelled) {
-        setState({ data: selector(mod), loading: false, error: null });
-      }
-    }).catch((err) => {
-      if (!cancelled) {
-        setState({ data: null, loading: false, error: err });
-      }
-    });
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+
+    loader()
+      .then((mod) => {
+        if (!cancelled) {
+          setState({ data: selector(mod), loading: false, error: null });
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setState({
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err : new Error('Failed to load lazy data'),
+          });
+        }
+      });
 
     return () => { cancelled = true; };
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loader, selector]);
 
   return state;
 }
