@@ -17,6 +17,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Wand2, Loader2, Clipboard, Check, Edit2, Pill } from "lucide-react";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
 import { useSettings } from "@/contexts/SettingsContext";
+import { withCategoryTimeout } from "@/lib/requestTimeout";
+import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface ParsedPatientData {
   name: string;
@@ -81,9 +83,13 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("parse-single-patient", {
-        body: { content: content.trim(), model: getModelForFeature('parsing') },
-      });
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke("parse-single-patient", {
+          body: { content: content.trim(), model: getModelForFeature('parsing') },
+        }),
+        "aiEdgeFunction",
+        "parse-single-patient",
+      );
 
       if (error) {
         throw error;
@@ -104,7 +110,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
       console.error("Parse error:", error);
       toast({
         title: "Failed to parse notes",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: getUserFacingErrorMessage(error, "Unable to parse notes right now. Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -124,7 +130,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
       console.error("Import error:", error);
       toast({
         title: "Failed to import patient",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: getUserFacingErrorMessage(error, "Unable to import patient right now. Please try again."),
         variant: "destructive",
       });
     } finally {

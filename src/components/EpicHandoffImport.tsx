@@ -16,6 +16,8 @@ import { extractPdfText, extractPdfAsImages } from "@/lib/import-utils";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
+import { withCategoryTimeout } from "@/lib/requestTimeout";
+import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface PatientSystems {
   neuro: string;
@@ -75,14 +77,12 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   const { settings, updateSettings } = useImportSettings();
   const { getModelForFeature } = useSettings();
 
-  const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }, timeoutMs = 180000) => {
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error("Request timed out while parsing handoff. Please try again.")), timeoutMs);
-    });
-
-    const invokePromise = supabase.functions.invoke('parse-handoff', { body });
-
-    return Promise.race([invokePromise, timeoutPromise]);
+  const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }) => {
+    return withCategoryTimeout(
+      supabase.functions.invoke('parse-handoff', { body }),
+      'aiEdgeFunction',
+      'parse-handoff',
+    );
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,7 +196,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       console.error("Error parsing handoff:", error);
       toast({
         title: "Parsing failed",
-        description: error instanceof Error ? error.message : "Failed to parse the handoff document.",
+        description: getUserFacingErrorMessage(error, "Unable to parse the handoff document right now."),
         variant: "destructive",
       });
       setIsLoading(false);
@@ -278,7 +278,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       console.error("Error parsing pasted content:", error);
       toast({
         title: "Parsing failed",
-        description: error instanceof Error ? error.message : "Failed to parse the pasted content.",
+        description: getUserFacingErrorMessage(error, "Unable to parse the pasted content right now."),
         variant: "destructive",
       });
       setIsLoading(false);
@@ -506,7 +506,13 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                         key={index}
                         className={`p-3 cursor-pointer transition-colors ${selectedPatients.has(index) ? 'border-primary bg-primary/5' : ''
                           } ${exists ? 'border-warning' : ''}`}
-                        onClick={() => togglePatient(index)}
+                        onClick={(event) => {
+                          const target = event.target as HTMLElement;
+                          if (target.closest('button, input, a, [role="checkbox"]')) {
+                            return;
+                          }
+                          togglePatient(index);
+                        }}
                       >
                         <div className="flex items-start gap-3">
                           <Checkbox
