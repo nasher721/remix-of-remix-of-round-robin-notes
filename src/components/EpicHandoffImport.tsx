@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileUp, Loader2, FileText, Users, AlertCircle, Settings2, Info } from "lucide-react";
-import { extractPdfText, extractPdfAsImages } from "@/lib/import-utils";
+import { extractPdfText, extractPdfAsImages, OCR_HARD_PAGE_LIMIT } from "@/lib/import-utils";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -85,6 +85,28 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     );
   };
 
+  const getSafePageLimit = () => Math.max(1, Math.min(settings.pageLimit, OCR_HARD_PAGE_LIMIT));
+
+  const tryInvokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }, retries = 1) => {
+    let attempt = 0;
+
+    while (true) {
+      const result = await invokeParseHandoff(body);
+      if (!result.error || attempt >= retries) {
+        return result;
+      }
+
+      const status = (result.error as { context?: { status?: number } }).context?.status;
+      if (status && status < 500 && status !== 429) {
+        return result;
+      }
+
+      attempt += 1;
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+      setStatusMessage(`Retrying parse request (${attempt + 1}/${retries + 1})...`);
+    }
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -137,23 +159,27 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
             throw new Error("Text extraction failed and OCR is disabled. Enable OCR in settings to process this document.");
           }
 
-          setStatusMessage(`Converting PDF to images (Quality: ${settings.imageScale}x)...`);
-          const images = await extractPdfAsImages(file, settings.imageScale, settings.pageLimit);
+          const safePageLimit = getSafePageLimit();
+          if (settings.pageLimit > OCR_HARD_PAGE_LIMIT) {
+            toast({
+              title: "Page limit reduced",
+              description: `For reliability, OCR is limited to ${OCR_HARD_PAGE_LIMIT} pages per import.`,
+            });
+          }
+
+          setStatusMessage(`Converting PDF to images (Quality: ${settings.imageScale}x, up to ${safePageLimit} pages)...`);
+          const images = await extractPdfAsImages(file, settings.imageScale, safePageLimit);
 
           if (images.length === 0) {
             throw new Error("Could not extract any content from the PDF.");
           }
 
           setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
-          const { data, error } = await invokeParseHandoff({ images, model: getModelForFeature('parsing') });
+          const { data, error } = await tryInvokeParseHandoff({ images, model: getModelForFeature('parsing') });
 
           // Enhanced error logging
           if (error) {
-            console.error("Edge Function invocation error (OCR path):", {
-              message: error.message,
-              details: error,
-              stack: error.stack,
-            });
+            console.error("Edge Function invocation error (OCR path):", error.message);
             throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
           }
           if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -177,15 +203,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       }
 
       setStatusMessage("Parsing extracted text...");
-      const { data, error } = await invokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') });
+      const { data, error } = await tryInvokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') });
 
       // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error:", {
-          message: error.message,
-          details: error,
-          stack: error.stack,
-        });
+        console.error("Edge Function invocation error:", error.message);
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -260,15 +282,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       setParsedPatients([]);
       setSelectedPatients(new Set());
 
-      const { data, error } = await invokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') });
+      const { data, error } = await tryInvokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') });
 
       // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error (paste path):", {
-          message: error.message,
-          details: error,
-          stack: error.stack,
-        });
+        console.error("Edge Function invocation error (paste path):", error.message);
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -425,11 +443,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <Label>Page Limit</Label>
-                        <span className="text-xs text-muted-foreground">{settings.pageLimit} parsed</span>
+                        <span className="text-xs text-muted-foreground">{getSafePageLimit()} parsed</span>
                       </div>
                       <Slider
                         min={1}
-                        max={20}
+                        max={OCR_HARD_PAGE_LIMIT}
                         step={1}
                         value={[settings.pageLimit]}
                         onValueChange={([v]) => updateSettings({ pageLimit: v })}

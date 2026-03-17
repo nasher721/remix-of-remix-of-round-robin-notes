@@ -67,6 +67,8 @@ export const extractPdfText = async (file: File): Promise<string> => {
     return fullText;
 };
 
+export const OCR_HARD_PAGE_LIMIT = 20;
+
 // Convert PDF pages to base64 images for OCR
 export const extractPdfAsImages = async (
     file: File,
@@ -79,7 +81,9 @@ export const extractPdfAsImages = async (
 
     const images: string[] = [];
 
-    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, maxPages); pageNum++) {
+    const safePageLimit = Math.max(1, Math.min(maxPages, OCR_HARD_PAGE_LIMIT));
+
+    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, safePageLimit); pageNum++) {
         const page = await pdf.getPage(pageNum);
         const viewport = page.getViewport({ scale });
 
