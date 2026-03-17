@@ -38,6 +38,12 @@ const updateCapture = (globalThis.__supabaseUpdateCapture = globalThis.__supabas
 const fixture = ${JSON.stringify(PATIENT_FIXTURE)};
 
 export const supabase = {
+  functions: {
+    invoke: async (name, payload) => (
+      globalThis.__SUPABASE_FUNCTIONS_INVOKE_MOCK__?.(name, payload)
+      ?? { data: { success: true, data: { patients: [] } }, error: null }
+    ),
+  },
   from(table) {
     return {
       insert(rows) {
