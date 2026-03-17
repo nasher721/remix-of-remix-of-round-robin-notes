@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
@@ -75,6 +75,16 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   const { settings, updateSettings } = useImportSettings();
   const { getModelForFeature } = useSettings();
 
+  const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }, timeoutMs = 180000) => {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Request timed out while parsing handoff. Please try again.")), timeoutMs);
+    });
+
+    const invokePromise = supabase.functions.invoke('parse-handoff', { body });
+
+    return Promise.race([invokePromise, timeoutPromise]);
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -135,13 +145,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
           }
 
           setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
-          const ocrController = new AbortController();
-          const ocrTimeout = setTimeout(() => ocrController.abort(), 180000);
-          try {
-            const { data, error } = await supabase.functions.invoke('parse-handoff', {
-              body: { images, model: getModelForFeature('parsing') },
-            });
-            clearTimeout(ocrTimeout);
+          const { data, error } = await invokeParseHandoff({ images, model: getModelForFeature('parsing') });
 
           // Enhanced error logging
           if (error) {
@@ -156,9 +160,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
 
           finalizeImport(data.data?.patients || []);
           return;
-          } finally {
-            clearTimeout(ocrTimeout);
-          }
         }
       } else {
         // Text file
@@ -176,9 +177,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       }
 
       setStatusMessage("Parsing extracted text...");
-      const { data, error } = await supabase.functions.invoke('parse-handoff', {
-        body: { pdfContent: content, model: getModelForFeature('parsing') },
-      });
+      const { data, error } = await invokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') });
 
       // Enhanced error logging
       if (error) {
@@ -210,7 +209,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     if (patients.length === 0) {
       toast({
         title: "No patients found",
-        description: "The AI couldn't extract any patients. detailed in this document.",
+        description: "The AI couldn't extract any patients detailed in this document.",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -261,9 +260,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       setParsedPatients([]);
       setSelectedPatients(new Set());
 
-      const { data, error } = await supabase.functions.invoke('parse-handoff', {
-        body: { pdfContent: text, model: getModelForFeature('parsing') },
-      });
+      const { data, error } = await invokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') });
 
       // Enhanced error logging
       if (error) {
@@ -364,13 +361,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   };
 
   const bedExists = (bed: string) => existingBeds.some(b => b.toLowerCase() === bed.toLowerCase());
-
-  // Sync internal open state with external control when noDialog is true
-  useEffect(() => {
-    if (noDialog) {
-      setOpen(true);
-    }
-  }, [noDialog]);
 
   const content = (
     <>
@@ -522,6 +512,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                           <Checkbox
                             checked={selectedPatients.has(index)}
                             onCheckedChange={() => togglePatient(index)}
+                            onClick={(event) => event.stopPropagation()}
                             className="mt-1"
                           />
                           <div className="flex-1 min-w-0">
