@@ -4,7 +4,6 @@ import { useToast } from '@/hooks/use-toast';
 import type { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuth } from '@/hooks/useAuth';
 import type {
   AIFeature,
   DDxResponse,
@@ -17,7 +16,6 @@ import { stripHtml } from '@/lib/openai-config';
 import { withTimeout, TIMEOUT_DEFAULTS } from '@/lib/requestTimeout';
 import { recordTelemetryEvent } from '@/lib/observability/telemetry';
 import { sanitizeClinicalContext } from '@/lib/piiSanitizer';
-import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 
 interface UseAIClinicalAssistantOptions {
@@ -77,7 +75,6 @@ export const useAIClinicalAssistant = (
 ): UseAIClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
   const { getModelForFeature } = useSettings();
-  const { user } = useAuth();
   const { user } = useAuth();
 
   const [isProcessing, setIsProcessing] = useState(false);
