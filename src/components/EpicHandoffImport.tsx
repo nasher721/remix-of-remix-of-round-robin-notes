@@ -18,6 +18,8 @@ import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
 import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { logMetric } from "@/lib/observability/logger";
+import { recordTelemetryEvent } from "@/lib/observability/telemetry";
 
 interface PatientSystems {
   neuro: string;
@@ -77,6 +79,54 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   const { settings, updateSettings } = useImportSettings();
   const { getModelForFeature } = useSettings();
 
+  const emitCheckpoint = React.useCallback((path: "text" | "ocr", checkpoint: string, message?: string) => {
+    if (message) {
+      setStatusMessage(message);
+    }
+    recordTelemetryEvent("custom", "handoff_parse_checkpoint", {
+      feature: "epic_handoff_import",
+      path,
+      checkpoint,
+      ocrPageLimit: getSafePageLimit(),
+      forceOcr: settings.forceOcr,
+    });
+  }, [settings.forceOcr, settings.pageLimit]);
+
+  const measureParse = React.useCallback(async <T,>(
+    path: "text" | "ocr",
+    operation: () => Promise<T>,
+  ): Promise<T> => {
+    const start = performance.now();
+    try {
+      const result = await operation();
+      const durationMs = Math.round(performance.now() - start);
+      logMetric("handoff_parse_duration", durationMs, "ms", {
+        feature: "epic_handoff_import",
+        path,
+        success: true,
+      });
+      recordTelemetryEvent("custom", "handoff_parse_success", {
+        feature: "epic_handoff_import",
+        path,
+        durationMs,
+      });
+      return result;
+    } catch (error) {
+      const durationMs = Math.round(performance.now() - start);
+      logMetric("handoff_parse_duration", durationMs, "ms", {
+        feature: "epic_handoff_import",
+        path,
+        success: false,
+      });
+      recordTelemetryEvent("ai_error", error instanceof Error ? error : "handoff_parse_failed", {
+        feature: "epic_handoff_import",
+        path,
+        durationMs,
+      });
+      throw error;
+    }
+  }, []);
+
   const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }) => {
     return withCategoryTimeout(
       supabase.functions.invoke('parse-handoff', { body }),
@@ -132,10 +182,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       if (file.name.endsWith('.pdf')) {
         if (settings.forceOcr) {
           useOcr = true;
-          setStatusMessage("Preparing document for OCR...");
+          emitCheckpoint("ocr", "prepare", "Preparing document for OCR (1/4)...");
         } else {
           try {
-            setStatusMessage("Extracting text from PDF...");
+            emitCheckpoint("text", "extract_pdf_text", "Extracting text from PDF...");
             content = await extractPdfText(file);
             console.log("Extracted PDF text length:", content.length);
 
@@ -167,15 +217,15 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
             });
           }
 
-          setStatusMessage(`Converting PDF to images (Quality: ${settings.imageScale}x, up to ${safePageLimit} pages)...`);
+          emitCheckpoint("ocr", "convert_pdf_to_images", `Converting PDF to images (2/4 • Quality: ${settings.imageScale}x, up to ${safePageLimit} pages)...`);
           const images = await extractPdfAsImages(file, settings.imageScale, safePageLimit);
 
           if (images.length === 0) {
             throw new Error("Could not extract any content from the PDF.");
           }
 
-          setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
-          const { data, error } = await tryInvokeParseHandoff({ images, model: getModelForFeature('parsing') });
+          emitCheckpoint("ocr", "invoke_ai_parse", "Analyzing images with AI (3/4 • this may take a couple minutes)...");
+          const { data, error } = await measureParse("ocr", () => tryInvokeParseHandoff({ images, model: getModelForFeature('parsing') }));
 
           // Enhanced error logging
           if (error) {
@@ -202,8 +252,8 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
         throw new Error("Could not extract text from the file. Try copying and pasting the handoff text directly or enabling 'Force OCR'.");
       }
 
-      setStatusMessage("Parsing extracted text...");
-      const { data, error } = await tryInvokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') });
+      emitCheckpoint("text", "invoke_ai_parse", "Parsing extracted text...");
+      const { data, error } = await measureParse("text", () => tryInvokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') }));
 
       // Enhanced error logging
       if (error) {
@@ -282,7 +332,8 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       setParsedPatients([]);
       setSelectedPatients(new Set());
 
-      const { data, error } = await tryInvokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') });
+      emitCheckpoint("text", "clipboard_parse_start", "Processing pasted text...");
+      const { data, error } = await measureParse("text", () => tryInvokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') }));
 
       // Enhanced error logging
       if (error) {
@@ -379,6 +430,32 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   };
 
   const bedExists = (bed: string) => existingBeds.some(b => b.toLowerCase() === bed.toLowerCase());
+
+  const handlePatientListRender = React.useCallback((
+    _id: string,
+    phase: "mount" | "update" | "nested-update",
+    actualDuration: number,
+  ) => {
+    if (parsedPatients.length < 25) {
+      return;
+    }
+
+    const durationMs = Math.round(actualDuration);
+    logMetric("handoff_patient_list_render_duration", durationMs, "ms", {
+      feature: "epic_handoff_import",
+      phase,
+      patientCount: parsedPatients.length,
+    });
+
+    if (durationMs > 32) {
+      recordTelemetryEvent("custom", "handoff_patient_list_render_slow", {
+        feature: "epic_handoff_import",
+        phase,
+        durationMs,
+        patientCount: parsedPatients.length,
+      });
+    }
+  }, [parsedPatients.length]);
 
   const content = (
     <>
@@ -516,6 +593,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
               </div>
 
               <ScrollArea className="flex-1 pr-4 -mr-4">
+                <React.Profiler id="handoff-patient-list" onRender={handlePatientListRender}>
                 <div className="space-y-2 pb-4">
                   {parsedPatients.map((patient, index) => {
                     const exists = bedExists(patient.bed);
@@ -576,6 +654,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                     );
                   })}
                 </div>
+                </React.Profiler>
               </ScrollArea>
             </div>
           )}
