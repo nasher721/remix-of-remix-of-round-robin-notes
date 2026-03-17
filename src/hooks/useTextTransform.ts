@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useAuth } from './useAuth';
 import type { Json } from '@/integrations/supabase/types';
 import { useSettings } from '@/contexts/SettingsContext';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 
 export type TransformType = 'comma-list' | 'medical-shorthand' | 'custom';
 
@@ -158,8 +159,34 @@ export const useTextTransform = () => {
     setIsTransforming(true);
 
     try {
+      const bankId = user ? `clinician:${user.id}` : null;
+
+      let combinedCustomPrompt = customPrompt;
+
+      if (bankId) {
+        const recalled = await recallMemories({
+          bankId,
+          query: `text_transform preferences and style for transform type ${transformType}`,
+          filters: {
+            feature: 'text_transform',
+            transformType,
+          },
+          limit: 8,
+        });
+
+        const styleSummary = recalled?.memories
+          ?.map((memory) => memory.content)
+          .filter(Boolean)
+          .join('\n---\n');
+
+        if (styleSummary) {
+          const prefix = `Clinician style and preferences for text transforms:\n${styleSummary}`;
+          combinedCustomPrompt = [prefix, customPrompt].filter(Boolean).join('\n\n');
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('transform-text', {
-        body: { text, transformType, customPrompt, model: getModelForFeature('text_transform') },
+        body: { text, transformType, customPrompt: combinedCustomPrompt, model: getModelForFeature('text_transform') },
       });
 
       if (error) {
@@ -171,6 +198,27 @@ export const useTextTransform = () => {
       if (data?.error) {
         toast.error(data.error);
         return null;
+      }
+
+      if (bankId && data?.transformedText) {
+        const content = [
+          `Original text:\n${text}`,
+          `Transform type: ${transformType}`,
+          combinedCustomPrompt ? `Custom prompt used:\n${combinedCustomPrompt}` : null,
+          `Transformed text:\n${data.transformedText}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature: 'text_transform',
+            transformType,
+            source: 'transform-text',
+          },
+        });
       }
 
       return data.transformedText;

@@ -3,9 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { PatientMedications } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/hooks/useAuth';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 
 export const useMedicationFormat = () => {
   const { getModelForFeature } = useSettings();
+  const { user } = useAuth();
   const [isFormatting, setIsFormatting] = useState(false);
 
   const formatMedications = useCallback(async (
@@ -19,6 +22,19 @@ export const useMedicationFormat = () => {
     setIsFormatting(true);
 
     try {
+      const bankId = user ? `clinician:${user.id}` : null;
+
+      if (bankId) {
+        void recallMemories({
+          bankId,
+          query: 'medication formatting preferences',
+          filters: {
+            feature: 'medications',
+          },
+          limit: 4,
+        });
+      }
+
       const { data, error } = await supabase.functions.invoke('format-medications', {
         body: { medications: rawText, model: getModelForFeature('medications') },
       });
@@ -36,6 +52,23 @@ export const useMedicationFormat = () => {
 
       if (data?.medications) {
         toast.success('Medications formatted successfully');
+
+        if (bankId) {
+          const content = [
+            `Raw medications text:\n${rawText}`,
+            `Formatted medications object:\n${JSON.stringify(data.medications)}`,
+          ].join('\n\n');
+
+          void retainMemory({
+            bankId,
+            content,
+            metadata: {
+              feature: 'medications',
+              source: 'format-medications',
+            },
+          });
+        }
+
         return data.medications;
       }
 

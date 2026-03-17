@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { retainMemory } from '@/lib/hindsightClient';
 import type { 
   ClinicalPhrase, 
   PhraseField, 
@@ -412,6 +413,29 @@ export const useClinicalPhrases = () => {
           ? { ...p, usageCount: p.usageCount + 1, lastUsedAt: new Date().toISOString() }
           : p
       ));
+
+      if (insertedContent) {
+        const bankId = `clinician:${user.id}`;
+        const metadata = {
+          feature: 'phrases' as const,
+          phraseId,
+          patientId: patientId ?? null,
+          targetField: targetField ?? null,
+        };
+        const contentParts = [
+          `Phrase ID: ${phraseId}`,
+          patientId ? `Patient ID: ${patientId}` : null,
+          targetField ? `Target field: ${targetField}` : null,
+          inputValues ? `Input values:\n${JSON.stringify(inputValues)}` : null,
+          `Inserted content:\n${insertedContent}`,
+        ].filter(Boolean);
+
+        void retainMemory({
+          bankId,
+          content: contentParts.join('\n\n'),
+          metadata,
+        });
+      }
     } catch (error) {
       console.error('Error logging usage:', error);
     }

@@ -3,11 +3,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/hooks/useAuth';
 import type {
   AIFeature,
   ClinicalContext,
 } from '@/lib/openai-config';
 import { stripHtml } from '@/lib/openai-config';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 
 export interface StreamingChunk {
   chunk: string;
@@ -57,6 +59,7 @@ export const useStreamingAI = (
 ): UseStreamingAIReturn => {
   const { onChunk, onComplete, onError } = options;
   const { getModelForFeature } = useSettings();
+  const { user } = useAuth();
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [accumulatedResponse, setAccumulatedResponse] = useState('');
@@ -102,6 +105,8 @@ export const useStreamingAI = (
     setAccumulatedResponse('');
 
     try {
+      const bankId = user ? `clinician:${user.id}` : null;
+
       const finalContext = patient ? patientToContext(patient) : context;
 
       if (!text && !finalContext) {
@@ -121,6 +126,32 @@ export const useStreamingAI = (
         }
       }
 
+      let combinedCustomPrompt = customPrompt;
+
+      if (bankId) {
+        const recalled = await recallMemories(
+          {
+            bankId,
+            query: `clinical_assistant preferences and style for feature ${feature}`,
+            filters: {
+              feature,
+            },
+            limit: 8,
+          },
+          { signal: abortControllerRef.current?.signal ?? undefined }
+        );
+
+        const styleSummary = recalled?.memories
+          ?.map((memory) => memory.content)
+          .filter(Boolean)
+          .join('\n---\n');
+
+        if (styleSummary) {
+          const prefix = `Clinician style and preferences (from prior interactions):\n${styleSummary}`;
+          combinedCustomPrompt = [prefix, customPrompt].filter(Boolean).join('\n\n');
+        }
+      }
+
       // Use direct fetch for streaming - supabase.functions.invoke doesn't support streaming
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${supabaseUrl}/functions/v1/ai-clinical-assistant`, {
@@ -133,7 +164,7 @@ export const useStreamingAI = (
           feature,
           text,
           context: finalContext,
-          customPrompt,
+          customPrompt: combinedCustomPrompt,
           model: getModelForFeature('clinical_assistant'),
           stream: true,
         }),
@@ -212,6 +243,26 @@ export const useStreamingAI = (
       const result = jsonData.result as string;
       setAccumulatedResponse(result);
       onComplete?.(result);
+
+      if (bankId) {
+        const contentPieces = [
+          text ? `Input text:\n${text}` : null,
+          finalContext ? `Context:\n${JSON.stringify(finalContext)}` : null,
+          result ? `AI result:\n${String(result)}` : null,
+        ].filter(Boolean);
+
+        const content = contentPieces.join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature,
+            source: 'ai-clinical-assistant-streaming',
+          },
+        });
+      }
+
       return result;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -233,7 +284,7 @@ export const useStreamingAI = (
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [onChunk, onComplete, onError, toast, getModelForFeature]);
+  }, [onChunk, onComplete, onError, toast, getModelForFeature, user]);
 
   return {
     isStreaming,

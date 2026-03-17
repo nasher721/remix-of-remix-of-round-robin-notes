@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 
 export interface UsePatientTodosOptions {
   /** When provided, use as initial state and skip the initial fetch (avoids duplicate fetches when parent already has todos, e.g. from todosMap). */
@@ -150,6 +151,23 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
 
     setGenerating(true);
     try {
+      const bankId = `clinician:${user.id}`;
+
+      const recalled = await recallMemories({
+        bankId,
+        query: 'todo preferences and style',
+        filters: {
+          feature: 'todos',
+          section,
+        },
+        limit: 6,
+      });
+
+      const styleSummary = recalled?.memories
+        ?.map((memory) => memory.content)
+        .filter(Boolean)
+        .join('\n---\n');
+
       const { data, error } = await supabase.functions.invoke('generate-todos', {
         body: {
           patientData: {
@@ -162,6 +180,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
             systems: patient.systems,
           },
           section,
+          styleSummary,
           model: getModelForFeature('todos'),
         },
       });
@@ -218,6 +237,24 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         title: "Todos generated",
         description: `Added ${newTodos.length} new todo items.`,
       });
+
+      if (newTodos.length > 0) {
+        const content = [
+          `Patient: ${patient.name || `Bed ${patient.bed}`}`,
+          `Section: ${section}`,
+          `Generated todos:\n${newTodos.map((t) => `- ${t.content}`).join('\n')}`,
+        ].join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature: 'todos',
+            section,
+            source: 'generate-todos',
+          },
+        });
+      }
     } catch (error) {
       console.error('Error generating todos:', error);
       toast({

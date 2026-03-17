@@ -4,9 +4,12 @@ import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/hooks/useAuth';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 
 export const usePatientCourseGenerator = () => {
   const { getModelForFeature } = useSettings();
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
@@ -37,6 +40,31 @@ export const usePatientCourseGenerator = () => {
     setIsGenerating(true);
 
     try {
+      const bankId = user ? `clinician:${user.id}` : null;
+
+      if (bankId) {
+        const recalled = await recallMemories(
+          {
+            bankId,
+            query: 'patient_course preferences and style',
+            filters: {
+              feature: 'patient_course',
+            },
+            limit: 6,
+          },
+          { signal: abortControllerRef.current?.signal ?? undefined }
+        );
+
+        const styleSummary = recalled?.memories
+          ?.map((memory) => memory.content)
+          .filter(Boolean)
+          .join('\n---\n');
+
+        if (styleSummary) {
+          patient.clinicalSummary = `${patient.clinicalSummary || ''}\n\nClinician patient course preferences:\n${styleSummary}`;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-patient-course', {
         body: { 
           patientData: {
@@ -69,7 +97,32 @@ export const usePatientCourseGenerator = () => {
       }
 
       toast.success('Patient course generated');
-      return ensureString(data.course);
+      const course = ensureString(data.course);
+
+      if (bankId && course) {
+        const content = [
+          `Patient: ${patient.name}`,
+          `Inputs:\n${JSON.stringify({
+            clinicalSummary: patient.clinicalSummary,
+            intervalEvents: patient.intervalEvents,
+            imaging: patient.imaging,
+            labs: patient.labs,
+            systems: patient.systems,
+          })}`,
+          `Generated patient course:\n${course}`,
+        ].join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature: 'patient_course',
+            source: 'generate-patient-course',
+          },
+        });
+      }
+
+      return course;
     } catch (err) {
       // Don't show error if it was cancelled
       if (err instanceof Error && err.name === 'AbortError') {
@@ -82,7 +135,7 @@ export const usePatientCourseGenerator = () => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, [getModelForFeature]);
+  }, [getModelForFeature, user]);
 
   const cancelGeneration = React.useCallback(() => {
     if (abortControllerRef.current) {
