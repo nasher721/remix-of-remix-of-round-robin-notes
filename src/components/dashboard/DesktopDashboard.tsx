@@ -19,6 +19,7 @@ import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
 import { DesktopSpecialtySelector } from "@/components/settings/DesktopSpecialtySelector";
 import { DesktopAIModelSettingsDialog } from "@/components/settings/DesktopAIModelSettingsDialog";
+import { ObservabilitySupportCard } from "@/components/settings/ObservabilitySupportCard";
 import { PatientNavigator } from "./PatientNavigator";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
@@ -637,6 +638,9 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                 <Button onClick={onOpenPhraseManager} variant="outline" size="sm" className="w-full gap-1.5">
                   <FileText className="h-3.5 w-3.5" /> Manage Phrases
                 </Button>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-3">
+                <ObservabilitySupportCard variant="desktop" />
               </div>
             </div>
             </TabsContent>

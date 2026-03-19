@@ -12,6 +12,7 @@
  */
 
 import { logError, logWarn, logInfo, type LogContext } from "@/lib/observability/logger";
+import { getBreadcrumbTrail } from "@/lib/observability/breadcrumbs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,6 +42,7 @@ export type TelemetryCategory =
   | 'sync_error'
   | 'validation_error'
   | 'network_error'
+  | 'handled_error'
   | 'custom';
 
 interface ErrorFrequency {
@@ -198,6 +200,11 @@ export function recordTelemetryEvent(
   const message = isError ? error.message : error;
   const stack = isError ? error.stack : undefined;
 
+  const contextWithTrail = {
+    ...context,
+    recentBreadcrumbs: getBreadcrumbTrail(15),
+  };
+
   const event: TelemetryEvent = {
     id: globalThis.crypto?.randomUUID?.() ?? `evt_${Date.now()}_${Math.random().toString(36).slice(2)}`,
     timestamp: new Date().toISOString(),
@@ -205,7 +212,7 @@ export function recordTelemetryEvent(
     category,
     message: message.slice(0, 1000),
     stack: stack?.slice(0, 3000),
-    context: sanitizeContext(context),
+    context: sanitizeContext(contextWithTrail),
     sessionId: getSessionId(),
     url: typeof window !== 'undefined' ? window.location.pathname : '',
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
@@ -295,6 +302,63 @@ export async function exportErrorReport(): Promise<string> {
   };
 
   return JSON.stringify(report, null, 2);
+}
+
+/**
+ * Full diagnostics bundle for support or local debugging: errors with stack previews,
+ * fingerprints for deduplication, navigation breadcrumbs, and session metadata.
+ * Safe to share for engineering triage — still avoid posting publicly (may contain paths, user agent).
+ */
+export async function exportDiagnosticsReport(): Promise<string> {
+  const events = await getRecentEvents(100, { level: 'error' });
+  const frequencies = getErrorFrequencies();
+  const breadcrumbs = getBreadcrumbTrail(35);
+
+  const body = {
+    kind: 'round-robin-notes-diagnostics',
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    sessionId: getSessionId(),
+    build: {
+      mode: import.meta.env.MODE,
+    },
+    url: typeof window !== 'undefined' ? window.location.pathname : '',
+    userAgentPreview:
+      typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 200) : '',
+    recentBreadcrumbs: breadcrumbs,
+    summary: {
+      errorEventsSampled: events.length,
+      uniqueFingerprints: frequencies.filter((f) => f.count > 0).length,
+      topRecurring: frequencies.slice(0, 15),
+    },
+    events: events.map((e) => ({
+      timestamp: e.timestamp,
+      category: e.category,
+      fingerprint: e.fingerprint,
+      message: e.message,
+      stackPreview: e.stack
+        ? e.stack.split('\n').slice(0, 8).join('\n')
+        : undefined,
+      context: e.context,
+    })),
+    fixHints: frequencies.slice(0, 5).map((f) => ({
+      fingerprint: f.fingerprint,
+      occurrences: f.count,
+      grepMessage: f.message.slice(0, 80),
+    })),
+  };
+
+  return JSON.stringify(body, null, 2);
+}
+
+/**
+ * Explicitly record a handled error (try/catch) for the same pipeline as global errors.
+ */
+export function captureHandledError(
+  error: Error,
+  extra: Record<string, unknown> = {},
+): TelemetryEvent {
+  return recordTelemetryEvent('handled_error', error, { ...extra, handled: true });
 }
 
 /**

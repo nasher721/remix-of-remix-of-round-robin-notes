@@ -23,6 +23,7 @@ import { SkipToContent } from "@/components/SkipToContent";
 import { UnifiedAIChatbot } from "@/components/UnifiedAIChatbot";
 import { CurrentPatientsProvider } from "@/contexts/CurrentPatientsContext";
 import { preloadClinicalData } from "@/lib/lazyData";
+import { NavigationBreadcrumbTracker } from "@/components/observability/NavigationBreadcrumbTracker";
 
 // Preload clinical data in background after initial render
 preloadClinicalData();
@@ -43,6 +44,7 @@ function App(): React.ReactElement {
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
+                    <NavigationBreadcrumbTracker />
                     <CurrentPatientsProvider>
                       <SkipToContent />
                       <UnifiedAIChatbot />

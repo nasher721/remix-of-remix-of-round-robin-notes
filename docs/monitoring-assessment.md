@@ -99,3 +99,17 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 ## Summary
 
 Steps 1–5 are complete. You have: assessment and gaps, request IDs and success/duration metrics on patient fetch and sync, a collector for optional ingest URL, existing dashboards for visualization, and documented alerting (healthcheck + optional error-rate and client-side alerts).
+
+### Follow-up: local monitoring UX (errors → fixes)
+
+| Piece | Purpose |
+|-------|---------|
+| **`breadcrumbs.ts`** | In-memory trail (`nav` = pathname only). Attached to every stored telemetry event as `recentBreadcrumbs` for repro steps. |
+| **`exportDiagnosticsReport()`** | JSON bundle: errors with **stack previews**, **fingerprints**, `fixHints`, breadcrumbs, session id, build mode. Use for tickets or local grep. |
+| **`window.__RR_OBSERVABILITY__`** | `exportReport()`, `copyReport()`, `getFrequencies()`, `getRecentEvents()`, `clearAll()` — installed from `main.tsx`. |
+| **`ObservabilitySupportCard`** | Settings (desktop utility **Settings** tab, mobile **Settings**): copy diagnostics / clear local DB. |
+| **`NavigationBreadcrumbTracker`** | React Router pathname logging inside `App.tsx`. |
+| **`captureHandledError(err, extra)`** | Try/catch paths: same pipeline as global errors (`handled_error` category). |
+| **Error boundaries** | `AIErrorBoundary`, `LazyPanelErrorBoundary`, `ErrorBoundary`, section boundaries, and global fallback record `render_error` with boundary metadata. |
+
+**Triage workflow:** reproduce → Settings → **Copy diagnostics** (or console `await __RR_OBSERVABILITY__.exportReport()`) → search codebase using `message` / `stackPreview` / `fingerprint`. Optional: set `VITE_TELEMETRY_INGEST_URL` so structured logger batches hit your backend.

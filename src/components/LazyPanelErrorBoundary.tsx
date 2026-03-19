@@ -7,6 +7,7 @@ import React from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { recordTelemetryEvent } from "@/lib/observability/telemetry";
 
 export interface LazyPanelErrorFallbackProps {
   title: string;
@@ -74,6 +75,11 @@ export class LazyPanelErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.error("[LazyPanelErrorBoundary]", error, errorInfo);
+    recordTelemetryEvent("render_error", error, {
+      boundary: "LazyPanelErrorBoundary",
+      panelTitle: this.props.title,
+      componentStack: errorInfo.componentStack?.slice(0, 1000),
+    });
   }
 
   handleReset = (): void => {

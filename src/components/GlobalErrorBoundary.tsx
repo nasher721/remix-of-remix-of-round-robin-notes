@@ -1,7 +1,8 @@
 import * as React from "react";
 import { AlertTriangle, RefreshCw, Copy, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { recordTelemetryEvent } from "@/lib/observability/telemetry";
+import { recordTelemetryEvent, exportDiagnosticsReport } from "@/lib/observability/telemetry";
+import { toast } from "sonner";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -37,6 +38,16 @@ export class GlobalErrorBoundary extends React.Component<
     const { error } = this.state;
     if (error) {
       navigator.clipboard.writeText(`${error.name}: ${error.message}\n\n${error.stack || ""}`);
+    }
+  };
+
+  handleCopyDiagnostics = async () => {
+    try {
+      const text = await exportDiagnosticsReport();
+      await navigator.clipboard.writeText(text);
+      toast.success("Full diagnostics copied (fingerprints, stacks, navigation trail).");
+    } catch {
+      toast.error("Could not copy diagnostics.");
     }
   };
 
@@ -84,15 +95,26 @@ export class GlobalErrorBoundary extends React.Component<
                       {error.stack}
                     </pre>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={this.handleCopyError}
-                    className="gap-1 text-xs h-7"
-                  >
-                    <Copy className="h-3 w-3" />
-                    Copy error
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={this.handleCopyError}
+                      className="gap-1 text-xs h-7"
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copy error
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={this.handleCopyDiagnostics}
+                      className="gap-1 text-xs h-7"
+                    >
+                      <Copy className="h-3 w-3" />
+                      Copy diagnostics
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
