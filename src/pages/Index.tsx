@@ -21,6 +21,8 @@ import type { MobileTab } from "@/components/layout";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import type { Patient } from "@/types/patient";
 import Landing from "./Landing";
+import { EdgeHealthProvider } from "@/contexts/EdgeHealthContext";
+import { BackendStatusBanner } from "@/components/BackendStatusBanner";
 
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
@@ -217,24 +219,25 @@ function IndexContent(): React.ReactElement | null {
     return <Landing />;
   }
 
-  // Mobile Layout
-  if (isMobile) {
-    return (
-      <DashboardProvider {...dashboardContextValue}>
-        <DashboardTodosProvider todosMap={todosMap}>
-          <MobileDashboard />
-        </DashboardTodosProvider>
-      </DashboardProvider>
-    );
-  }
-
-  // Desktop Layout
-  return (
+  const dashboard = isMobile ? (
+    <DashboardProvider {...dashboardContextValue}>
+      <DashboardTodosProvider todosMap={todosMap}>
+        <MobileDashboard />
+      </DashboardTodosProvider>
+    </DashboardProvider>
+  ) : (
     <DashboardProvider {...dashboardContextValue}>
       <DashboardTodosProvider todosMap={todosMap}>
         <DesktopDashboard />
       </DashboardTodosProvider>
     </DashboardProvider>
+  );
+
+  return (
+    <EdgeHealthProvider>
+      <BackendStatusBanner />
+      {dashboard}
+    </EdgeHealthProvider>
   );
 }
 

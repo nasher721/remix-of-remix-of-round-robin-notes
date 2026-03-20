@@ -30,6 +30,10 @@ npm run preview    # Preview production build
 npm test           # Node.js native test runner with custom TS loader
 ```
 
+## Deployment
+
+See **[docs/deployment.md](docs/deployment.md)** for Supabase + Vercel order, CORS/`ALLOWED_ORIGINS`, GitHub Actions secrets, and post-deploy healthcheck.
+
 ## Project Structure
 
 ```
@@ -275,6 +279,7 @@ import { usePatients } from "@/hooks/usePatients";
 - Client configured in `src/integrations/supabase/`
 - Auto-generated types in `src/integrations/supabase/types.ts`
 - Environment variables prefixed with `VITE_SUPABASE_*` (in `.env`)
+- Optional: `VITE_SENTRY_DSN` (errors); release is `VITE_APP_VERSION` or auto from `package.json` / Vercel SHA — see [docs/deployment.md](docs/deployment.md#observability-sentry)
 - Edge Functions in `supabase/functions/` use Deno runtime
 
 ## Database Schema (Key Tables)

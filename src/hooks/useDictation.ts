@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/contexts/SettingsContext';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 interface UseDictationOptions {
   onTranscript?: (text: string) => void;
@@ -194,14 +196,18 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
               const base64 = (reader.result as string).split(',')[1];
               
               // Send to transcription endpoint
-              const { data, error: fnError } = await supabase.functions.invoke('transcribe-audio', {
-                body: {
-                  audio: base64,
-                  mimeType: mimeType.split(';')[0],
-                  enhanceMedical,
-                  model: getModelForFeature('transcription'),
-                },
-              });
+              const { data, error: fnError } = await withCategoryTimeout(
+                supabase.functions.invoke('transcribe-audio', {
+                  body: {
+                    audio: base64,
+                    mimeType: mimeType.split(';')[0],
+                    enhanceMedical,
+                    model: getModelForFeature('transcription'),
+                  },
+                }),
+                'transcription',
+                'transcribe-audio',
+              );
               
               if (fnError) {
                 throw new Error(fnError.message || 'Transcription failed');
@@ -235,7 +241,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
               
             } catch (err) {
               console.error('Transcription error:', err);
-              const message = err instanceof Error ? err.message : 'Transcription failed';
+              const message = getUserFacingErrorMessage(err, 'Transcription failed');
               setError(message);
               toast({
                 title: "Transcription failed",

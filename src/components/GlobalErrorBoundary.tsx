@@ -2,6 +2,7 @@ import * as React from "react";
 import { AlertTriangle, RefreshCw, Copy, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { recordTelemetryEvent, exportDiagnosticsReport } from "@/lib/observability/telemetry";
+import { captureExceptionToSentry } from "@/lib/observability/sentryClient";
 import { toast } from "sonner";
 
 interface ErrorBoundaryState {
@@ -27,6 +28,9 @@ export class GlobalErrorBoundary extends React.Component<
     console.error("Uncaught application error:", error, errorInfo);
     recordTelemetryEvent('render_error', error, {
       componentStack: errorInfo.componentStack?.slice(0, 1000),
+    });
+    captureExceptionToSentry(error, {
+      contexts: { react: { componentStack: errorInfo.componentStack } },
     });
   }
 

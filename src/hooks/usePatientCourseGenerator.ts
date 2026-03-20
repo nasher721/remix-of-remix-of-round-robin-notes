@@ -6,6 +6,8 @@ import { ensureString } from '@/lib/ai-response-utils';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const usePatientCourseGenerator = () => {
   const { getModelForFeature } = useSettings();
@@ -65,20 +67,24 @@ export const usePatientCourseGenerator = () => {
         }
       }
 
-      const { data, error } = await supabase.functions.invoke('generate-patient-course', {
-        body: { 
-          patientData: {
-            name: patient.name,
-            clinicalSummary: patient.clinicalSummary,
-            intervalEvents: patient.intervalEvents,
-            imaging: patient.imaging,
-            labs: patient.labs,
-            systems: patient.systems,
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('generate-patient-course', {
+          body: { 
+            patientData: {
+              name: patient.name,
+              clinicalSummary: patient.clinicalSummary,
+              intervalEvents: patient.intervalEvents,
+              imaging: patient.imaging,
+              labs: patient.labs,
+              systems: patient.systems,
+            },
+            existingCourse,
+            model: getModelForFeature('patient_course'),
           },
-          existingCourse,
-          model: getModelForFeature('patient_course'),
-        },
-      });
+        }),
+        'aiEdgeFunction',
+        'generate-patient-course',
+      );
 
       // Check if aborted
       if (abortControllerRef.current?.signal.aborted) {
@@ -87,12 +93,12 @@ export const usePatientCourseGenerator = () => {
 
       if (error) {
         console.error('Generate patient course error:', error);
-        toast.error(error.message || 'Failed to generate patient course');
+        toast.error(getUserFacingErrorMessage(error, 'Failed to generate patient course'));
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(getUserFacingErrorMessage(data.error, 'Failed to generate patient course'));
         return null;
       }
 
@@ -129,7 +135,7 @@ export const usePatientCourseGenerator = () => {
         return null;
       }
       console.error('Generate patient course error:', err);
-      toast.error('Failed to generate patient course');
+      toast.error(getUserFacingErrorMessage(err, 'Failed to generate patient course'));
       return null;
     } finally {
       setIsGenerating(false);

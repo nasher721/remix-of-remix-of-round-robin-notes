@@ -5,6 +5,8 @@ import { useAuth } from './useAuth';
 import type { Json } from '@/integrations/supabase/types';
 import { useSettings } from '@/contexts/SettingsContext';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export type TransformType = 'comma-list' | 'medical-shorthand' | 'custom';
 
@@ -185,18 +187,22 @@ export const useTextTransform = () => {
         }
       }
 
-      const { data, error } = await supabase.functions.invoke('transform-text', {
-        body: { text, transformType, customPrompt: combinedCustomPrompt, model: getModelForFeature('text_transform') },
-      });
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('transform-text', {
+          body: { text, transformType, customPrompt: combinedCustomPrompt, model: getModelForFeature('text_transform') },
+        }),
+        'textTransform',
+        'transform-text',
+      );
 
       if (error) {
         console.error('Transform error:', error);
-        toast.error(error.message || 'Failed to transform text');
+        toast.error(getUserFacingErrorMessage(error, 'Failed to transform text'));
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(getUserFacingErrorMessage(data.error, 'Failed to transform text'));
         return null;
       }
 
@@ -224,7 +230,7 @@ export const useTextTransform = () => {
       return data.transformedText;
     } catch (err) {
       console.error('Transform error:', err);
-      toast.error('Failed to transform text');
+      toast.error(getUserFacingErrorMessage(err, 'Failed to transform text'));
       return null;
     } finally {
       setIsTransforming(false);

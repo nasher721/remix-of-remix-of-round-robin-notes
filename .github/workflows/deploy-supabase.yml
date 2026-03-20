@@ -34,6 +34,45 @@ jobs:
 
       - name: Deploy Edge Functions
         run: supabase functions deploy
+
+      - name: Smoke test — healthcheck edge function
+        env:
+          ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANON_KEY:-}" ]; then
+            echo "::error::SUPABASE_ANON_KEY is not configured. Add it in Repo Settings → Secrets (same value as the Supabase anon/public API key). See docs/deployment.md."
+            exit 1
+          fi
+          BASE="https://${PROJECT_ID}.supabase.co"
+          echo "GET $BASE/functions/v1/healthcheck"
+          code=$(curl -sS -o "$RUNNER_TEMP/hc.json" -w "%{http_code}" \
+            "$BASE/functions/v1/healthcheck" \
+            -H "Authorization: Bearer $ANON_KEY" \
+            -H "apikey: $ANON_KEY")
+          echo "HTTP status: $code"
+          cat "$RUNNER_TEMP/hc.json"
+          echo
+          if [ "$code" != "200" ]; then
+            echo "::error::healthcheck failed with HTTP $code"
+            exit 1
+          fi
+          if ! grep -q '"status"[[:space:]]*:[[:space:]]*"healthy"' "$RUNNER_TEMP/hc.json"; then
+            echo "::error::healthcheck body missing status healthy"
+            exit 1
+          fi
+          echo "Smoke test passed."
+
+      - name: Trigger Vercel production deploy (optional)
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "${VERCEL_DEPLOY_HOOK_URL:-}" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL not set — skipping (frontend still deploys on push via Git integration)."
+            exit 0
+          fi
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
+          echo "Vercel deploy hook triggered."
         
       # Optional: To enforce strict type-safe databases locally vs prod
       # - name: Verify Database Types

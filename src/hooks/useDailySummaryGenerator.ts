@@ -7,6 +7,8 @@ import { ensureString } from '@/lib/ai-response-utils';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const useDailySummaryGenerator = () => {
   const { getModelForFeature } = useSettings();
@@ -78,20 +80,24 @@ export const useDailySummaryGenerator = () => {
         }
       }
 
-      const { data, error } = await supabase.functions.invoke('generate-daily-summary', {
-        body: {
-          patientName: patient.name || `Bed ${patient.bed}`,
-          clinicalSummary: patient.clinicalSummary,
-          intervalEvents: patient.intervalEvents,
-          imaging: patient.imaging,
-          labs: patient.labs,
-          systems: patient.systems,
-          medications: patient.medications,
-          todos: todos ?? [],
-          existingIntervalEvents: patient.intervalEvents,
-          model: getModelForFeature('daily_summary'),
-        },
-      });
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('generate-daily-summary', {
+          body: {
+            patientName: patient.name || `Bed ${patient.bed}`,
+            clinicalSummary: patient.clinicalSummary,
+            intervalEvents: patient.intervalEvents,
+            imaging: patient.imaging,
+            labs: patient.labs,
+            systems: patient.systems,
+            medications: patient.medications,
+            todos: todos ?? [],
+            existingIntervalEvents: patient.intervalEvents,
+            model: getModelForFeature('daily_summary'),
+          },
+        }),
+        'aiEdgeFunction',
+        'generate-daily-summary',
+      );
 
       // Check if aborted
       if (abortControllerRef.current?.signal.aborted) {
@@ -100,12 +106,12 @@ export const useDailySummaryGenerator = () => {
 
       if (error) {
         console.error('Generate daily summary error:', error);
-        toast.error(error.message || 'Failed to generate daily summary');
+        toast.error(getUserFacingErrorMessage(error, 'Failed to generate daily summary'));
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(getUserFacingErrorMessage(data.error, 'Failed to generate daily summary'));
         return null;
       }
 
@@ -145,7 +151,7 @@ export const useDailySummaryGenerator = () => {
         return null;
       }
       console.error('Generate daily summary error:', err);
-      toast.error('Failed to generate daily summary');
+      toast.error(getUserFacingErrorMessage(err, 'Failed to generate daily summary'));
       return null;
     } finally {
       setIsGenerating(false);

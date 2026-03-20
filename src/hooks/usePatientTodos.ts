@@ -6,6 +6,8 @@ import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export interface UsePatientTodosOptions {
   /** When provided, use as initial state and skip the initial fetch (avoids duplicate fetches when parent already has todos, e.g. from todosMap). */
@@ -168,22 +170,26 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         .filter(Boolean)
         .join('\n---\n');
 
-      const { data, error } = await supabase.functions.invoke('generate-todos', {
-        body: {
-          patientData: {
-            name: patient.name,
-            bed: patient.bed,
-            clinicalSummary: patient.clinicalSummary,
-            intervalEvents: patient.intervalEvents,
-            imaging: patient.imaging,
-            labs: patient.labs,
-            systems: patient.systems,
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('generate-todos', {
+          body: {
+            patientData: {
+              name: patient.name,
+              bed: patient.bed,
+              clinicalSummary: patient.clinicalSummary,
+              intervalEvents: patient.intervalEvents,
+              imaging: patient.imaging,
+              labs: patient.labs,
+              systems: patient.systems,
+            },
+            section,
+            styleSummary,
+            model: getModelForFeature('todos'),
           },
-          section,
-          styleSummary,
-          model: getModelForFeature('todos'),
-        },
-      });
+        }),
+        'aiEdgeFunction',
+        'generate-todos',
+      );
 
       if (error) throw error;
 
@@ -259,7 +265,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       console.error('Error generating todos:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate todos",
+        description: getUserFacingErrorMessage(error, 'Failed to generate todos'),
         variant: "destructive",
       });
     } finally {

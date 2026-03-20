@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export interface DrugInteraction {
   drug1: string;
@@ -47,7 +48,7 @@ export async function checkDrugInteractions(medications: string[]): Promise<Drug
       return {
         success: false,
         interactions: [],
-        error: error.message || 'Failed to check drug interactions',
+        error: getUserFacingErrorMessage(error, 'Failed to check drug interactions'),
       };
     }
 
@@ -57,7 +58,7 @@ export async function checkDrugInteractions(medications: string[]): Promise<Drug
     return {
       success: false,
       interactions: [],
-      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+      error: getUserFacingErrorMessage(error, 'An unexpected error occurred'),
     };
   }
 }

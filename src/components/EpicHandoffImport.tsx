@@ -18,6 +18,7 @@ import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
 import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
 
 interface PatientSystems {
   neuro: string;
@@ -65,6 +66,7 @@ interface EpicHandoffImportProps {
 }
 
 export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = false }: EpicHandoffImportProps) => {
+  const assertBackendReady = useAssertBackendReady();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -117,6 +119,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
         description: "Please upload a PDF or text file from Epic.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!assertBackendReady()) {
       return;
     }
 
@@ -274,6 +280,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
           description: "Please copy the handoff content to your clipboard first.",
           variant: "destructive",
         });
+        return;
+      }
+
+      if (!assertBackendReady()) {
         return;
       }
 

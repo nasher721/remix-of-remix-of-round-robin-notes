@@ -4,9 +4,11 @@ import App from "./App.tsx";
 import "./index.css";
 import { initGlobalErrorCapture } from "@/lib/observability/telemetry";
 import { installObservabilityDebugApi } from "@/lib/observability/debugApi";
+import { initAppSentry } from "@/lib/observability/sentryClient";
 
 // Initialize telemetry early to capture all errors
 initGlobalErrorCapture();
+initAppSentry();
 installObservabilityDebugApi();
 
 // Register service worker outside of React to avoid HMR issues

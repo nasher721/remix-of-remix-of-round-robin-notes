@@ -14,9 +14,11 @@ import type {
 } from '@/lib/openai-config';
 import { stripHtml } from '@/lib/openai-config';
 import { withTimeout, TIMEOUT_DEFAULTS } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import { recordTelemetryEvent } from '@/lib/observability/telemetry';
 import { sanitizeClinicalContext } from '@/lib/piiSanitizer';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { useAssertBackendReady } from '@/contexts/EdgeHealthContext';
 
 interface UseAIClinicalAssistantOptions {
   onSuccess?: (result: unknown, feature: AIFeature) => void;
@@ -74,6 +76,7 @@ export const useAIClinicalAssistant = (
   options: UseAIClinicalAssistantOptions = {}
 ): UseAIClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
+  const assertBackendReady = useAssertBackendReady();
   const { getModelForFeature } = useSettings();
   const { user } = useAuth();
 
@@ -126,6 +129,10 @@ export const useAIClinicalAssistant = (
     setLastFeature(feature);
 
     try {
+      if (!assertBackendReady()) {
+        return null;
+      }
+
       const bankId = user ? `clinician:${user.id}` : null;
 
       const finalContext = patient ? patientToContext(patient) : context;
@@ -231,7 +238,7 @@ export const useAIClinicalAssistant = (
         return null;
       }
 
-      const message = err instanceof Error ? err.message : 'AI processing failed';
+      const message = getUserFacingErrorMessage(err, 'AI processing failed');
       setError(message);
       onError?.(message);
 
@@ -248,7 +255,7 @@ export const useAIClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast, getModelForFeature, user]);
+  }, [onSuccess, onError, toast, getModelForFeature, user, assertBackendReady]);
 
   // Convenience methods
   const smartExpand = useCallback(

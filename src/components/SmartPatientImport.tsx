@@ -19,6 +19,7 @@ import type { PatientSystems, PatientMedications } from "@/types/patient";
 import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
 import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
 
 interface ParsedPatientData {
   name: string;
@@ -46,6 +47,7 @@ interface SmartPatientImportProps {
 }
 
 export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImportProps) => {
+  const assertBackendReady = useAssertBackendReady();
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState<"input" | "review">("input");
   const [content, setContent] = React.useState("");
@@ -78,6 +80,10 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
         description: "Please enter or paste clinical notes",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!assertBackendReady()) {
       return;
     }
 

@@ -6,6 +6,8 @@ import { ensureString } from '@/lib/ai-response-utils';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const useIntervalEventsGenerator = () => {
   const { getModelForFeature } = useSettings();
@@ -63,9 +65,13 @@ export const useIntervalEventsGenerator = () => {
         }
       }
 
-      const { data, error } = await supabase.functions.invoke('generate-interval-events', {
-        body: { systems, existingIntervalEvents, patientName, model: getModelForFeature('interval_events') },
-      });
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('generate-interval-events', {
+          body: { systems, existingIntervalEvents, patientName, model: getModelForFeature('interval_events') },
+        }),
+        'aiEdgeFunction',
+        'generate-interval-events',
+      );
 
       // Check if aborted
       if (abortControllerRef.current?.signal.aborted) {
@@ -74,12 +80,12 @@ export const useIntervalEventsGenerator = () => {
 
       if (error) {
         console.error('Generate interval events error:', error);
-        toast.error(error.message || 'Failed to generate interval events');
+        toast.error(getUserFacingErrorMessage(error, 'Failed to generate interval events'));
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(getUserFacingErrorMessage(data.error, 'Failed to generate interval events'));
         return null;
       }
 
@@ -110,7 +116,7 @@ export const useIntervalEventsGenerator = () => {
         return null;
       }
       console.error('Generate interval events error:', err);
-      toast.error('Failed to generate interval events');
+      toast.error(getUserFacingErrorMessage(err, 'Failed to generate interval events'));
       return null;
     } finally {
       setIsGenerating(false);

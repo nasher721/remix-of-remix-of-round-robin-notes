@@ -1,5 +1,7 @@
 import { recordTelemetryEvent } from "@/lib/observability/telemetry";
-import { getCircuitBreaker, CircuitOpenError } from "@/lib/circuitBreaker";
+import { getCircuitBreaker, CircuitOpenError, type CircuitState } from "@/lib/circuitBreaker";
+import { logError, logInfo, generateRequestId } from "@/lib/observability/logger";
+import { captureEdgeFetchFailureToSentry } from "@/lib/observability/sentryClient";
 
 export type ApiError = {
   name: "ApiError";
@@ -17,9 +19,14 @@ export type ApiFetchOptions = RequestInit & {
 };
 
 const DEFAULT_TIMEOUT_MS = 10000;
-const EDGE_FUNCTION_TIMEOUT_MS = 300000; // 5 minutes for edge functions (OCR, AI parsing)
+const EDGE_FUNCTION_TIMEOUT_MS = 300000; // 5 minutes for edge functions (AI/OCR can take minutes)
 const DEFAULT_RETRY_COUNT = 2;
 const DEFAULT_RETRY_DELAY_MS = 300;
+
+/** Initial attempt + 3 retries = 4 total tries for transient edge failures. */
+const EDGE_RETRY_COUNT = 3;
+/** Fixed delay between edge retries (no exponential backoff). */
+const EDGE_RETRY_DELAY_MS = 1000;
 
 const inflightRequests = new Map<string, Promise<Response>>();
 
@@ -42,6 +49,13 @@ const createRequestKey = (url: string, init?: RequestInit): string => {
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function edgeFunctionNameFromUrl(url: string): string {
+  if (url.includes('/functions/v1/')) {
+    return url.split('/functions/v1/')[1]?.split('?')[0] ?? 'edge';
+  }
+  return 'edge';
+}
+
 /** Derive a circuit breaker name from a URL (group by host + path prefix). */
 function circuitNameFromUrl(url: string): string {
   try {
@@ -56,20 +70,53 @@ function circuitNameFromUrl(url: string): string {
   }
 }
 
+function isTimedOutMessage(message: string): boolean {
+  return message.toLowerCase().includes('timed out');
+}
+
+/** Retry edge calls on network failures and 5xx — not on 4xx or timeouts. */
+function isEdgeFailureRetriable(err: ApiError): boolean {
+  if (isTimedOutMessage(err.message)) return false;
+  if (err.status != null && err.status > 0 && err.status < 500) return false;
+  return true;
+}
+
+function logEdgeStructured(
+  event: 'edge_fetch_retry' | 'edge_invoke_failed',
+  fields: {
+    functionName: string;
+    correlationId: string;
+    attempt: number;
+    maxAttempts: number;
+    status?: number;
+    message?: string;
+    circuitState?: CircuitState;
+    durationMs?: number;
+  },
+): void {
+  const payload = { event, ...fields };
+  if (event === 'edge_fetch_retry') {
+    logInfo('edge_fetch_retry', payload);
+  } else {
+    logError('edge_invoke_failed', payload);
+  }
+  recordTelemetryEvent('api_error', event, payload as Record<string, unknown>);
+}
+
 export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
   const apiFetch = async (url: URL | RequestInfo, init: ApiFetchOptions = {}): Promise<Response> => {
     const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : (url as Request).url;
-    // Use longer timeout for edge function calls (AI/OCR can take minutes)
     const isEdgeFunction = urlString.includes('/functions/v1/');
     const {
       timeoutMs = isEdgeFunction ? EDGE_FUNCTION_TIMEOUT_MS : DEFAULT_TIMEOUT_MS,
-      retryCount = isEdgeFunction ? 0 : DEFAULT_RETRY_COUNT,
+      retryCount = isEdgeFunction ? EDGE_RETRY_COUNT : DEFAULT_RETRY_COUNT,
       retryDelayMs = DEFAULT_RETRY_DELAY_MS,
       dedupe = !isEdgeFunction,
       ...requestInit
     } = init;
 
-    // Circuit breaker — reject immediately if the service is known to be down
+    const effectiveEdgeDelay = isEdgeFunction ? EDGE_RETRY_DELAY_MS : retryDelayMs;
+
     const cbName = circuitNameFromUrl(urlString);
     const cb = getCircuitBreaker(cbName, {
       failureThreshold: isEdgeFunction ? 3 : 5,
@@ -112,11 +159,58 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
     };
 
     const requestPromise = cb.execute(async () => {
+      const correlationId = generateRequestId();
+      const functionName = isEdgeFunction ? edgeFunctionNameFromUrl(urlString) : cbName;
       let attempt = 0;
       let lastError: ApiError | null = null;
+      const startedAt = performance.now();
+
       while (attempt <= retryCount) {
         try {
-          return await executeFetch();
+          const response = await executeFetch();
+
+          if (isEdgeFunction && response.status >= 500 && response.status <= 599) {
+            lastError = normalizeError(
+              new Error(`HTTP ${response.status}`),
+              urlString,
+              response.status,
+            );
+            if (attempt >= retryCount) {
+              const durationMs = Math.round(performance.now() - startedAt);
+              logEdgeStructured('edge_invoke_failed', {
+                functionName,
+                correlationId,
+                attempt: attempt + 1,
+                maxAttempts: retryCount + 1,
+                status: response.status,
+                message: lastError.message,
+                circuitState: cb.getState(),
+                durationMs,
+              });
+              captureEdgeFetchFailureToSentry({
+                functionName,
+                correlationId,
+                status: response.status,
+                attempts: attempt + 1,
+                circuitState: cb.getState(),
+              });
+              return response;
+            }
+            logEdgeStructured('edge_fetch_retry', {
+              functionName,
+              correlationId,
+              attempt: attempt + 1,
+              maxAttempts: retryCount + 1,
+              status: response.status,
+              message: `HTTP ${response.status}`,
+              circuitState: cb.getState(),
+            });
+            await delay(effectiveEdgeDelay);
+            attempt += 1;
+            continue;
+          }
+
+          return response;
         } catch (error) {
           lastError = normalizeError(error, urlString);
           if (attempt >= retryCount) {
@@ -126,8 +220,52 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
               status: lastError.status,
               attempts: attempt + 1,
             });
+            if (isEdgeFunction) {
+              const durationMs = Math.round(performance.now() - startedAt);
+              logEdgeStructured('edge_invoke_failed', {
+                functionName,
+                correlationId,
+                attempt: attempt + 1,
+                maxAttempts: retryCount + 1,
+                status: lastError.status,
+                message: lastError.message,
+                circuitState: cb.getState(),
+                durationMs,
+              });
+              captureEdgeFetchFailureToSentry({
+                functionName,
+                correlationId,
+                status: lastError.status,
+                attempts: attempt + 1,
+                circuitState: cb.getState(),
+              });
+            }
             throw lastError;
           }
+
+          if (isEdgeFunction) {
+            if (!isEdgeFailureRetriable(lastError)) {
+              recordTelemetryEvent('api_error', lastError.message, {
+                url: urlString,
+                status: lastError.status,
+                attempts: attempt + 1,
+              });
+              throw lastError;
+            }
+            logEdgeStructured('edge_fetch_retry', {
+              functionName,
+              correlationId,
+              attempt: attempt + 1,
+              maxAttempts: retryCount + 1,
+              status: lastError.status,
+              message: lastError.message,
+              circuitState: cb.getState(),
+            });
+            await delay(effectiveEdgeDelay);
+            attempt += 1;
+            continue;
+          }
+
           const backoff = retryDelayMs * Math.pow(2, attempt);
           const jitter = Math.floor(Math.random() * retryDelayMs);
           await delay(backoff + jitter);

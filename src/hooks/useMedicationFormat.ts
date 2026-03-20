@@ -5,6 +5,8 @@ import type { PatientMedications } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const useMedicationFormat = () => {
   const { getModelForFeature } = useSettings();
@@ -35,18 +37,22 @@ export const useMedicationFormat = () => {
         });
       }
 
-      const { data, error } = await supabase.functions.invoke('format-medications', {
-        body: { medications: rawText, model: getModelForFeature('medications') },
-      });
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('format-medications', {
+          body: { medications: rawText, model: getModelForFeature('medications') },
+        }),
+        'aiEdgeFunction',
+        'format-medications',
+      );
 
       if (error) {
         console.error('Format medications error:', error);
-        toast.error(error.message || 'Failed to format medications');
+        toast.error(getUserFacingErrorMessage(error, 'Failed to format medications'));
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(getUserFacingErrorMessage(data.error, 'Failed to format medications'));
         return null;
       }
 
@@ -75,7 +81,7 @@ export const useMedicationFormat = () => {
       return null;
     } catch (err) {
       console.error('Format medications error:', err);
-      toast.error('Failed to format medications');
+      toast.error(getUserFacingErrorMessage(err, 'Failed to format medications'));
       return null;
     } finally {
       setIsFormatting(false);
