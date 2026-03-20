@@ -5,7 +5,7 @@ import {
   Indent, Outdent, Palette, Undo2, Redo2, FileText, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
   Superscript, Subscript, Search, Table as TableIcon,
-  ChevronDown, Maximize2, Minimize2
+  ChevronDown, Maximize2, Minimize2, Sparkles,
 } from "lucide-react";
 import {
   Popover,

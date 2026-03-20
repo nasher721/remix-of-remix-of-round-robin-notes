@@ -86,8 +86,9 @@ import {
 } from "@/components/ui/select";
 import { PatientFilterType } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { cn } from "@/lib/utils";
 
-type UtilityPanel = "resources" | "tools" | "settings" | null;
+type UtilityPanel = "resources" | "tools" | "settings";
 
 export const DesktopDashboard = () => {
   const {
@@ -225,7 +226,7 @@ export const DesktopDashboard = () => {
         </div>
       </motion.header>
 
-      <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print relative z-0">
+      <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print relative z-20">
         <DesktopUtilityPanel
           patients={patients}
           autotexts={autotexts}
@@ -529,14 +530,37 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
 
       {menuOpen && (
         <div className="border-t border-border/40 bg-background p-3 shadow-modal rounded-b-lg">
-          <Tabs value={activeTab ?? undefined} onValueChange={(v) => setActiveTab(v as UtilityPanel)} className="w-full">
-            <TabsList className="mb-3 w-full grid grid-cols-3 rounded-lg bg-secondary/60 p-1">
-              <TabsTrigger value="resources" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Resources</TabsTrigger>
-              <TabsTrigger value="tools" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Tools</TabsTrigger>
-              <TabsTrigger value="settings" className="rounded-md text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Settings</TabsTrigger>
-            </TabsList>
+          {/* Segments are plain buttons so IBCC/Guidelines can stay a single nested Tabs without roving-focus conflicts */}
+          <div
+            role="tablist"
+            aria-label="Menu sections"
+            className="mb-3 w-full grid grid-cols-3 gap-1 rounded-lg bg-secondary/60 p-1"
+          >
+            {([
+              { id: "resources" as const, label: "Resources" },
+              { id: "tools" as const, label: "Tools" },
+              { id: "settings" as const, label: "Settings" },
+            ]).map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === id}
+                onClick={() => setActiveTab(id)}
+                className={cn(
+                  "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  activeTab === id
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-background/80",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-            <TabsContent value="resources" className="m-0 mt-0">
+          {activeTab === "resources" && (
+            <div role="tabpanel" className="m-0 mt-0">
               <Tabs defaultValue="ibcc" className="w-full">
                 <TabsList className="mb-3">
                   <TabsTrigger value="ibcc">IBCC</TabsTrigger>
@@ -553,98 +577,102 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   </div>
                 </TabsContent>
               </Tabs>
-            </TabsContent>
+            </div>
+          )}
 
-            <TabsContent value="tools" className="m-0 mt-0">
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
-                <SmartPatientImport onImportPatient={onAddPatientWithData} />
-                <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
-                <Button onClick={onOpenAICommandPalette} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20">
-                  <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
-                </Button>
-                <TimelineDialog />
-                <ClinicalRiskCalculator />
-              </div>
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
-                <UnitCensusDashboard patients={patients} />
-                <LabTrendingPanel patients={patients} />
-                <ContextAwareHelp />
-                <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} todosMap={todosMap} />
+          {activeTab === "tools" && (
+            <div role="tabpanel" className="m-0 mt-0">
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
+                  <SmartPatientImport onImportPatient={onAddPatientWithData} />
+                  <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
+                  <Button onClick={onOpenAICommandPalette} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20">
+                    <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
+                  </Button>
+                  <TimelineDialog />
+                  <ClinicalRiskCalculator />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
+                  <UnitCensusDashboard patients={patients} />
+                  <LabTrendingPanel patients={patients} />
+                  <ContextAwareHelp />
+                  <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} todosMap={todosMap} />
+                </div>
               </div>
             </div>
-            </TabsContent>
+          )}
 
-            <TabsContent value="settings" className="m-0 mt-0">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="rounded-md border border-border/40 p-3 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Display</p>
-                <Button
-                  variant={todosAlwaysVisible ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setTodosAlwaysVisible((prev) => !prev)}
-                  className="w-full gap-1.5"
-                >
-                  <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible
-                </Button>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Font size</span>
-                    <span>{globalFontSize}%</span>
-                  </div>
-                  <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Text box toolbar</p>
-                  <select
-                    value={editorToolbarMode}
-                    onChange={(e) => setEditorToolbarMode(e.target.value as 'minimal' | 'full' | 'custom')}
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-                    aria-label="Toolbar style for all text boxes"
+          {activeTab === "settings" && (
+            <div role="tabpanel" className="m-0 mt-0">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-md border border-border/40 p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Display</p>
+                  <Button
+                    variant={todosAlwaysVisible ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTodosAlwaysVisible((prev) => !prev)}
+                    className="w-full gap-1.5"
                   >
-                    <option value="minimal">Minimal (essential + More)</option>
-                    <option value="full">Full</option>
-                    <option value="custom">Custom</option>
-                  </select>
+                    <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible
+                  </Button>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Font size</span>
+                      <span>{globalFontSize}%</span>
+                    </div>
+                    <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Text box toolbar</p>
+                    <select
+                      value={editorToolbarMode}
+                      onChange={(e) => setEditorToolbarMode(e.target.value as 'minimal' | 'full' | 'custom')}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      aria-label="Toolbar style for all text boxes"
+                    >
+                      <option value="minimal">Minimal (essential + More)</option>
+                      <option value="full">Full</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="rounded-md border border-border/40 p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Workflow</p>
+                  <DesktopSpecialtySelector />
+                  <DesktopAIModelSettingsDialog />
+                  <ChangeTrackingControls
+                    enabled={ctEnabled}
+                    color={ctColor}
+                    styles={ctStyles}
+                    onToggleEnabled={ctToggleEnabled}
+                    onColorChange={ctSetColor}
+                    onToggleStyle={ctToggleStyle}
+                  />
+                </div>
+                <div className="rounded-md border border-border/40 p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Authoring</p>
+                  <AutotextManager
+                    autotexts={autotexts}
+                    templates={templates}
+                    customDictionary={customDictionary}
+                    onAddAutotext={onAddAutotext}
+                    onRemoveAutotext={onRemoveAutotext}
+                    onAddTemplate={onAddTemplate}
+                    onRemoveTemplate={onRemoveTemplate}
+                    onImportDictionary={onImportDictionary}
+                  />
+                  <Button onClick={onOpenPhraseManager} variant="outline" size="sm" className="w-full gap-1.5">
+                    <FileText className="h-3.5 w-3.5" /> Manage Phrases
+                  </Button>
+                </div>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <ObservabilitySupportCard variant="desktop" />
                 </div>
               </div>
-              <div className="rounded-md border border-border/40 p-3 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Workflow</p>
-                <DesktopSpecialtySelector />
-                <DesktopAIModelSettingsDialog />
-                <ChangeTrackingControls
-                  enabled={ctEnabled}
-                  color={ctColor}
-                  styles={ctStyles}
-                  onToggleEnabled={ctToggleEnabled}
-                  onColorChange={ctSetColor}
-                  onToggleStyle={ctToggleStyle}
-                />
-              </div>
-              <div className="rounded-md border border-border/40 p-3 space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Authoring</p>
-                <AutotextManager
-                  autotexts={autotexts}
-                  templates={templates}
-                  customDictionary={customDictionary}
-                  onAddAutotext={onAddAutotext}
-                  onRemoveAutotext={onRemoveAutotext}
-                  onAddTemplate={onAddTemplate}
-                  onRemoveTemplate={onRemoveTemplate}
-                  onImportDictionary={onImportDictionary}
-                />
-                <Button onClick={onOpenPhraseManager} variant="outline" size="sm" className="w-full gap-1.5">
-                  <FileText className="h-3.5 w-3.5" /> Manage Phrases
-                </Button>
-              </div>
-              <div className="sm:col-span-2 lg:col-span-3">
-                <ObservabilitySupportCard variant="desktop" />
-              </div>
             </div>
-            </TabsContent>
-          </Tabs>
+          )}
         </div>
       )}
     </div>
