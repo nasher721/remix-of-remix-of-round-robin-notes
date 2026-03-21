@@ -215,7 +215,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" className="gap-2">
+          <Button type="button" variant="outline" className="w-full justify-start gap-2">
             <Wand2 className="h-4 w-4" />
             Smart Import
           </Button>

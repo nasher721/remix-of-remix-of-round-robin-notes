@@ -494,10 +494,30 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   const panelRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!panelRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
+    const shouldIgnorePanelClickOutside = (event: MouseEvent): boolean => {
+      // Nested imports open Radix Dialog in a portal (outside panelRef). Closing the menu here
+      // unmounts EpicHandoffImport / SmartPatientImport and kills the dialog mid-flow.
+      if (
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+        )
+      ) {
+        return true;
       }
+      const path = typeof event.composedPath === "function" ? event.composedPath() : [];
+      for (const n of path) {
+        if (n instanceof Element && n.hasAttribute("data-radix-popper-content-wrapper")) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (shouldIgnorePanelClickOutside(event)) return;
+      setMenuOpen(false);
     };
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMenuOpen(false);

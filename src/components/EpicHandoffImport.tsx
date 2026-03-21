@@ -627,8 +627,8 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   return (
     <Dialog open={open} onOpenChange={(o) => o ? setOpen(true) : handleClose()}>
       <DialogTrigger asChild>
-        <Button variant="secondary" className="bg-white/10 hover:bg-white/20">
-          <FileUp className="h-4 w-4 mr-2" />
+        <Button type="button" variant="outline" className="w-full justify-start gap-2">
+          <FileUp className="h-4 w-4" />
           Import Epic Handoff
         </Button>
       </DialogTrigger>
