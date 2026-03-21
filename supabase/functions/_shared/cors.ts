@@ -74,8 +74,10 @@ export function getCorsHeaders(request: Request): Record<string, string> {
     // Allow Vercel preview deployments
     /^https:\/\/[a-z0-9-]+-nasher721(-[a-z0-9-]+)?\.vercel\.app$/.test(origin) ||
     /^https:\/\/remix-of-remix-of-round-robin-notes-.*\.vercel\.app$/.test(origin) ||
-    // Allow local development on any port (safety only for non-production)
-    (/^http:\/\/localhost:\d+$/.test(origin) && !Deno.env.get('SUPABASE_URL')?.includes('qrlonfgafvyfqqtsasfc')) ||
+    // Any Vercel preview URL (HTTPS only); healthcheck carries no PHI — expand via ALLOWED_ORIGINS for stricter deploys
+    (/^https:\/\//.test(origin) && /\.vercel\.app$/i.test(origin)) ||
+    // Local dev on any port (Origin is only the developer machine; listed ports remain in defaults for clarity)
+    /^http:\/\/localhost:\d+$/.test(origin) ||
     /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
   );
 
