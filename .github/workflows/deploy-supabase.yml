@@ -25,6 +25,9 @@ jobs:
 
       - name: Link Supabase Project
         run: supabase link --project-ref $PROJECT_ID
+
+      - name: Assert Edge gateway JWT config (ES256-safe)
+        run: npm run edge:check-jwt-config
         
       - name: Wait for database health
         run: supabase db ping

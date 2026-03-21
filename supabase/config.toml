@@ -1,4 +1,6 @@
-project_id = "qrlonfgafvyfqqtsasfc"
+# Must match GitHub Actions secret SUPABASE_PROJECT_ID and `supabase link --project-ref`.
+# Must match the project ref in VITE_SUPABASE_URL (https://<ref>.supabase.co).
+project_id = "zsavxqvnseqxusfwdovu"
 
 # Gateway-level JWT verification is disabled because the project now issues ES256
 # (asymmetric ECDSA) tokens, but the Supabase edge-function gateway verifies with

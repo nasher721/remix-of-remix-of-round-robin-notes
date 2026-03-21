@@ -51,6 +51,20 @@ Configure in **Repository → Settings → Secrets and variables → Actions**.
 
 The anon key is the same **public** key as `VITE_SUPABASE_PUBLISHABLE_KEY` / dashboard **Project API → anon public**.
 
+If you change **`project_id`** in [`supabase/config.toml`](../supabase/config.toml), set **`SUPABASE_PROJECT_ID`** in GitHub to the **same** ref and run **`supabase link --project-ref <ref>`** locally so CLI and CI target one project.
+
+---
+
+## Edge Functions and gateway JWT (ES256)
+
+**Do not turn on Supabase’s gateway `verify_jwt` for app functions in this repo.**
+
+- Access tokens from Supabase Auth may be **ES256** (asymmetric). The Edge **gateway** still validates some tokens with the **legacy HS256** path, which yields **“Invalid JWT”** before your handler runs.
+- [`supabase/config.toml`](../supabase/config.toml) sets **`verify_jwt = false`** for every function. **Authentication** is enforced in code with [`authenticateRequest()`](../supabase/functions/_shared/auth.ts) (except [`healthcheck`](../supabase/functions/healthcheck/index.ts), which is intentionally public for uptime checks).
+- **`supabase functions deploy`** (CI and local) reads `config.toml` and applies these flags — keep them in sync when adding a new function.
+- **MCP / manual API deploys:** the payload must set **`verify_jwt` to match `config.toml`**. The repo script [`scripts/build-mcp-edge-bundle.mjs`](../scripts/build-mcp-edge-bundle.mjs) reads `[functions.<slug>]` so redeploys do not accidentally re-enable gateway JWT. Override **`SUPABASE_PROJECT_REF`** if the target project differs from `project_id` in `config.toml`.
+- **`npm run edge:check-jwt-config`** fails if any `[functions.*]` sets `verify_jwt = true` (also runs in **Deploy Supabase** before `functions deploy`).
+
 ---
 
 ## CORS and new frontend URLs

@@ -33,7 +33,7 @@ export async function authenticateRequest(
 ): Promise<AuthResult | { error: Response }> {
   const authHeader = req.headers.get('Authorization');
   
-  if (!authHeader?.startsWith('Bearer ')) {
+  if (!authHeader || !/^Bearer\s+\S/im.test(authHeader)) {
     return {
       error: errorResponse(
         req,
@@ -45,9 +45,9 @@ export async function authenticateRequest(
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  
+
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing Supabase environment variables');
+    console.error('Missing SUPABASE_URL or SUPABASE_ANON_KEY (required for auth.getUser server validation)');
     return {
       error: errorResponse(
         req,
@@ -63,7 +63,12 @@ export async function authenticateRequest(
     },
   });
 
-  const token = authHeader.replace('Bearer ', '');
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    return {
+      error: errorResponse(req, 'Missing or invalid authorization header', 401),
+    };
+  }
   
   try {
     // Use getUser() for server-side validation - this actually verifies

@@ -15,7 +15,9 @@
     "test": "node --import ./scripts/test-setup.mjs --loader ./scripts/test-mock-loader.mjs --loader ./scripts/supabase-mock-loader.mjs --loader ./scripts/ts-loader.mjs --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "test:auth": "node --import ./scripts/test-setup.mjs --loader ./scripts/supabase-mock-loader.mjs --loader ./scripts/ts-loader.mjs --test src/hooks/__tests__/useAuth.test.tsx src/pages/__tests__/Auth.test.tsx",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "edge:check-jwt-config": "node scripts/assert-edge-verify-jwt-config.mjs",
+    "edge:bundle-mcp": "node scripts/build-mcp-edge-bundle.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
