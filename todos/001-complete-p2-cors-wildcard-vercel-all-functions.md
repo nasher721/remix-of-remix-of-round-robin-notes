@@ -1,5 +1,5 @@
 ---
-status: pending
+status: complete
 priority: p2
 issue_id: "001"
 tags: [code-review, security, compliance, supabase]
@@ -13,6 +13,10 @@ source_review: "HEAD 163a9f0 — supabase/functions/_shared/cors.ts"
 
 The inline comment claims the exception is for healthcheck (no PHI), but the implementation widens CORS for **all** function responses that use this helper. For HIPAA-style deployments that relied on a tight browser origin allowlist, this increases cross-origin surface: any app deployed under `*.vercel.app` receives `Access-Control-Allow-Origin` for that requesting origin.
 
+## Resolution
+
+Implemented **Option A (env-gated)**: the blanket `https://*.vercel.app` rule runs only when the Edge Function secret **`RELAX_VERCEL_CORS`** is `true`, `1`, or `yes`. Default is **off**. Repo-specific preview regexes and `ALLOWED_ORIGINS` unchanged.
+
 ## Findings
 
 - Evidence: `supabase/functions/_shared/cors.ts` lines 77–78: `(/^https:\/\//.test(origin) && /\.vercel\.app$/i.test(origin))`
@@ -21,45 +25,31 @@ The inline comment claims the exception is for healthcheck (no PHI), but the imp
 
 ## Proposed Solutions
 
-### Option A — Env-gated relaxation (recommended)
-
-- Add something like `RELAX_VERCEL_CORS=true` (default false in prod) or only enable when `ALLOWED_ORIGINS` includes a sentinel.
-- **Pros:** Preview ergonomics without changing default security posture.
-- **Cons:** Another secret to document; teams must set it for previews.
-- **Effort:** Medium | **Risk:** Low
+### Option A — Env-gated relaxation (recommended) — **DONE**
 
 ### Option B — Healthcheck-only permissive CORS
 
-- Split helpers: stricter `getCorsHeaders` for PHI-capable functions; a narrow variant for `healthcheck` only.
-- **Pros:** Matches the stated intent in the comment.
-- **Cons:** Two code paths to maintain; easy to import the wrong helper.
-- **Effort:** Medium | **Risk:** Medium (misuse)
-
 ### Option C — Tight regex + `ALLOWED_ORIGINS` only
-
-- Remove the blanket `.vercel.app` rule; rely on merged `ALLOWED_ORIGINS` + existing named regexes.
-- **Pros:** Smallest attack surface; aligns with file header.
-- **Cons:** Previews break until origins are added to secrets.
-- **Effort:** Small | **Risk:** Low for security, higher for DX
 
 ## Recommended Action
 
-_(Triage during planning — suggest Option A or C for production HIPAA posture.)_
+Set `RELAX_VERCEL_CORS` in Supabase Edge secrets when you need arbitrary Vercel preview hosts; otherwise rely on named regexes + `ALLOWED_ORIGINS`. See `docs/deployment.md` (CORS section).
 
 ## Technical Details
 
-- **Files:** `supabase/functions/_shared/cors.ts`, callers via `jsonResponse` / `handleOptions`
-- **Deploy:** Requires redeploying all edge functions after change
+- **Files:** `supabase/functions/_shared/cors.ts`, `docs/deployment.md`
+- **Deploy:** Redeploy edge functions after setting secrets
 
 ## Acceptance Criteria
 
-- [ ] Policy choice documented in `docs/deployment.md` or security notes (strict vs relaxed previews).
-- [ ] Default production behavior matches chosen posture (env or split helper).
-- [ ] Comment in `cors.ts` accurately describes scope (which functions / env affect it).
+- [x] Policy choice documented in `docs/deployment.md` or security notes (strict vs relaxed previews).
+- [x] Default production behavior matches chosen posture (env or split helper).
+- [x] Comment in `cors.ts` accurately describes scope (which functions / env affect it).
 
 ## Work Log
 
 - 2026-03-21 — Created from post-merge code review of `163a9f0`.
+- 2026-03-21 — Gated broad `.vercel.app` on `RELAX_VERCEL_CORS`; documented in deployment guide.
 
 ## Resources
 

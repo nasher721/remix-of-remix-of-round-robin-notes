@@ -33,3 +33,6 @@ playwright/.cache
 
 # Supabase CLI local cache
 supabase/.temp/
+
+# Local MCP deploy_edge_function payloads (regenerate with scripts/build-mcp-edge-bundle.mjs)
+.mcp-deploy*.json

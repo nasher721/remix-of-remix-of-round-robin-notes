@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { jsonResponse, handleOptions } from "../_shared/mod.ts";
+import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 
 /**
  * Healthcheck Edge Function

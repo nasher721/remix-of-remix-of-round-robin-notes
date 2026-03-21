@@ -57,11 +57,12 @@ The anon key is the same **public** key as `VITE_SUPABASE_PUBLISHABLE_KEY` / das
 
 Edge functions use an origin allowlist: [`supabase/functions/_shared/cors.ts`](../supabase/functions/_shared/cors.ts).
 
-- **Defaults** include localhost ports and the main Vercel production hostname. Regex allows common **Vercel preview** URL patterns.
+- **Defaults** include localhost (any port on `localhost` / `127.0.0.1`), the main Vercel production hostname, and regexes for common **Vercel preview** URL shapes tied to this repo.
 - **Custom domain** (e.g. `https://app.hospital.org`): add it to Supabase **Edge Function secrets** as `ALLOWED_ORIGINS` (comma-separated). Values are **merged** with code defaults, so you usually only append new origins.
-- After changing `ALLOWED_ORIGINS`, redeploy functions (or merge a `supabase/` change) so workers pick up secrets.
+- **`RELAX_VERCEL_CORS`** (optional Edge Function secret): set to `true` or `1` to allow **any** `https://*.vercel.app` origin. **Default is off** so arbitrary Vercel-hosted sites are not trusted for every function. Turn it on if you rely on many unpredictable preview URLs and accept the wider cross-origin surface; otherwise add specific preview bases to `ALLOWED_ORIGINS`.
+- After changing secrets, redeploy functions so workers pick them up.
 
-If the browser shows CORS errors right after a new URL goes live, check allowlist + preview regex before debugging app code.
+If the browser shows CORS errors right after a new URL goes live, check allowlist + preview regex + `RELAX_VERCEL_CORS` before debugging app code.
 
 ---
 

@@ -1,10 +1,13 @@
 /**
- * Secure CORS Configuration for Edge Functions
- * 
- * SECURITY: Uses origin allowlist instead of wildcard (*) to prevent
- * cross-origin PHI exposure. Configure ALLOWED_ORIGINS in Supabase secrets.
- * 
- * For HIPAA compliance, origins must be explicitly whitelisted.
+ * CORS for Edge Functions (shared by all handlers using `jsonResponse` / `handleOptions`).
+ *
+ * **Layers**
+ * 1. `DEFAULT_ALLOWED_ORIGINS` plus any origins in the `ALLOWED_ORIGINS` secret (comma-separated, merged in).
+ * 2. Named regexes for this repo’s Vercel production and common preview URL shapes.
+ * 3. Any `http://localhost:<port>` and `http://127.0.0.1:<port>` for local dev.
+ * 4. Optional: any `https://*.vercel.app` only when secret `RELAX_VERCEL_CORS` is `true` or `1` (see docs/deployment.md).
+ *
+ * Tight deployments should leave `RELAX_VERCEL_CORS` unset and list extra preview hosts in `ALLOWED_ORIGINS` instead.
  */
 
 // Default allowed origins - override via ALLOWED_ORIGINS env var (comma-separated)
@@ -43,6 +46,12 @@ function getAllowedOrigins(): string[] {
   return combined;
 }
 
+/** When true, allow any HTTPS origin under `.vercel.app` (preview ergonomics). Default: off. */
+function isRelaxedVercelCorsEnabled(): boolean {
+  const v = Deno.env.get('RELAX_VERCEL_CORS')?.trim().toLowerCase();
+  return v === 'true' || v === '1' || v === 'yes';
+}
+
 /**
  * Standard CORS headers for all responses
  */
@@ -74,9 +83,11 @@ export function getCorsHeaders(request: Request): Record<string, string> {
     // Allow Vercel preview deployments
     /^https:\/\/[a-z0-9-]+-nasher721(-[a-z0-9-]+)?\.vercel\.app$/.test(origin) ||
     /^https:\/\/remix-of-remix-of-round-robin-notes-.*\.vercel\.app$/.test(origin) ||
-    // Any Vercel preview URL (HTTPS only); healthcheck carries no PHI — expand via ALLOWED_ORIGINS for stricter deploys
-    (/^https:\/\//.test(origin) && /\.vercel\.app$/i.test(origin)) ||
-    // Local dev on any port (Origin is only the developer machine; listed ports remain in defaults for clarity)
+    // Any Vercel preview (HTTPS only) — gated; applies to every function using this module
+    (isRelaxedVercelCorsEnabled() &&
+      /^https:\/\//.test(origin) &&
+      /\.vercel\.app$/i.test(origin)) ||
+    // Local dev on any port
     /^http:\/\/localhost:\d+$/.test(origin) ||
     /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
   );
