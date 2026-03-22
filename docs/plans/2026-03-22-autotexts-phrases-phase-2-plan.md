@@ -43,9 +43,9 @@
 
 ### 2.1.3 Acceptance
 
-- [ ] From desktop **Manage Phrases**, user can open **Analytics** and see usage data (or empty/zero states) without console errors.
-- [ ] Same flow reachable when `PhraseManager` is opened from mobile settings (same component).
-- [ ] No duplicate fetch of phrases solely for analytics beyond what `ClinicalPhraseAnalytics` already does when its dialog opens (`open` → `fetchUsageStats` + `generateSuggestions`).
+- [x] From desktop **Manage Phrases**, user can open **Analytics** and see usage data (or empty/zero states) without console errors.
+- [x] Same flow reachable when `PhraseManager` is opened from mobile settings (same component).
+- [x] No duplicate fetch of phrases solely for analytics beyond what `ClinicalPhraseAnalytics` already does when its dialog opens (`open` → `fetchUsageStats` + `generateSuggestions`).
 
 ---
 
@@ -86,10 +86,10 @@ getPhraseShortcutConflicts(input: string | null | undefined, ctx: {
 
 ### 2.2.5 Acceptance
 
-- [ ] Typing a shortcut that matches an autotext shows a visible warning before save.
-- [ ] Typing a shortcut that matches **another** phrase shows which phrase name conflicts.
-- [ ] Editing an existing phrase does not flag a conflict with itself.
-- [ ] Clearing the shortcut field clears warnings.
+- [x] Typing a shortcut that matches an autotext shows a visible warning before save.
+- [x] Typing a shortcut that matches **another** phrase shows which phrase name conflicts.
+- [x] Editing an existing phrase does not flag a conflict with itself.
+- [x] Clearing the shortcut field clears warnings.
 
 ---
 

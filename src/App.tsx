@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 const Auth = React.lazy(() => import("./pages/Auth"));
 const FHIRCallback = React.lazy(() => import("./pages/FHIRCallback"));
 const PrintExportTest = React.lazy(() => import("./pages/PrintExportTest"));
+const Privacy = React.lazy(() => import("./pages/Privacy"));
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -71,6 +72,7 @@ function App(): React.ReactElement {
                         <Routes locationKey="location">
                           <Route path="/" element={<Index />} />
                           <Route path="/auth" element={<Auth />} />
+                          <Route path="/privacy" element={<Privacy />} />
                           <Route path="/fhir/callback" element={<FHIRCallback />} />
                           {import.meta.env.DEV && (
                             <Route path="/__print-export-test" element={<PrintExportTest />} />
