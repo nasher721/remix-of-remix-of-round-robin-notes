@@ -641,9 +641,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
-        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b border-border/50 flex-shrink-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2">
-            <DialogTitle className="flex items-center gap-2">
+        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 pr-14 md:pr-16 border-b border-border/50 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2 min-w-0">
+            <DialogTitle className="flex items-center gap-2 min-w-0 shrink">
               <Printer className="h-5 w-5 shrink-0" aria-hidden />
               Print & Export
               {appliedLayout && (
@@ -652,13 +652,13 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                 </span>
               )}
             </DialogTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full justify-end sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setShowLayoutDesigner(true)}
-                className="gap-1.5"
+                className="gap-1.5 shrink-0"
               >
                 <LayoutTemplate className="h-4 w-4 shrink-0" aria-hidden />
                 Layout Designer
@@ -681,8 +681,8 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         </DialogHeader>
 
         <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
-          {/* Left Sidebar - Settings (collapsible on mobile) */}
-          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/10 flex flex-col max-h-[40vh] md:max-h-none overflow-hidden flex-shrink-0">
+          {/* Left Sidebar - Settings (scrollable; cap height on small screens so preview keeps space) */}
+          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/10 flex flex-col min-h-0 max-h-[min(42vh,320px)] md:max-h-none overflow-hidden flex-shrink-0">
             <Tabs defaultValue="settings" className="flex-1 flex flex-col min-h-0">
               <div className="px-4 pt-3 md:pt-4 flex-shrink-0">
                 <TabsList className="w-full">
