@@ -10,20 +10,22 @@ import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
+type TodoRow = { content: string | null; completed: boolean; section: string | null; created_at: string };
+
+function mapPatientTodoToRow(t: PatientTodo): TodoRow {
+  return {
+    content: t.content ?? null,
+    completed: t.completed,
+    section: t.section,
+    created_at: t.createdAt,
+  };
+}
+
 export const useDailySummaryGenerator = () => {
   const { getModelForFeature } = useSettings();
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  type TodoRow = { content: string | null; completed: boolean; section: string | null; created_at: string };
-
-  const toTodoRow = (t: PatientTodo): TodoRow => ({
-    content: t.content ?? null,
-    completed: t.completed,
-    section: t.section,
-    created_at: t.createdAt,
-  });
 
   const generateDailySummary = useCallback(async (
     patient: Patient,
@@ -42,7 +44,7 @@ export const useDailySummaryGenerator = () => {
 
       let todos: TodoRow[] | null = null;
       if (existingTodos?.length) {
-        todos = 'created_at' in existingTodos[0] ? (existingTodos as TodoRow[]) : (existingTodos as PatientTodo[]).map(toTodoRow);
+        todos = 'created_at' in existingTodos[0] ? (existingTodos as TodoRow[]) : (existingTodos as PatientTodo[]).map(mapPatientTodoToRow);
       }
       if (todos === null) {
         const { data, error: todosError } = await supabase

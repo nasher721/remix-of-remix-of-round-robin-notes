@@ -394,10 +394,17 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     <>
       <DialogHeader className="flex-shrink-0">
           <div className="flex justify-between items-center pr-8">
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Import Epic Handoff
-            </DialogTitle>
+            {noDialog ? (
+              <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
+                <FileText className="h-5 w-5" aria-hidden="true" />
+                Import Epic Handoff
+              </h2>
+            ) : (
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" aria-hidden="true" />
+                Import Epic Handoff
+              </DialogTitle>
+            )}
 
             <Popover>
               <PopoverTrigger asChild>

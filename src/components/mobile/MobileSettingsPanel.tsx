@@ -31,6 +31,7 @@ import {
   Sun,
   Moon,
   Laptop,
+  Contrast,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -109,7 +110,7 @@ export const MobileSettingsPanel = ({
   onEditorToolbarModeChange,
 }: MobileSettingsPanelProps) => {
   const { sectionVisibility, setSectionVisibility, resetSectionVisibility } = useSettings();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, highContrast, setHighContrast } = useTheme();
 
   const toggleSection = (key: ClinicalSectionKey) => {
     setSectionVisibility({
@@ -195,6 +196,21 @@ export const MobileSettingsPanel = ({
               </SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Contrast className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+            <Label htmlFor="mobile-high-contrast" className="text-sm font-normal cursor-pointer">
+              High contrast
+            </Label>
+          </div>
+          <Switch
+            id="mobile-high-contrast"
+            checked={highContrast}
+            onCheckedChange={setHighContrast}
+            aria-label="High contrast"
+          />
         </div>
 
         <div className="flex items-center justify-between">

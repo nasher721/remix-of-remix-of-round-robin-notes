@@ -37,6 +37,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
         return patients.filter(
             (p) =>
                 p.name.toLowerCase().includes(lowerFilter) ||
+                (p.mrn ?? "").toLowerCase().includes(lowerFilter) ||
                 p.bed.toLowerCase().includes(lowerFilter)
         );
     }, [patients, filter]);

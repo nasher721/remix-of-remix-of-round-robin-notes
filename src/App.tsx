@@ -43,7 +43,7 @@ function App(): React.ReactElement {
               <ClinicalGuidelinesProvider>
                 <TooltipProvider>
                   <Toaster />
-                  <Sonner />
+                  <Sonner position="top-right" />
                   <BrowserRouter>
                     <NavigationBreadcrumbTracker />
                     <CurrentPatientsProvider>

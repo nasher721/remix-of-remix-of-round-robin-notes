@@ -13,6 +13,7 @@ import { SystemsConfigManager } from "./SystemsConfigManager";
 import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
 import { PatientAcuityBadge } from "./PatientAcuityBadge";
+import { LengthOfStayBadge } from "./LengthOfStayBadge";
 import { QuickActionsPanel } from "./QuickActionsPanel";
 import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
 import { LabTrendBadge } from "./LabTrendingPanel";
@@ -23,7 +24,7 @@ import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import type { PatientTodo, TodoSection } from "@/types/todo";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
-import { usePatientTodos } from "@/hooks/usePatientTodos";
+import { usePatientTodos, type PatientTodosApi } from "@/hooks/usePatientTodos";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import { useDailySummaryGenerator } from "@/hooks/useDailySummaryGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -38,6 +39,10 @@ interface PatientCardProps {
   autotexts?: AutoText[];
   /** When provided (e.g. from dashboard todosMap), used as initial todos and avoids a duplicate fetch. */
   initialTodos?: PatientTodo[];
+  /** When set (e.g. desktop list + tasks rail), uses this API instead of internal usePatientTodos so rail and card stay in sync. */
+  sharedPatientTodos?: PatientTodosApi;
+  /** Hide the top patient-wide tasks block (parent shows it in a rail). */
+  hidePatientWideTodos?: boolean;
 }
 
 const PatientCardComponent = ({
@@ -48,13 +53,18 @@ const PatientCardComponent = ({
   onToggleCollapse,
   autotexts = defaultAutotexts,
   initialTodos,
+  sharedPatientTodos,
+  hidePatientWideTodos = false,
 }: PatientCardProps) => {
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
-  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id, { initialTodos });
+  const internalTodos = usePatientTodos(sharedPatientTodos ? null : patient.id, {
+    initialTodos: sharedPatientTodos ? undefined : initialTodos,
+  });
+  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = sharedPatientTodos ?? internalTodos;
   const { generateIntervalEvents, isGenerating: isGeneratingEvents, cancelGeneration } = useIntervalEventsGenerator();
   const { generateDailySummary, isGenerating: isGeneratingSummary, cancelGeneration: cancelSummary } = useDailySummaryGenerator();
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
@@ -135,22 +145,33 @@ const PatientCardComponent = ({
           </div>
           <div className="flex gap-2.5 flex-1 flex-wrap items-center">
             <Input
-              placeholder="Patient Name"
+              placeholder="Patient name"
               value={patient.name}
               onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
               aria-label="Patient name"
+              title="Legal name or label used on rounds"
               className="max-w-[220px] font-medium bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
             />
             <Input
-              placeholder="Bed/Room"
+              placeholder="MRN (optional)"
+              value={patient.mrn ?? ""}
+              onChange={(e) => onUpdate(patient.id, 'mrn', e.target.value)}
+              aria-label="Medical record number"
+              title="Hospital MRN or account number"
+              className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+            />
+            <Input
+              placeholder="Bed / room (optional)"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
               aria-label="Bed or room number"
-              className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+              title="Unit and room or bay"
+              className="max-w-[130px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
             />
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">
               <PatientAcuityBadge patient={patient} size="sm" />
+              <LengthOfStayBadge createdAt={patient.createdAt} />
               <LabTrendBadge labText={patient.labs} />
               <ProtocolBadge patient={patient} />
             </div>
@@ -188,24 +209,32 @@ const PatientCardComponent = ({
           >
             {patient.collapsed ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onDuplicate(patient.id)}
-            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
-            aria-label="Duplicate patient"
+          <div
+            className="flex items-center gap-0.5 pl-2 ml-1 border-l border-border/50"
+            role="group"
+            aria-label="Duplicate or remove patient"
           >
-            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onRemove(patient.id)}
-            className="h-8 w-8 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-            aria-label="Remove patient"
-          >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDuplicate(patient.id)}
+              className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+              aria-label="Duplicate patient"
+              title="Duplicate this patient card"
+            >
+              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onRemove(patient.id)}
+              className="h-8 w-8 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+              aria-label="Remove patient from list"
+              title="Remove patient from this session"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -221,23 +250,31 @@ const PatientCardComponent = ({
             className="overflow-hidden"
           >
             <div className="p-4 space-y-4">
-              {/* Patient-Wide Todos */}
-              <div className={todosAlwaysVisible ? "" : "flex items-center gap-2 pb-2 border-b border-border"}>
-                {!todosAlwaysVisible && (
-                  <span className="text-sm font-medium text-muted-foreground">Patient Tasks:</span>
-                )}
-                <PatientTodos
-                  todos={todos}
-                  section={null}
-                  patient={patient}
-                  generating={generating}
-                  onAddTodo={addTodo}
-                  onToggleTodo={toggleTodo}
-                  onDeleteTodo={deleteTodo}
-                  onGenerateTodos={generateTodos}
-                  alwaysVisible={todosAlwaysVisible}
-                />
-              </div>
+              {/* Patient-Wide Todos (hidden when desktop parent renders them in the tasks rail) */}
+              {!hidePatientWideTodos && (
+                <div
+                  className={todosAlwaysVisible ? "" : "flex flex-wrap items-center gap-2 pb-2 border-b border-border"}
+                  role="region"
+                  aria-labelledby={`patient-tasks-heading-${patient.id}`}
+                >
+                  {!todosAlwaysVisible && (
+                    <span id={`patient-tasks-heading-${patient.id}`} className="text-sm font-medium text-muted-foreground">
+                      Patient tasks
+                    </span>
+                  )}
+                  <PatientTodos
+                    todos={todos}
+                    section={null}
+                    patient={patient}
+                    generating={generating}
+                    onAddTodo={addTodo}
+                    onToggleTodo={toggleTodo}
+                    onDeleteTodo={deleteTodo}
+                    onGenerateTodos={generateTodos}
+                    alwaysVisible={todosAlwaysVisible}
+                  />
+                </div>
+              )}
 
               {/* Clinical Summary */}
               {sectionVisibility.clinicalSummary && (
@@ -582,6 +619,15 @@ const PatientCardComponent = ({
 // React Query provides stable patient references when data hasn't changed,
 // so reference comparison is sufficient for the patient object
 export const PatientCard = React.memo(PatientCardComponent, (prevProps, nextProps) => {
+  if (prevProps.hidePatientWideTodos !== nextProps.hidePatientWideTodos) return false;
+  const sharedEqual =
+    prevProps.sharedPatientTodos === nextProps.sharedPatientTodos ||
+    (!!prevProps.sharedPatientTodos &&
+      !!nextProps.sharedPatientTodos &&
+      prevProps.sharedPatientTodos.todos === nextProps.sharedPatientTodos.todos &&
+      prevProps.sharedPatientTodos.generating === nextProps.sharedPatientTodos.generating);
+  if (!sharedEqual) return false;
+
   // Fast path: if patient reference is identical, only check callbacks
   if (prevProps.patient === nextProps.patient) {
     return (

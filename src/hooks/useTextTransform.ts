@@ -10,6 +10,16 @@ import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export type TransformType = 'comma-list' | 'medical-shorthand' | 'custom';
 
+/** Result of a successful transform-text call (for preview + trust UX). */
+export type TextTransformResult = {
+  text: string
+  latencyMs: number
+  inputChars: number
+  outputChars: number
+  /** Rough output size for display (~tokens); not from the model API. */
+  approxTokensOut: number
+}
+
 export interface CustomPrompt {
   id: string;
   name: string;
@@ -152,13 +162,14 @@ export const useTextTransform = () => {
     text: string,
     transformType: TransformType,
     customPrompt?: string
-  ): Promise<string | null> => {
+  ): Promise<TextTransformResult | null> => {
     if (!text.trim()) {
       toast.error('No text selected');
       return null;
     }
 
     setIsTransforming(true);
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     try {
       const bankId = user ? `clinician:${user.id}` : null;
@@ -206,12 +217,18 @@ export const useTextTransform = () => {
         return null;
       }
 
-      if (bankId && data?.transformedText) {
+      const out = data?.transformedText
+      if (typeof out !== 'string' || !out) {
+        toast.error('No transformed text returned');
+        return null
+      }
+
+      if (bankId) {
         const content = [
           `Original text:\n${text}`,
           `Transform type: ${transformType}`,
           combinedCustomPrompt ? `Custom prompt used:\n${combinedCustomPrompt}` : null,
-          `Transformed text:\n${data.transformedText}`,
+          `Transformed text:\n${out}`,
         ]
           .filter(Boolean)
           .join('\n\n');
@@ -227,7 +244,16 @@ export const useTextTransform = () => {
         });
       }
 
-      return data.transformedText;
+      const endedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
+      const latencyMs = Math.round(endedAt - startedAt)
+      const outputChars = out.length
+      return {
+        text: out,
+        latencyMs,
+        inputChars: text.length,
+        outputChars,
+        approxTokensOut: Math.max(1, Math.ceil(outputChars / 4)),
+      }
     } catch (err) {
       console.error('Transform error:', err);
       toast.error(getUserFacingErrorMessage(err, 'Failed to transform text'));
@@ -235,7 +261,7 @@ export const useTextTransform = () => {
     } finally {
       setIsTransforming(false);
     }
-  }, [getModelForFeature]);
+  }, [getModelForFeature, user]);
 
   return {
     transformText,

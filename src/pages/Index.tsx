@@ -23,6 +23,8 @@ import type { Patient } from "@/types/patient";
 import Landing from "./Landing";
 import { EdgeHealthProvider } from "@/contexts/EdgeHealthContext";
 import { BackendStatusBanner } from "@/components/BackendStatusBanner";
+import { NewPatientSheet, type NewPatientSubmitPayload } from "@/components/dashboard/NewPatientSheet";
+import { syncEngine } from "@/lib/offline/syncEngine";
 
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
@@ -34,7 +36,6 @@ function IndexContent(): React.ReactElement | null {
   const {
     patients,
     loading: patientsLoading,
-    addPatient,
     addPatientWithData,
     updatePatient,
     removePatient,
@@ -42,7 +43,8 @@ function IndexContent(): React.ReactElement | null {
     toggleCollapse,
     collapseAll,
     clearAll,
-    importPatients
+    importPatients,
+    refetch: refetchPatients,
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
   const { customDictionary, importDictionary } = useCloudDictionary();
@@ -65,10 +67,24 @@ function IndexContent(): React.ReactElement | null {
   });
 
   const [lastSaved, setLastSaved] = React.useState<Date>(new Date());
+  const [newPatientSheetOpen, setNewPatientSheetOpen] = React.useState(false);
+  const [desktopSelectedPatientId, setDesktopSelectedPatientId] = React.useState<string | null>(null);
 
   // Mobile-specific state
   const [mobileTab, setMobileTab] = React.useState<MobileTab>("patients");
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
+
+  React.useEffect(() => {
+    if (isMobile) return;
+    if (filteredPatients.length === 0) {
+      setDesktopSelectedPatientId(null);
+      return;
+    }
+    setDesktopSelectedPatientId((prev) => {
+      if (prev && filteredPatients.some((p) => p.id === prev)) return prev;
+      return filteredPatients[0].id;
+    });
+  }, [isMobile, filteredPatients]);
 
   const navigate = useNavigate();
 
@@ -79,11 +95,17 @@ function IndexContent(): React.ReactElement | null {
     }
   }, [patients]);
 
-  // Get current patient for IBCC context - use selected patient on mobile or first filtered patient
-  const currentPatient = React.useMemo(
-    () => (isMobile && selectedPatient ? selectedPatient : (filteredPatients.length > 0 ? filteredPatients[0] : undefined)),
-    [filteredPatients, isMobile, selectedPatient]
-  );
+  // IBCC context: mobile uses selected patient; desktop uses two-pane selection
+  const currentPatient = React.useMemo(() => {
+    if (isMobile && selectedPatient) return selectedPatient;
+    if (!isMobile && filteredPatients.length > 0) {
+      const picked = desktopSelectedPatientId
+        ? filteredPatients.find((p) => p.id === desktopSelectedPatientId)
+        : undefined;
+      return picked ?? filteredPatients[0];
+    }
+    return undefined;
+  }, [filteredPatients, isMobile, selectedPatient, desktopSelectedPatientId]);
 
   // Update IBCC context with current patient for context-aware suggestions
   React.useEffect(() => {
@@ -107,8 +129,24 @@ function IndexContent(): React.ReactElement | null {
   }, [toggleCollapse]);
 
   const handleAddPatient = React.useCallback(() => {
-    addPatient();
-  }, [addPatient]);
+    setNewPatientSheetOpen(true);
+  }, []);
+
+  const handleNewPatientSubmit = React.useCallback(
+    async (data: NewPatientSubmitPayload) => {
+      await addPatientWithData(data);
+    },
+    [addPatientWithData],
+  );
+
+  const handleRefetchPatients = React.useCallback(async () => {
+    try {
+      await syncEngine.sync();
+    } catch (e) {
+      console.error("[Sync] Offline queue sync failed:", e);
+    }
+    await refetchPatients();
+  }, [refetchPatients]);
 
   const handleSignOut = React.useCallback(async () => {
     try {
@@ -141,6 +179,9 @@ function IndexContent(): React.ReactElement | null {
     onCollapseAll: collapseAll,
     onClearAll: clearAll,
     onImportPatients: importPatients,
+    onRefetchPatients: handleRefetchPatients,
+    desktopSelectedPatientId,
+    setDesktopSelectedPatientId,
     onAddAutotext: addAutotext,
     onRemoveAutotext: removeAutotext,
     onAddTemplate: addTemplate,
@@ -172,6 +213,9 @@ function IndexContent(): React.ReactElement | null {
     collapseAll,
     clearAll,
     importPatients,
+    handleRefetchPatients,
+    desktopSelectedPatientId,
+    setDesktopSelectedPatientId,
     addAutotext,
     removeAutotext,
     addTemplate,
@@ -236,6 +280,11 @@ function IndexContent(): React.ReactElement | null {
   return (
     <EdgeHealthProvider>
       <BackendStatusBanner />
+      <NewPatientSheet
+        open={newPatientSheetOpen}
+        onOpenChange={setNewPatientSheetOpen}
+        onSubmit={handleNewPatientSubmit}
+      />
       {dashboard}
     </EdgeHealthProvider>
   );

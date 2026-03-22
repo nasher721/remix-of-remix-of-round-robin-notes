@@ -20,6 +20,7 @@ const mockPatient: Patient = {
   id: "existing-id",
   patientNumber: 1,
   name: "Existing",
+  mrn: "MRN-1",
   bed: "A1",
   clinicalSummary: "",
   intervalEvents: "",

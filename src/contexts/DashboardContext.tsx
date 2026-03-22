@@ -34,6 +34,8 @@ interface DashboardContextType {
     onCollapseAll: () => void;
     onClearAll: () => void;
     onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
+    /** Refresh patient list from the server (e.g. manual sync) */
+    onRefetchPatients: () => void | Promise<void>;
 
     // Autotext Actions
     onAddAutotext: (shortcut: string, expansion: string, category: string) => Promise<boolean>;
@@ -45,6 +47,10 @@ interface DashboardContextType {
     // Auth
     onSignOut: () => void;
     onPatientSelect: (patient: Patient | null) => void;
+
+    /** Desktop list/detail: which patient is shown in the main pane */
+    desktopSelectedPatientId: string | null;
+    setDesktopSelectedPatientId: (id: string | null) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);

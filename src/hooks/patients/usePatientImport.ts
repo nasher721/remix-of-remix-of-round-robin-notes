@@ -91,6 +91,7 @@ export function usePatientImport({
 
     const addPatientWithData = React.useCallback(async (patientData: {
         name: string;
+        mrn?: string;
         bed: string;
         clinicalSummary: string;
         intervalEvents: string;
@@ -115,6 +116,7 @@ export function usePatientImport({
                     userId: user.id,
                     patientNumber: patientCounter,
                     name: patientData.name || "",
+                    mrn: patientData.mrn ?? "",
                     bed: patientData.bed || "",
                     clinicalSummary: patientData.clinicalSummary || "",
                     intervalEvents: patientData.intervalEvents || "",

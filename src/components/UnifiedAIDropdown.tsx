@@ -68,6 +68,13 @@ export const UnifiedAIDropdown = ({
   const [customPromptText, setCustomPromptText] = React.useState("")
   const [newPromptName, setNewPromptName] = React.useState("")
   const [newPromptText, setNewPromptText] = React.useState("")
+  const [aiPreview, setAiPreview] = React.useState<null | {
+    original: string
+    result: string
+    latencyMs: number
+    approxTokensOut: number
+    actionLabel: string
+  }>(null)
 
   const { checkDocumentation, processWithAI, generateDraft, smartExpand, correctMedicalText, isProcessing } =
     useAIClinicalAssistant()
@@ -82,22 +89,43 @@ export const UnifiedAIDropdown = ({
 
   const isLoading = isProcessing || isTransforming
 
+  const applyPreviewInsert = React.useCallback(() => {
+    if (!aiPreview) return
+    replaceSelectedText(aiPreview.result)
+    updateFromSample(aiPreview.result)
+    toast.success("Inserted")
+    setAiPreview(null)
+  }, [aiPreview, replaceSelectedText, updateFromSample])
+
   const handleTransform = React.useCallback(
-    async (type: TransformType, customPrompt?: string) => {
+    async (type: TransformType, customPrompt?: string): Promise<boolean> => {
       const selectedText = getSelectedText()
       if (!selectedText) {
         toast.error("Please select some text first")
-        return
+        return false
       }
       const combinedPrompt = customPrompt ? `${stylePrompt}\n\n${customPrompt}` : stylePrompt
       const result = await transformText(selectedText, type, combinedPrompt)
       if (result) {
-        replaceSelectedText(result)
-        updateFromSample(result)
-        toast.success("Text transformed")
+        const label =
+          type === "comma-list"
+            ? "Comma list"
+            : type === "medical-shorthand"
+              ? "Medical shorthand"
+              : "Custom transform"
+        setAiPreview({
+          original: selectedText,
+          result: result.text,
+          latencyMs: result.latencyMs,
+          approxTokensOut: result.approxTokensOut,
+          actionLabel: label,
+        })
+        setCustomDialogOpen(false)
+        return true
       }
+      return false
     },
-    [getSelectedText, replaceSelectedText, stylePrompt, transformText, updateFromSample]
+    [getSelectedText, stylePrompt, transformText]
   )
 
   const handleSmartExpand = React.useCallback(async () => {
@@ -106,13 +134,21 @@ export const UnifiedAIDropdown = ({
       toast.error("Please select some text first")
       return
     }
+    const started = typeof performance !== "undefined" ? performance.now() : Date.now()
     const result = await smartExpand(selectedText)
+    const latencyMs = Math.round((
+      typeof performance !== "undefined" ? performance.now() : Date.now()
+    ) - started)
     if (result) {
-      replaceSelectedText(result)
-      updateFromSample(result)
-      toast.success("Text expanded")
+      setAiPreview({
+        original: selectedText,
+        result,
+        latencyMs,
+        approxTokensOut: Math.max(1, Math.ceil(result.length / 4)),
+        actionLabel: "Smart expand",
+      })
     }
-  }, [getSelectedText, replaceSelectedText, smartExpand, updateFromSample])
+  }, [getSelectedText, smartExpand])
 
   const handleMedicalCorrection = React.useCallback(async () => {
     const selectedText = getSelectedText()
@@ -120,13 +156,21 @@ export const UnifiedAIDropdown = ({
       toast.error("Please select some text first")
       return
     }
+    const started = typeof performance !== "undefined" ? performance.now() : Date.now()
     const result = await correctMedicalText(selectedText)
+    const latencyMs = Math.round((
+      typeof performance !== "undefined" ? performance.now() : Date.now()
+    ) - started)
     if (result) {
-      replaceSelectedText(result)
-      updateFromSample(result)
-      toast.success("Medical text corrected")
+      setAiPreview({
+        original: selectedText,
+        result,
+        latencyMs,
+        approxTokensOut: Math.max(1, Math.ceil(result.length / 4)),
+        actionLabel: "Medical correction",
+      })
     }
-  }, [getSelectedText, replaceSelectedText, correctMedicalText, updateFromSample])
+  }, [getSelectedText, correctMedicalText])
 
   const handleDraftNote = React.useCallback(async () => {
     if (!patient || !onDraftNoteGenerated) return
@@ -157,14 +201,13 @@ export const UnifiedAIDropdown = ({
     }
   }, [getDocumentText, processWithAI])
 
-  const handleCustomPromptSubmit = React.useCallback(() => {
+  const handleCustomPromptSubmit = React.useCallback(async () => {
     if (!customPromptText.trim()) {
       toast.error("Please enter a prompt")
       return
     }
-    handleTransform("custom", customPromptText)
-    setCustomPromptText("")
-    setCustomDialogOpen(false)
+    const ok = await handleTransform("custom", customPromptText)
+    if (ok) setCustomPromptText("")
   }, [customPromptText, handleTransform])
 
   const handleSavePrompt = React.useCallback(() => {
@@ -196,8 +239,8 @@ export const UnifiedAIDropdown = ({
             size="sm"
             disabled={disabled || isLoading}
             className={triggerClassName ?? "h-7 w-7 p-0"}
-            title="AI tools"
-            aria-label="AI tools"
+            title="AI writing tools: expand, correct, transform selection — results open in a preview before inserting"
+            aria-label="AI writing tools"
           >
             {isLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -390,6 +433,38 @@ export const UnifiedAIDropdown = ({
                   Transform
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!aiPreview} onOpenChange={(open) => !open && setAiPreview(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col gap-3">
+          <DialogHeader>
+            <DialogTitle>Review AI result</DialogTitle>
+            <p className="text-xs text-muted-foreground">
+              {aiPreview ? (
+                <>
+                  <span className="font-medium text-foreground">{aiPreview.actionLabel}</span>
+                  {" · "}
+                  ~{aiPreview.approxTokensOut} tokens (est.) · {aiPreview.latencyMs} ms
+                </>
+              ) : null}
+            </p>
+          </DialogHeader>
+          <ScrollArea className="max-h-[45vh] rounded-md border border-border/60 bg-muted/20 p-3">
+            <p className="text-sm whitespace-pre-wrap font-sans">{aiPreview?.result}</p>
+          </ScrollArea>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer select-none text-foreground/80">Original selection</summary>
+            <p className="mt-2 whitespace-pre-wrap border-t border-border/40 pt-2">{aiPreview?.original}</p>
+          </details>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button type="button" variant="outline" onClick={() => setAiPreview(null)}>
+              Discard
+            </Button>
+            <Button type="button" onClick={applyPreviewInsert}>
+              Insert
             </Button>
           </DialogFooter>
         </DialogContent>

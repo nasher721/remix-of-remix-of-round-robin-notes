@@ -18,7 +18,8 @@ function extractPatientName(name: FHIRPatientResource['name']): string {
   return [given, family].filter(Boolean).join(' ') || 'Unknown Patient';
 }
 
-function extractMRN(identifiers: FHIRPatientResource['identifier']): string {
+/** Exported for FHIR callback and other call sites that need MRN only */
+export function extractMRN(identifiers: FHIRPatientResource['identifier']): string {
   if (!identifiers || identifiers.length === 0) return '';
   
   const mrn = identifiers.find(

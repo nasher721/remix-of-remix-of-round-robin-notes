@@ -248,6 +248,7 @@ export function usePatientMutations({
                     userId: user.id,
                     patientNumber: nextNumber,
                     name: `${patient.name} (Copy)`,
+                    mrn: patient.mrn,
                     bed: patient.bed,
                     clinicalSummary: patient.clinicalSummary,
                     intervalEvents: patient.intervalEvents,

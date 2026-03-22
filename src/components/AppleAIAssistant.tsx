@@ -229,8 +229,8 @@ export const AppleAIAssistant = ({
     const combinedPrompt = customPrompt ? `${writingStyle.stylePrompt}\n\n${customPrompt}` : writingStyle.stylePrompt;
     const result = await textTools.transformText(text, type, combinedPrompt);
     if (result) {
-      replaceSelectedText(result);
-      writingStyle.updateFromSample(result);
+      replaceSelectedText(result.text);
+      writingStyle.updateFromSample(result.text);
       setIsOpen(false); closeDialogs();
       toast({ description: 'Text transformed' });
     }

@@ -294,3 +294,6 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
     refetch: fetchTodos,
   };
 }
+
+/** Lifted state shape for desktop tasks rail + PatientCard sharing one todo source. */
+export type PatientTodosApi = ReturnType<typeof usePatientTodos>;

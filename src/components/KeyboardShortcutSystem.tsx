@@ -37,8 +37,22 @@ const DEFAULT_SHORTCUTS: Shortcut[] = [
   {
     id: 'add-patient',
     name: 'Add Patient',
-    defaultKeys: 'Cmd+N',
-    description: 'Create new patient card',
+    defaultKeys: 'Cmd+Shift+N',
+    description: 'Create new patient (also N when focus is not in a text field)',
+    category: 'actions',
+  },
+  {
+    id: 'focus-search-slash',
+    name: 'Focus patient search',
+    defaultKeys: '/',
+    description: 'Focus patient search (not while typing in an input, textarea, or editor)',
+    category: 'navigation',
+  },
+  {
+    id: 'new-patient-key-n',
+    name: 'Quick add patient',
+    defaultKeys: 'N',
+    description: 'Open add patient sheet (not while typing in an input, textarea, or editor)',
     category: 'actions',
   },
   {
@@ -207,8 +221,8 @@ export function KeyboardShortcutSystem() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7">
-          <HelpCircle className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" type="button">
+          <HelpCircle className="h-4 w-4" aria-hidden="true" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -315,6 +329,11 @@ export function KeyboardShortcutSystem() {
             </CardHeader>
             <CardContent className="text-sm space-y-2">
               <p>• Use <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">?</kbd> to open this dialog</p>
+              <p>
+                • <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">/</kbd> and{" "}
+                <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">N</kbd> only apply when you are{" "}
+                <span className="font-medium">not</span> focused in a text field or editor
+              </p>
               <p>• Customize shortcuts by clicking the copy icon</p>
               <p>• Reset to default by clearing the custom key</p>
               <p>• Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">Esc</kbd> to close</p>

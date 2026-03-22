@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { handleCallback, fetchPatientData } from '@/integrations/fhir';
+import { extractMRN } from '@/integrations/fhir/mapper';
 import { usePatients } from '@/hooks/usePatients';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
@@ -41,8 +42,11 @@ export default function FHIRCallback() {
         setPatientName(fullName);
         setStatus('importing');
 
+        const mrn = extractMRN(fhirData.patient.identifier);
+
         const patientData = {
           name: fullName,
+          mrn,
           bed: '',
           clinicalSummary: `Imported from EHR on ${new Date().toLocaleDateString()}`,
           intervalEvents: '',

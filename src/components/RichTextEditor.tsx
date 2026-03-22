@@ -1012,7 +1012,8 @@ export const RichTextEditor = ({
                 type="button"
                 variant="ghost"
                 size="sm"
-                title="Insert clinical phrase"
+                title="Insert clinical phrase from your library"
+                aria-label="Insert clinical phrase from library"
                 className="h-7 px-2 gap-1"
               >
                 <FileText className="h-3.5 w-3.5" />

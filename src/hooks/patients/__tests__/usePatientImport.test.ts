@@ -64,6 +64,7 @@ test("usePatientImport addPatientWithData calls supabase insert and maps correct
   assert.equal(payload.imaging, "CXR");
   assert.equal(payload.labs, "CBC");
   assert.equal(payload.patient_number, 1);
+  assert.equal(payload.mrn, "");
 });
 
 test("usePatientImport importPatients calls supabase insert per patient and maps correctly", async () => {

@@ -7,6 +7,8 @@ import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
 import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
 import { VirtualizedPatientList } from "./VirtualizedPatientList";
+import { ProfileCoachingBanner } from "./ProfileCoachingBanner";
+import { getPatientProfileCoaching } from "@/lib/patientProfileCoaching";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
@@ -20,7 +22,6 @@ import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
 import { DesktopSpecialtySelector } from "@/components/settings/DesktopSpecialtySelector";
 import { DesktopAIModelSettingsDialog } from "@/components/settings/DesktopAIModelSettingsDialog";
 import { ObservabilitySupportCard } from "@/components/settings/ObservabilitySupportCard";
-import { PatientNavigator } from "./PatientNavigator";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
 import { TimelineDialog } from "../tools/timeline/TimelineDialog";
@@ -31,9 +32,17 @@ import { PresenceIndicator } from "@/components/PresenceIndicator";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
+import { KeyboardShortcutSystem } from "@/components/KeyboardShortcutSystem";
 import { LiveRegion } from "@/components/LiveRegion";
 import { AICommandPalette, useAICommandPalette } from "@/components/tools/AICommandPalette";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { AVAILABLE_MODELS } from "@/services/llm";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,6 +70,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Filter,
+  RefreshCw,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -87,6 +97,7 @@ import {
 import { PatientFilterType } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 type UtilityPanel = "resources" | "tools" | "settings";
 
@@ -115,10 +126,35 @@ export const DesktopDashboard = () => {
     onImportDictionary,
     onSignOut,
     lastSaved,
+    onRefetchPatients,
+    desktopSelectedPatientId,
+    setDesktopSelectedPatientId,
   } = useDashboard();
   const todosMap = useDashboardTodos();
   const navigate = useNavigate();
-  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, editorToolbarMode, setEditorToolbarMode } = useSettings();
+  const {
+    globalFontSize,
+    setGlobalFontSize,
+    todosAlwaysVisible,
+    setTodosAlwaysVisible,
+    sortBy,
+    setSortBy,
+    editorToolbarMode,
+    setEditorToolbarMode,
+    aiProvider,
+    aiModel,
+  } = useSettings();
+  const activeAiModelLabel = React.useMemo(() => {
+    const m = AVAILABLE_MODELS.find((x) => x.provider === aiProvider && x.model === aiModel);
+    return m?.label ?? aiModel ?? "Default";
+  }, [aiProvider, aiModel]);
+
+  /** Tiny label on the FAB so the active model is visible without opening the tooltip (Phase 3.4). */
+  const fabModelBadgeText = React.useMemo(() => {
+    const raw = activeAiModelLabel.trim();
+    if (raw.length <= 12) return raw;
+    return `${raw.slice(0, 11)}…`;
+  }, [activeAiModelLabel]);
   const { enabled: ctEnabled, color: ctColor, styles: ctStyles, toggleEnabled: ctToggleEnabled, setColor: ctSetColor, toggleStyle: ctToggleStyle } = useChangeTracking();
 
   const [showPrintModal, setShowPrintModal] = React.useState(false);
@@ -127,11 +163,31 @@ export const DesktopDashboard = () => {
   const { isOpen: isAICommandPaletteOpen, setIsOpen: setAICommandPaletteOpen } = useAICommandPalette();
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
+  const goNextPatient = React.useCallback(() => {
+    if (filteredPatients.length === 0) return;
+    const idx = filteredPatients.findIndex((p) => p.id === desktopSelectedPatientId);
+    const current = idx >= 0 ? idx : 0;
+    const next = (current + 1) % filteredPatients.length;
+    setDesktopSelectedPatientId(filteredPatients[next].id);
+  }, [filteredPatients, desktopSelectedPatientId, setDesktopSelectedPatientId]);
+
+  const goPrevPatient = React.useCallback(() => {
+    if (filteredPatients.length === 0) return;
+    const idx = filteredPatients.findIndex((p) => p.id === desktopSelectedPatientId);
+    const current = idx >= 0 ? idx : 0;
+    const prev = (current - 1 + filteredPatients.length) % filteredPatients.length;
+    setDesktopSelectedPatientId(filteredPatients[prev].id);
+  }, [filteredPatients, desktopSelectedPatientId, setDesktopSelectedPatientId]);
+
   useKeyboardShortcuts({
     onAddPatient,
     onSearch: () => searchInputRef.current?.focus(),
     onCollapseAll,
     onPrint: () => setShowPrintModal(true),
+    onSlashFocusSearch: () => searchInputRef.current?.focus(),
+    onKeyNAddPatient: onAddPatient,
+    onNextPatient: goNextPatient,
+    onPrevPatient: goPrevPatient,
   });
 
   const handleExport = React.useCallback(() => {
@@ -155,6 +211,21 @@ export const DesktopDashboard = () => {
   }, [patients]);
 
   const [showClearAllDialog, setShowClearAllDialog] = React.useState(false);
+  const [syncingList, setSyncingList] = React.useState(false);
+
+  const profileCoaching = React.useMemo(() => getPatientProfileCoaching(patients), [patients]);
+
+  const activeFilterCount =
+    (searchQuery.trim() ? 1 : 0) + (filter !== PatientFilterType.All ? 1 : 0);
+
+  const handleSyncNow = React.useCallback(async () => {
+    setSyncingList(true);
+    try {
+      await onRefetchPatients();
+    } finally {
+      setSyncingList(false);
+    }
+  }, [onRefetchPatients]);
 
   const handleClearAll = React.useCallback(() => {
     setShowClearAllDialog(true);
@@ -194,6 +265,20 @@ export const DesktopDashboard = () => {
               </div>
               <h1 className="text-lg font-semibold tracking-tight text-card-foreground group-hover:text-primary transition-colors hidden sm:block">Rolling Rounds</h1>
             </Link>
+            <nav className="hidden lg:flex items-center gap-0.5 text-xs" aria-label="Workspace sections">
+              <a
+                href="#main-content"
+                className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
+              >
+                Patients
+              </a>
+              <a
+                href="#desktop-patient-search"
+                className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
+              >
+                Search
+              </a>
+            </nav>
             <Button type="button" onClick={onAddPatient} size="sm" className="gap-1.5 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium shadow-sm">
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               Add patient
@@ -205,19 +290,20 @@ export const DesktopDashboard = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg text-xs border border-border/30">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-            <span className="font-medium text-card-foreground">{patients.length}</span>
-            <span className="text-muted-foreground">patients</span>
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+            <span className="font-semibold text-foreground">{patients.length}</span>
+            <span className="text-foreground/80">on list</span>
             <span className="text-muted-foreground/60" aria-hidden="true">·</span>
             <OfflineIndicator />
             <span className="text-muted-foreground/60" aria-hidden="true">·</span>
-            <Clock className="h-3 w-3 text-muted-foreground" aria-hidden="true" />
-            <span className="text-muted-foreground">{todayLabel}</span>
+            <Clock className="h-3 w-3 text-foreground/70" aria-hidden="true" />
+            <span className="text-foreground/80">{todayLabel}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <PresenceIndicator />
             <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
+            <KeyboardShortcutSystem />
             <ThemeToggle />
             <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
@@ -227,6 +313,9 @@ export const DesktopDashboard = () => {
       </motion.header>
 
       <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print relative z-20">
+        {profileCoaching.showBanner ? (
+          <ProfileCoachingBanner message={profileCoaching.message} className="mb-3" />
+        ) : null}
         <DesktopUtilityPanel
           patients={patients}
           autotexts={autotexts}
@@ -268,7 +357,7 @@ export const DesktopDashboard = () => {
                   <Input
                     ref={searchInputRef}
                     id="desktop-patient-search"
-                    placeholder="Search patients... (Ctrl+K)"
+                    placeholder="Search patients… ( / or Ctrl+K )"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     aria-label="Search patients"
@@ -287,6 +376,15 @@ export const DesktopDashboard = () => {
                     >
                       <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       <span className="truncate">Filters & actions</span>
+                      {activeFilterCount > 0 ? (
+                        <Badge
+                          variant="secondary"
+                          className="h-5 min-w-5 px-1.5 text-[10px] font-semibold tabular-nums"
+                          aria-label={`${activeFilterCount} active filters`}
+                        >
+                          {activeFilterCount}
+                        </Badge>
+                      ) : null}
                       <ChevronDown className="h-3 w-3 opacity-60 shrink-0" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -335,9 +433,26 @@ export const DesktopDashboard = () => {
                   {filteredPatients.length}{patients.length !== filteredPatients.length ? ` of ${patients.length}` : ""} patients
                   {searchQuery && <span className="text-muted-foreground font-normal"> · &ldquo;{searchQuery}&rdquo;</span>}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" aria-hidden="true" />
-                  Synced {lastSaved.toLocaleTimeString()}
+                <span className="flex items-center gap-2 flex-wrap justify-end">
+                  <span className="flex items-center gap-1.5 text-foreground/85">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
+                    <span>
+                      Last updated {lastSaved.toLocaleTimeString()}
+                    </span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1 border-border/60"
+                    onClick={handleSyncNow}
+                    disabled={syncingList}
+                    aria-busy={syncingList}
+                    aria-label="Sync offline changes and refresh patient list from server"
+                  >
+                    <RefreshCw className={cn("h-3 w-3", syncingList && "animate-spin")} aria-hidden="true" />
+                    Sync now
+                  </Button>
                 </span>
                 <LiveRegion
                   message={
@@ -387,14 +502,35 @@ export const DesktopDashboard = () => {
         </div>
       </div>
 
-      <Button
-        onClick={() => setAICommandPaletteOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-white/20 p-3"
-        aria-label="Open AI tools"
-        style={{ height: "3.25rem", width: "3.25rem" }}
-      >
-        <Sparkles className="h-5 w-5 drop-shadow" aria-hidden />
-      </Button>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={() => setAICommandPaletteOpen(true)}
+              className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-white/20 p-3"
+              aria-label={`Open AI command palette — model ${activeAiModelLabel}`}
+              title={`AI workspace — ${activeAiModelLabel}`}
+              style={{ height: "3.25rem", width: "3.25rem" }}
+            >
+              <Sparkles className="h-5 w-5 drop-shadow" aria-hidden />
+              <Badge
+                variant="secondary"
+                aria-hidden
+                title={activeAiModelLabel}
+                className="pointer-events-none absolute -bottom-1 -right-1 max-w-[5rem] truncate border border-white/40 bg-background/95 px-1 py-0 text-[9px] font-medium leading-tight text-foreground shadow-md backdrop-blur-sm"
+              >
+                {fabModelBadgeText}
+              </Badge>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-[240px]">
+            <p className="font-medium">AI workspace</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Same tools as the header menu: drafting, analysis, and utilities. Current model: {activeAiModelLabel}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <PrintExportModal
         open={showPrintModal}
@@ -573,7 +709,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                 key={id}
                 type="button"
                 role="tab"
-                aria-selected={activeTab === id}
+                aria-selected={activeTab === id ? "true" : "false"}
                 onClick={() => setActiveTab(id)}
                 className={cn(
                   "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",

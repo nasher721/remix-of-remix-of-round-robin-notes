@@ -107,6 +107,25 @@
     --input: 217 33% 17%;
     --ring: 198 70% 60%;
   }
+
+  /* High contrast: stronger text, borders, and focus (WCAG-friendly) — stacks with .light / .dark on html */
+  .light.high-contrast {
+    --foreground: 240 12% 8%;
+    --muted-foreground: 222 18% 28%;
+    --border: 222 22% 52%;
+    --input: 222 22% 52%;
+    --ring: 198 95% 22%;
+    --card-foreground: 240 12% 8%;
+  }
+
+  .dark.high-contrast {
+    --foreground: 210 45% 99%;
+    --muted-foreground: 215 22% 82%;
+    --border: 215 22% 42%;
+    --input: 215 22% 42%;
+    --ring: 198 95% 58%;
+    --card-foreground: 210 45% 99%;
+  }
 }
 
 @layer base {
@@ -132,6 +151,10 @@
   /* Refined clinical focus states */
   :focus-visible {
     @apply outline-none ring-2 ring-primary/60 ring-offset-2 ring-offset-background transition-all duration-200;
+  }
+
+  .high-contrast :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background transition-all duration-200;
   }
 
   /* Smooth scrolling */

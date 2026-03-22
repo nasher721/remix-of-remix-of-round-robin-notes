@@ -10,7 +10,9 @@ import Auth from "@/pages/Auth";
 if (typeof global.window !== "undefined" && typeof global.window.requestAnimationFrame === "undefined") {
   global.window.requestAnimationFrame = (cb) => setTimeout(cb, 0);
 }
-if (typeof globalThis !== "undefined") (globalThis as any).React = React;
+if (typeof globalThis !== "undefined") {
+  Object.assign(globalThis, { React })
+}
 
 test("Auth page renders with form and sign-in button", async () => {
   globalThis.__SUPABASE_AUTH_MOCK__ = {

@@ -6,9 +6,9 @@ const isConfigured = Boolean(HINDSIGHT_BASE_URL && HINDSIGHT_API_KEY)
 type JsonPrimitive = string | number | boolean | null
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
 
-export interface HindsightMetadata extends Record<string, JsonValue> {}
+export type HindsightMetadata = Record<string, JsonValue>
 
-export interface HindsightFilters extends Record<string, JsonValue> {}
+export type HindsightFilters = Record<string, JsonValue>
 
 export interface RetainMemoryParams {
   bankId: string

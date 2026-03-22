@@ -86,7 +86,7 @@ export const useMedicationFormat = () => {
     } finally {
       setIsFormatting(false);
     }
-  }, [getModelForFeature]);
+  }, [getModelForFeature, user]);
 
   return {
     formatMedications,

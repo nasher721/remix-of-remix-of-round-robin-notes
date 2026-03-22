@@ -12,3 +12,6 @@ const dom = new JSDOM("<!DOCTYPE html><html><body><div id=\"root\"></div></body>
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.HTMLElement = dom.window.HTMLElement;
+globalThis.localStorage = dom.window.localStorage;
+globalThis.DOMParser = dom.window.DOMParser;
+globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);

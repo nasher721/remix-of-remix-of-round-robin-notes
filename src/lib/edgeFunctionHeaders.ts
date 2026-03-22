@@ -15,7 +15,9 @@ export async function getEdgeFunctionAuthHeaders(
     throw new Error('Supabase is not configured (missing publishable/anon key).')
   }
 
-  let { data: { session } } = await supabase.auth.getSession()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
   let accessToken = session?.access_token
 
   if (!accessToken) {

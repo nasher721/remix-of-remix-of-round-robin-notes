@@ -21,6 +21,7 @@ import {
 import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface PatientTodosProps {
   todos: PatientTodo[];
@@ -219,25 +220,29 @@ export function PatientTodos({
     );
   }
 
-  // Popover mode (default)
+  // Popover mode (default): labeled "+ Task" for discoverability (plan 3.1)
+  const tasksTriggerLabel = section ? "Section tasks" : "Patient tasks";
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
           className={cn(
-            "h-7 px-2 gap-1",
-            sectionTodos.length > 0 && "text-primary"
+            "h-8 gap-1.5 px-2.5 font-medium shrink-0",
+            sectionTodos.length > 0 && "border-primary/40 text-foreground"
           )}
+          aria-label={`${tasksTriggerLabel}: add or manage tasks. ${sectionTodos.length} total, ${incompleteTodos.length} incomplete.`}
         >
-          <ListTodo className="h-3.5 w-3.5" />
-          {sectionTodos.length > 0 && (
-            <span className="text-xs font-medium">
+          <ListTodo className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span className="text-xs sm:text-sm">+ Task</span>
+          {sectionTodos.length > 0 ? (
+            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-semibold tabular-nums">
               {incompleteTodos.length}/{sectionTodos.length}
-            </span>
-          )}
-          <ChevronDown className="h-3 w-3 opacity-50" />
+            </Badge>
+          ) : null}
+          <ChevronDown className="h-3 w-3 opacity-50 shrink-0" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-3" align="start">

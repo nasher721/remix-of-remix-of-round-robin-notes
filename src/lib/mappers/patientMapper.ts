@@ -89,6 +89,7 @@ export const dbToUiPatient = (dbPatient: DbPatient): Patient => ({
   id: dbPatient.id,
   patientNumber: dbPatient.patient_number,
   name: dbPatient.name,
+  mrn: dbPatient.mrn ?? "",
   bed: dbPatient.bed,
   clinicalSummary: dbPatient.clinical_summary,
   intervalEvents: dbPatient.interval_events,

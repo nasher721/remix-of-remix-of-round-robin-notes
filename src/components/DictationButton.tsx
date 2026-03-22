@@ -75,6 +75,12 @@ export const DictationButton = ({
   const buttonSize = size === "sm" ? "h-7 w-7 p-0" : size === "lg" ? "h-10 w-10 p-0" : "h-8 w-8 p-0";
   const iconSize = size === "sm" ? "h-3.5 w-3.5" : size === "lg" ? "h-5 w-5" : "h-4 w-4";
 
+  const ariaLabel = isProcessing
+    ? "Transcribing audio"
+    : isRecording
+      ? "Stop dictation"
+      : "Start voice dictation"
+
   const buttonContent = (
     <Button
       type="button"
@@ -82,6 +88,8 @@ export const DictationButton = ({
       size="icon"
       onClick={handleClick}
       disabled={disabled || isProcessing}
+      aria-label={ariaLabel}
+      title={isProcessing ? "Transcribing…" : isRecording ? "Recording — click to stop" : "Voice dictation"}
       className={cn(
         buttonSize,
         isRecording && "animate-pulse",

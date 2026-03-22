@@ -75,6 +75,30 @@ export const EditorFindReplace = ({
     const [matches, setMatches] = React.useState<Range[]>([]);
     const searchRef = React.useRef<HTMLInputElement>(null);
 
+    const scrollToMatch = React.useCallback((range: Range | undefined) => {
+        if (!range) return;
+        const rect = range.getBoundingClientRect();
+        const editor = editorRef.current;
+        if (!editor) return;
+        const editorRect = editor.getBoundingClientRect();
+
+        // Scroll into view if not visible
+        if (rect.top < editorRect.top || rect.bottom > editorRect.bottom) {
+            const scrollContainer = editor.closest(".editor-scroll-container");
+            if (scrollContainer) {
+                const offsetTop = rect.top - editorRect.top + scrollContainer.scrollTop;
+                scrollContainer.scrollTo({ top: offsetTop - 40, behavior: "smooth" });
+            }
+        }
+
+        // Also set selection to the match
+        const selection = window.getSelection();
+        if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range.cloneRange());
+        }
+    }, [editorRef]);
+
     // Update mode when prop changes
     React.useEffect(() => {
         setShowReplace(initialMode === "replace");
@@ -125,39 +149,12 @@ export const EditorFindReplace = ({
         }
     }, [currentIndex, matches, scrollToMatch]);
 
-    // Clean up highlights on unmount
+    // Clean up highlights on unmount only (clearHighlights is module scope, stable)
     React.useEffect(() => {
         return () => {
             clearHighlights();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
-
-
-
-    const scrollToMatch = React.useCallback((range: Range | undefined) => {
-        if (!range) return;
-        const rect = range.getBoundingClientRect();
-        const editor = editorRef.current;
-        if (!editor) return;
-        const editorRect = editor.getBoundingClientRect();
-
-        // Scroll into view if not visible
-        if (rect.top < editorRect.top || rect.bottom > editorRect.bottom) {
-            const scrollContainer = editor.closest(".editor-scroll-container");
-            if (scrollContainer) {
-                const offsetTop = rect.top - editorRect.top + scrollContainer.scrollTop;
-                scrollContainer.scrollTo({ top: offsetTop - 40, behavior: "smooth" });
-            }
-        }
-
-        // Also set selection to the match
-        const selection = window.getSelection();
-        if (selection) {
-            selection.removeAllRanges();
-            selection.addRange(range.cloneRange());
-        }
-    }, [editorRef]);
 
     const goNext = () => {
         if (matches.length === 0) return;

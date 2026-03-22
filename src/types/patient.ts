@@ -66,6 +66,7 @@ export interface DbPatient {
   user_id: string;
   patient_number: number;
   name: string;
+  mrn: string;
   bed: string;
   clinical_summary: string;
   interval_events: string;
@@ -88,6 +89,8 @@ export interface Patient {
   id: string;
   patientNumber: number;
   name: string;
+  /** Medical record number or hospital ID; may be empty when not yet captured */
+  mrn: string;
   bed: string;
   clinicalSummary: string;
   intervalEvents: string;
