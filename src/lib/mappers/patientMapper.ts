@@ -129,10 +129,10 @@ export const prepareUpdateData = (
 
   if (field.includes(".")) {
     const [parent, child] = field.split(".");
-    if (parent === "systems" && currentSystems) {
-      updateData.systems = { ...currentSystems, [child]: value };
-    } else if (parent === "medications" && currentMedications) {
-      updateData.medications = { ...currentMedications, [child]: value };
+    if (parent === "systems") {
+      updateData.systems = { ...(currentSystems ?? {}), [child]: value };
+    } else if (parent === "medications") {
+      updateData.medications = { ...(currentMedications ?? {}), [child]: value };
     }
   } else if (field === "medications") {
     updateData.medications = value;

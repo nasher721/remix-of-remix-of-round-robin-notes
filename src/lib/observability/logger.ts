@@ -26,7 +26,7 @@ function getSessionId(): string {
 
 /** Generate a request/correlation ID for tracing a single operation across logs. */
 export function generateRequestId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `req_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  return crypto.randomUUID();
 }
 
 function basePayload() {

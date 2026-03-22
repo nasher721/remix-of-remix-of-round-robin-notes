@@ -45,9 +45,6 @@ Deno.serve(async (req: Request) => {
     const llmConfig = getLLMConfig();
     if (!llmConfig.apiKey) {
       safeLog('error', "No LLM API key configured");
-      // #region agent log
-      fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H1',location:'format-medications/index.ts:apiKey',message:'No LLM API key in format-medications',data:{},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       return jsonResponse(req, { error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }, 500);
     }
     const OPENAI_API_KEY = llmConfig.apiKey;
@@ -132,9 +129,6 @@ Each array contains formatted medication strings.`;
     if (!response.ok) {
       const errorText = await response.text();
       safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
-      // #region agent log
-      fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H2',location:'format-medications/index.ts:llm',message:'Non-OK response from LLM in format-medications',data:{status:response.status,body:errorText.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
 
       if (response.status === 429) {
         return jsonResponse(req, { error: "Rate limit exceeded. Please try again." }, 429);

@@ -32,7 +32,6 @@ export const usePatients = () => {
         patientsRef,
         setPatients,
         patientCounter,
-        setPatientCounter,
         fetchPatients,
     });
 

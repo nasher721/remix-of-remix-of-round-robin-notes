@@ -392,7 +392,7 @@ export const ImagePasteEditor = ({
 
       // Create unique filename
       const fileExt = file.type.split('/')[1] || 'png';
-      const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+      const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
 
       const { data, error } = await supabase.storage
         .from('patient-images')

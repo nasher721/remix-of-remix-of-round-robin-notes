@@ -7,6 +7,15 @@ import { stripHtml as baseStripHtml, sanitizeAndCleanStyles } from "@/lib/saniti
 // Re-export strip HTML for backward compatibility
 export const stripHtml = baseStripHtml;
 
+// Escape HTML entities to prevent XSS when inserting user content into HTML strings
+const escapeHtml = (text: string): string =>
+  text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 // Format structured medications into display text
 export const formatMedicationsText = (meds: PatientMedications | undefined): string => {
   if (!meds) return '';
@@ -23,15 +32,15 @@ export const formatMedicationsHtml = (meds: PatientMedications | undefined): str
   if (!meds) return '';
   const sections: string[] = [];
   if (meds.infusions?.length) {
-    sections.push(`<div class="med-section"><strong>Infusions:</strong> ${meds.infusions.join(', ')}</div>`);
+    sections.push(`<div class="med-section"><strong>Infusions:</strong> ${meds.infusions.map(escapeHtml).join(', ')}</div>`);
   }
   if (meds.scheduled?.length) {
-    sections.push(`<div class="med-section"><strong>Scheduled:</strong> ${meds.scheduled.join(', ')}</div>`);
+    sections.push(`<div class="med-section"><strong>Scheduled:</strong> ${meds.scheduled.map(escapeHtml).join(', ')}</div>`);
   }
   if (meds.prn?.length) {
-    sections.push(`<div class="med-section"><strong>PRN:</strong> ${meds.prn.join(', ')}</div>`);
+    sections.push(`<div class="med-section"><strong>PRN:</strong> ${meds.prn.map(escapeHtml).join(', ')}</div>`);
   }
-  if (sections.length === 0 && meds.rawText) return meds.rawText;
+  if (sections.length === 0 && meds.rawText) return escapeHtml(meds.rawText);
   return sections.join('');
 };
 
@@ -58,7 +67,7 @@ export const formatTodosHtml = (todos: PatientTodo[]): string => {
   return `<ul class="todos-list">${todos.map(t =>
     `<li class="todo-item ${t.completed ? 'completed' : ''}">
       <span class="todo-checkbox">${t.completed ? '☑' : '☐'}</span>
-      <span class="todo-content">${t.content}</span>
+      <span class="todo-content">${escapeHtml(t.content)}</span>
     </li>`
   ).join('')}</ul>`;
 };

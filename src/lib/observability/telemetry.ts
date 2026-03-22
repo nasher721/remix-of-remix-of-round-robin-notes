@@ -206,7 +206,7 @@ export function recordTelemetryEvent(
   };
 
   const event: TelemetryEvent = {
-    id: globalThis.crypto?.randomUUID?.() ?? `evt_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     level: category.includes('error') || category === 'render_error' ? 'error' : 'warning',
     category,

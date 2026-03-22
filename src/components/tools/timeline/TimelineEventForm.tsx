@@ -39,7 +39,7 @@ export function TimelineEventForm({ onSave, onCancel }: TimelineEventFormProps) 
         const eventDate = new Date(dateTimeStr);
 
         onSave({
-            id: Math.random().toString(36).substring(7),
+            id: crypto.randomUUID(),
             title,
             description,
             date: eventDate,

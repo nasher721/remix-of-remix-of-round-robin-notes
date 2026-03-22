@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { hasSupabaseConfig, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { PatientTodo } from '@/types/todo';
@@ -12,8 +12,15 @@ export function useAllPatientTodos(patientIds: string[]) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
 
+  // Stabilize patientIds: only change when the actual IDs change, not the array reference
+  const idsKey = patientIds.slice().sort().join(',');
+  const stableIds = useMemo(() => patientIds, [idsKey]);
+  const stableIdsRef = useRef(stableIds);
+  stableIdsRef.current = stableIds;
+
   const fetchAllTodos = useCallback(async () => {
-    if (!user || patientIds.length === 0) {
+    const ids = stableIdsRef.current;
+    if (!user || ids.length === 0) {
       setTodosMap({});
       return;
     }
@@ -22,21 +29,21 @@ export function useAllPatientTodos(patientIds: string[]) {
       setTodosMap({});
       return;
     }
-    
+
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('patient_todos')
         .select('*')
-        .in('patient_id', patientIds)
+        .in('patient_id', ids)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       // Group todos by patient ID
       const grouped: PatientTodosMap = {};
-      patientIds.forEach(id => { grouped[id] = []; });
-      
+      ids.forEach(id => { grouped[id] = []; });
+
       data?.forEach(todo => {
         const mappedTodo: PatientTodo = {
           id: todo.id,
@@ -48,7 +55,7 @@ export function useAllPatientTodos(patientIds: string[]) {
           createdAt: todo.created_at,
           updatedAt: todo.updated_at,
         };
-        
+
         if (!grouped[todo.patient_id]) {
           grouped[todo.patient_id] = [];
         }
@@ -61,7 +68,7 @@ export function useAllPatientTodos(patientIds: string[]) {
     } finally {
       setLoading(false);
     }
-  }, [patientIds, user]);
+  }, [idsKey, user]);
 
   useEffect(() => {
     fetchAllTodos();

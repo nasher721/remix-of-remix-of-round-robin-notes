@@ -92,9 +92,6 @@ export function getLLMConfig(preferredProvider?: 'openai' | 'gemini' | 'grok' | 
   if (grok) return grok;
 
   // Default fallback (no providers configured)
-  // #region agent log
-  fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H1',location:'_shared/llm-client.ts:getLLMConfig',message:'No LLM providers configured, using empty API key fallback',data:{preferredProvider},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   return {
     apiKey: '',
     baseURL: 'https://api.openai.com/v1',
@@ -132,9 +129,6 @@ export async function callLLM(
   const config = getLLMConfig(preferredProvider);
 
   if (!config.apiKey) {
-    // #region agent log
-    fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H1',location:'_shared/llm-client.ts:callLLM',message:'Missing LLM API key in callLLM',data:{preferredProvider,requestedModel:options.model},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     throw new MissingAPIKeyError('No LLM API key configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to your Supabase project secrets.');
   }
 
@@ -180,18 +174,12 @@ export async function callLLM(
 
   if (!response.ok) {
     const errorText = await response.text();
-    // #region agent log
-    fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H2',location:'_shared/llm-client.ts:callLLM',message:'Non-OK response from LLM provider',data:{provider:config.provider,status:response.status,body:errorText.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     console.error(`LLM Error (${config.provider}): ${response.status} ${errorText}`);
     throw new LLMProviderError(`LLM provider error (${config.provider}): ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
   const content = data.choices[0]?.message?.content;
-  // #region agent log
-  fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H3',location:'_shared/llm-client.ts:callLLM',message:'LLM call succeeded',data:{provider:config.provider,model,contentLength:typeof content==='string'?content.length:0},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   return content;
 }
 

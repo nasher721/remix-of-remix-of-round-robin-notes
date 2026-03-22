@@ -14,7 +14,6 @@ export interface PatientMutationsDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
     setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
     patientCounter: number;
-    setPatientCounter: React.Dispatch<React.SetStateAction<number>>;
     fetchPatients: () => Promise<void>;
 }
 
@@ -25,7 +24,6 @@ export function usePatientMutations({
     patientsRef,
     setPatients,
     patientCounter,
-    setPatientCounter,
     fetchPatients,
 }: PatientMutationsDeps) {
     const { user } = useAuth();
@@ -50,7 +48,7 @@ export function usePatientMutations({
         try {
             const nextNumber =
                 1 +
-                Math.max(0, ...patientsRef.current.map((p) => p.patientNumber ?? 0));
+                patientsRef.current.reduce((max, p) => Math.max(max, p.patientNumber ?? 0), 0);
             const { data, error } = await supabase
                 .from("patients")
                 .insert([buildPatientInsertPayload({
@@ -66,7 +64,6 @@ export function usePatientMutations({
             const newPatient = mapPatientRecord(data);
 
             setPatients((prev) => [...prev, newPatient]);
-            setPatientCounter((prev) => Math.max(prev, nextNumber));
 
             notifications.success({
                 title: "Patient Added",
@@ -79,7 +76,7 @@ export function usePatientMutations({
                 description: "Failed to add patient.",
             });
         }
-    }, [user, notifications, setPatients, setPatientCounter, patientsRef]);
+    }, [user, notifications, setPatients, patientsRef]);
 
     const updatePatient = React.useCallback(async (id: string, field: string, value: unknown) => {
         if (!user) return;
@@ -106,13 +103,15 @@ export function usePatientMutations({
         const oldPatient = currentPatients[patientIndex];
         const updatedPatient = { ...oldPatient };
 
-        let oldValue: string | null = null;
-        if (shouldTrack && !isMedicationsField) {
-            if (isSystemField) {
+        let oldValue: unknown = null;
+        if (shouldTrack) {
+            if (isMedicationsField) {
+                oldValue = oldPatient.medications;
+            } else if (isSystemField) {
                 const systemKey = field.split('.')[1] as keyof PatientSystems;
-                oldValue = updatedPatient.systems[systemKey] || null;
+                oldValue = oldPatient.systems[systemKey] || null;
             } else {
-                oldValue = (updatedPatient[field as keyof typeof updatedPatient] as string) || null;
+                oldValue = (oldPatient[field as keyof typeof oldPatient] as string) || null;
             }
         }
 
@@ -165,7 +164,7 @@ export function usePatientMutations({
             // Record history entry for trackable fields (non-blocking)
             if (shouldTrack) {
                 const newValueStr = isMedicationsField ? serializeForHistory(value) : (value as string);
-                const oldValueStr = isMedicationsField ? serializeForHistory(oldPatient.medications) : oldValue;
+                const oldValueStr = isMedicationsField ? serializeForHistory(oldValue) : (oldValue as string);
                 if (oldValueStr !== newValueStr) {
                     void (async () => {
                         try {
@@ -176,8 +175,8 @@ export function usePatientMutations({
                                 old_value: oldValueStr,
                                 new_value: newValueStr,
                             });
-                        } catch {
-                            // Silently ignore history recording errors
+                        } catch (e) {
+                            console.warn("Failed to record field history:", e);
                         }
                     })();
                 }
@@ -265,7 +264,6 @@ export function usePatientMutations({
             const newPatient = mapPatientRecord(data);
 
             setPatients((prev) => [...prev, newPatient]);
-            setPatientCounter((prev) => Math.max(prev, nextNumber));
 
             notifications.success({
                 title: "Patient Duplicated",
@@ -278,7 +276,7 @@ export function usePatientMutations({
                 description: "Failed to duplicate patient.",
             });
         }
-    }, [user, notifications, patientsRef, setPatients, setPatientCounter]);
+    }, [user, notifications, patientsRef, setPatients]);
 
     const toggleCollapse = React.useCallback(async (id: string) => {
         const patient = patientsRef.current.find((p) => p.id === id);
@@ -335,7 +333,6 @@ export function usePatientMutations({
             if (error) throw error;
 
             setPatients([]);
-            setPatientCounter(1);
 
             notifications.success({
                 title: "All Data Cleared",
@@ -348,7 +345,7 @@ export function usePatientMutations({
                 description: "Failed to clear patients.",
             });
         }
-    }, [user, notifications, setPatients, setPatientCounter]);
+    }, [user, notifications, setPatients]);
 
     return {
         addPatient,

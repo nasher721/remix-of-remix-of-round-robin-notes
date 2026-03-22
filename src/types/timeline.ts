@@ -116,7 +116,7 @@ export const createTimelineEvent = (
 ): TimelineEvent => {
   const config = TIMELINE_EVENT_CONFIG[type];
   return {
-    id: `evt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: crypto.randomUUID(),
     patientId,
     type,
     severity: config.defaultSeverity,

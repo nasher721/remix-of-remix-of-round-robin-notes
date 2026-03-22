@@ -55,7 +55,7 @@ export function CollaborationProvider({
     Array<{ userId: string } & CursorInfo>
   >([]);
   const userIdRef = useRef<string>(
-    `user-${Math.random().toString(36).substring(2, 9)}`
+    crypto.randomUUID()
   );
   const docRef = useRef<Y.Doc | null>(null);
 

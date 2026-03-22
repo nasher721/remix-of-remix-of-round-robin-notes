@@ -386,6 +386,12 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, JSON.stringify(buttons));
   }, []);
 
+  // Keep refs to callbacks so the sync effect doesn't re-run when they change
+  const buildAppPreferencesRef = React.useRef(buildAppPreferences);
+  buildAppPreferencesRef.current = buildAppPreferences;
+  const syncSettingsToDbRef = React.useRef(syncSettingsToDb);
+  syncSettingsToDbRef.current = syncSettingsToDb;
+
   // Persist section visibility to local storage and sync to DB with debounce
   React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
@@ -397,12 +403,12 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       }
       setIsSyncingSettings(true);
       syncTimeoutRef.current = setTimeout(() => {
-        syncSettingsToDb(sectionVisibility, buildAppPreferences()).finally(() => {
+        syncSettingsToDbRef.current(sectionVisibility, buildAppPreferencesRef.current()).finally(() => {
           setIsSyncingSettings(false);
         });
       }, 1000);
     }
-  }, [sectionVisibility, editorToolbarMode, editorToolbarButtons, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
+  }, [sectionVisibility, editorToolbarMode, editorToolbarButtons, aiCredentials, aiProvider, aiModel, aiFeatureModels, user]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(size);

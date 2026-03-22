@@ -68,7 +68,7 @@ class IndexedDBQueueManager {
   async enqueue(
     mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'retryCount' | 'maxRetries'>
   ): Promise<string> {
-    const id = `mutation_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const id = crypto.randomUUID();
     
     const queuedMutation: QueuedMutation = {
       ...mutation,

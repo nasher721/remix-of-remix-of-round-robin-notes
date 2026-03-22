@@ -154,7 +154,7 @@ export const createNotification = (
   message: string,
   options?: Partial<Notification>
 ): Notification => ({
-  id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  id: crypto.randomUUID(),
   type,
   title,
   message,
