@@ -84,6 +84,42 @@ function getSessionId(): string {
 // Fingerprinting
 // ---------------------------------------------------------------------------
 
+/**
+ * Turn thrown values, API errors, and rejection reasons into a useful telemetry string.
+ * Avoids `[object Object]` from String(plainObject) and handles circular structures.
+ */
+function stringifyUnknownForTelemetry(value: unknown): string {
+  if (value == null) return String(value);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value);
+  }
+  if (typeof value === 'symbol') return value.toString();
+  if (value instanceof Error) return value.message;
+  if (typeof value === 'object') {
+    try {
+      const maybeMsg = (value as { message?: unknown }).message;
+      if (typeof maybeMsg === 'string' && maybeMsg.trim()) return maybeMsg;
+      const s = JSON.stringify(value);
+      if (s !== undefined) return s.length > 1000 ? `${s.slice(0, 1000)}…` : s;
+    } catch {
+      // Circular reference or non-serializable
+    }
+    return Object.prototype.toString.call(value);
+  }
+  return String(value);
+}
+
+function extractTelemetryErrorParts(error: unknown): { message: string; stack?: string } {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+  if (typeof error === 'string') {
+    return { message: error };
+  }
+  return { message: stringifyUnknownForTelemetry(error) };
+}
+
 function fingerprint(message: string, stack?: string): string {
   const firstLine = stack?.split('\n')[1]?.trim() ?? '';
   const input = `${message}::${firstLine}`;
@@ -193,12 +229,10 @@ function trackFrequency(event: TelemetryEvent): void {
  */
 export function recordTelemetryEvent(
   category: TelemetryCategory,
-  error: Error | string,
+  error: Error | string | unknown,
   context: Record<string, unknown> = {},
 ): TelemetryEvent {
-  const isError = error instanceof Error;
-  const message = isError ? error.message : error;
-  const stack = isError ? error.stack : undefined;
+  const { message, stack } = extractTelemetryErrorParts(error);
 
   const contextWithTrail = {
     ...context,
@@ -398,11 +432,10 @@ export function initGlobalErrorCapture(): void {
   });
 
   window.addEventListener('unhandledrejection', (event) => {
-    const reason = event.reason;
-    const error = reason instanceof Error
-      ? reason
-      : String(reason ?? 'Unknown rejection');
-    recordTelemetryEvent('unhandled_rejection', error);
+    recordTelemetryEvent(
+      'unhandled_rejection',
+      event.reason !== undefined ? event.reason : new Error('Unknown rejection'),
+    );
   });
 
   logInfo('[Telemetry] Global error capture initialized');
