@@ -60,10 +60,10 @@ export class GlobalErrorBoundary extends React.Component<
       const { error, showDetails } = this.state;
 
       return (
-        <div className="min-h-screen bg-background flex items-center justify-center p-6">
-          <div className="max-w-md w-full text-center space-y-6">
+        <main className="min-h-screen bg-background flex items-center justify-center p-6" id="main-content">
+          <div className="max-w-md w-full text-center space-y-6" role="alert" aria-live="assertive">
             <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-8 w-8 text-destructive" />
+              <AlertTriangle className="h-8 w-8 text-destructive" aria-hidden />
             </div>
 
             <div className="space-y-2">
@@ -74,23 +74,30 @@ export class GlobalErrorBoundary extends React.Component<
             </div>
 
             <div className="flex flex-col gap-3">
-              <Button onClick={this.handleReload} className="w-full gap-2">
-                <RefreshCw className="h-4 w-4" />
+              <Button type="button" onClick={this.handleReload} className="w-full min-h-[44px] gap-2">
+                <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
                 Reload Page
               </Button>
 
               <button
+                type="button"
                 onClick={() => this.setState({ showDetails: !showDetails })}
-                className="flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="flex min-h-[44px] items-center justify-center gap-1 rounded-md text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                aria-expanded={showDetails}
+                aria-controls="global-error-details"
               >
                 <ChevronDown
-                  className={`h-3 w-3 transition-transform ${showDetails ? "rotate-180" : ""}`}
+                  className={`h-3 w-3 shrink-0 transition-transform motion-reduce:transition-none ${showDetails ? "rotate-180" : ""}`}
+                  aria-hidden
                 />
                 {showDetails ? "Hide" : "Show"} error details
               </button>
 
               {showDetails && error && (
-                <div className="text-left bg-muted/50 border rounded-md p-3 space-y-2">
+                <div
+                  id="global-error-details"
+                  className="text-left bg-muted/50 border rounded-md p-3 space-y-2"
+                >
                   <p className="text-xs font-mono text-destructive break-all">
                     {error.name}: {error.message}
                   </p>
@@ -101,21 +108,23 @@ export class GlobalErrorBoundary extends React.Component<
                   )}
                   <div className="flex flex-wrap gap-2">
                     <Button
+                      type="button"
                       variant="outline"
                       size="sm"
                       onClick={this.handleCopyError}
-                      className="gap-1 text-xs h-7"
+                      className="gap-1 text-xs min-h-9"
                     >
-                      <Copy className="h-3 w-3" />
+                      <Copy className="h-3 w-3 shrink-0" aria-hidden />
                       Copy error
                     </Button>
                     <Button
+                      type="button"
                       variant="secondary"
                       size="sm"
                       onClick={this.handleCopyDiagnostics}
-                      className="gap-1 text-xs h-7"
+                      className="gap-1 text-xs min-h-9"
                     >
-                      <Copy className="h-3 w-3" />
+                      <Copy className="h-3 w-3 shrink-0" aria-hidden />
                       Copy diagnostics
                     </Button>
                   </div>
@@ -123,7 +132,7 @@ export class GlobalErrorBoundary extends React.Component<
               )}
             </div>
           </div>
-        </div>
+        </main>
       );
     }
 

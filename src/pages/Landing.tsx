@@ -44,7 +44,6 @@ const Landing: React.FC = () => {
     };
 
     const handleError = () => {
-      console.log("Video failed to load, starting app directly.");
       startTransition();
     };
 
@@ -62,9 +61,6 @@ const Landing: React.FC = () => {
     setTimeout(() => {
       setIsActive(true);
     }, 200);
-    setTimeout(() => {
-      setIsActive(true);
-    }, 600);
   };
 
   const handlePlayClick = () => {
@@ -113,8 +109,10 @@ const Landing: React.FC = () => {
         </video>
         {showPlayOverlay && (
           <button
+            type="button"
             onClick={handlePlayClick}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white px-10 py-5 rounded-full cursor-pointer z-[200] font-semibold backdrop-blur-sm hover:bg-black/70 transition-colors"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white px-10 py-5 min-h-[44px] min-w-[44px] rounded-full cursor-pointer z-[200] font-semibold backdrop-blur-sm hover:bg-black/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/40"
+            aria-label="Play intro video"
           >
             Start Experience
           </button>
@@ -259,8 +257,10 @@ const Landing: React.FC = () => {
 
         <div className={`cta-section mt-10 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
           <button
+            type="button"
             onClick={handleLaunchPortal}
-            className="cta-button bg-white text-[#1976D2] px-12 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer outline-none"
+            className="cta-button min-h-[44px] bg-white text-[#1976D2] px-12 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-105 hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
+            aria-label={user ? "Open dashboard" : "Sign in"}
           >
             <span>Launch Portal</span>
             <span className="material-icons">login</span>

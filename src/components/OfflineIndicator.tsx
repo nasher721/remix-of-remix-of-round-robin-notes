@@ -42,21 +42,29 @@ export function OfflineIndicator() {
           variant="ghost"
           size="sm"
           className={`gap-2 ${!isOnline ? 'text-destructive' : pendingCount > 0 ? 'text-yellow-500' : ''}`}
+          aria-label={
+            !isOnline
+              ? `Offline${pendingCount > 0 ? `, ${pendingCount} pending changes` : ""}`
+              : pendingCount > 0
+                ? `Online, ${pendingCount} changes waiting to sync`
+                : "Online"
+          }
+          aria-haspopup="dialog"
         >
           {isOnline ? (
             pendingCount > 0 ? (
               <>
-                <Cloud className="h-4 w-4" />
+                <Cloud className="h-4 w-4 shrink-0" aria-hidden />
                 <Badge variant="secondary" className="h-5 px-1.5 text-xs">
                   {pendingCount}
                 </Badge>
               </>
             ) : (
-              <Wifi className="h-4 w-4" />
+              <Wifi className="h-4 w-4 shrink-0" aria-hidden />
             )
           ) : (
             <>
-              <WifiOff className="h-4 w-4" />
+              <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
               {pendingCount > 0 && (
                 <Badge variant="destructive" className="h-5 px-1.5 text-xs">
                   {pendingCount}
@@ -132,8 +140,9 @@ export function OfflineIndicator() {
                           size="icon"
                           className="h-6 w-6"
                           onClick={triggerSync}
+                          aria-label="Sync now"
                         >
-                          <RefreshCw className="h-3.5 w-3.5" />
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>Sync now</TooltipContent>
@@ -262,8 +271,9 @@ export function OfflineIndicator() {
                     size="sm"
                     onClick={clearQueue}
                     disabled={isSyncing}
+                    aria-label="Discard pending changes"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Discard pending changes</TooltipContent>

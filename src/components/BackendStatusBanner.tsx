@@ -30,18 +30,24 @@ export const BackendStatusBanner = (): React.ReactElement | null => {
         </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => void ctx.refresh({ force: true })}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 min-h-[44px] sm:min-h-0 sm:h-8 shrink-0"
+          onClick={() => void ctx.refresh({ force: true })}
+        >
           Retry check
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-11 w-11 sm:h-8 sm:w-8 shrink-0"
           onClick={ctx.dismissBanner}
           aria-label="Dismiss backend status banner"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4" aria-hidden />
         </Button>
       </div>
     </div>

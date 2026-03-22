@@ -1,4 +1,5 @@
-import { Home, Plus, BookOpen, Settings, FileUp } from "lucide-react";
+import * as React from "react";
+import { Home, Plus, BookOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type MobileTab = "patients" | "add" | "reference" | "settings";
@@ -18,21 +19,31 @@ export const MobileNavBar = ({ activeTab, onTabChange, patientCount = 0 }: Mobil
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-t border-border/30 safe-area-bottom">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-t border-border/30 safe-area-bottom"
+      aria-label="Main sections"
+    >
       <div className="flex items-center justify-around h-16 px-2">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
+            type="button"
             onClick={() => onTabChange(id)}
+            aria-current={activeTab === id ? "true" : undefined}
+            aria-label={
+              id === "patients" && patientCount > 0
+                ? `Patients, ${patientCount} total`
+                : label
+            }
             className={cn(
-              "flex flex-col items-center justify-center flex-1 h-full gap-0.5 transition-all duration-200 relative active:scale-95",
+              "flex flex-col items-center justify-center flex-1 min-h-[48px] h-full gap-0.5 transition-all duration-200 relative rounded-lg active:scale-95 motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               activeTab === id
                 ? "text-primary"
                 : "text-muted-foreground/60"
             )}
           >
             {activeTab === id && (
-              <span className="absolute top-0 left-1/4 right-1/4 h-[2px] rounded-full bg-primary" />
+              <span className="absolute top-0 left-1/4 right-1/4 h-[2px] rounded-full bg-primary" aria-hidden />
             )}
             <div
               className={cn(
@@ -40,9 +51,12 @@ export const MobileNavBar = ({ activeTab, onTabChange, patientCount = 0 }: Mobil
                 activeTab === id && "bg-primary/8"
               )}
             >
-              <Icon className={cn("h-5 w-5", activeTab === id && "text-primary")} />
+              <Icon className={cn("h-5 w-5", activeTab === id && "text-primary")} aria-hidden />
               {id === "patients" && patientCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] flex items-center justify-center text-[9px] font-bold bg-primary text-primary-foreground rounded-full px-0.5 border-2 border-background">
+                <span
+                  className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] flex items-center justify-center text-[9px] font-bold bg-primary text-primary-foreground rounded-full px-0.5 border-2 border-background"
+                  aria-hidden
+                >
                   {patientCount}
                 </span>
               )}

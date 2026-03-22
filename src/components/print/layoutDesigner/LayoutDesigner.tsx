@@ -218,9 +218,9 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <LayoutTemplate className="h-5 w-5 text-primary" />
-          <div>
+        <div className="flex items-center gap-3 min-w-0">
+          <LayoutTemplate className="h-5 w-5 text-primary shrink-0" aria-hidden />
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold">Layout Designer</h2>
             <p className="text-xs text-muted-foreground">
               Customize how your patient list is exported
@@ -234,12 +234,14 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
                   onClick={undo}
                   disabled={!canUndo}
+                  aria-label="Undo"
                 >
-                  <Undo2 className="h-4 w-4" />
+                  <Undo2 className="h-4 w-4" aria-hidden />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Undo</TooltipContent>
@@ -250,12 +252,14 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
                   onClick={redo}
                   disabled={!canRedo}
+                  aria-label="Redo"
                 >
-                  <Redo2 className="h-4 w-4" />
+                  <Redo2 className="h-4 w-4" aria-hidden />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Redo</TooltipContent>
@@ -265,29 +269,37 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
           <Separator orientation="vertical" className="h-6" />
 
           {/* Preview/Edit toggle */}
-          <div className="flex bg-muted p-1 rounded-lg">
+          <div
+            className="flex bg-muted p-1 rounded-lg"
+            role="group"
+            aria-label="Design or preview mode"
+          >
             <button
+              type="button"
               onClick={() => setPreviewMode('design')}
+              aria-pressed={previewMode === 'design'}
               className={cn(
-                'px-3 py-1 text-xs rounded-md transition-all flex items-center gap-1.5',
+                'px-3 py-1.5 min-h-[36px] text-xs rounded-md transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                 previewMode === 'design'
                   ? 'bg-background shadow-sm text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <Pencil className="h-3 w-3" />
+              <Pencil className="h-3 w-3 shrink-0" aria-hidden />
               Design
             </button>
             <button
+              type="button"
               onClick={() => setPreviewMode('preview')}
+              aria-pressed={previewMode === 'preview'}
               className={cn(
-                'px-3 py-1 text-xs rounded-md transition-all flex items-center gap-1.5',
+                'px-3 py-1.5 min-h-[36px] text-xs rounded-md transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                 previewMode === 'preview'
                   ? 'bg-background shadow-sm text-foreground'
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              <Eye className="h-3 w-3" />
+              <Eye className="h-3 w-3 shrink-0" aria-hidden />
               Preview
             </button>
           </div>
@@ -298,8 +310,14 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={resetToDefault}>
-                  <RefreshCw className="h-4 w-4" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={resetToDefault}
+                  aria-label="Reset to default layout"
+                >
+                  <RefreshCw className="h-4 w-4" aria-hidden />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Reset to Default</TooltipContent>
@@ -310,8 +328,14 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => exportLayout()}>
-                  <Download className="h-4 w-4" />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => exportLayout()}
+                  aria-label="Export layout to file"
+                >
+                  <Download className="h-4 w-4" aria-hidden />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Export Layout</TooltipContent>
@@ -323,11 +347,13 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
                   onClick={() => fileInputRef.current?.click()}
+                  aria-label="Import layout from file"
                 >
-                  <Upload className="h-4 w-4" />
+                  <Upload className="h-4 w-4" aria-hidden />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Import Layout</TooltipContent>
@@ -337,15 +363,17 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
             ref={fileInputRef}
             type="file"
             accept=".json"
-            className="hidden"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Import layout JSON file"
             onChange={handleImportFile}
           />
 
           {/* Save */}
           <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Save className="h-4 w-4" />
+              <Button type="button" variant="outline" size="sm" className="gap-1.5">
+                <Save className="h-4 w-4 shrink-0" aria-hidden />
                 Save
                 {hasUnsavedChanges && (
                   <Badge variant="secondary" className="ml-1 px-1 py-0 text-[10px]">
@@ -382,10 +410,10 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setSaveDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSaveLayout} disabled={!newLayoutName.trim()}>
+                <Button type="button" onClick={handleSaveLayout} disabled={!newLayoutName.trim()}>
                   Save Layout
                 </Button>
               </DialogFooter>
@@ -395,8 +423,8 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
           <Separator orientation="vertical" className="h-6" />
 
           {/* Apply */}
-          <Button onClick={handleApply} className="gap-1.5">
-            <Check className="h-4 w-4" />
+          <Button type="button" onClick={handleApply} className="gap-1.5">
+            <Check className="h-4 w-4 shrink-0" aria-hidden />
             Apply Layout
           </Button>
         </div>
@@ -411,17 +439,17 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
             onValueChange={(v) => setActiveTab(v as typeof activeTab)}
             className="h-full flex flex-col"
           >
-            <TabsList className="grid w-full grid-cols-3 mx-4 mt-4">
+            <TabsList className="grid w-full grid-cols-3 mx-4 mt-4" aria-label="Layout designer panels">
               <TabsTrigger value="templates" className="text-xs gap-1">
-                <LayoutTemplate className="h-3 w-3" />
+                <LayoutTemplate className="h-3 w-3 shrink-0" aria-hidden />
                 Templates
               </TabsTrigger>
               <TabsTrigger value="sections" className="text-xs gap-1">
-                <Layers className="h-3 w-3" />
+                <Layers className="h-3 w-3 shrink-0" aria-hidden />
                 Sections
               </TabsTrigger>
               <TabsTrigger value="styles" className="text-xs gap-1">
-                <Palette className="h-3 w-3" />
+                <Palette className="h-3 w-3 shrink-0" aria-hidden />
                 Styles
               </TabsTrigger>
             </TabsList>
@@ -467,15 +495,18 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <button
+                                    type="button"
                                     onClick={() => setViewType(viewType)}
+                                    aria-pressed={isActive}
+                                    aria-label={`${label} view`}
                                     className={cn(
-                                      'flex flex-col items-center gap-1 p-2 rounded-lg border transition-all',
+                                      'flex flex-col items-center gap-1 p-2 min-h-[64px] rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                                       isActive
                                         ? 'border-primary bg-primary/10 text-primary'
                                         : 'border-transparent hover:border-border hover:bg-muted/50'
                                     )}
                                   >
-                                    <Icon className="h-5 w-5" />
+                                    <Icon className="h-5 w-5 shrink-0" aria-hidden />
                                     <span className="text-[10px] font-medium">{label}</span>
                                   </button>
                                 </TooltipTrigger>
@@ -499,9 +530,12 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                           {recentLayouts.map((layout) => (
                             <button
                               key={layout.id}
+                              type="button"
                               onClick={() => selectLayout(layout.id)}
+                              aria-current={currentLayout.id === layout.id ? 'true' : undefined}
+                              aria-label={`Select recent layout, ${layout.name}`}
                               className={cn(
-                                'w-full text-left p-2 rounded-lg border transition-all',
+                                'w-full text-left p-2 rounded-lg border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                                 currentLayout.id === layout.id
                                   ? 'border-primary bg-primary/5'
                                   : 'border-transparent hover:bg-muted/50'
@@ -523,37 +557,41 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                         {builtInLayouts.map((layout) => {
                           const Icon = VIEW_TYPE_ICONS[layout.viewType];
                           return (
-                            <button
+                            <div
                               key={layout.id}
-                              onClick={() => selectLayout(layout.id)}
                               className={cn(
-                                'w-full text-left p-2 rounded-lg border transition-all group',
+                                'flex items-stretch rounded-lg border transition-all group',
                                 currentLayout.id === layout.id
                                   ? 'border-primary bg-primary/5'
                                   : 'border-transparent hover:bg-muted/50'
                               )}
                             >
-                              <div className="flex items-center gap-2">
-                                <Icon className="h-4 w-4 text-muted-foreground" />
-                                <div className="flex-1 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => selectLayout(layout.id)}
+                                aria-current={currentLayout.id === layout.id ? 'true' : undefined}
+                                aria-label={`Select built-in template, ${layout.name}`}
+                                className="flex min-w-0 flex-1 items-center gap-2 p-2 text-left rounded-l-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                              >
+                                <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                                <div className="min-w-0 flex-1">
                                   <p className="text-sm font-medium truncate">{layout.name}</p>
                                   <p className="text-xs text-muted-foreground truncate">
                                     {layout.description}
                                   </p>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    duplicateLayout(layout.id);
-                                  }}
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </button>
+                              </button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 shrink-0 self-center opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                                aria-label={`Duplicate template ${layout.name}`}
+                                onClick={() => duplicateLayout(layout.id)}
+                              >
+                                <Copy className="h-3 w-3" aria-hidden />
+                              </Button>
+                            </div>
                           );
                         })}
                       </div>
@@ -569,19 +607,24 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                           {savedLayouts.map((saved) => {
                             const Icon = VIEW_TYPE_ICONS[saved.config.viewType];
                             return (
-                              <button
+                              <div
                                 key={saved.id}
-                                onClick={() => selectLayout(saved.id)}
                                 className={cn(
-                                  'w-full text-left p-2 rounded-lg border transition-all group',
+                                  'flex items-stretch rounded-lg border transition-all group',
                                   currentLayout.id === saved.id
                                     ? 'border-primary bg-primary/5'
                                     : 'border-transparent hover:bg-muted/50'
                                 )}
                               >
-                                <div className="flex items-center gap-2">
-                                  <Icon className="h-4 w-4 text-muted-foreground" />
-                                  <div className="flex-1 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => selectLayout(saved.id)}
+                                  aria-current={currentLayout.id === saved.id ? 'true' : undefined}
+                                  aria-label={`Select saved layout, ${saved.name}`}
+                                  className="flex min-w-0 flex-1 items-center gap-2 p-2 text-left rounded-l-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                                >
+                                  <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                                  <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium truncate">{saved.name}</p>
                                     {saved.description && (
                                       <p className="text-xs text-muted-foreground truncate">
@@ -589,43 +632,40 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
                                       </p>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        exportLayout(saved.config);
-                                      }}
-                                    >
-                                      <FileJson className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        duplicateLayout(saved.id);
-                                      }}
-                                    >
-                                      <Copy className="h-3 w-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteSavedLayout(saved.id);
-                                      }}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  </div>
+                                </button>
+                                <div className="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    aria-label={`Export layout ${saved.name}`}
+                                    onClick={() => exportLayout(saved.config)}
+                                  >
+                                    <FileJson className="h-3 w-3" aria-hidden />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    aria-label={`Duplicate layout ${saved.name}`}
+                                    onClick={() => duplicateLayout(saved.id)}
+                                  >
+                                    <Copy className="h-3 w-3" aria-hidden />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-destructive"
+                                    aria-label={`Delete saved layout ${saved.name}`}
+                                    onClick={() => deleteSavedLayout(saved.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" aria-hidden />
+                                  </Button>
                                 </div>
-                              </button>
+                              </div>
                             );
                           })}
                         </div>

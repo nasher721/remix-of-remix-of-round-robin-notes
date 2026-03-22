@@ -252,7 +252,7 @@ const Auth = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
                       aria-pressed={showPassword}
-                      className="focus:outline-none hover:text-foreground transition-colors"
+                      className="rounded-sm text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -341,7 +341,7 @@ const Auth = () => {
                 setIsLogin(!isLogin);
                 setErrors({});
               }}
-              className="text-card-foreground hover:underline font-semibold"
+              className="text-primary font-semibold underline-offset-4 hover:underline rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
             >
               {isLogin ? "Sign up" : "Sign in"}
             </button>

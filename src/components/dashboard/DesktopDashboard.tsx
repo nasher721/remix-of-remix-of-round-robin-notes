@@ -264,22 +264,30 @@ export const DesktopDashboard = () => {
             <div className="p-4 md:p-6 pb-0">
               <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between mb-4">
                 <div className="relative flex-1 max-w-md" role="search">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60" aria-hidden="true" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 pointer-events-none" aria-hidden="true" />
                   <Input
                     ref={searchInputRef}
+                    id="desktop-patient-search"
                     placeholder="Search patients... (Ctrl+K)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     aria-label="Search patients"
-                    className="pl-10 h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm"
+                    autoComplete="off"
+                    className="pl-10 h-10 md:h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm min-h-[44px] md:min-h-0"
                   />
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2 h-9 rounded-lg border-border/60 text-muted-foreground hover:text-foreground">
-                      <Filter className="h-3.5 w-3.5" aria-hidden="true" />
-                      Filters & actions
-                      <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 h-10 md:h-9 min-h-[44px] md:min-h-0 rounded-lg border-border/60 text-muted-foreground hover:text-foreground"
+                      aria-label="Filter and sort patients"
+                      aria-haspopup="menu"
+                    >
+                      <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">Filters & actions</span>
+                      <ChevronDown className="h-3 w-3 opacity-60 shrink-0" aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 rounded-lg shadow-modal">
@@ -381,11 +389,11 @@ export const DesktopDashboard = () => {
 
       <Button
         onClick={() => setAICommandPaletteOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 transition-all duration-200 border border-white/20 p-3"
+        className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-white/20 p-3"
         aria-label="Open AI tools"
         style={{ height: "3.25rem", width: "3.25rem" }}
       >
-        <Sparkles className="h-5 w-5 drop-shadow" />
+        <Sparkles className="h-5 w-5 drop-shadow" aria-hidden />
       </Button>
 
       <PrintExportModal

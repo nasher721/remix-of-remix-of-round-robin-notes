@@ -15,13 +15,17 @@ installObservabilityDebugApi();
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
-      console.log('[App] Service Worker registered:', registration.scope);
+      if (import.meta.env.DEV) {
+        console.log('[App] Service Worker registered:', registration.scope);
+      }
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[App] New content available, refresh to update');
+              if (import.meta.env.DEV) {
+                console.log('[App] New content available, refresh to update');
+              }
             }
           });
         }

@@ -29,13 +29,15 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ icon, title, description, del
   return (
     <div
       ref={ref}
-      className={`group relative bg-card/80 dark:bg-card/60 backdrop-blur-sm rounded-2xl p-8 shadow-sm border border-border/40 hover:shadow-lg hover:border-primary/20 hover:-translate-y-1.5 transition-all duration-500 ${
+      className={`group relative bg-card/80 dark:bg-card/60 backdrop-blur-sm rounded-2xl p-8 shadow-sm border border-border/40 hover:shadow-lg hover:border-primary/20 hover:-translate-y-1.5 motion-reduce:hover:translate-y-0 transition-all duration-500 motion-reduce:transition-opacity ${
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center mb-5 shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform duration-300">
-        <span className="material-icons text-primary-foreground text-[28px]">{icon}</span>
+      <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center mb-5 shadow-lg shadow-primary/20 group-hover:scale-110 motion-reduce:group-hover:scale-100 transition-transform duration-300 motion-reduce:transition-none">
+        <span className="material-icons text-primary-foreground text-[28px]" aria-hidden>
+          {icon}
+        </span>
       </div>
       <h3 className="text-xl font-bold text-foreground mb-3 font-heading tracking-tight">
         {title}
@@ -72,7 +74,7 @@ const SectionHeading: React.FC<{ children: React.ReactNode; sub?: string }> = ({
         isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
       }`}
     >
-      <h2 className="text-[2.5rem] font-extrabold text-foreground tracking-tight mb-4 font-heading">
+      <h2 className="text-[2.5rem] font-extrabold text-foreground tracking-tight mb-4 font-heading text-balance">
         {children}
       </h2>
       {sub && (
@@ -180,12 +182,14 @@ const StatCard: React.FC<{ value: string; label: string; icon: string; delay: nu
   return (
     <div
       ref={ref}
-      className={`text-center p-6 rounded-xl bg-card/70 dark:bg-card/50 backdrop-blur-sm border border-border/40 transition-all duration-500 ${
-        isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-6 scale-95"
+      className={`text-center p-6 rounded-xl bg-card/70 dark:bg-card/50 backdrop-blur-sm border border-border/40 transition-all duration-500 motion-reduce:transition-opacity ${
+        isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-6 scale-95 motion-reduce:scale-100"
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <span className="material-icons text-primary text-[32px] mb-2">{icon}</span>
+      <span className="material-icons text-primary text-[32px] mb-2 block" aria-hidden>
+        {icon}
+      </span>
       <div className="text-3xl font-extrabold text-foreground font-heading">
         {value}
       </div>
@@ -234,11 +238,17 @@ const BottomCTA: React.FC = () => {
           </p>
           <button
             type="button"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-            className="bg-white/95 text-primary px-10 py-3.5 rounded-2xl text-base font-bold uppercase tracking-wider inline-flex items-center gap-2.5 shadow-xl hover:-translate-y-0.5 hover:shadow-2xl transition-all duration-200 cursor-pointer border-none outline-none"
+            onClick={() => {
+              const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+            }}
+            className="min-h-[44px] bg-white/95 text-primary px-10 py-3.5 rounded-2xl text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-xl hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 hover:shadow-2xl transition-all duration-200 motion-reduce:transition-shadow cursor-pointer border-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+            aria-label="Scroll back to top of page"
           >
             <span>Get Started</span>
-            <span className="material-icons">arrow_upward</span>
+            <span className="material-icons text-xl" aria-hidden>
+              arrow_upward
+            </span>
           </button>
         </div>
       </div>
