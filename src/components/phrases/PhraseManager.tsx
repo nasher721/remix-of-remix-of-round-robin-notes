@@ -2,7 +2,7 @@
  * Phrase Manager - Full CRUD interface for managing clinical phrases
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -61,11 +61,17 @@ import {
   ChevronRight,
   ChevronDown,
   Settings2,
+  ArrowDownWideNarrow,
+  AlertCircle,
 } from 'lucide-react';
 import { useClinicalPhrases } from '@/hooks/useClinicalPhrases';
+import { useCloudAutotexts } from '@/hooks/useAutotexts';
 import { PhraseFieldEditor } from './PhraseFieldEditor';
 import type { ClinicalPhrase, PhraseFolder, PhraseField, PhraseVersion } from '@/types/phrases';
 import { toast } from 'sonner';
+import { ClinicalPhraseAnalytics } from '@/components/ClinicalPhraseAnalytics';
+import { getPhraseShortcutConflicts } from '@/lib/phraseShortcutConflicts';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface PhraseManagerProps {
   open: boolean;
@@ -94,7 +100,10 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
     restoreVersion,
   } = useClinicalPhrases();
 
+  const { autotexts: autotextsForConflicts } = useCloudAutotexts();
+
   const [search, setSearch] = useState('');
+  const [phraseSort, setPhraseSort] = useState<'name' | 'recent' | 'usage'>('name');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   
@@ -207,6 +216,36 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
     
     return matchesSearch && matchesFolder;
   });
+
+  const displayPhrases = useMemo(() => {
+    const list = [...filteredPhrases];
+    if (phraseSort === 'name') {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (phraseSort === 'recent') {
+      list.sort((a, b) => {
+        const ta = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+        const tb = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+        return tb - ta;
+      });
+    } else {
+      list.sort((a, b) => b.usageCount - a.usageCount);
+    }
+    return list;
+  }, [filteredPhrases, phraseSort]);
+
+  const shortcutConflicts = useMemo(
+    () =>
+      getPhraseShortcutConflicts(formData.shortcut, {
+        autotextShortcuts: autotextsForConflicts.map((a) => a.shortcut),
+        phrases: phrases.map((p) => ({
+          id: p.id,
+          shortcut: p.shortcut,
+          name: p.name,
+        })),
+        excludePhraseId: editingPhrase?.id,
+      }),
+    [formData.shortcut, autotextsForConflicts, phrases, editingPhrase?.id],
+  );
 
   // Build folder tree
   const getFolderChildren = useCallback((parentId: string | null): PhraseFolder[] => {
@@ -544,6 +583,7 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                     value={formData.shortcut}
                     onChange={e => setFormData(prev => ({ ...prev, shortcut: e.target.value }))}
                     placeholder=".sob"
+                    autoComplete="off"
                   />
                 </div>
                 <div className="space-y-2">
@@ -556,9 +596,34 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                     value={formData.hotkey}
                     onChange={e => setFormData(prev => ({ ...prev, hotkey: e.target.value }))}
                     placeholder="ctrl+shift+1"
+                    autoComplete="off"
                   />
                 </div>
               </div>
+
+              {shortcutConflicts.length > 0 && (
+                <Alert variant="default" className="border-amber-500/40 bg-amber-500/5">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                  <AlertTitle className="text-amber-900 dark:text-amber-100">Shortcut overlap</AlertTitle>
+                  <AlertDescription className="text-amber-900/90 dark:text-amber-50/90">
+                    <ul className="list-disc pl-4 space-y-1 text-sm">
+                      {shortcutConflicts.some((c) => c.type === 'autotext') && (
+                        <li>
+                          This matches an autotext shortcut. In note fields, Space or Tab expands the{' '}
+                          <span className="font-medium">autotext</span> first.
+                        </li>
+                      )}
+                      {shortcutConflicts
+                        .filter((c) => c.type === 'phrase')
+                        .map((c, i) => (
+                          <li key={`${c.label}-${i}`}>
+                            Another phrase already uses this shortcut: &quot;{c.label}&quot;.
+                          </li>
+                        ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <Separator />
 
@@ -764,6 +829,9 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
       <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle>Clinical Phrase Manager</DialogTitle>
+          <p className="text-sm text-muted-foreground font-normal pt-1">
+            Folders and placeholders for reusable blocks. Short inline shorthand lives under Autotexts &amp; Templates in settings.
+          </p>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">
@@ -802,8 +870,8 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
 
           {/* Main content - Phrases */}
           <div className="flex-1 flex flex-col">
-            <div className="p-3 border-b border-border/50 flex items-center gap-2">
-              <div className="relative flex-1">
+            <div className="p-3 border-b border-border/50 flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[140px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search phrases..."
@@ -812,6 +880,18 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                   className="pl-9"
                 />
               </div>
+              <Select value={phraseSort} onValueChange={v => setPhraseSort(v as 'name' | 'recent' | 'usage')}>
+                <SelectTrigger className="w-[200px] gap-2" aria-label="Sort phrases">
+                  <ArrowDownWideNarrow className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <SelectValue placeholder="Sort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name (A–Z)</SelectItem>
+                  <SelectItem value="recent">Recently used</SelectItem>
+                  <SelectItem value="usage">Most used</SelectItem>
+                </SelectContent>
+              </Select>
+              <ClinicalPhraseAnalytics phrases={phrases} />
               <Button onClick={() => setIsCreating(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Phrase
@@ -824,20 +904,31 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredPhrases.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground px-4 text-center">
                   <FileText className="h-12 w-12 mb-2 opacity-50" />
-                  <p>No phrases found</p>
-                  <Button
-                    variant="link"
-                    onClick={() => setIsCreating(true)}
-                    className="mt-2"
-                  >
-                    Create your first phrase
-                  </Button>
+                  {phrases.length === 0 ? (
+                    <>
+                      <p>No phrases yet</p>
+                      <Button
+                        variant="link"
+                        onClick={() => setIsCreating(true)}
+                        className="mt-2"
+                      >
+                        Create your first phrase
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p>No phrases match this folder or search</p>
+                      <p className="text-xs mt-2 max-w-sm">
+                        Clear the search box, choose &quot;All Phrases&quot;, or pick a different folder.
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="p-3 space-y-2">
-                  {filteredPhrases.map(phrase => (
+                  {displayPhrases.map(phrase => (
                     <div
                       key={phrase.id}
                       className="p-3 border rounded-lg hover:bg-accent/50 transition-colors"

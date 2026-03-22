@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -182,6 +183,15 @@ export const AutotextManager = ({
     }
   };
 
+  const handleCopyExpansion = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied expansion" });
+    } catch {
+      toast({ title: "Could not copy", variant: "destructive" });
+    }
+  };
+
   const filteredAutotexts = autotexts.filter(a => 
     a.shortcut.toLowerCase().includes(searchQuery.toLowerCase()) ||
     a.expansion.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -211,6 +221,11 @@ export const AutotextManager = ({
             <Sparkles className="h-5 w-5 text-primary" />
             Autotexts, Templates & Dictionary
           </DialogTitle>
+          <DialogDescription>
+            Shortcuts expand as you type in note fields. Use{" "}
+            <span className="font-medium text-foreground">Manage Phrases</span>{" "}
+            for longer snippets, folders, placeholders, and version history.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex items-center gap-2 mb-4">
@@ -279,6 +294,11 @@ export const AutotextManager = ({
             </Card>
 
             <ScrollArea className="flex-1">
+              {filteredAutotexts.length === 0 && autotexts.length > 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No autotexts match your search. Try another term or clear the search box.
+                </p>
+              ) : (
               <div className="space-y-2">
                 {autotextCategories.map(category => {
                   const categoryAutotexts = filteredAutotexts.filter(a => a.category === category);
@@ -299,6 +319,16 @@ export const AutotextManager = ({
                             </Badge>
                             <span className="flex-1 text-sm truncate">{autotext.expansion}</span>
                             <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 opacity-70 md:opacity-0 md:group-hover:opacity-100"
+                              aria-label="Copy expansion"
+                              onClick={() => handleCopyExpansion(autotext.expansion)}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                            <Button
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
@@ -313,6 +343,7 @@ export const AutotextManager = ({
                   );
                 })}
               </div>
+              )}
             </ScrollArea>
 
             <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
@@ -355,6 +386,11 @@ export const AutotextManager = ({
             </Card>
 
             <ScrollArea className="flex-1">
+              {filteredTemplates.length === 0 && templates.length > 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No templates match your search. Try another term or clear the search box.
+                </p>
+              ) : (
               <div className="space-y-3">
                 {templateCategories.map(category => {
                   const categoryTemplates = filteredTemplates.filter(t => t.category === category);
@@ -401,6 +437,7 @@ export const AutotextManager = ({
                   );
                 })}
               </div>
+              )}
             </ScrollArea>
 
             <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
