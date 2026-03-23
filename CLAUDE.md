@@ -18,6 +18,15 @@ Deployed on Vercel with React, TypeScript, Supabase, and Tailwind CSS.
 | Routing | React Router 6 (SPA, client-side only) |
 | Forms | React Hook Form + Zod validation |
 | Package Manager | npm (bun.lockb also present) |
+| Motion (UI) | Framer Motion (default) + **Anime.js v4** (`animejs`) for timelines / choreography |
+
+## Motion libraries (Framer Motion vs Anime.js)
+
+- **Framer Motion** remains the default for declarative enter/exit, springs, `AnimatePresence`, layout, and gesture-driven UI. Shared variants live in `src/lib/animations.ts`; route transitions use `src/components/ui/page-transition.tsx`.
+- **Anime.js v4** is a **complement**: use it for multi-step **timelines**, SVG/path motion, staggered choreography, or one-off hero sequences where imperative control is clearer. Import only what you need from `animejs` (e.g. `createTimeline`, `stagger`).
+- **Lifecycle-safe usage**: wrap timelines in **`useAnimeTimeline`** (`src/hooks/useAnimeTimeline.ts`) so unmount calls **`timeline.cancel()`** and optional teardown. Do not scatter raw `animate()` calls without cleanup.
+- **Accessibility**: **`prefers-reduced-motion`** must gate motion-heavy work. Use **`useMotionPreference()`** from `src/hooks/useReducedMotion.tsx` (same signal as the rest of the app—OS + `localStorage` override). When reduced motion is preferred, **skip Anime timelines** or jump to the final visual state; **no-op** is handled inside `useAnimeTimeline` when `prefersReducedMotion` is true.
+- **Conflicts**: Do not animate the same DOM properties on the same node with both Framer Motion and Anime.js at once.
 
 ## Commands
 
