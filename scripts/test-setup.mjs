@@ -15,3 +15,22 @@ globalThis.HTMLElement = dom.window.HTMLElement;
 globalThis.localStorage = dom.window.localStorage;
 globalThis.DOMParser = dom.window.DOMParser;
 globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+
+// Anime.js target parsing uses global NodeList (jsdom only puts it on window).
+globalThis.NodeList = dom.window.NodeList;
+globalThis.HTMLCollection = dom.window.HTMLCollection;
+globalThis.Element = dom.window.Element;
+globalThis.Node = dom.window.Node;
+globalThis.SVGElement = dom.window.SVGElement;
+
+// Anime.js and other browser APIs read global requestAnimationFrame at module load.
+if (typeof globalThis.requestAnimationFrame !== "function") {
+  globalThis.requestAnimationFrame = (callback) => setTimeout(() => callback(0), 0);
+}
+if (typeof globalThis.cancelAnimationFrame !== "function") {
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
+}
+if (dom.window && typeof dom.window.requestAnimationFrame !== "function") {
+  dom.window.requestAnimationFrame = globalThis.requestAnimationFrame.bind(globalThis);
+  dom.window.cancelAnimationFrame = globalThis.cancelAnimationFrame.bind(globalThis);
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { z } from "zod";
+import { useMotionPreference } from "@/hooks/useReducedMotion";
+import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
 // Removed direct supabase import to avoid potential cycles
 
 const authSchema = z.object({
@@ -32,6 +34,29 @@ const Auth = () => {
       navigate("/");
     }
   }, [user, navigate]);
+
+  const { prefersReducedMotion } = useMotionPreference();
+  const authCardStaggerRef = useRef<HTMLDivElement>(null);
+  const animeRunAuthCard = shouldRunAnime(prefersReducedMotion);
+
+  useAnimeTimeline(
+    ({ createTimeline, stagger }) => {
+      const root = authCardStaggerRef.current;
+      if (!root) return null;
+      const items = root.querySelectorAll<HTMLElement>("[data-anime-stagger-item]");
+      if (items.length === 0) return null;
+      const tl = createTimeline({ defaults: { ease: "outCubic" } });
+      tl.add(items, {
+        opacity: { from: 0, to: 1 },
+        y: { from: 12, to: 0 },
+        duration: 320,
+        delay: stagger(45, { from: "start" }),
+      });
+      return tl;
+    },
+    [isLogin],
+    { enabled: animeRunAuthCard, afterLayout: true },
+  );
 
   const validateForm = () => {
     try {
@@ -197,8 +222,11 @@ const Auth = () => {
         {/* Subtle background glow behind the card */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
-        <div className="relative w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl ring-1 ring-border/50 border border-border/50 space-y-7 z-10 transition-all">
-          <div className="text-center lg:text-left space-y-2">
+        <div
+          ref={authCardStaggerRef}
+          className="relative w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl ring-1 ring-border/50 border border-border/50 space-y-7 z-10 transition-all"
+        >
+          <div className="text-center lg:text-left space-y-2" data-anime-stagger-item>
             <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
             <h2 id="auth-heading" className="text-2xl font-bold tracking-tight text-card-foreground">
               {isLogin ? "Welcome back" : "Create an account"}
@@ -210,7 +238,7 @@ const Auth = () => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" data-anime-stagger-item>
             <div className="space-y-3.5">
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-xs font-medium text-card-foreground">Email</Label>
@@ -281,7 +309,7 @@ const Auth = () => {
             </Button>
           </form>
 
-          <div className="relative">
+          <div className="relative" data-anime-stagger-item>
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border/30" />
             </div>
@@ -292,7 +320,7 @@ const Auth = () => {
             </div>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2.5" data-anime-stagger-item>
             <Button
               type="button"
               variant="outline"
@@ -331,7 +359,7 @@ const Auth = () => {
             </Button>
           </div>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-sm" data-anime-stagger-item>
             <span className="text-card-foreground/70">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
             </span>
