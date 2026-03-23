@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import FeatureHighlights from "@/components/landing/FeatureHighlights";
 import { LANDING_INTRO_DISABLED, LANDING_INTRO_VIDEO_SRC } from "@/config/marketing";
+import { createTimeline } from "animejs";
+import { durations, ease, staggers } from "@/lib/anime-presets";
 
 const INTRO_MAX_MS = 9000;
 
@@ -25,6 +27,11 @@ const Landing: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroTitleRef = useRef<HTMLHeadingElement>(null);
+  const heroSubRef = useRef<HTMLParagraphElement>(null);
+  const heroTagsRef = useRef<HTMLDivElement>(null);
+  const heroCtaRef = useRef<HTMLDivElement>(null);
+  const heroTimelineRan = useRef(false);
 
   const startTransition = useCallback(() => {
     if (introTimerRef.current) {
@@ -102,6 +109,42 @@ const Landing: React.FC = () => {
       }
     };
   }, [prefersReducedMotion, startTransition]);
+
+  useEffect(() => {
+    if (!isActive || heroTimelineRan.current) return;
+    const els = [heroTitleRef.current, heroSubRef.current, heroTagsRef.current, heroCtaRef.current];
+    if (els.some(el => !el)) return;
+    heroTimelineRan.current = true;
+
+    if (prefersReducedMotion) {
+      els.forEach(el => { if (el) el.style.opacity = "1"; });
+      return;
+    }
+
+    const tl = createTimeline({ defaults: { ease: ease.out } })
+      .add(heroTitleRef.current!, {
+        opacity: [0, 1],
+        translateY: [24, 0],
+        duration: durations.hero,
+      }, 0)
+      .add(heroSubRef.current!, {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: durations.slow,
+      }, 200)
+      .add(heroTagsRef.current!, {
+        opacity: [0, 1],
+        translateY: [16, 0],
+        duration: durations.slow,
+      }, 400)
+      .add(heroCtaRef.current!, {
+        opacity: [0, 1],
+        translateY: [16, 0],
+        duration: durations.slow,
+      }, 550);
+
+    return () => { tl.pause(); };
+  }, [isActive, prefersReducedMotion]);
 
   const handlePlayClick = () => {
     const video = videoRef.current;
@@ -344,25 +387,29 @@ const Landing: React.FC = () => {
         {/* Title section — headline first on small screens */}
         <div className="title-section text-center relative z-10 -mt-2 sm:-mt-5 w-full max-w-3xl order-1 sm:order-2">
           <h1
-            className={`main-title font-[Montserrat] text-[clamp(2rem,7vw,56px)] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            ref={heroTitleRef}
+            className="main-title font-[Montserrat] text-[clamp(2rem,7vw,56px)] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]"
             style={{
               fontFamily: "'Montserrat', sans-serif",
+              opacity: 0,
               transform: isActive ? `translateY(${-parallaxSlow * 0.15}px)` : undefined,
             }}
           >
             Rolling Rounds
           </h1>
           <p
-            className={`subtitle text-[clamp(1rem,3.5vw,1.2rem)] font-light text-white mb-7.5 max-w-[65ch] mx-auto leading-[1.5] transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            ref={heroSubRef}
+            className="subtitle text-[clamp(1rem,3.5vw,1.2rem)] font-light text-white mb-7.5 max-w-[65ch] mx-auto leading-[1.5]"
             style={{
               fontFamily: "'Poppins', sans-serif",
+              opacity: 0,
               transform: isActive ? `translateY(${-parallaxSlow * 0.1}px)` : undefined,
             }}
           >
             Medical Rounding & Patient List Management
           </p>
 
-          <div className={`features flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 mt-5 transition-all duration-[800ms] ease-out delay-[900ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
+          <div ref={heroTagsRef} className="features flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 mt-5" style={{ opacity: 0 }}>
             <div
               className="feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default"
               title="Works on phone, tablet, and desktop browsers"
@@ -389,7 +436,7 @@ const Landing: React.FC = () => {
           </div>
         </div>
 
-        <div className={`cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
+        <div ref={heroCtaRef} className="cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 z-10" style={{ opacity: 0 }}>
           <button
             type="button"
             onClick={handleGetStarted}

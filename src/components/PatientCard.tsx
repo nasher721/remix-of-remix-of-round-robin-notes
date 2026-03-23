@@ -1,6 +1,8 @@
 import * as React from "react";
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { animate, stagger } from 'animejs';
 import { cardHover, collapseVariants } from '@/lib/animations';
+import { durations, ease, staggers } from '@/lib/anime-presets';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList } from "lucide-react";
@@ -125,6 +127,34 @@ const PatientCardComponent = ({
 
 
   const shouldReduceMotion = useReducedMotion();
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+  const prevCollapsed = React.useRef(patient.collapsed);
+
+  React.useEffect(() => {
+    const wasCollapsed = prevCollapsed.current;
+    prevCollapsed.current = patient.collapsed;
+
+    if (wasCollapsed && !patient.collapsed && !shouldReduceMotion) {
+      const timer = setTimeout(() => {
+        const el = bodyRef.current;
+        if (!el) return;
+        const sections = el.querySelectorAll<HTMLElement>(':scope > *');
+        if (!sections.length) return;
+
+        sections.forEach(s => { s.style.opacity = '0'; s.style.transform = 'translateY(12px)'; });
+
+        animate(sections, {
+          opacity: [0, 1],
+          translateY: [12, 0],
+          delay: stagger(staggers.tight),
+          duration: durations.normal,
+          ease: ease.out,
+        });
+      }, 180);
+
+      return () => clearTimeout(timer);
+    }
+  }, [patient.collapsed, shouldReduceMotion]);
 
   return (
     <motion.article
@@ -249,7 +279,7 @@ const PatientCardComponent = ({
             exit="closed"
             className="overflow-hidden"
           >
-            <div className="p-4 space-y-4">
+            <div ref={bodyRef} className="p-4 space-y-4">
               {/* Patient-Wide Todos (hidden when desktop parent renders them in the tasks rail) */}
               {!hidePatientWideTodos && (
                 <div

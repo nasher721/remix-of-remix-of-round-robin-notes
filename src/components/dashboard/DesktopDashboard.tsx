@@ -1,7 +1,9 @@
 import * as React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
+import { createTimeline } from "animejs";
 import { scaleIn, transitions } from "@/lib/animations";
+import { durations, ease } from "@/lib/anime-presets";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
@@ -254,6 +256,36 @@ export const DesktopDashboard = () => {
     [],
   );
 
+  const dashUtilRef = React.useRef<HTMLDivElement>(null);
+  const dashListRef = React.useRef<HTMLDivElement>(null);
+  const dashMountRan = React.useRef(false);
+
+  React.useEffect(() => {
+    if (dashMountRan.current) return;
+    const els = [dashUtilRef.current, dashListRef.current];
+    if (els.some(el => !el)) return;
+    dashMountRan.current = true;
+
+    if (shouldReduceMotion) {
+      els.forEach(el => { if (el) el.style.opacity = "1"; });
+      return;
+    }
+
+    const tl = createTimeline({ defaults: { ease: ease.out } })
+      .add(dashUtilRef.current!, {
+        opacity: [0, 1],
+        translateY: [16, 0],
+        duration: durations.normal,
+      }, 100)
+      .add(dashListRef.current!, {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: durations.slow,
+      }, 250);
+
+    return () => { tl.pause(); };
+  }, [shouldReduceMotion]);
+
   return (
     <div className="min-h-screen bg-background" id="main-content" role="main">
       <motion.header
@@ -317,7 +349,7 @@ export const DesktopDashboard = () => {
         </div>
       </motion.header>
 
-      <div className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print relative z-20">
+      <div ref={dashUtilRef} style={{ opacity: 0 }} className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print relative z-20">
         {profileCoaching.showBanner ? (
           <ProfileCoachingBanner message={profileCoaching.message} className="mb-3" />
         ) : null}
@@ -352,7 +384,7 @@ export const DesktopDashboard = () => {
         />
       </div>
 
-      <div className="h-[calc(100vh-11.5rem)] w-full no-print pb-4">
+      <div ref={dashListRef} style={{ opacity: 0 }} className="h-[calc(100vh-11.5rem)] w-full no-print pb-4">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
           <div className="flex flex-col h-full bg-background relative z-10 shadow-card border border-border/30 rounded-lg">
             <div className="p-4 md:p-6 pb-0">

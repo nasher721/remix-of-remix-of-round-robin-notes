@@ -3,12 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { CONTACT_EMAIL, CONTACT_EMAIL_IS_PLACEHOLDER } from "@/config/marketing";
+import { animate, round, stagger } from "animejs";
+import { durations, ease, staggers } from "@/lib/anime-presets";
 
 interface FeatureCardProps {
   icon: string;
   title: string;
   description: string;
-  delay: number;
   variant: number;
   learnMoreId: string;
 }
@@ -23,33 +24,14 @@ const variantStyles = [
 ];
 
 const FeatureCard: React.FC<FeatureCardProps> = ({
-  icon, title, description, delay, variant, learnMoreId,
+  icon, title, description, variant, learnMoreId,
 }) => {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
   const v = variant % variantStyles.length;
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.2 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <div
-      ref={ref}
-      className={`group relative backdrop-blur-sm rounded-2xl p-8 border shadow-md hover:shadow-xl hover:border-primary/25 hover:-translate-y-1.5 motion-reduce:hover:translate-y-0 transition-all duration-500 motion-reduce:transition-opacity ${variantStyles[v]} ${
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
-      }`}
-      style={{ transitionDelay: `${delay}ms` }}
+      className={`feature-card group relative backdrop-blur-sm rounded-2xl p-8 border shadow-md hover:shadow-xl hover:border-primary/25 hover:-translate-y-1.5 motion-reduce:hover:translate-y-0 transition-shadow transition-[border-color] duration-300 ${variantStyles[v]}`}
+      style={{ opacity: 0, transform: "translateY(40px)" }}
     >
       <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center mb-5 shadow-lg shadow-primary/20 group-hover:scale-110 motion-reduce:group-hover:scale-100 transition-transform duration-300 motion-reduce:transition-none">
         <span className="material-icons text-primary-foreground text-[28px]" aria-hidden>
@@ -181,6 +163,54 @@ const stats = [
   },
 ];
 
+const FeatureGrid: React.FC<{ prefersReducedMotion: boolean }> = ({ prefersReducedMotion }) => {
+  const gridRef = useRef<HTMLDivElement>(null)
+  const animatedRef = useRef(false)
+
+  useEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || animatedRef.current) return
+        animatedRef.current = true
+        observer.disconnect()
+
+        const cards = grid.querySelectorAll<HTMLElement>('.feature-card')
+
+        if (prefersReducedMotion) {
+          cards.forEach(c => {
+            c.style.opacity = '1'
+            c.style.transform = 'translateY(0)'
+          })
+          return
+        }
+
+        animate(cards, {
+          opacity: [0, 1],
+          translateY: [40, 0],
+          delay: stagger(staggers.cascade),
+          duration: durations.slow,
+          ease: ease.out,
+        })
+      },
+      { threshold: 0.15 },
+    )
+
+    observer.observe(grid)
+    return () => observer.disconnect()
+  }, [prefersReducedMotion])
+
+  return (
+    <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {features.map((feature, i) => (
+        <FeatureCard key={i} {...feature} variant={i} />
+      ))}
+    </div>
+  )
+}
+
 interface FeatureHighlightsProps {
   prefersReducedMotion: boolean;
 }
@@ -198,7 +228,7 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = ({ prefersReducedMot
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-24">
             {stats.map((stat, i) => (
-              <StatCard key={i} {...stat} delay={i * 100} />
+              <StatCard key={i} {...stat} delay={i * 100} prefersReducedMotion={prefersReducedMotion} />
             ))}
           </div>
 
@@ -226,11 +256,7 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = ({ prefersReducedMot
             Powerful features
           </SectionHeading>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, i) => (
-              <FeatureCard key={i} {...feature} delay={i * 120} variant={i} />
-            ))}
-          </div>
+          <FeatureGrid prefersReducedMotion={prefersReducedMotion} />
         </div>
       </section>
 
@@ -308,11 +334,16 @@ const StatCard: React.FC<{
   icon: string;
   accent: string;
   delay: number;
+  prefersReducedMotion: boolean;
 }> = ({
-  value, label, micro, icon, accent, delay,
+  value, label, micro, icon, accent, delay, prefersReducedMotion,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
+  const valueRef = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const animatedRef = useRef(false);
+
+  const numericTarget = /^\d+$/.test(value.trim()) ? parseInt(value.trim(), 10) : null;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -328,6 +359,30 @@ const StatCard: React.FC<{
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!isVisible || animatedRef.current || prefersReducedMotion) return;
+    const el = valueRef.current;
+    if (!el) return;
+    animatedRef.current = true;
+
+    if (numericTarget !== null) {
+      el.textContent = "0";
+      animate(el, {
+        innerHTML: [0, numericTarget],
+        modifier: round(0),
+        duration: 1200,
+        ease: "out(4)",
+      });
+    } else {
+      animate(el, {
+        opacity: [0, 1],
+        scale: [0.85, 1],
+        duration: durations.normal,
+        ease: ease.spring,
+      });
+    }
+  }, [isVisible, prefersReducedMotion, numericTarget]);
+
   return (
     <div
       ref={ref}
@@ -339,8 +394,11 @@ const StatCard: React.FC<{
       <span className="material-icons text-primary text-[32px] mb-2 block" aria-hidden>
         {icon}
       </span>
-      <div className="text-2xl sm:text-3xl font-extrabold text-foreground font-heading">
-        {value}
+      <div
+        ref={valueRef}
+        className="text-2xl sm:text-3xl font-extrabold text-foreground font-heading"
+      >
+        {numericTarget !== null && !prefersReducedMotion ? "" : value}
       </div>
       <div className="text-sm font-semibold text-foreground mt-1">
         {label}

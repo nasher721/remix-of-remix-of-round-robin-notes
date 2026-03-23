@@ -1,11 +1,13 @@
 import * as React from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { animate, stagger } from 'animejs';
 import {
   Sparkles, X, Send, Stethoscope, FileText, ListChecks, ClipboardCheck,
   Brain, Calendar, Activity, Wand2, Lightbulb, Mic, MessageSquare,
   Copy, Check, User, Bot, Trash2, Minimize2, Maximize2, ChevronRight,
   Zap, BookOpen, Pill,
 } from 'lucide-react';
+import { durations, ease, staggers } from '@/lib/anime-presets';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -188,11 +190,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCopy, copiedId
   const isUser = message.role === 'user';
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18 }}
-      className={cn('flex gap-2.5', isUser ? 'flex-row-reverse' : 'flex-row')}
+    <div
+      data-msg-id={message.id}
+      style={{ opacity: 0, transform: 'translateY(8px)' }}
+      className={cn('chat-bubble flex gap-2.5', isUser ? 'flex-row-reverse' : 'flex-row')}
     >
       {/* Avatar */}
       <div
@@ -269,7 +270,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCopy, copiedId
           </button>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
@@ -348,13 +349,35 @@ export const UnifiedAIChatbot: React.FC = () => {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  // ── Auto-scroll ─────────────────────────────────────────────────────────────
+  // ── Stagger new chat bubbles with anime.js ─────────────────────────────────
+
+  const prevMsgCount = React.useRef(0);
 
   React.useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const allBubbles = container.querySelectorAll<HTMLElement>('.chat-bubble');
+    const newCount = allBubbles.length;
+    const added = newCount - prevMsgCount.current;
+    prevMsgCount.current = newCount;
+
+    if (added > 0 && !reduceMotion) {
+      const fresh = Array.from(allBubbles).slice(-added);
+      animate(fresh, {
+        opacity: [0, 1],
+        translateY: [8, 0],
+        delay: stagger(staggers.tight),
+        duration: durations.fast,
+        ease: ease.out,
+      });
+    } else if (added > 0) {
+      const fresh = Array.from(allBubbles).slice(-added);
+      fresh.forEach(el => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
     }
-  }, [messages]);
+
+    container.scrollTop = container.scrollHeight;
+  }, [messages, reduceMotion]);
 
   // ── Focus input on open ─────────────────────────────────────────────────────
 

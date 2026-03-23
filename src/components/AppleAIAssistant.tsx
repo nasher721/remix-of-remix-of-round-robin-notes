@@ -1,5 +1,8 @@
 import * as React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { animate, stagger } from 'animejs';
+import { durations, ease, staggers } from '@/lib/anime-presets';
+import { useMotionPreference } from '@/hooks/useReducedMotion';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -130,6 +133,38 @@ export const AppleAIAssistant = ({
   const writingStyle = useWritingStyleProfile();
 
   const isProcessing = clinicalAi.isProcessing || eventsGen.isGenerating || courseGen.isGenerating || textTools.isTransforming;
+
+  const { prefersReducedMotion } = useMotionPreference();
+  const popoverBodyRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+
+    const timer = requestAnimationFrame(() => {
+      const el = popoverBodyRef.current;
+      if (!el) return;
+
+      const sections = el.querySelectorAll<HTMLElement>(':scope > *');
+      if (!sections.length) return;
+
+      if (prefersReducedMotion) {
+        sections.forEach(s => { s.style.opacity = '1'; });
+        return;
+      }
+
+      sections.forEach(s => { s.style.opacity = '0'; s.style.transform = 'translateY(10px)'; });
+
+      animate(sections, {
+        opacity: [0, 1],
+        translateY: [10, 0],
+        delay: stagger(staggers.tight),
+        duration: durations.normal,
+        ease: ease.out,
+      });
+    });
+
+    return () => cancelAnimationFrame(timer);
+  }, [isOpen, prefersReducedMotion]);
 
   // Utilities
   const closeDialogs = () => {
@@ -470,6 +505,7 @@ export const AppleAIAssistant = ({
           sideOffset={8}
           className="w-[320px] p-0 rounded-3xl border-primary/10 shadow-2xl bg-background/80 backdrop-blur-3xl overflow-hidden"
         >
+          <div ref={popoverBodyRef}>
           {/* Header Area */}
           <div className="px-4 pt-4 pb-2 border-b border-border/40 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-[40px] rounded-full pointer-events-none" />
@@ -573,6 +609,7 @@ export const AppleAIAssistant = ({
             </div>
           )}
 
+          </div>
         </PopoverContent>
       </Popover>
 
