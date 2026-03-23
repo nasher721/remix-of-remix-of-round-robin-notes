@@ -1,29 +1,41 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { stagger } from "animejs";
 import { useAuth } from "@/hooks/useAuth";
 import FeatureHighlights from "@/components/landing/FeatureHighlights";
 import { LANDING_INTRO_DISABLED, LANDING_INTRO_VIDEO_SRC } from "@/config/marketing";
+import { useAnimeTimeline } from "@/hooks/useAnimeTimeline";
+import { useMotionPreference } from "@/hooks/useReducedMotion";
+import { cn } from "@/lib/utils";
 
 const INTRO_MAX_MS = 9000;
+
+/** SSR-safe: skip video intro when disabled, system reduced motion, or user chose reduced in settings */
+function getLandingSkipIntroInitial(): boolean {
+  if (LANDING_INTRO_DISABLED) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = localStorage.getItem("motion-preference");
+    if (stored === "reduced") return true;
+    if (stored === "enabled") return false;
+  } catch {
+    // ignore
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [showContent, setShowContent] = useState(
-    () =>
-      LANDING_INTRO_DISABLED ||
-      (typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches)
-  );
+  const { prefersReducedMotion } = useMotionPreference();
+  const [showContent, setShowContent] = useState(() => getLandingSkipIntroInitial());
   const [isActive, setIsActive] = useState(false);
   const [showPlayOverlay, setShowPlayOverlay] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const heroRootRef = useRef<HTMLDivElement>(null);
   const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startTransition = useCallback(() => {
@@ -41,14 +53,6 @@ const Landing: React.FC = () => {
     if (containerRef.current) {
       setScrollY(containerRef.current.scrollTop);
     }
-  }, []);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setPrefersReducedMotion(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
   }, []);
 
   useEffect(() => {
@@ -135,6 +139,26 @@ const Landing: React.FC = () => {
   const parallaxMed = scrollY * 0.5;
   const parallaxFast = scrollY * 0.7;
   const bgOpacity = Math.min(scrollY / 600, 0.15);
+
+  useAnimeTimeline({
+    rootRef: heroRootRef,
+    enabled: showContent && isActive,
+    prefersReducedMotion,
+    setup: ({ timeline, root }) => {
+      const title = root.querySelector("[data-anime-hero-title]");
+      const subtitle = root.querySelector("[data-anime-hero-subtitle]");
+      const chips = root.querySelectorAll("[data-anime-hero-chip]");
+      const cta = root.querySelector("[data-anime-hero-cta]");
+      if (!title || !subtitle || chips.length === 0 || !cta) {
+        return;
+      }
+      timeline.add(title, { opacity: [0, 1], y: [24, 0], duration: 650, ease: "outCubic" }, 0);
+      timeline.add(subtitle, { opacity: [0, 1], y: [20, 0], duration: 600, ease: "outCubic" }, "+=120");
+      timeline.add(chips, { opacity: [0, 1], y: [16, 0], duration: 500, ease: "outCubic" }, stagger(80));
+      timeline.add(cta, { opacity: [0, 1], y: [16, 0], duration: 550, ease: "outCubic" }, "+=100");
+    },
+    deps: [showContent, isActive],
+  });
 
   return (
     <div
@@ -244,6 +268,7 @@ const Landing: React.FC = () => {
       {/* Hero section with parallax */}
       <div
         id="top"
+        ref={heroRootRef}
         className={`poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
         style={isActive ? { background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" } : {}}
       >
@@ -344,34 +369,70 @@ const Landing: React.FC = () => {
         {/* Title section — headline first on small screens */}
         <div className="title-section text-center relative z-10 -mt-2 sm:-mt-5 w-full max-w-3xl order-1 sm:order-2">
           <h1
-            className={`main-title font-[Montserrat] text-[clamp(2rem,7vw,56px)] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)] transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            className={cn(
+              "main-title font-[Montserrat] text-[clamp(2rem,7vw,56px)] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]",
+              prefersReducedMotion &&
+                `transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+            )}
             style={{
               fontFamily: "'Montserrat', sans-serif",
               transform: isActive ? `translateY(${-parallaxSlow * 0.15}px)` : undefined,
+              transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
             }}
           >
-            Rolling Rounds
+            {prefersReducedMotion ? (
+              "Rolling Rounds"
+            ) : (
+              <span data-anime-hero-title className="inline-block opacity-0 will-change-transform">
+                Rolling Rounds
+              </span>
+            )}
           </h1>
           <p
-            className={`subtitle text-[clamp(1rem,3.5vw,1.2rem)] font-light text-white mb-7.5 max-w-[65ch] mx-auto leading-[1.5] transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            className={cn(
+              "subtitle text-[clamp(1rem,3.5vw,1.2rem)] font-light text-white mb-7.5 max-w-[65ch] mx-auto leading-[1.5]",
+              prefersReducedMotion &&
+                `transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+            )}
             style={{
               fontFamily: "'Poppins', sans-serif",
               transform: isActive ? `translateY(${-parallaxSlow * 0.1}px)` : undefined,
+              transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
             }}
           >
-            Medical Rounding & Patient List Management
+            {prefersReducedMotion ? (
+              "Medical Rounding & Patient List Management"
+            ) : (
+              <span data-anime-hero-subtitle className="inline-block opacity-0 will-change-transform">
+                Medical Rounding & Patient List Management
+              </span>
+            )}
           </p>
 
-          <div className={`features flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 mt-5 transition-all duration-[800ms] ease-out delay-[900ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
+          <div
+            className={cn(
+              "features flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 mt-5",
+              prefersReducedMotion &&
+                `transition-all duration-[800ms] ease-out delay-[900ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+            )}
+          >
             <div
-              className="feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default"
+              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
+              className={cn(
+                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default",
+                !prefersReducedMotion && "opacity-0",
+              )}
               title="Works on phone, tablet, and desktop browsers"
             >
               <span className="material-icons text-[22px] shrink-0" aria-hidden>devices</span>
               <span>Mobile access</span>
             </div>
             <div
-              className="feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default"
+              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
+              className={cn(
+                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default",
+                !prefersReducedMotion && "opacity-0",
+              )}
               title="Updates sync across your team"
             >
               <span className="material-icons text-[22px] shrink-0" aria-hidden>speed</span>
@@ -379,8 +440,12 @@ const Landing: React.FC = () => {
             </div>
             <button
               type="button"
+              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
               onClick={() => scrollToSection("security")}
-              className="feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-semibold flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all min-h-[44px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
+              className={cn(
+                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-semibold flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all min-h-[44px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]",
+                !prefersReducedMotion && "opacity-0",
+              )}
               aria-label="HIPAA-aligned safeguards — jump to Security section"
             >
               <span className="material-icons text-[22px] shrink-0" aria-hidden>cloud_done</span>
@@ -389,26 +454,56 @@ const Landing: React.FC = () => {
           </div>
         </div>
 
-        <div className={`cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}>
-          <button
-            type="button"
-            onClick={handleGetStarted}
-            className="cta-button min-h-[44px] min-w-[min(100%,280px)] bg-white text-[#0D47A1] px-10 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
-            aria-label="Create an account or sign in to get started"
+        {prefersReducedMotion ? (
+          <div
+            className={`cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
           >
-            <span>Get started free</span>
-            <span className="material-icons text-xl" aria-hidden>rocket_launch</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleLaunchPortal}
-            className="min-h-[44px] px-8 py-3.5 rounded-full text-base font-semibold text-white border-2 border-white/80 bg-transparent hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
-            aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
-          >
-            <span>{user ? "Open dashboard" : "Returning? Sign in"}</span>
-            <span className="material-icons text-xl" aria-hidden>login</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleGetStarted}
+              className="cta-button min-h-[44px] min-w-[min(100%,280px)] bg-white text-[#0D47A1] px-10 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
+              aria-label="Create an account or sign in to get started"
+            >
+              <span>Get started free</span>
+              <span className="material-icons text-xl" aria-hidden>rocket_launch</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLaunchPortal}
+              className="min-h-[44px] px-8 py-3.5 rounded-full text-base font-semibold text-white border-2 border-white/80 bg-transparent hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
+              aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
+            >
+              <span>{user ? "Open dashboard" : "Returning? Sign in"}</span>
+              <span className="material-icons text-xl" aria-hidden>login</span>
+            </button>
+          </div>
+        ) : (
+          <div className="cta-section order-3 mt-10 z-10">
+            <div
+              data-anime-hero-cta=""
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 opacity-0 will-change-transform"
+            >
+              <button
+                type="button"
+                onClick={handleGetStarted}
+                className="cta-button min-h-[44px] min-w-[min(100%,280px)] bg-white text-[#0D47A1] px-10 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
+                aria-label="Create an account or sign in to get started"
+              >
+                <span>Get started free</span>
+                <span className="material-icons text-xl" aria-hidden>rocket_launch</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleLaunchPortal}
+                className="min-h-[44px] px-8 py-3.5 rounded-full text-base font-semibold text-white border-2 border-white/80 bg-transparent hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
+                aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
+              >
+                <span>{user ? "Open dashboard" : "Returning? Sign in"}</span>
+                <span className="material-icons text-xl" aria-hidden>login</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Feature highlights section */}
