@@ -27,6 +27,26 @@ export function usePatientImport({
     const { user } = useAuth();
     const notifications = useNotifications();
 
+    const isPatientNumberConflict = React.useCallback((error: unknown): boolean => {
+        if (typeof error !== "object" || error === null) return false;
+        const maybeCode = "code" in error ? (error as { code?: unknown }).code : undefined;
+        if (maybeCode !== "23505") return false;
+        const maybeDetails = "details" in error ? (error as { details?: unknown }).details : undefined;
+        const maybeMessage = "message" in error ? (error as { message?: unknown }).message : undefined;
+        const combinedText = `${String(maybeDetails ?? "")} ${String(maybeMessage ?? "")}`.toLowerCase();
+        return combinedText.includes("patient_number");
+    }, []);
+
+    const getLatestPatientNumber = React.useCallback(async (): Promise<number> => {
+        const { data, error } = await supabase
+            .from("patients")
+            .select("patient_number")
+            .order("patient_number", { ascending: false })
+            .limit(1);
+        if (error) throw error;
+        return data?.[0]?.patient_number ?? 0;
+    }, []);
+
     const importPatients = React.useCallback(async (patientsToImport: Array<{
         name: string;
         bed: string;
@@ -56,11 +76,12 @@ export function usePatientImport({
                 const medications = parseMedicationsJson(
                     (p.medications ?? null) as unknown as Json,
                 );
-                const { data, error } = await supabase
+                let insertNumber = currentCounter;
+                let { data, error } = await supabase
                     .from("patients")
                     .insert([buildPatientInsertPayload({
                         userId: user.id,
-                        patientNumber: currentCounter,
+                        patientNumber: insertNumber,
                         name: p.name,
                         bed: p.bed,
                         clinicalSummary: p.clinicalSummary,
@@ -71,12 +92,33 @@ export function usePatientImport({
                     .select()
                     .single();
 
+                if (error && isPatientNumberConflict(error)) {
+                    const latestNumber = await getLatestPatientNumber();
+                    insertNumber = latestNumber + 1;
+                    const retryResult = await supabase
+                        .from("patients")
+                        .insert([buildPatientInsertPayload({
+                            userId: user.id,
+                            patientNumber: insertNumber,
+                            name: p.name,
+                            bed: p.bed,
+                            clinicalSummary: p.clinicalSummary,
+                            intervalEvents: p.intervalEvents || "",
+                            systems,
+                            medications,
+                        })])
+                        .select()
+                        .single();
+                    data = retryResult.data;
+                    error = retryResult.error;
+                }
+
                 if (error) throw error;
                 if (data == null) throw new Error("No data returned from insert");
 
                 newPatients.push(mapPatientRecord(data));
 
-                currentCounter++;
+                currentCounter = insertNumber + 1;
             }
 
             setPatients((prev) => [...prev, ...newPatients]);
@@ -93,7 +135,7 @@ export function usePatientImport({
             });
             throw error;
         }
-    }, [user, notifications, setPatients, patientsRef]);
+    }, [user, notifications, setPatients, patientsRef, getLatestPatientNumber, isPatientNumberConflict]);
 
     const addPatientWithData = React.useCallback(async (patientData: {
         name: string;
@@ -122,7 +164,7 @@ export function usePatientImport({
         }
 
         try {
-            const nextNumber = getNextPatientCounter(patientsRef.current);
+            let insertNumber = getNextPatientCounter(patientsRef.current);
             const systems = parseSystemsJson({
                 ...defaultSystemsValue,
                 ...(patientData.systems ?? {}),
@@ -130,11 +172,11 @@ export function usePatientImport({
             const medications = parseMedicationsJson(
                 (patientData.medications ?? null) as unknown as Json,
             );
-            const { data, error } = await supabase
+            let { data, error } = await supabase
                 .from("patients")
                 .insert([buildPatientInsertPayload({
                     userId: user.id,
-                    patientNumber: nextNumber,
+                    patientNumber: insertNumber,
                     name: patientData.name || "",
                     mrn: patientData.mrn ?? "",
                     bed: patientData.bed || "",
@@ -147,6 +189,30 @@ export function usePatientImport({
                 })])
                 .select()
                 .single();
+
+            if (error && isPatientNumberConflict(error)) {
+                const latestNumber = await getLatestPatientNumber();
+                insertNumber = latestNumber + 1;
+                const retryResult = await supabase
+                    .from("patients")
+                    .insert([buildPatientInsertPayload({
+                        userId: user.id,
+                        patientNumber: insertNumber,
+                        name: patientData.name || "",
+                        mrn: patientData.mrn ?? "",
+                        bed: patientData.bed || "",
+                        clinicalSummary: patientData.clinicalSummary || "",
+                        intervalEvents: patientData.intervalEvents || "",
+                        imaging: patientData.imaging || "",
+                        labs: patientData.labs || "",
+                        systems,
+                        medications,
+                    })])
+                    .select()
+                    .single();
+                data = retryResult.data;
+                error = retryResult.error;
+            }
 
             if (error) throw error;
             if (data == null) throw new Error("No data returned from insert");
@@ -167,7 +233,7 @@ export function usePatientImport({
             });
             throw error;
         }
-    }, [user, notifications, setPatients, patientsRef]);
+    }, [user, notifications, setPatients, patientsRef, getLatestPatientNumber, isPatientNumberConflict]);
 
     return {
         importPatients,
