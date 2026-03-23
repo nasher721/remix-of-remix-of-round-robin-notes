@@ -18,17 +18,16 @@ function setupAuthMock() {
 
 test("usePatientImport addPatientWithData calls supabase insert and maps correctly", async () => {
   setupAuthMock();
+  const patientsRef: React.MutableRefObject<Patient[]> = { current: [] };
   const setPatients = (fn: React.SetStateAction<Patient[]>) => {
     if (typeof fn === "function") (fn as (prev: Patient[]) => Patient[])([]);
   };
-  const setPatientCounter = () => {};
 
   const { result } = renderHook(
     () =>
       usePatientImport({
-        patientCounter: 1,
+        patientsRef,
         setPatients,
-        setPatientCounter,
       }),
     { wrapper: authWrapper }
   );
@@ -69,17 +68,16 @@ test("usePatientImport addPatientWithData calls supabase insert and maps correct
 
 test("usePatientImport importPatients calls supabase insert per patient and maps correctly", async () => {
   setupAuthMock();
+  const patientsRef: React.MutableRefObject<Patient[]> = { current: [] };
   const setPatients = (fn: React.SetStateAction<Patient[]>) => {
     if (typeof fn === "function") (fn as (prev: Patient[]) => Patient[])([]);
   };
-  const setPatientCounter = () => {};
 
   const { result } = renderHook(
     () =>
       usePatientImport({
-        patientCounter: 1,
+        patientsRef,
         setPatients,
-        setPatientCounter,
       }),
     { wrapper: authWrapper }
   );
@@ -111,15 +109,14 @@ test("usePatientImport importPatients calls supabase insert per patient and maps
 
 test("usePatientImport returns importPatients and addPatientWithData", () => {
   setupAuthMock();
+  const patientsRef: React.MutableRefObject<Patient[]> = { current: [] };
   const setPatients = () => {};
-  const setPatientCounter = () => {};
 
   const { result } = renderHook(
     () =>
       usePatientImport({
-        patientCounter: 1,
+        patientsRef,
         setPatients,
-        setPatientCounter,
       }),
     { wrapper: authWrapper }
   );

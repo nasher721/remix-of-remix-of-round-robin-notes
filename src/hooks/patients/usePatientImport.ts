@@ -5,24 +5,24 @@ import { useNotifications } from "@/hooks/use-notifications";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import {
     buildPatientInsertPayload,
-    defaultMedicationsValue,
     defaultSystemsValue,
+    getNextPatientCounter,
     mapPatientRecord,
 } from "@/services/patientService";
+import { parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface PatientImportDeps {
-    patientCounter: number;
+    patientsRef: React.MutableRefObject<Patient[]>;
     setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
-    setPatientCounter: React.Dispatch<React.SetStateAction<number>>;
 }
 
 /**
  * Handles importing patients from external sources (Epic handoff, smart import).
  */
 export function usePatientImport({
-    patientCounter,
+    patientsRef,
     setPatients,
-    setPatientCounter,
 }: PatientImportDeps) {
     const { user } = useAuth();
     const notifications = useNotifications();
@@ -45,10 +45,17 @@ export function usePatientImport({
         }
 
         try {
-            let currentCounter = patientCounter;
+            let currentCounter = getNextPatientCounter(patientsRef.current);
             const newPatients: Patient[] = [];
 
             for (const p of patientsToImport) {
+                const systems = parseSystemsJson({
+                    ...defaultSystemsValue,
+                    ...(p.systems ?? {}),
+                } as unknown as Json);
+                const medications = parseMedicationsJson(
+                    (p.medications ?? null) as unknown as Json,
+                );
                 const { data, error } = await supabase
                     .from("patients")
                     .insert([buildPatientInsertPayload({
@@ -58,8 +65,8 @@ export function usePatientImport({
                         bed: p.bed,
                         clinicalSummary: p.clinicalSummary,
                         intervalEvents: p.intervalEvents || "",
-                        systems: p.systems ?? defaultSystemsValue,
-                        medications: p.medications ?? defaultMedicationsValue,
+                        systems,
+                        medications,
                     })])
                     .select()
                     .single();
@@ -73,7 +80,6 @@ export function usePatientImport({
             }
 
             setPatients((prev) => [...prev, ...newPatients]);
-            setPatientCounter(currentCounter);
 
             notifications.success({
                 title: "Import Complete",
@@ -87,7 +93,7 @@ export function usePatientImport({
             });
             throw error;
         }
-    }, [user, patientCounter, notifications, setPatients, setPatientCounter]);
+    }, [user, notifications, setPatients, patientsRef]);
 
     const addPatientWithData = React.useCallback(async (patientData: {
         name: string;
@@ -100,21 +106,35 @@ export function usePatientImport({
         systems: PatientSystems;
         medications?: PatientMedications;
     }) => {
-        if (!user) return;
+        if (!user) {
+            notifications.error({
+                title: "Not signed in",
+                description: "Please sign in to add patients.",
+            });
+            throw new Error("Not signed in");
+        }
         if (!hasSupabaseConfig) {
             notifications.error({
                 title: "Configuration Error",
                 description: "Supabase is not configured. Please check environment variables.",
             });
-            return;
+            throw new Error("Supabase not configured");
         }
 
         try {
+            const nextNumber = getNextPatientCounter(patientsRef.current);
+            const systems = parseSystemsJson({
+                ...defaultSystemsValue,
+                ...(patientData.systems ?? {}),
+            } as unknown as Json);
+            const medications = parseMedicationsJson(
+                (patientData.medications ?? null) as unknown as Json,
+            );
             const { data, error } = await supabase
                 .from("patients")
                 .insert([buildPatientInsertPayload({
                     userId: user.id,
-                    patientNumber: patientCounter,
+                    patientNumber: nextNumber,
                     name: patientData.name || "",
                     mrn: patientData.mrn ?? "",
                     bed: patientData.bed || "",
@@ -122,8 +142,8 @@ export function usePatientImport({
                     intervalEvents: patientData.intervalEvents || "",
                     imaging: patientData.imaging || "",
                     labs: patientData.labs || "",
-                    systems: patientData.systems,
-                    medications: patientData.medications || defaultMedicationsValue,
+                    systems,
+                    medications,
                 })])
                 .select()
                 .single();
@@ -134,7 +154,6 @@ export function usePatientImport({
             const newPatient = mapPatientRecord(data);
 
             setPatients((prev) => [...prev, newPatient]);
-            setPatientCounter((prev) => prev + 1);
 
             notifications.success({
                 title: "Patient Imported",
@@ -148,7 +167,7 @@ export function usePatientImport({
             });
             throw error;
         }
-    }, [user, patientCounter, notifications, setPatients, setPatientCounter]);
+    }, [user, notifications, setPatients, patientsRef]);
 
     return {
         importPatients,

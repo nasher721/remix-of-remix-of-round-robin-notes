@@ -40,9 +40,8 @@ export const usePatients = () => {
         importPatients,
         addPatientWithData,
     } = usePatientImport({
-        patientCounter,
+        patientsRef,
         setPatients,
-        setPatientCounter,
     });
 
     return {

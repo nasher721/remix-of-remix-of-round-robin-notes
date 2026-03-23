@@ -94,6 +94,9 @@ export const shouldTrackTimestamp = (field: string): boolean => {
 };
 
 export const getNextPatientCounter = (patients: Patient[]): number => {
-  const maxNumber = patients.reduce((max, patient) => Math.max(max, patient.patientNumber), 0);
+  const maxNumber = patients.reduce(
+    (max, patient) => Math.max(max, patient.patientNumber ?? 0),
+    0,
+  );
   return maxNumber + 1;
 };

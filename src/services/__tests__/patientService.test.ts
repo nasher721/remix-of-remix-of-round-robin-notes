@@ -123,6 +123,12 @@ test("computes next patient counter correctly", () => {
     { ...{ patientNumber: 5 }, id: "5", name: "", mrn: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: null },
   ];
   assert.equal(getNextPatientCounter(unsorted), 6);
+
+  const withMissingNumber = [
+    { ...mockPatient, id: "a", patientNumber: 2 },
+    { ...mockPatient, id: "b", patientNumber: undefined as unknown as number },
+  ];
+  assert.equal(getNextPatientCounter(withMissingNumber), 3);
 });
 
 test("maps patient with existing data preserves values", () => {
