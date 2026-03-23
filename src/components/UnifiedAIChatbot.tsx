@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, X, Send, Stethoscope, FileText, ListChecks, ClipboardCheck,
   Brain, Calendar, Activity, Wand2, Lightbulb, Mic, MessageSquare,
@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils';
 import { useStreamingAI } from '@/hooks/useStreamingAI';
 import { useCurrentPatients } from '@/contexts/CurrentPatientsContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useMotionPreference } from '@/hooks/useReducedMotion';
+import { shouldRunAnime, useAnimeTimeline } from '@/lib/anime';
 import type { AIFeature } from '@/lib/openai-config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -278,7 +280,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCopy, copiedId
 export const UnifiedAIChatbot: React.FC = () => {
   const { user } = useAuth();
   const patients = useCurrentPatients();
-  const reduceMotion = useReducedMotion();
+  const { prefersReducedMotion } = useMotionPreference();
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -292,6 +294,7 @@ export const UnifiedAIChatbot: React.FC = () => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const streamingIdRef = React.useRef<string | null>(null);
+  const quickActionsStaggerRef = React.useRef<HTMLDivElement>(null);
 
   const selectedPatient = React.useMemo(
     () => patients.find((p) => p.id === selectedPatientId) ?? null,
@@ -463,9 +466,39 @@ export const UnifiedAIChatbot: React.FC = () => {
     streamingIdRef.current = null;
   }, [cancel, isStreaming]);
 
-  if (!user) return null;
+  const filteredActions = React.useMemo(
+    () => (!user ? [] : QUICK_ACTIONS.filter((a) => a.category === activeCategory)),
+    [user, activeCategory],
+  );
 
-  const filteredActions = QUICK_ACTIONS.filter((a) => a.category === activeCategory);
+  const quickActionsChipsKey = React.useMemo(
+    () => `${activeCategory}|${filteredActions.map((a) => a.id).join(',')}`,
+    [activeCategory, filteredActions],
+  );
+
+  const animeRunQuickChips =
+    shouldRunAnime(prefersReducedMotion) && !!user && isOpen && filteredActions.length > 0;
+
+  useAnimeTimeline(
+    ({ createTimeline, stagger }) => {
+      const root = quickActionsStaggerRef.current;
+      if (!root) return null;
+      const items = root.querySelectorAll<HTMLElement>('[data-anime-stagger-item]');
+      if (items.length === 0) return null;
+      const tl = createTimeline({ defaults: { ease: 'outCubic' } });
+      tl.add(items, {
+        opacity: { from: 0, to: 1 },
+        y: { from: 6, to: 0 },
+        duration: 280,
+        delay: stagger(28, { from: 'start' }),
+      });
+      return tl;
+    },
+    [quickActionsChipsKey, isOpen, activeCategory],
+    { enabled: animeRunQuickChips, afterLayout: true },
+  );
+
+  if (!user) return null;
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -480,8 +513,8 @@ export const UnifiedAIChatbot: React.FC = () => {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            whileHover={reduceMotion ? undefined : { scale: 1.08 }}
-            whileTap={reduceMotion ? undefined : { scale: 0.93 }}
+            whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
+            whileTap={prefersReducedMotion ? undefined : { scale: 0.93 }}
             onClick={() => setIsOpen(true)}
             title="AI Clinical Assistant (⌘⇧K)"
             aria-label="Open AI Clinical Assistant"
@@ -653,12 +686,14 @@ export const UnifiedAIChatbot: React.FC = () => {
               </div>
 
               {/* Action chips */}
-              <div className="flex flex-wrap gap-1.5">
+              <div ref={quickActionsStaggerRef} className="flex flex-wrap gap-1.5">
                 {filteredActions.map((action) => (
                   <Tooltip key={action.id}>
                     <TooltipTrigger asChild>
                       <button
+                        data-anime-stagger-item
                         type="button"
+                        style={animeRunQuickChips ? { opacity: 0 } : undefined}
                         onClick={() => handleQuickAction(action)}
                         disabled={isStreaming}
                         aria-label={`${action.name}: ${action.description}`}

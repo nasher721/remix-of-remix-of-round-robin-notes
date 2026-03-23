@@ -18,6 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
+import { useMotionPreference } from "@/hooks/useReducedMotion";
 import { ListTodo, PanelRightClose, PanelRightOpen } from "lucide-react";
 
 /**
@@ -74,6 +76,33 @@ export const VirtualizedPatientList = React.memo(() => {
     initialTodos: selectedPatient ? todosMap[selectedPatient.id] : undefined,
   });
 
+  const { prefersReducedMotion } = useMotionPreference();
+  const animeEnabled = shouldRunAnime(prefersReducedMotion);
+  const patientListKey = React.useMemo(
+    () => patients.map((p) => p.id).join("|"),
+    [patients],
+  );
+  const listStaggerRef = React.useRef<HTMLUListElement>(null);
+
+  useAnimeTimeline(
+    ({ createTimeline, stagger }) => {
+      const root = listStaggerRef.current;
+      if (!root) return null;
+      const items = root.querySelectorAll<HTMLElement>("[data-anime-stagger-item]");
+      if (items.length === 0) return null;
+      const tl = createTimeline({ defaults: { ease: "outCubic" } });
+      tl.add(items, {
+        opacity: { from: 0, to: 1 },
+        y: { from: 8, to: 0 },
+        duration: 340,
+        delay: stagger(40, { from: "start" }),
+      });
+      return tl;
+    },
+    [patientListKey],
+    { enabled: animeEnabled, afterLayout: true },
+  );
+
   if (patients.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
@@ -99,14 +128,16 @@ export const VirtualizedPatientList = React.memo(() => {
             Patients ({patients.length})
           </div>
           <ScrollArea className="flex-1">
-            <ul className="p-2 space-y-1">
+            <ul ref={listStaggerRef} className="p-2 space-y-1">
               {patients.map((patient) => {
                 const isActive = selectedPatient?.id === patient.id;
                 return (
                   <li key={patient.id}>
                     <button
                       type="button"
+                      data-anime-stagger-item
                       onClick={() => setDesktopSelectedPatientId(patient.id)}
+                      style={animeEnabled ? { opacity: 0 } : undefined}
                       className={cn(
                         "w-full text-left rounded-lg px-3 py-2.5 transition-colors flex items-start gap-2 border",
                         isActive

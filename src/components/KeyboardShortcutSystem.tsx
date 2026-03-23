@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Keyboard, Command, Plus, X, Save, Search, Copy, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useMotionPreference } from "@/hooks/useReducedMotion";
+import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
 
 interface Shortcut {
   id: string;
@@ -167,6 +169,8 @@ export function KeyboardShortcutSystem() {
   const [customShortcuts, setCustomShortcuts] = React.useState<Record<string, string>>({});
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [newShortcut, setNewShortcut] = React.useState('');
+  const { prefersReducedMotion } = useMotionPreference();
+  const shortcutListStaggerRef = React.useRef<HTMLDivElement>(null);
 
   const handleKeyDown = React.useCallback((e: KeyboardEvent) => {
     if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
@@ -232,6 +236,28 @@ export function KeyboardShortcutSystem() {
     return groups;
   }, []);
 
+  const animeRunShortcutList =
+    shouldRunAnime(prefersReducedMotion) && open;
+
+  useAnimeTimeline(
+    ({ createTimeline, stagger }) => {
+      const root = shortcutListStaggerRef.current;
+      if (!root) return null;
+      const items = root.querySelectorAll<HTMLElement>('[data-anime-stagger-item]');
+      if (items.length === 0) return null;
+      const tl = createTimeline({ defaults: { ease: 'outCubic' } });
+      tl.add(items, {
+        opacity: { from: 0, to: 1 },
+        y: { from: 8, to: 0 },
+        duration: 300,
+        delay: stagger(40, { from: 'start' }),
+      });
+      return tl;
+    },
+    [open],
+    { enabled: animeRunShortcutList, afterLayout: true },
+  );
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -251,7 +277,7 @@ export function KeyboardShortcutSystem() {
         </DialogHeader>
 
         <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6">
+          <div ref={shortcutListStaggerRef} className="space-y-6">
             {Object.entries(groupedShortcuts).map(([category, shortcuts]) => (
               <div key={category}>
                 <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
@@ -262,7 +288,12 @@ export function KeyboardShortcutSystem() {
                 </h3>
                 <div className="space-y-2">
                   {shortcuts.map(shortcut => (
-                    <Card key={shortcut.id} className="p-3">
+                    <Card
+                      key={shortcut.id}
+                      data-anime-stagger-item
+                      style={animeRunShortcutList ? { opacity: 0 } : undefined}
+                      className="p-3"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm">{shortcut.name}</div>

@@ -6,10 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import Auth from "@/pages/Auth";
 
-// DOM from scripts/test-setup.mjs when run via npm run test:auth
-if (typeof global.window !== "undefined" && typeof global.window.requestAnimationFrame === "undefined") {
-  global.window.requestAnimationFrame = (cb) => setTimeout(cb, 0);
-}
+// DOM and requestAnimationFrame from scripts/test-setup.mjs when run via npm test
 if (typeof globalThis !== "undefined") {
   Object.assign(globalThis, { React })
 }
