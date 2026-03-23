@@ -24,8 +24,22 @@ const DEFAULT_SHORTCUTS: Shortcut[] = [
     id: 'quick-search',
     name: 'Quick Search',
     defaultKeys: 'Cmd+K',
-    description: 'Open patient quick search',
+    description: 'Focus patient search (Ctrl+K on Windows/Linux)',
     category: 'navigation',
+  },
+  {
+    id: 'ai-command-palette',
+    name: 'AI workspace',
+    defaultKeys: 'Cmd+Shift+A',
+    description: 'Open AI command palette (Ctrl+Shift+A on Windows/Linux)',
+    category: 'panels',
+  },
+  {
+    id: 'print-export',
+    name: 'Print / export',
+    defaultKeys: 'Cmd+P',
+    description: 'Open print and export dialog (Ctrl+P on Windows/Linux)',
+    category: 'actions',
   },
   {
     id: 'quick-reference',
@@ -221,7 +235,7 @@ export function KeyboardShortcutSystem() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" type="button">
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" aria-label="Keyboard shortcuts" title="Keyboard shortcuts — ⌘K search, ⌘⇧A AI, ? list" type="button">
           <HelpCircle className="h-4 w-4" aria-hidden="true" />
         </Button>
       </DialogTrigger>
@@ -232,7 +246,7 @@ export function KeyboardShortcutSystem() {
             Keyboard Shortcuts
           </DialogTitle>
           <DialogDescription>
-            Customize keyboard shortcuts for faster navigation
+            Press <kbd className="rounded border px-1 py-0.5 font-mono text-xs">?</kbd> anytime to open this list. Core: search (⌘K), AI (⌘⇧A), next/prev patient (⌘[ / ⌘]), print (⌘P). You can customize bindings below.
           </DialogDescription>
         </DialogHeader>
 

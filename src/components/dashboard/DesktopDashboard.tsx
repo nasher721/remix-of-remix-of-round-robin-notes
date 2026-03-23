@@ -98,6 +98,7 @@ import { PatientFilterType } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type UtilityPanel = "resources" | "tools" | "settings";
 
@@ -242,6 +243,10 @@ export const DesktopDashboard = () => {
     return "All patients";
   }, [filter]);
 
+  /** When true, patient count lives in the header roster chip only—meta row uses non-numeric copy to avoid duplicate "N patients". */
+  const isDefaultListScope =
+    patients.length > 0 && !searchQuery.trim() && filter === PatientFilterType.All;
+
   const shouldReduceMotion = useReducedMotion();
 
   const todayLabel = React.useMemo(
@@ -292,7 +297,7 @@ export const DesktopDashboard = () => {
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg text-xs border border-border/30">
             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
             <span className="font-semibold text-foreground">{patients.length}</span>
-            <span className="text-foreground/80">on list</span>
+            <span className="text-foreground/80">on roster</span>
             <span className="text-muted-foreground/60" aria-hidden="true">·</span>
             <OfflineIndicator />
             <span className="text-muted-foreground/60" aria-hidden="true">·</span>
@@ -414,10 +419,6 @@ export const DesktopDashboard = () => {
                       <Users className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
                       Compare patients
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setShowPrintModal(true)}>
-                      <Printer className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                      Print / Export
-                    </DropdownMenuItem>
                     {patients.length > 0 && (
                       <DropdownMenuItem onClick={onCollapseAll}>
                         <ChevronsUpDown className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
@@ -428,32 +429,65 @@ export const DesktopDashboard = () => {
                 </DropdownMenu>
               </div>
 
-              <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground pb-3 border-b border-border/20">
-                <span className="font-medium text-foreground/80">
-                  {filteredPatients.length}{patients.length !== filteredPatients.length ? ` of ${patients.length}` : ""} patients
-                  {searchQuery && <span className="text-muted-foreground font-normal"> · &ldquo;{searchQuery}&rdquo;</span>}
-                </span>
-                <span className="flex items-center gap-2 flex-wrap justify-end">
-                  <span className="flex items-center gap-1.5 text-foreground/85">
-                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
-                    <span>
-                      Last updated {lastSaved.toLocaleTimeString()}
-                    </span>
+              <div className="mt-2 pb-3 border-b border-border/20 space-y-1.5">
+                <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between min-[480px]:gap-3">
+                  <span className="font-medium text-foreground/80 min-w-0 text-xs leading-snug">
+                    {patients.length === 0 ? (
+                      <>No patients on your roster yet</>
+                    ) : isDefaultListScope ? (
+                      <>All patients</>
+                    ) : (
+                      <>
+                        {filteredPatients.length}
+                        {patients.length !== filteredPatients.length ? ` of ${patients.length}` : ""} patient
+                        {filteredPatients.length === 1 ? "" : "s"}
+                        {searchQuery.trim() ? (
+                          <span className="text-muted-foreground font-normal">
+                            {" "}
+                            · &ldquo;
+                            <span className="inline-block max-w-[min(12rem,40vw)] truncate align-bottom">
+                              {searchQuery}
+                            </span>
+                            &rdquo;
+                          </span>
+                        ) : null}
+                      </>
+                    )}
                   </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs gap-1 border-border/60"
-                    onClick={handleSyncNow}
-                    disabled={syncingList}
-                    aria-busy={syncingList}
-                    aria-label="Sync offline changes and refresh patient list from server"
-                  >
-                    <RefreshCw className={cn("h-3 w-3", syncingList && "animate-spin")} aria-hidden="true" />
-                    Sync now
-                  </Button>
-                </span>
+                  <div className="flex items-center gap-2 sm:gap-2.5 justify-end shrink-0 flex-nowrap">
+                    <span className="flex items-center gap-1.5 text-foreground/85 whitespace-nowrap text-xs">
+                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
+                      <time dateTime={lastSaved.toISOString()}>
+                        Updated {lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                      </time>
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1 border-border/60 shrink-0"
+                      onClick={handleSyncNow}
+                      disabled={syncingList}
+                      aria-busy={syncingList}
+                      aria-label="Sync offline changes and refresh patient list from server"
+                    >
+                      <RefreshCw className={cn("h-3 w-3", syncingList && "animate-spin")} aria-hidden="true" />
+                      <span className="hidden sm:inline">Sync now</span>
+                      <span className="sm:hidden">Sync</span>
+                    </Button>
+                  </div>
+                </div>
+                <p
+                  className="text-[10px] leading-tight text-muted-foreground/90 hidden md:block"
+                  aria-hidden="true"
+                >
+                  Shortcuts:{" "}
+                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘K</kbd> search ·{" "}
+                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘⇧A</kbd> AI ·{" "}
+                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘[</kbd>
+                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘]</kbd> patients ·{" "}
+                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">?</kbd> all keys
+                </p>
                 <LiveRegion
                   message={
                     searchQuery
@@ -633,7 +667,28 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   onOpenPhraseManager,
   onOpenAICommandPalette,
 }) => {
-  const [menuOpen, setMenuOpen] = React.useState(false);
+  const MENU_OPEN_STORAGE_KEY = "rr-desktop-utility-menu-open";
+
+  const [menuOpen, setMenuOpenState] = React.useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem(MENU_OPEN_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const setMenuOpen = React.useCallback((value: boolean | ((prev: boolean) => boolean)) => {
+    setMenuOpenState((prev) => {
+      const next = typeof value === "function" ? value(prev) : value;
+      try {
+        window.localStorage.setItem(MENU_OPEN_STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore quota / private mode */
+      }
+      return next;
+    });
+  }, []);
+
   const [activeTab, setActiveTab] = React.useState<UtilityPanel>("resources");
   const panelRef = React.useRef<HTMLDivElement>(null);
 
@@ -672,10 +727,18 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, []);
+  }, [setMenuOpen]);
 
   return (
-    <div ref={panelRef} className="relative rounded-lg border border-border/40 bg-card/80 backdrop-blur-sm shadow-card overflow-hidden">
+    <div
+      ref={panelRef}
+      className={cn(
+        "relative rounded-lg overflow-hidden transition-[box-shadow,background-color,border-color] duration-200",
+        menuOpen
+          ? "border border-border/40 bg-card/80 backdrop-blur-sm shadow-card"
+          : "border border-border/15 bg-muted/15 backdrop-blur-sm shadow-none",
+      )}
+    >
       <div className="flex items-center p-2">
         <Button
           type="button"
@@ -709,7 +772,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                 key={id}
                 type="button"
                 role="tab"
-                aria-selected={activeTab === id ? "true" : "false"}
+                aria-selected={activeTab === id}
                 onClick={() => setActiveTab(id)}
                 className={cn(
                   "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
@@ -746,24 +809,34 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
 
           {activeTab === "tools" && (
             <div role="tabpanel" className="m-0 mt-0">
-              <div className="grid gap-3 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Import & AI</p>
-                  <SmartPatientImport onImportPatient={onAddPatientWithData} />
-                  <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
-                  <Button onClick={onOpenAICommandPalette} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20">
-                    <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
-                  </Button>
-                  <TimelineDialog />
-                  <ClinicalRiskCalculator />
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider pb-1">Analytics</p>
-                  <UnitCensusDashboard patients={patients} />
-                  <LabTrendingPanel patients={patients} />
-                  <ContextAwareHelp />
-                  <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} todosMap={todosMap} />
-                </div>
+              <div className="space-y-2">
+                <Collapsible defaultOpen className="rounded-md border border-border/30 bg-card/40">
+                  <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <span>Import & AI</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
+                    <SmartPatientImport onImportPatient={onAddPatientWithData} />
+                    <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
+                    <Button onClick={onOpenAICommandPalette} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20">
+                      <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
+                    </Button>
+                    <TimelineDialog />
+                    <ClinicalRiskCalculator />
+                  </CollapsibleContent>
+                </Collapsible>
+                <Collapsible className="rounded-md border border-border/30 bg-card/40">
+                  <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <span>Analytics & batch</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
+                    <UnitCensusDashboard patients={patients} />
+                    <LabTrendingPanel patients={patients} />
+                    <ContextAwareHelp />
+                    <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} todosMap={todosMap} />
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
             </div>
           )}
