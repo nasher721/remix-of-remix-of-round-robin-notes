@@ -66,6 +66,7 @@ export interface DbPatient {
   user_id: string;
   patient_number: number;
   name: string;
+  mrn: string;
   bed: string;
   clinical_summary: string;
   interval_events: string;
@@ -88,6 +89,7 @@ export interface Patient {
   id: string;
   patientNumber: number;
   name: string;
+  mrn: string;
   bed: string;
   clinicalSummary: string;
   intervalEvents: string;

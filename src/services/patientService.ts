@@ -26,6 +26,7 @@ export const mapPatientRecord = (record: {
   id: string;
   patient_number: number;
   name: string;
+  mrn: string | null;
   bed: string;
   clinical_summary: string;
   interval_events: string;
@@ -41,6 +42,7 @@ export const mapPatientRecord = (record: {
   id: record.id,
   patientNumber: record.patient_number,
   name: record.name,
+  mrn: record.mrn || "",
   bed: record.bed,
   clinicalSummary: record.clinical_summary,
   intervalEvents: record.interval_events,
@@ -58,6 +60,7 @@ export const buildPatientInsertPayload = (input: {
   userId: string;
   patientNumber: number;
   name?: string;
+  mrn?: string;
   bed?: string;
   clinicalSummary?: string;
   intervalEvents?: string;
@@ -69,6 +72,7 @@ export const buildPatientInsertPayload = (input: {
   user_id: input.userId,
   patient_number: input.patientNumber,
   name: input.name ?? "",
+  mrn: input.mrn ?? "",
   bed: input.bed ?? "",
   clinical_summary: input.clinicalSummary ?? "",
   interval_events: input.intervalEvents ?? "",
