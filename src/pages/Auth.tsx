@@ -76,6 +76,22 @@ const Auth = () => {
     }
   };
 
+  const validateField = (field: "email" | "password", value: string) => {
+    try {
+      if (field === "email") {
+        z.string().email("Please enter a valid email address").parse(value);
+        setErrors((prev) => ({ ...prev, email: undefined }));
+      } else {
+        z.string().min(6, "Password must be at least 6 characters").parse(value);
+        setErrors((prev) => ({ ...prev, password: undefined }));
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        setErrors((prev) => ({ ...prev, [field]: error.errors[0]?.message }));
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -248,6 +264,7 @@ const Auth = () => {
                   placeholder="doctor@hospital.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onBlur={(e) => e.target.value && validateField("email", e.target.value)}
                   disabled={loading}
                   startIcon={<Mail className="h-4 w-4" />}
                   aria-invalid={Boolean(errors.email)}
@@ -269,6 +286,7 @@ const Auth = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onBlur={(e) => e.target.value && validateField("password", e.target.value)}
                   disabled={loading}
                   startIcon={<Lock className="h-4 w-4" />}
                   aria-invalid={Boolean(errors.password)}

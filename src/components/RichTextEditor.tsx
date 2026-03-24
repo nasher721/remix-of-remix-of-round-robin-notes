@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -740,13 +741,20 @@ export const RichTextEditor = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto w-56">
+              {/* Text Style group */}
+              {(!showButtonInBar('underline') || !showButtonInBar('strikethrough') || !showButtonInBar('superscript') || !showButtonInBar('subscript')) && (
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Text Style</DropdownMenuLabel>
+              )}
               {!showButtonInBar('underline') && <DropdownMenuItem onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5 mr-2" /> Underline</DropdownMenuItem>}
               {!showButtonInBar('strikethrough') && <DropdownMenuItem onClick={() => execCommand('strikeThrough')}><Strikethrough className="h-3.5 w-3.5 mr-2" /> Strikethrough</DropdownMenuItem>}
               {!showButtonInBar('superscript') && <DropdownMenuItem onClick={() => execCommand('superscript')}><Superscript className="h-3.5 w-3.5 mr-2" /> Superscript</DropdownMenuItem>}
               {!showButtonInBar('subscript') && <DropdownMenuItem onClick={() => execCommand('subscript')}><Subscript className="h-3.5 w-3.5 mr-2" /> Subscript</DropdownMenuItem>}
+
+              {/* Headings group */}
               {!showButtonInBar('heading') && (
                 <>
                   <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Headings</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => execCommand('formatBlock', '<p>')}>Normal text</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h1>')}>Heading 1</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h2>')}>Heading 2</DropdownMenuItem>
@@ -754,26 +762,42 @@ export const RichTextEditor = ({
                   <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h4>')}>Heading 4</DropdownMenuItem>
                 </>
               )}
-              {(!showButtonInBar('bulletList') || !showButtonInBar('numberedList')) && <DropdownMenuSeparator />}
+
+              {/* Lists & Indent group */}
+              {(!showButtonInBar('bulletList') || !showButtonInBar('numberedList') || !showButtonInBar('indent')) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Lists & Indent</DropdownMenuLabel>
+                </>
+              )}
               {!showButtonInBar('bulletList') && <DropdownMenuItem onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5 mr-2" /> Bullet list</DropdownMenuItem>}
               {!showButtonInBar('numberedList') && <DropdownMenuItem onClick={() => execCommand('insertOrderedList')}><ListOrdered className="h-3.5 w-3.5 mr-2" /> Numbered list</DropdownMenuItem>}
               {!showButtonInBar('indent') && (
                 <>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => execCommand('outdent')}><Outdent className="h-3.5 w-3.5 mr-2" /> Decrease indent</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('indent')}><Indent className="h-3.5 w-3.5 mr-2" /> Increase indent</DropdownMenuItem>
                 </>
               )}
+
+              {/* Alignment group */}
               {!showButtonInBar('alignLeft') && (
                 <>
                   <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Alignment</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5 mr-2" /> Align left</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5 mr-2" /> Align center</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5 mr-2" /> Align right</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('justifyFull')}><AlignJustify className="h-3.5 w-3.5 mr-2" /> Justify</DropdownMenuItem>
                 </>
               )}
-              {(!showButtonInBar('link') || !showButtonInBar('find')) && <DropdownMenuSeparator />}
+
+              {/* Insert group */}
+              {(!showButtonInBar('link') || !showButtonInBar('table') || !showButtonInBar('find')) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Insert</DropdownMenuLabel>
+                </>
+              )}
               {!showButtonInBar('link') && <DropdownMenuItem onClick={handleInsertLink}><Link2 className="h-3.5 w-3.5 mr-2" /> Insert link</DropdownMenuItem>}
               {!showButtonInBar('link') && <DropdownMenuItem onClick={() => execCommand('insertHorizontalRule')}><Minus className="h-3.5 w-3.5 mr-2" /> Horizontal rule</DropdownMenuItem>}
               {!showButtonInBar('table') && <DropdownMenuItem onClick={() => insertTable(3, 3)}><TableIcon className="h-3.5 w-3.5 mr-2" /> Insert table (3×3)</DropdownMenuItem>}
@@ -781,6 +805,7 @@ export const RichTextEditor = ({
               {!showButtonInBar('fontSize') && (
                 <>
                   <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Typography</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => { handleFontSizeChange([14]); applyFontSizeToSelection(); }}><Type className="h-3.5 w-3.5 mr-2" /> Font size 14px</DropdownMenuItem>
                 </>
               )}

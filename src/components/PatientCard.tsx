@@ -180,23 +180,23 @@ const PatientCardComponent = ({
               onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
               aria-label="Patient name"
               title="Legal name or label used on rounds"
-              className="max-w-[220px] font-medium bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+              className="max-w-[220px] font-semibold bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm tracking-tight"
             />
             <Input
-              placeholder="MRN (optional)"
+              placeholder="MRN"
               value={patient.mrn ?? ""}
               onChange={(e) => onUpdate(patient.id, 'mrn', e.target.value)}
               aria-label="Medical record number"
               title="Hospital MRN or account number"
-              className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+              className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
             />
             <Input
-              placeholder="Bed / room (optional)"
+              placeholder="Bed / room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
               aria-label="Bed or room number"
               title="Unit and room or bay"
-              className="max-w-[130px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-sm text-muted-foreground font-medium transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+              className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
             />
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">

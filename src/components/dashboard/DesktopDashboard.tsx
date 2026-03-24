@@ -256,6 +256,16 @@ export const DesktopDashboard = () => {
     [],
   );
 
+  const lastSavedRelative = React.useMemo(() => {
+    const diffMs = Date.now() - lastSaved.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return "just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMs / 3600000);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }, [lastSaved]);
+
   const dashUtilRef = React.useRef<HTMLDivElement>(null);
   const dashListRef = React.useRef<HTMLDivElement>(null);
   const dashMountRan = React.useRef(false);
@@ -316,14 +326,30 @@ export const DesktopDashboard = () => {
                 Search
               </a>
             </nav>
-            <Button type="button" onClick={onAddPatient} size="sm" className="gap-1.5 h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium shadow-sm">
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Add patient
-            </Button>
-            <Button type="button" onClick={() => setShowPrintModal(true)} variant="outline" size="sm" className="gap-1.5 h-8 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60">
-              <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-              Print
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" onClick={onAddPatient} size="sm" className="gap-1.5 h-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-md hover:shadow-lg transition-all px-3">
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  Add patient
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="font-medium">Add new patient</p>
+                <p className="text-xs text-muted-foreground">Shortcut: N or ⌘⇧N</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" onClick={() => setShowPrintModal(true)} variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60">
+                  <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                  Print
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>Print / export patient summaries</p>
+                <p className="text-xs text-muted-foreground">Shortcut: ⌘P</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg text-xs border border-border/30">
@@ -399,6 +425,7 @@ export const DesktopDashboard = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     aria-label="Search patients"
                     autoComplete="off"
+                    autoFocus
                     className="pl-10 h-10 md:h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm min-h-[44px] md:min-h-0"
                   />
                 </div>
@@ -410,9 +437,10 @@ export const DesktopDashboard = () => {
                       className="gap-2 h-10 md:h-9 min-h-[44px] md:min-h-0 rounded-lg border-border/60 text-muted-foreground hover:text-foreground"
                       aria-label="Filter and sort patients"
                       aria-haspopup="menu"
+                      title="Filter by status, sort order, and section visibility"
                     >
                       <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">Filters & actions</span>
+                      <span className="truncate">Filter & sort</span>
                       {activeFilterCount > 0 ? (
                         <Badge
                           variant="secondary"
@@ -489,8 +517,11 @@ export const DesktopDashboard = () => {
                   <div className="flex items-center gap-2 sm:gap-2.5 justify-end shrink-0 flex-nowrap">
                     <span className="flex items-center gap-1.5 text-foreground/85 whitespace-nowrap text-xs">
                       <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
-                      <time dateTime={lastSaved.toISOString()}>
-                        Updated {lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                      <time
+                        dateTime={lastSaved.toISOString()}
+                        title={`Last saved at ${lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+                      >
+                        Updated {lastSavedRelative}
                       </time>
                     </span>
                     <Button
