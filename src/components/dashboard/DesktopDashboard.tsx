@@ -5,6 +5,7 @@ import { createTimeline } from "animejs";
 import { scaleIn, transitions } from "@/lib/animations";
 import { durations, ease } from "@/lib/anime-presets";
 import { useSettings } from "@/contexts/SettingsContext";
+import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
 import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
@@ -44,6 +45,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { AVAILABLE_MODELS } from "@/services/llm";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -296,6 +298,51 @@ export const DesktopDashboard = () => {
     return () => { tl.pause(); };
   }, [shouldReduceMotion]);
 
+  const { panelLeftCollapsed, panelRightCollapsed, toggleLeftPanel, toggleRightPanel } = useDashboardLayout();
+
+  const TogglePanelsButton = () => {
+    const bothCollapsed = panelLeftCollapsed && panelRightCollapsed;
+    const anyCollapsed = panelLeftCollapsed || panelRightCollapsed;
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => {
+                if (bothCollapsed) {
+                  toggleLeftPanel();
+                  toggleRightPanel();
+                } else if (anyCollapsed) {
+                  if (panelLeftCollapsed) toggleLeftPanel();
+                  if (panelRightCollapsed) toggleRightPanel();
+                } else {
+                  toggleLeftPanel();
+                  toggleRightPanel();
+                }
+              }}
+              aria-label={bothCollapsed ? "Expand panels" : "Collapse panels"}
+            >
+              {bothCollapsed ? (
+                <Maximize2 className="h-4 w-4" />
+              ) : anyCollapsed ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Minimize2 className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{bothCollapsed ? "Expand all panels" : anyCollapsed ? "Expand panels" : "Collapse all panels"}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background" id="main-content" role="main">
       <motion.header
@@ -367,6 +414,7 @@ export const DesktopDashboard = () => {
             <PresenceIndicator />
             <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
             <KeyboardShortcutSystem />
+            <TogglePanelsButton />
             <ThemeToggle />
             <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
@@ -562,7 +610,8 @@ export const DesktopDashboard = () => {
               </div>
             </div>
 
-            <ScrollArea className="flex-1 px-4 md:px-6 py-4">
+            <div className={`flex-1 flex flex-col transition-all duration-300 ${panelLeftCollapsed ? 'w-16' : panelRightCollapsed ? 'w-[calc(100%-4rem)]' : 'w-full'}`}>
+              <ScrollArea className="flex-1 px-4 md:px-6 py-4">
               {filteredPatients.length === 0 ? (
                 <motion.div
                   className="flex flex-col items-center justify-center py-20 text-center"
@@ -595,6 +644,7 @@ export const DesktopDashboard = () => {
                 <VirtualizedPatientList />
               )}
             </ScrollArea>
+            </div>
           </div>
         </div>
       </div>

@@ -10,6 +10,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { IBCCProvider } from "@/contexts/IBCCContext";
 import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { DashboardLayoutProvider } from "@/context/DashboardLayoutContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -60,8 +61,9 @@ function App(): React.ReactElement {
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <AuthProvider>
           <SettingsProvider>
-            <IBCCProvider>
-              <ClinicalGuidelinesProvider>
+            <DashboardLayoutProvider>
+              <IBCCProvider>
+                <ClinicalGuidelinesProvider>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner position="top-right" />
@@ -76,6 +78,7 @@ function App(): React.ReactElement {
                 </TooltipProvider>
               </ClinicalGuidelinesProvider>
             </IBCCProvider>
+            </DashboardLayoutProvider>
           </SettingsProvider>
         </AuthProvider>
       </ThemeProvider>

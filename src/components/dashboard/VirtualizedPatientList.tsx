@@ -20,7 +20,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
 import { useMotionPreference } from "@/hooks/useReducedMotion";
-import { ListTodo, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { DashboardFocusTarget, DashboardPrefs, loadDashboardPrefs, saveDashboardPrefs } from "@/lib/dashboardPrefs";
+import { ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 
 /**
  * Desktop workspace: left = selectable list, right = full card for the selected patient.
@@ -41,7 +42,57 @@ export const VirtualizedPatientList = React.memo(() => {
   const todosMap = useDashboardTodos();
 
   const [pendingRemoveId, setPendingRemoveId] = React.useState<string | null>(null);
-  const [tasksRailOpen, setTasksRailOpen] = React.useState(true);
+  const [dashboardPrefs, setDashboardPrefs] = React.useState<DashboardPrefs>(() => loadDashboardPrefs());
+  const [focusTarget, setFocusTarget] = React.useState<DashboardFocusTarget | null>(null);
+  const preFocusLayoutRef = React.useRef<{ leftPatientListOpen: boolean; rightTasksPanelOpen: boolean } | null>(null);
+
+  const updateDashboardPrefs = React.useCallback((updater: (prev: DashboardPrefs) => DashboardPrefs) => {
+    setDashboardPrefs((prev) => {
+      const next = updater(prev);
+      saveDashboardPrefs(next);
+      return next;
+    });
+  }, []);
+
+  const setLeftPatientListOpen = React.useCallback((open: boolean) => {
+    updateDashboardPrefs((prev) => ({ ...prev, leftPatientListOpen: open }));
+  }, [updateDashboardPrefs]);
+
+  const setRightTasksPanelOpen = React.useCallback((open: boolean) => {
+    updateDashboardPrefs((prev) => ({ ...prev, rightTasksPanelOpen: open }));
+  }, [updateDashboardPrefs]);
+
+  const handleEnterFocusMode = React.useCallback((target: DashboardFocusTarget) => {
+    setFocusTarget(target);
+    updateDashboardPrefs((prev) => {
+      if (prev.focusModeEnabled) return prev;
+      preFocusLayoutRef.current = {
+        leftPatientListOpen: prev.leftPatientListOpen,
+        rightTasksPanelOpen: prev.rightTasksPanelOpen,
+      };
+      return {
+        ...prev,
+        focusModeEnabled: true,
+        leftPatientListOpen: false,
+        rightTasksPanelOpen: false,
+      };
+    });
+  }, [updateDashboardPrefs]);
+
+  const handleExitFocusMode = React.useCallback(() => {
+    setFocusTarget(null);
+    updateDashboardPrefs((prev) => {
+      if (!prev.focusModeEnabled) return prev;
+      const restore = preFocusLayoutRef.current;
+      preFocusLayoutRef.current = null;
+      return {
+        ...prev,
+        focusModeEnabled: false,
+        leftPatientListOpen: restore?.leftPatientListOpen ?? true,
+        rightTasksPanelOpen: restore?.rightTasksPanelOpen ?? true,
+      };
+    });
+  }, [updateDashboardPrefs]);
 
   const handleRemoveRequest = React.useCallback((id: string) => {
     setPendingRemoveId(id);
@@ -120,67 +171,117 @@ export const VirtualizedPatientList = React.memo(() => {
   return (
     <>
       <div className="relative w-full flex flex-col lg:flex-row gap-4 min-h-[min(65vh,640px)] lg:min-h-0 lg:flex-1">
-        <aside
-          className="flex-shrink-0 w-full lg:w-[min(100%,280px)] lg:max-w-[320px] border border-border/30 rounded-lg bg-card/60 flex flex-col min-h-[200px] lg:min-h-0 lg:max-h-[calc(100vh-14rem)]"
-          aria-label="Patient list"
-        >
-          <div className="px-3 py-2 border-b border-border/20 text-xs font-medium text-muted-foreground">
-            Patients ({patients.length})
+        {dashboardPrefs.leftPatientListOpen ? (
+          <aside
+            className="flex-shrink-0 w-full lg:w-[min(100%,280px)] lg:max-w-[320px] border border-border/30 rounded-lg bg-card/60 flex flex-col min-h-[200px] lg:min-h-0 lg:max-h-[calc(100vh-14rem)]"
+            aria-label="Patient list"
+            role="region"
+            aria-labelledby="desktop-patient-list-heading"
+          >
+            <div className="px-3 py-2 border-b border-border/20 text-xs font-medium text-muted-foreground flex items-center justify-between gap-2">
+              <h2 id="desktop-patient-list-heading" className="truncate">Patients ({patients.length})</h2>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
+                onClick={() => setLeftPatientListOpen(false)}
+                aria-label="Collapse patient list"
+                title="Collapse patient list"
+                aria-expanded
+                aria-controls="desktop-patient-list-content"
+              >
+                <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+            <ScrollArea className="flex-1" id="desktop-patient-list-content">
+              <ul ref={listStaggerRef} className="p-2 space-y-1">
+                {patients.map((patient) => {
+                  const isActive = selectedPatient?.id === patient.id;
+                  return (
+                    <li key={patient.id}>
+                      <button
+                        type="button"
+                        data-anime-stagger-item
+                        onClick={() => setDesktopSelectedPatientId(patient.id)}
+                        style={animeEnabled ? { opacity: 0 } : undefined}
+                        className={cn(
+                          "w-full text-left rounded-lg px-3 py-2.5 transition-colors flex items-start gap-2 border",
+                          isActive
+                            ? "bg-primary/12 border-primary/35 shadow-sm"
+                            : "border-transparent hover:bg-secondary/70",
+                        )}
+                      >
+                        <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 text-sm font-semibold text-primary">
+                          {patient.name ? patient.name.charAt(0).toUpperCase() : "#"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate text-foreground leading-tight">
+                            {patient.name || "Unnamed"}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate font-mono mt-0.5">
+                            {[patient.mrn?.trim(), patient.bed?.trim()].filter(Boolean).join(" · ") || "—"}
+                          </p>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ScrollArea>
+          </aside>
+        ) : (
+          <div className="hidden lg:flex flex-col shrink-0 w-11 border border-border/30 rounded-lg bg-card/60 items-center py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-muted-foreground"
+              onClick={() => setLeftPatientListOpen(true)}
+              aria-label="Expand patient list"
+              title="Expand patient list"
+              aria-expanded={false}
+              aria-controls="desktop-patient-list-content"
+            >
+              <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+            </Button>
           </div>
-          <ScrollArea className="flex-1">
-            <ul ref={listStaggerRef} className="p-2 space-y-1">
-              {patients.map((patient) => {
-                const isActive = selectedPatient?.id === patient.id;
-                return (
-                  <li key={patient.id}>
-                    <button
-                      type="button"
-                      data-anime-stagger-item
-                      onClick={() => setDesktopSelectedPatientId(patient.id)}
-                      style={animeEnabled ? { opacity: 0 } : undefined}
-                      className={cn(
-                        "w-full text-left rounded-lg px-3 py-2.5 transition-colors flex items-start gap-2 border",
-                        isActive
-                          ? "bg-primary/12 border-primary/35 shadow-sm"
-                          : "border-transparent hover:bg-secondary/70",
-                      )}
-                    >
-                      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 text-sm font-semibold text-primary">
-                        {patient.name ? patient.name.charAt(0).toUpperCase() : "#"}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate text-foreground leading-tight">
-                          {patient.name || "Unnamed"}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground truncate font-mono mt-0.5">
-                          {[patient.mrn?.trim(), patient.bed?.trim()].filter(Boolean).join(" · ") || "—"}
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </ScrollArea>
-        </aside>
+        )}
 
-        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto pr-1">
+        <div
+          className={cn(
+            "flex-1 min-w-0 min-h-0 overflow-y-auto",
+            dashboardPrefs.focusModeEnabled ? "px-1" : "pr-1",
+          )}
+        >
           {selectedPatient ? (
-            <PatientCard
-              key={selectedPatient.id}
-              patient={selectedPatient}
-              onUpdate={onUpdatePatient}
-              onRemove={handleRemoveRequest}
-              onDuplicate={onDuplicatePatient}
-              onToggleCollapse={onToggleCollapse}
-              autotexts={autotexts}
-              sharedPatientTodos={sharedPatientTodos}
-              hidePatientWideTodos
-            />
+            <div className={cn("w-full", dashboardPrefs.focusModeEnabled && "mx-auto max-w-[980px]")}>
+              <PatientCard
+                key={selectedPatient.id}
+                patient={selectedPatient}
+                onUpdate={onUpdatePatient}
+                onRemove={handleRemoveRequest}
+                onDuplicate={onDuplicatePatient}
+                onToggleCollapse={onToggleCollapse}
+                autotexts={autotexts}
+                sharedPatientTodos={sharedPatientTodos}
+                hidePatientWideTodos
+                dashboardFocusModeEnabled={dashboardPrefs.focusModeEnabled}
+                dashboardFocusTarget={focusTarget}
+                onRequestDashboardFocusMode={handleEnterFocusMode}
+                onExitDashboardFocusMode={handleExitFocusMode}
+                systemsReviewMode={dashboardPrefs.systemsReviewMode}
+                systemsCustomCombineKeys={dashboardPrefs.systemsCustomCombineKeys}
+                onSystemsReviewModeChange={(mode) => updateDashboardPrefs((prev) => ({ ...prev, systemsReviewMode: mode }))}
+                onSystemsCustomCombineKeysChange={(keys) =>
+                  updateDashboardPrefs((prev) => ({ ...prev, systemsCustomCombineKeys: keys }))
+                }
+              />
+            </div>
           ) : null}
         </div>
 
-        {tasksRailOpen ? (
+        {dashboardPrefs.rightTasksPanelOpen ? (
           <aside
             className="hidden lg:flex flex-shrink-0 flex-col w-[min(100%,280px)] max-w-[300px] border border-border/30 rounded-lg bg-card/60 min-h-0 max-h-[calc(100vh-14rem)]"
             role="region"
@@ -198,7 +299,7 @@ export const VirtualizedPatientList = React.memo(() => {
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 shrink-0 text-muted-foreground"
-                onClick={() => setTasksRailOpen(false)}
+                onClick={() => setRightTasksPanelOpen(false)}
                 aria-label="Collapse tasks panel"
                 title="Collapse tasks panel"
               >
@@ -230,7 +331,7 @@ export const VirtualizedPatientList = React.memo(() => {
               variant="ghost"
               size="icon"
               className="h-9 w-9 text-muted-foreground"
-              onClick={() => setTasksRailOpen(true)}
+              onClick={() => setRightTasksPanelOpen(true)}
               aria-label="Expand tasks panel"
               title="Expand tasks panel"
             >

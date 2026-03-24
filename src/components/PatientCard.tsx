@@ -31,6 +31,8 @@ import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import { useDailySummaryGenerator } from "@/hooks/useDailySummaryGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
+import { DashboardFocusTarget, SystemsReviewMode } from "@/lib/dashboardPrefs";
+import { cn } from "@/lib/utils";
 
 interface PatientCardProps {
   patient: Patient;
@@ -45,6 +47,14 @@ interface PatientCardProps {
   sharedPatientTodos?: PatientTodosApi;
   /** Hide the top patient-wide tasks block (parent shows it in a rail). */
   hidePatientWideTodos?: boolean;
+  dashboardFocusModeEnabled?: boolean;
+  dashboardFocusTarget?: DashboardFocusTarget | null;
+  onRequestDashboardFocusMode?: (target: DashboardFocusTarget) => void;
+  onExitDashboardFocusMode?: () => void;
+  systemsReviewMode?: SystemsReviewMode;
+  systemsCustomCombineKeys?: string[];
+  onSystemsReviewModeChange?: (mode: SystemsReviewMode) => void;
+  onSystemsCustomCombineKeysChange?: (keys: string[]) => void;
 }
 
 const PatientCardComponent = ({
@@ -57,6 +67,14 @@ const PatientCardComponent = ({
   initialTodos,
   sharedPatientTodos,
   hidePatientWideTodos = false,
+  dashboardFocusModeEnabled = false,
+  dashboardFocusTarget = null,
+  onRequestDashboardFocusMode,
+  onExitDashboardFocusMode,
+  systemsReviewMode,
+  systemsCustomCombineKeys,
+  onSystemsReviewModeChange,
+  onSystemsCustomCombineKeysChange,
 }: PatientCardProps) => {
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
@@ -129,6 +147,21 @@ const PatientCardComponent = ({
   const shouldReduceMotion = useReducedMotion();
   const bodyRef = React.useRef<HTMLDivElement>(null);
   const prevCollapsed = React.useRef(patient.collapsed);
+  const focusContainersRef = React.useRef<Partial<Record<DashboardFocusTarget, HTMLDivElement | null>>>({});
+
+  const bindFocusContainer = React.useCallback(
+    (target: DashboardFocusTarget) => (node: HTMLDivElement | null) => {
+      focusContainersRef.current[target] = node;
+    },
+    [],
+  );
+
+  const handleEditorFocusIntent = React.useCallback(
+    (target: DashboardFocusTarget) => {
+      onRequestDashboardFocusMode?.(target);
+    },
+    [onRequestDashboardFocusMode],
+  );
 
   React.useEffect(() => {
     const wasCollapsed = prevCollapsed.current;
@@ -156,9 +189,33 @@ const PatientCardComponent = ({
     }
   }, [patient.collapsed, shouldReduceMotion]);
 
+  React.useEffect(() => {
+    if (!dashboardFocusModeEnabled || !dashboardFocusTarget) return;
+    const container = focusContainersRef.current[dashboardFocusTarget];
+    if (!container) return;
+    const targetElement = container.querySelector<HTMLElement>("[contenteditable='true'], textarea, input");
+    if (!targetElement) return;
+    if (document.activeElement === targetElement) return;
+    targetElement.focus();
+  }, [dashboardFocusModeEnabled, dashboardFocusTarget, patient.id]);
+
+  React.useEffect(() => {
+    if (!dashboardFocusModeEnabled || !onExitDashboardFocusMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onExitDashboardFocusMode();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dashboardFocusModeEnabled, onExitDashboardFocusMode]);
+
   return (
     <motion.article
-      className="print-avoid-break bg-card rounded-lg border border-border/40 shadow-card hover:shadow-md transition-all duration-300 overflow-hidden relative group"
+      className={cn(
+        "print-avoid-break bg-card rounded-lg border border-border/40 shadow-card hover:shadow-md transition-all duration-300 overflow-hidden relative group",
+        dashboardFocusModeEnabled && "ring-1 ring-primary/30 shadow-lg",
+      )}
       aria-label={`Patient: ${patient.name || 'Unnamed'}`}
       variants={shouldReduceMotion ? undefined : cardHover}
       initial="rest"
@@ -351,7 +408,11 @@ const PatientCardComponent = ({
                       </Button>
                     </div>
                   </div>
-                  <div className="space-y-1">
+                  <div
+                    className="space-y-1"
+                    ref={bindFocusContainer("clinicalSummary")}
+                    onFocusCapture={() => handleEditorFocusIntent("clinicalSummary")}
+                  >
                     <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.clinicalSummary}
@@ -453,7 +514,11 @@ const PatientCardComponent = ({
                       </Button>
                     </div>
                   </div>
-                  <div className="space-y-1">
+                  <div
+                    className="space-y-1"
+                    ref={bindFocusContainer("intervalEvents")}
+                    onFocusCapture={() => handleEditorFocusIntent("intervalEvents")}
+                  >
                     <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
                         value={patient.intervalEvents}
@@ -523,7 +588,11 @@ const PatientCardComponent = ({
                           </Button>
                         </div>
                       </div>
-                      <div className="space-y-1">
+                      <div
+                        className="space-y-1"
+                        ref={bindFocusContainer("imaging")}
+                        onFocusCapture={() => handleEditorFocusIntent("imaging")}
+                      >
                         <div className="bg-background/50 rounded-lg border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <ImagePasteEditor
                             value={patient.imaging}
@@ -584,7 +653,11 @@ const PatientCardComponent = ({
                         <LabFishbone labs={patient.labs} className="mb-2" />
                       )}
 
-                      <div className="space-y-1">
+                      <div
+                        className="space-y-1"
+                        ref={bindFocusContainer("labs")}
+                        onFocusCapture={() => handleEditorFocusIntent("labs")}
+                      >
                         <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                           <RichTextEditor
                             value={patient.labs}
@@ -616,21 +689,31 @@ const PatientCardComponent = ({
 
               {/* Systems Review */}
               {sectionVisibility.systemsReview && (
-                <PatientSystemsReview
-                  patient={patient}
-                  todos={todos}
-                  generating={generating}
-                  autotexts={autotexts}
-                  globalFontSize={globalFontSize}
-                  changeTracking={changeTracking}
-                  onUpdate={onUpdate}
-                  addTodo={addTodo}
-                  toggleTodo={toggleTodo}
-                  deleteTodo={deleteTodo}
-                  generateTodos={(section) => generateTodos(patient, section as TodoSection)}
-                  onClearAll={clearAllSystems}
-                  onOpenConfig={() => setShowSystemsConfig(true)}
-                />
+                <div
+                  ref={bindFocusContainer("systemsReview")}
+                  onFocusCapture={() => handleEditorFocusIntent("systemsReview")}
+                >
+                  <PatientSystemsReview
+                    patient={patient}
+                    todos={todos}
+                    generating={generating}
+                    autotexts={autotexts}
+                    globalFontSize={globalFontSize}
+                    changeTracking={changeTracking}
+                    onUpdate={onUpdate}
+                    addTodo={addTodo}
+                    toggleTodo={toggleTodo}
+                    deleteTodo={deleteTodo}
+                    generateTodos={(section) => generateTodos(patient, section as TodoSection)}
+                    onClearAll={clearAllSystems}
+                    onOpenConfig={() => setShowSystemsConfig(true)}
+                    systemsReviewMode={systemsReviewMode}
+                    systemsCustomCombineKeys={systemsCustomCombineKeys}
+                    onSystemsReviewModeChange={onSystemsReviewModeChange}
+                    onSystemsCustomCombineKeysChange={onSystemsCustomCombineKeysChange}
+                    onAnyEditorFocus={() => handleEditorFocusIntent("systemsReview")}
+                  />
+                </div>
               )}
             </div>
           </motion.div>
@@ -650,6 +733,14 @@ const PatientCardComponent = ({
 // so reference comparison is sufficient for the patient object
 export const PatientCard = React.memo(PatientCardComponent, (prevProps, nextProps) => {
   if (prevProps.hidePatientWideTodos !== nextProps.hidePatientWideTodos) return false;
+  if (prevProps.dashboardFocusModeEnabled !== nextProps.dashboardFocusModeEnabled) return false;
+  if (prevProps.dashboardFocusTarget !== nextProps.dashboardFocusTarget) return false;
+  if (prevProps.systemsReviewMode !== nextProps.systemsReviewMode) return false;
+  if (prevProps.systemsCustomCombineKeys !== nextProps.systemsCustomCombineKeys) return false;
+  if (prevProps.onRequestDashboardFocusMode !== nextProps.onRequestDashboardFocusMode) return false;
+  if (prevProps.onExitDashboardFocusMode !== nextProps.onExitDashboardFocusMode) return false;
+  if (prevProps.onSystemsReviewModeChange !== nextProps.onSystemsReviewModeChange) return false;
+  if (prevProps.onSystemsCustomCombineKeysChange !== nextProps.onSystemsCustomCombineKeysChange) return false;
   const sharedEqual =
     prevProps.sharedPatientTodos === nextProps.sharedPatientTodos ||
     (!!prevProps.sharedPatientTodos &&
