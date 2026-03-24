@@ -349,7 +349,7 @@ export const DesktopDashboard = () => {
         </div>
       </motion.header>
 
-      <div ref={dashUtilRef} style={{ opacity: 0 }} className="container mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-3 no-print relative z-20">
+      <div ref={dashUtilRef} style={{ opacity: 0 }} className="container mx-auto px-4 md:px-6 lg:px-8 pt-1.5 pb-1.5 no-print relative z-20">
         {profileCoaching.showBanner ? (
           <ProfileCoachingBanner message={profileCoaching.message} className="mb-3" />
         ) : null}
@@ -384,10 +384,10 @@ export const DesktopDashboard = () => {
         />
       </div>
 
-      <div ref={dashListRef} style={{ opacity: 0 }} className="h-[calc(100vh-11.5rem)] w-full no-print pb-4">
+      <div ref={dashListRef} style={{ opacity: 0 }} className="h-[calc(100vh-10rem)] w-full no-print pb-4">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
           <div className="flex flex-col h-full bg-background relative z-10 shadow-card border border-border/30 rounded-lg">
-            <div className="p-4 md:p-6 pb-0">
+            <div className="p-3 md:p-4 pb-0">
               <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between mb-4">
                 <div className="relative flex-1 max-w-md" role="search">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 pointer-events-none" aria-hidden="true" />

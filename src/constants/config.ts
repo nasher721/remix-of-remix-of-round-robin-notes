@@ -59,7 +59,7 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
 
 // Default configuration values
 export const DEFAULT_CONFIG = {
-  GLOBAL_FONT_SIZE: 14,
+  GLOBAL_FONT_SIZE: 11,
   PRINT_FONT_SIZE: 9,
   PRINT_FONT_FAMILY: 'system',
   PRINT_ORIENTATION: 'portrait' as const,

@@ -93,7 +93,7 @@ export const RichTextEditor = ({
   placeholder = "Enter text...",
   className,
   autotexts = defaultAutotexts,
-  fontSize = 14,
+  fontSize = 11,
   changeTracking = null,
   patient,
   section,
@@ -567,7 +567,7 @@ export const RichTextEditor = ({
 
   const editorArea = (
     <>
-      <div className={cn("max-h-[380px] overflow-y-auto editor-scroll-container relative", isPoppedOut && isPopOutInstance && "min-h-[60vh] max-h-[70vh]")}>
+      <div className={cn("max-h-[600px] overflow-y-auto editor-scroll-container relative", isPoppedOut && isPopOutInstance && "min-h-[60vh] max-h-[70vh]")}>
         <div
           ref={editorRef}
           role="textbox"
