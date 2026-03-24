@@ -75,7 +75,7 @@ export const MobilePatientDetail = ({
   onDuplicate,
   onPrint,
   autotexts = [],
-  globalFontSize = 16,
+  globalFontSize = 11,
   changeTracking = null,
   onNext,
   onPrevious,
