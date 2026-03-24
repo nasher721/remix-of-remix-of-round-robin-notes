@@ -380,11 +380,13 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
               <Button
                 variant="outline"
                 size="sm"
-                className={cn("gap-2 h-8", className)}
+                className={cn("gap-1.5 h-8", className)}
                 aria-label="Quick actions: orders, documentation, and common rounding shortcuts for this patient"
+                aria-haspopup="dialog"
               >
-                <Zap className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="hidden sm:inline">Quick Actions</span>
+                <Zap className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline text-xs">Quick Actions</span>
+                <ChevronRight className="h-3 w-3 opacity-50 shrink-0" aria-hidden="true" />
               </Button>
             </SheetTrigger>
           </TooltipTrigger>
