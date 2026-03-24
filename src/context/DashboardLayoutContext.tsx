@@ -10,13 +10,23 @@ import {
   type ReactNode,
 } from "react"
 import {
-  getDashboardPrefs,
+  loadDashboardPrefs,
   saveDashboardPrefs,
   DEFAULT_DASHBOARD_PREFS,
   type DashboardPrefs,
-} from "~/lib/dashboardPrefs"
+} from "@/lib/dashboardPrefs"
 
 export type SystemsLayoutMode = "split" | "combine_all" | "custom"
+
+const toLayoutMode = (mode: DashboardPrefs["systemsReviewMode"]): SystemsLayoutMode => {
+  if (mode === "combine_custom") return "custom"
+  return mode
+}
+
+const toPrefsMode = (mode: SystemsLayoutMode): DashboardPrefs["systemsReviewMode"] => {
+  if (mode === "custom") return "combine_custom"
+  return mode
+}
 
 interface DashboardLayoutState {
   // Panel state
@@ -55,10 +65,11 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
 
   // Load prefs on mount
   useEffect(() => {
-    const loaded = getDashboardPrefs()
+    const loaded = loadDashboardPrefs()
     setPrefs(loaded)
-    setSystemsLayoutModeState(loaded.systemsLayoutMode || "split")
-    setCustomSystemsGroupIdsState(loaded.customSystemsGroupIds || [])
+    setFocusModeActive(loaded.focusModeEnabled)
+    setSystemsLayoutModeState(toLayoutMode(loaded.systemsReviewMode))
+    setCustomSystemsGroupIdsState(loaded.systemsCustomCombineKeys)
     setIsInitialized(true)
   }, [])
 
@@ -67,36 +78,39 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     if (!isInitialized) return
     const newPrefs: DashboardPrefs = {
       ...prefs,
-      systemsLayoutMode,
-      customSystemsGroupIds,
+      focusModeEnabled: focusModeActive,
+      systemsReviewMode: toPrefsMode(systemsLayoutMode),
+      systemsCustomCombineKeys: customSystemsGroupIds,
     }
     saveDashboardPrefs(newPrefs)
-  }, [isInitialized, prefs.panelLeftCollapsed, prefs.panelRightCollapsed, systemsLayoutMode, customSystemsGroupIds])
+  }, [isInitialized, prefs, focusModeActive, systemsLayoutMode, customSystemsGroupIds])
 
   const toggleLeftPanel = useCallback(() => {
-    setPrefs((p) => ({ ...p, panelLeftCollapsed: !p.panelLeftCollapsed }))
+    setPrefs((p) => ({ ...p, leftPatientListOpen: !p.leftPatientListOpen }))
   }, [])
 
   const toggleRightPanel = useCallback(() => {
-    setPrefs((p) => ({ ...p, panelRightCollapsed: !p.panelRightCollapsed }))
+    setPrefs((p) => ({ ...p, rightTasksPanelOpen: !p.rightTasksPanelOpen }))
   }, [])
 
   const setLeftPanelCollapsed = useCallback((collapsed: boolean) => {
-    setPrefs((p) => ({ ...p, panelLeftCollapsed: collapsed }))
+    setPrefs((p) => ({ ...p, leftPatientListOpen: !collapsed }))
   }, [])
 
   const setRightPanelCollapsed = useCallback((collapsed: boolean) => {
-    setPrefs((p) => ({ ...p, panelRightCollapsed: collapsed }))
+    setPrefs((p) => ({ ...p, rightTasksPanelOpen: !collapsed }))
   }, [])
 
   const enterFocusMode = useCallback((editorId: string) => {
     setFocusModeActive(true)
     setFocusModeEditorId(editorId)
+    setPrefs((p) => ({ ...p, focusModeEnabled: true }))
   }, [])
 
   const exitFocusMode = useCallback(() => {
     setFocusModeActive(false)
     setFocusModeEditorId(null)
+    setPrefs((p) => ({ ...p, focusModeEnabled: false }))
   }, [])
 
   const setSystemsLayoutMode = useCallback((mode: SystemsLayoutMode) => {
@@ -104,7 +118,7 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setCustomSystemsGroup = useCallback((ids: string[]) => {
-    setCustomSystemsGroupIds(ids)
+    setCustomSystemsGroupIdsState(ids)
     if (ids.length > 0) {
       setSystemsLayoutModeState("custom")
     }
@@ -126,8 +140,8 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
   }, [focusModeActive])
 
   const value: DashboardLayoutContextValue = useMemo(() => ({
-    panelLeftCollapsed: prefs.panelLeftCollapsed,
-    panelRightCollapsed: prefs.panelRightCollapsed,
+    panelLeftCollapsed: !prefs.leftPatientListOpen,
+    panelRightCollapsed: !prefs.rightTasksPanelOpen,
     focusModeActive,
     focusModeEditorId,
     systemsLayoutMode,
@@ -141,8 +155,8 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     setSystemsLayoutMode,
     setCustomSystemsGroup,
   }), [
-    prefs.panelLeftCollapsed,
-    prefs.panelRightCollapsed,
+    prefs.leftPatientListOpen,
+    prefs.rightTasksPanelOpen,
     focusModeActive,
     focusModeEditorId,
     systemsLayoutMode,
