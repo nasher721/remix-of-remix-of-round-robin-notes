@@ -92,7 +92,16 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
 
   const [globalFontSize, setGlobalFontSizeState] = React.useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_FONT_SIZE);
-    return saved ? parseInt(saved, 10) : DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      // Migrate from old default (14) to new smaller default
+      if (parsed === 14) {
+        localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(DEFAULT_CONFIG.GLOBAL_FONT_SIZE));
+        return DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
+      }
+      return parsed;
+    }
+    return DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
   });
 
   const [todosAlwaysVisible, setTodosAlwaysVisibleState] = React.useState(() => {
