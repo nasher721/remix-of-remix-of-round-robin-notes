@@ -75,6 +75,8 @@ import {
   SlidersHorizontal,
   Filter,
   RefreshCw,
+  Minimize2,
+  Maximize2,
 } from "lucide-react";
 import {
   DropdownMenu,
