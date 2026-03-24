@@ -1,9 +1,9 @@
 import * as React from "react";
 import type { Patient } from "@/types/patient";
-import type { PatientTodo } from "@/types/todo";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -35,20 +35,9 @@ import {
   handleExportDOC,
   handleExportMarkdown,
 } from "./print/ExportHandlers";
+import type { PrintExportModalProps, PatientTodosMap } from "./print/types";
 
-export interface PatientTodosMap {
-  [patientId: string]: PatientTodo[];
-}
-
-interface PrintExportModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  patients: Patient[];
-  patientTodos?: PatientTodosMap;
-  onUpdatePatient?: (id: string, field: string, value: string) => void;
-  totalPatientCount?: number;
-  isFiltered?: boolean;
-}
+export type { PrintExportModalProps, PatientTodosMap };
 
 export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = {}, onUpdatePatient, totalPatientCount, isFiltered = false }: PrintExportModalProps) => {
   const { user } = useAuth();
@@ -634,6 +623,12 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-[98vw] w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Print layout designer</DialogTitle>
+            <DialogDescription>
+              Arrange sections and columns for printed patient lists. Use drag and drop to reorder.
+            </DialogDescription>
+          </DialogHeader>
           <LayoutDesigner
             onApplyLayout={handleApplyLayout}
             onClose={() => setShowLayoutDesigner(false)}
@@ -646,10 +641,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
-        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 border-b flex-shrink-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2">
-            <DialogTitle className="flex items-center gap-2">
-              <Printer className="h-5 w-5" />
+        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 pr-14 md:pr-16 border-b border-border/50 flex-shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2 min-w-0">
+            <DialogTitle className="flex items-center gap-2 min-w-0 shrink">
+              <Printer className="h-5 w-5 shrink-0" aria-hidden />
               Print & Export
               {appliedLayout && (
                 <span className="text-xs font-normal text-muted-foreground ml-2 px-2 py-0.5 rounded bg-primary/10">
@@ -657,14 +652,15 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                 </span>
               )}
             </DialogTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full justify-end sm:justify-end">
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setShowLayoutDesigner(true)}
-                className="gap-1.5"
+                className="gap-1.5 shrink-0"
               >
-                <LayoutTemplate className="h-4 w-4" />
+                <LayoutTemplate className="h-4 w-4 shrink-0" aria-hidden />
                 Layout Designer
               </Button>
               <PrintControls
@@ -679,11 +675,14 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               />
             </div>
           </div>
+          <DialogDescription className="sr-only">
+            Configure columns and export patient lists to PDF, Excel, or other formats.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
-          {/* Left Sidebar - Settings (collapsible on mobile) */}
-          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/10 flex flex-col max-h-[40vh] md:max-h-none overflow-hidden flex-shrink-0">
+          {/* Left Sidebar - Settings (scrollable; cap height on small screens so preview keeps space) */}
+          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/10 flex flex-col min-h-0 max-h-[min(42vh,320px)] md:max-h-none overflow-hidden flex-shrink-0">
             <Tabs defaultValue="settings" className="flex-1 flex flex-col min-h-0">
               <div className="px-4 pt-3 md:pt-4 flex-shrink-0">
                 <TabsList className="w-full">
@@ -726,7 +725,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                   ) : (
                     <div className="space-y-2">
                       {templatePresets.map(preset => (
-                        <div key={preset.id} className="flex items-center justify-between rounded-md border p-2">
+                        <div key={preset.id} className="flex items-center justify-between rounded-lg border border-border/50 p-3">
                           <div>
                             <div className="text-sm font-medium">{preset.name}</div>
                             <div className="text-xs text-muted-foreground">

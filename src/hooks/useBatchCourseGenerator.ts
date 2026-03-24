@@ -2,8 +2,12 @@ import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
+import type { PatientTodo } from '@/types/todo';
 import { ensureString } from '@/lib/ai-response-utils';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAssertBackendReady } from '@/contexts/EdgeHealthContext';
 
 export type BatchGenerationType = 'course' | 'intervalEvents' | 'dailySummary';
 
@@ -28,6 +32,7 @@ export type UndoEntry = {
 };
 
 export const useBatchCourseGenerator = () => {
+  const assertBackendReady = useAssertBackendReady();
   const { getModelForFeature } = useSettings();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [progress, setProgress] = React.useState<BatchProgress>({
@@ -39,10 +44,18 @@ export const useBatchCourseGenerator = () => {
   const [undoStack, setUndoStack] = React.useState<UndoEntry[][]>([]);
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
+  const toTodoRow = (t: PatientTodo): { content: string | null; completed: boolean; section: string | null; created_at: string } => ({
+    content: t.content ?? null,
+    completed: t.completed,
+    section: t.section,
+    created_at: t.createdAt,
+  });
+
   const generateBatch = React.useCallback(async (
     patients: Patient[],
     type: BatchGenerationType,
-    onUpdatePatient?: (id: string, field: string, value: unknown) => void
+    onUpdatePatient?: (id: string, field: string, value: unknown) => void,
+    todosByPatientId?: Record<string, PatientTodo[]>
   ): Promise<BatchResult[]> => {
     // Filter patients with content based on generation type
     const patientsWithContent = patients.filter(patient => {
@@ -66,6 +79,10 @@ export const useBatchCourseGenerator = () => {
         ? 'No patients with system notes to generate interval events from.'
         : 'No patients with clinical data to generate from.';
       toast.error(message);
+      return [];
+    }
+
+    if (!assertBackendReady()) {
       return [];
     }
 
@@ -106,53 +123,71 @@ export const useBatchCourseGenerator = () => {
         let data, error;
 
         if (type === 'intervalEvents') {
-          const response = await supabase.functions.invoke('generate-interval-events', {
-            body: { 
-              systems: patient.systems,
-              existingIntervalEvents: patient.intervalEvents,
-              patientName: patient.name,
-              model: getModelForFeature('interval_events'),
-            },
-          });
+          const response = await withCategoryTimeout(
+            supabase.functions.invoke('generate-interval-events', {
+              body: { 
+                systems: patient.systems,
+                existingIntervalEvents: patient.intervalEvents,
+                patientName: patient.name,
+                model: getModelForFeature('interval_events'),
+              },
+            }),
+            'aiEdgeFunction',
+            'generate-interval-events',
+          );
           data = response.data;
           error = response.error;
         } else if (type === 'dailySummary') {
-          // Fetch todos for this patient
-          const { data: todos } = await supabase
-            .from('patient_todos')
-            .select('content, completed, section, created_at')
-            .eq('patient_id', patient.id);
+          let todoRows: { content: string | null; completed: boolean; section: string | null; created_at: string }[];
+          const existing = todosByPatientId?.[patient.id];
+          if (existing?.length) {
+            todoRows = existing.map(toTodoRow);
+          } else {
+            const { data } = await supabase
+              .from('patient_todos')
+              .select('content, completed, section, created_at')
+              .eq('patient_id', patient.id);
+            todoRows = data ?? [];
+          }
 
-          const response = await supabase.functions.invoke('generate-daily-summary', {
-            body: { 
-              patientName: patient.name,
-              clinicalSummary: patient.clinicalSummary,
-              intervalEvents: patient.intervalEvents,
-              imaging: patient.imaging,
-              labs: patient.labs,
-              systems: patient.systems,
-              medications: patient.medications,
-              todos: todos || [],
-              existingIntervalEvents: patient.intervalEvents,
-              model: getModelForFeature('daily_summary'),
-            },
-          });
-          data = response.data;
-          error = response.error;
-        } else {
-          const response = await supabase.functions.invoke('generate-patient-course', {
-            body: { 
-              patientData: {
-                name: patient.name,
+          const response = await withCategoryTimeout(
+            supabase.functions.invoke('generate-daily-summary', {
+              body: {
+                patientName: patient.name,
                 clinicalSummary: patient.clinicalSummary,
                 intervalEvents: patient.intervalEvents,
                 imaging: patient.imaging,
                 labs: patient.labs,
                 systems: patient.systems,
+                medications: patient.medications,
+                todos: todoRows,
+                existingIntervalEvents: patient.intervalEvents,
+                model: getModelForFeature('daily_summary'),
               },
-              model: getModelForFeature('patient_course'),
-            },
-          });
+            }),
+            'aiEdgeFunction',
+            'generate-daily-summary',
+          );
+          data = response.data;
+          error = response.error;
+        } else {
+          const response = await withCategoryTimeout(
+            supabase.functions.invoke('generate-patient-course', {
+              body: { 
+                patientData: {
+                  name: patient.name,
+                  clinicalSummary: patient.clinicalSummary,
+                  intervalEvents: patient.intervalEvents,
+                  imaging: patient.imaging,
+                  labs: patient.labs,
+                  systems: patient.systems,
+                },
+                model: getModelForFeature('patient_course'),
+              },
+            }),
+            'aiEdgeFunction',
+            'generate-patient-course',
+          );
           data = response.data;
           error = response.error;
         }
@@ -162,11 +197,12 @@ export const useBatchCourseGenerator = () => {
         }
 
         if (error || data?.error) {
+          const errPayload = error ?? data?.error;
           results.push({
             patientId: patient.id,
             patientName: patient.name,
             content: null,
-            error: error?.message || data?.error || 'Generation failed',
+            error: getUserFacingErrorMessage(errPayload, 'Generation failed'),
           });
         } else {
           // Get the content based on type
@@ -217,7 +253,7 @@ export const useBatchCourseGenerator = () => {
           patientId: patient.id,
           patientName: patient.name,
           content: null,
-          error: err instanceof Error ? err.message : 'Unknown error',
+          error: getUserFacingErrorMessage(err, 'Generation failed'),
         });
       }
 
@@ -253,7 +289,7 @@ export const useBatchCourseGenerator = () => {
     }
 
     return results;
-  }, [getModelForFeature]);
+  }, [getModelForFeature, assertBackendReady]);
 
   // Backwards compatible wrapper for course generation
   const generateBatchCourses = React.useCallback(async (

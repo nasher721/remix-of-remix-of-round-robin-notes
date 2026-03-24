@@ -5,9 +5,18 @@ import { useToast } from '@/hooks/use-toast';
 import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
-export function usePatientTodos(patientId: string | null) {
-  const [todos, setTodos] = useState<PatientTodo[]>([]);
+export interface UsePatientTodosOptions {
+  /** When provided, use as initial state and skip the initial fetch (avoids duplicate fetches when parent already has todos, e.g. from todosMap). */
+  initialTodos?: PatientTodo[];
+}
+
+export function usePatientTodos(patientId: string | null, options?: UsePatientTodosOptions) {
+  const initialTodos = options?.initialTodos;
+  const [todos, setTodos] = useState<PatientTodo[]>(() => initialTodos ?? []);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const { user } = useAuth();
@@ -45,8 +54,9 @@ export function usePatientTodos(patientId: string | null) {
   }, [patientId, user]);
 
   useEffect(() => {
+    if (initialTodos !== undefined) return;
     fetchTodos();
-  }, [fetchTodos]);
+  }, [fetchTodos, initialTodos]);
 
   const addTodo = useCallback(async (content: string, section: string | null = null) => {
     if (!patientId || !user) return;
@@ -65,6 +75,10 @@ export function usePatientTodos(patientId: string | null) {
         .single();
 
       if (error) throw error;
+      if (data == null) {
+        toast({ title: "Error", description: "No data returned from insert", variant: "destructive" });
+        return;
+      }
 
       const newTodo: PatientTodo = {
         id: data.id,
@@ -139,21 +153,43 @@ export function usePatientTodos(patientId: string | null) {
 
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-todos', {
-        body: {
-          patientData: {
-            name: patient.name,
-            bed: patient.bed,
-            clinicalSummary: patient.clinicalSummary,
-            intervalEvents: patient.intervalEvents,
-            imaging: patient.imaging,
-            labs: patient.labs,
-            systems: patient.systems,
-          },
+      const bankId = `clinician:${user.id}`;
+
+      const recalled = await recallMemories({
+        bankId,
+        query: 'todo preferences and style',
+        filters: {
+          feature: 'todos',
           section,
-          model: getModelForFeature('todos'),
         },
+        limit: 6,
       });
+
+      const styleSummary = recalled?.memories
+        ?.map((memory) => memory.content)
+        .filter(Boolean)
+        .join('\n---\n');
+
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('generate-todos', {
+          body: {
+            patientData: {
+              name: patient.name,
+              bed: patient.bed,
+              clinicalSummary: patient.clinicalSummary,
+              intervalEvents: patient.intervalEvents,
+              imaging: patient.imaging,
+              labs: patient.labs,
+              systems: patient.systems,
+            },
+            section,
+            styleSummary,
+            model: getModelForFeature('todos'),
+          },
+        }),
+        'aiEdgeFunction',
+        'generate-todos',
+      );
 
       if (error) throw error;
 
@@ -207,11 +243,29 @@ export function usePatientTodos(patientId: string | null) {
         title: "Todos generated",
         description: `Added ${newTodos.length} new todo items.`,
       });
+
+      if (newTodos.length > 0) {
+        const content = [
+          `Patient: ${patient.name || `Bed ${patient.bed}`}`,
+          `Section: ${section}`,
+          `Generated todos:\n${newTodos.map((t) => `- ${t.content}`).join('\n')}`,
+        ].join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature: 'todos',
+            section,
+            source: 'generate-todos',
+          },
+        });
+      }
     } catch (error) {
       console.error('Error generating todos:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate todos",
+        description: getUserFacingErrorMessage(error, 'Failed to generate todos'),
         variant: "destructive",
       });
     } finally {
@@ -240,3 +294,6 @@ export function usePatientTodos(patientId: string | null) {
     refetch: fetchTodos,
   };
 }
+
+/** Lifted state shape for desktop tasks rail + PatientCard sharing one todo source. */
+export type PatientTodosApi = ReturnType<typeof usePatientTodos>;

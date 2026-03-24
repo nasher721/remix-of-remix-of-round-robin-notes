@@ -1,3 +1,7 @@
+/**
+ * CRDT-based sync for collaborative editing (Yjs + IndexedDB + Supabase).
+ * Currently unused; remove or adopt when real-time collaboration is implemented.
+ */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';

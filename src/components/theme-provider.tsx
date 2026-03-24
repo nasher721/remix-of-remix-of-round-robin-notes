@@ -8,14 +8,20 @@ type ThemeProviderProps = {
     storageKey?: string
 }
 
+const HIGH_CONTRAST_KEY = "vite-ui-high-contrast"
+
 type ThemeProviderState = {
     theme: Theme
     setTheme: (theme: Theme) => void
+    highContrast: boolean
+    setHighContrast: (value: boolean) => void
 }
 
 const initialState: ThemeProviderState = {
     theme: "system",
     setTheme: () => null,
+    highContrast: false,
+    setHighContrast: () => null,
 }
 
 const ThemeProviderContext = React.createContext<ThemeProviderState>(initialState)
@@ -34,12 +40,22 @@ export function ThemeProvider({
         () => (typeof window !== "undefined" ? localStorage.getItem(storageKey) as Theme : null) || defaultTheme
     )
 
+    const [highContrast, setHighContrastState] = React.useState<boolean>(() =>
+        typeof window !== "undefined" ? localStorage.getItem(HIGH_CONTRAST_KEY) === "true" : false
+    )
+
     React.useEffect(() => {
         const root = window.document.documentElement
         root.classList.remove("light", "dark")
         const resolved = theme === "system" ? getSystemTheme() : theme
         root.classList.add(resolved)
     }, [theme])
+
+    React.useEffect(() => {
+        const root = window.document.documentElement
+        if (highContrast) root.classList.add("high-contrast")
+        else root.classList.remove("high-contrast")
+    }, [highContrast])
 
     React.useEffect(() => {
         if (theme === "system") {
@@ -60,7 +76,12 @@ export function ThemeProvider({
             localStorage.setItem(storageKey, t)
             setTheme(t)
         },
-    }), [theme, storageKey])
+        highContrast,
+        setHighContrast: (v: boolean) => {
+            localStorage.setItem(HIGH_CONTRAST_KEY, v ? "true" : "false")
+            setHighContrastState(v)
+        },
+    }), [theme, storageKey, highContrast])
 
     return (
         <ThemeProviderContext.Provider value={value}>

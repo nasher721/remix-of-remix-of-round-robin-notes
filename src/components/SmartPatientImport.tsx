@@ -17,6 +17,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Wand2, Loader2, Clipboard, Check, Edit2, Pill } from "lucide-react";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
 import { useSettings } from "@/contexts/SettingsContext";
+import { withCategoryTimeout } from "@/lib/requestTimeout";
+import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
 
 interface ParsedPatientData {
   name: string;
@@ -44,6 +47,7 @@ interface SmartPatientImportProps {
 }
 
 export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImportProps) => {
+  const assertBackendReady = useAssertBackendReady();
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState<"input" | "review">("input");
   const [content, setContent] = React.useState("");
@@ -79,11 +83,19 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
       return;
     }
 
+    if (!assertBackendReady()) {
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("parse-single-patient", {
-        body: { content: content.trim(), model: getModelForFeature('parsing') },
-      });
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke("parse-single-patient", {
+          body: { content: content.trim(), model: getModelForFeature('parsing') },
+        }),
+        "aiEdgeFunction",
+        "parse-single-patient",
+      );
 
       if (error) {
         throw error;
@@ -104,7 +116,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
       console.error("Parse error:", error);
       toast({
         title: "Failed to parse notes",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: getUserFacingErrorMessage(error, "Unable to parse notes right now. Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -124,7 +136,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
       console.error("Import error:", error);
       toast({
         title: "Failed to import patient",
-        description: error instanceof Error ? error.message : "Please try again",
+        description: getUserFacingErrorMessage(error, "Unable to import patient right now. Please try again."),
         variant: "destructive",
       });
     } finally {
@@ -203,7 +215,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" className="gap-2">
+          <Button type="button" variant="outline" className="w-full justify-start gap-2">
             <Wand2 className="h-4 w-4" />
             Smart Import
           </Button>

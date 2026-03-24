@@ -44,6 +44,7 @@ import { AIClinicalAssistant } from "@/components/AIClinicalAssistant";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { AutoText } from "@/types/autotext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
+import type { PatientTodo } from "@/types/todo";
 
 interface MobilePatientDetailProps {
   patient: Patient;
@@ -62,6 +63,8 @@ interface MobilePatientDetailProps {
   onPrevious?: () => void;
   hasNext?: boolean;
   hasPrevious?: boolean;
+  /** When provided (e.g. from dashboard todosMap), used as initial todos and avoids a duplicate fetch. */
+  initialTodos?: PatientTodo[];
 }
 
 export const MobilePatientDetail = ({
@@ -78,9 +81,10 @@ export const MobilePatientDetail = ({
   onPrevious,
   hasNext = false,
   hasPrevious = false,
+  initialTodos,
 }: MobilePatientDetailProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
-  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id);
+  const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id, { initialTodos });
   const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
   const { enabledSystems } = useSystemsConfig();
   const imagingImageCount = useMemo(() => {

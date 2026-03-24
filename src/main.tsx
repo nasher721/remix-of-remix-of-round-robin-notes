@@ -3,21 +3,29 @@ import * as ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { initGlobalErrorCapture } from "@/lib/observability/telemetry";
+import { installObservabilityDebugApi } from "@/lib/observability/debugApi";
+import { initAppSentry } from "@/lib/observability/sentryClient";
 
 // Initialize telemetry early to capture all errors
 initGlobalErrorCapture();
+initAppSentry();
+installObservabilityDebugApi();
 
 // Register service worker outside of React to avoid HMR issues
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
-      console.log('[App] Service Worker registered:', registration.scope);
+      if (import.meta.env.DEV) {
+        console.log('[App] Service Worker registered:', registration.scope);
+      }
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[App] New content available, refresh to update');
+              if (import.meta.env.DEV) {
+                console.log('[App] New content available, refresh to update');
+              }
             }
           });
         }

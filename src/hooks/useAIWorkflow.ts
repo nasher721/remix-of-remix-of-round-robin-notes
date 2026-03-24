@@ -1,4 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+/**
+ * Runs multi-step AI workflows by calling Edge Functions in sequence.
+ * Not yet wired to UI; use when workflow/automation feature is added.
+ */
+import { useState, useCallback, useRef } from "react";
+import { getEdgeFunctionAuthHeaders } from "@/lib/edgeFunctionHeaders";
 
 export type AIWorkflowStep = {
   id: string;
@@ -40,11 +45,10 @@ export function useAIWorkflow(): UseAIWorkflowReturn {
     input: Record<string, unknown>
   ): Promise<{ data?: unknown; error?: string }> => {
     const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
+      method: "POST",
+      headers: await getEdgeFunctionAuthHeaders({
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify(input),
     });
 

@@ -32,6 +32,7 @@ export function usePatientSearch(patients: Patient[]) {
       result = result.filter(
         (p) =>
           p.name?.toLowerCase().includes(term) ||
+          p.mrn?.toLowerCase().includes(term) ||
           p.bed?.toLowerCase().includes(term) ||
           p.clinicalSummary?.toLowerCase().includes(term)
       );

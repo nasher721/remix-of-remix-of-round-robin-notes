@@ -30,6 +30,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -369,16 +374,24 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className={cn("gap-2 h-8", className)}
-          >
-            <Zap className="h-4 w-4" />
-            <span className="hidden sm:inline">Quick Actions</span>
-          </Button>
-        </SheetTrigger>
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn("gap-2 h-8", className)}
+                aria-label="Quick actions: orders, documentation, and common rounding shortcuts for this patient"
+              >
+                <Zap className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline">Quick Actions</span>
+              </Button>
+            </SheetTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-xs">
+            Open quick actions: labs, imaging, consults, and one-tap documentation snippets for this patient.
+          </TooltipContent>
+        </Tooltip>
         <SheetContent className="w-[400px] sm:w-[480px]">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">

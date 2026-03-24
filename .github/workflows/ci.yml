@@ -9,13 +9,13 @@ on:
       - main
 
 jobs:
-  lint-and-typecheck-frontend:
+  frontend-baseline-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "20"
           cache: "npm"
@@ -26,8 +26,11 @@ jobs:
       - name: Code Linting
         run: npm run lint
 
-      - name: TypeScript Validation
-        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
 
   check-supabase-functions:
     runs-on: ubuntu-latest

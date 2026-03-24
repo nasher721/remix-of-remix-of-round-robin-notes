@@ -31,6 +31,7 @@ import {
   Sun,
   Moon,
   Laptop,
+  Contrast,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useSettings } from "@/contexts/SettingsContext";
@@ -38,6 +39,7 @@ import { useTheme } from "@/components/theme-provider";
 import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
 import { SpecialtySelectionPanel } from "@/components/settings/SpecialtySelectionPanel";
 import { AIModelSettingsPanel } from "@/components/settings/AIModelSettingsPanel";
+import { ObservabilitySupportCard } from "@/components/settings/ObservabilitySupportCard";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
@@ -73,6 +75,8 @@ interface MobileSettingsPanelProps {
   showLabFishbones?: boolean;
   onShowLabFishbonesChange?: (show: boolean) => void;
   patientCount?: number;
+  editorToolbarMode?: 'minimal' | 'full' | 'custom';
+  onEditorToolbarModeChange?: (mode: 'minimal' | 'full' | 'custom') => void;
 }
 
 const colorPresets = [
@@ -102,9 +106,11 @@ export const MobileSettingsPanel = ({
   showLabFishbones = true,
   onShowLabFishbonesChange,
   patientCount = 0,
+  editorToolbarMode = 'minimal',
+  onEditorToolbarModeChange,
 }: MobileSettingsPanelProps) => {
   const { sectionVisibility, setSectionVisibility, resetSectionVisibility } = useSettings();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, highContrast, setHighContrast } = useTheme();
 
   const toggleSection = (key: ClinicalSectionKey) => {
     setSectionVisibility({
@@ -144,6 +150,22 @@ export const MobileSettingsPanel = ({
           />
         </div>
 
+        {onEditorToolbarModeChange && (
+          <div className="space-y-2">
+            <span className="text-sm">Text box toolbar</span>
+            <Select value={editorToolbarMode} onValueChange={(v) => onEditorToolbarModeChange(v as 'minimal' | 'full' | 'custom')}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="minimal">Minimal (essential + More)</SelectItem>
+                <SelectItem value="full">Full</SelectItem>
+                <SelectItem value="custom">Custom</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sun className="h-4 w-4 text-muted-foreground" />
@@ -174,6 +196,21 @@ export const MobileSettingsPanel = ({
               </SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Contrast className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden="true" />
+            <Label htmlFor="mobile-high-contrast" className="text-sm font-normal cursor-pointer">
+              High contrast
+            </Label>
+          </div>
+          <Switch
+            id="mobile-high-contrast"
+            checked={highContrast}
+            onCheckedChange={setHighContrast}
+            aria-label="High contrast"
+          />
         </div>
 
         <div className="flex items-center justify-between">
@@ -356,6 +393,8 @@ export const MobileSettingsPanel = ({
       </Card>
 
       <AIModelSettingsPanel />
+
+      <ObservabilitySupportCard variant="mobile" />
 
       {/* AI Tools */}
       {onOpenBatchCourse && patientCount > 0 && (

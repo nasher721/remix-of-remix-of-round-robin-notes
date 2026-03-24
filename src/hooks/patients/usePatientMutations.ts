@@ -1,7 +1,7 @@
 import * as React from "react";
 import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
-import { useAuth } from "../useAuth";
-import { useNotifications } from "../use-notifications";
+import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/use-notifications";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { prepareUpdateData } from "@/lib/mappers/patientMapper";
 import {
@@ -32,7 +32,13 @@ export function usePatientMutations({
     const notifications = useNotifications();
 
     const addPatient = React.useCallback(async () => {
-        if (!user) return;
+        if (!user) {
+            notifications.error({
+                title: "Not signed in",
+                description: "Please sign in to add patients.",
+            });
+            return;
+        }
         if (!hasSupabaseConfig) {
             notifications.error({
                 title: "Configuration Error",
@@ -42,21 +48,25 @@ export function usePatientMutations({
         }
 
         try {
+            const nextNumber =
+                1 +
+                Math.max(0, ...patientsRef.current.map((p) => p.patientNumber ?? 0));
             const { data, error } = await supabase
                 .from("patients")
                 .insert([buildPatientInsertPayload({
                     userId: user.id,
-                    patientNumber: patientCounter,
+                    patientNumber: nextNumber,
                 })])
                 .select()
                 .single();
 
             if (error) throw error;
+            if (data == null) throw new Error("No data returned from insert");
 
             const newPatient = mapPatientRecord(data);
 
             setPatients((prev) => [...prev, newPatient]);
-            setPatientCounter((prev) => prev + 1);
+            setPatientCounter((prev) => Math.max(prev, nextNumber));
 
             notifications.success({
                 title: "Patient Added",
@@ -69,7 +79,7 @@ export function usePatientMutations({
                 description: "Failed to add patient.",
             });
         }
-    }, [user, patientCounter, notifications, setPatients, setPatientCounter]);
+    }, [user, notifications, setPatients, setPatientCounter, patientsRef]);
 
     const updatePatient = React.useCallback(async (id: string, field: string, value: unknown) => {
         if (!user) return;
@@ -135,10 +145,14 @@ export function usePatientMutations({
         setPatients(currentPatients);
 
         const updateData = prepareUpdateData(field, value, updatedPatient.systems, updatedPatient.medications);
+        updateData.last_modified = now;
 
         if (shouldTrack) {
             updateData.field_timestamps = updatedPatient.fieldTimestamps;
         }
+
+        const serializeForHistory = (v: unknown): string =>
+            typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
 
         try {
             const { error } = await supabase
@@ -149,24 +163,32 @@ export function usePatientMutations({
             if (error) throw error;
 
             // Record history entry for trackable fields (non-blocking)
-            if (shouldTrack && oldValue !== (value as string)) {
-                void (async () => {
-                    try {
-                        await supabase.from("patient_field_history").insert({
-                            patient_id: id,
-                            user_id: user.id,
-                            field_name: field,
-                            old_value: oldValue,
-                            new_value: value as string,
-                        });
-                    } catch {
-                        // Silently ignore history recording errors
-                    }
-                })();
+            if (shouldTrack) {
+                const newValueStr = isMedicationsField ? serializeForHistory(value) : (value as string);
+                const oldValueStr = isMedicationsField ? serializeForHistory(oldPatient.medications) : oldValue;
+                if (oldValueStr !== newValueStr) {
+                    void (async () => {
+                        try {
+                            await supabase.from("patient_field_history").insert({
+                                patient_id: id,
+                                user_id: user.id,
+                                field_name: field,
+                                old_value: oldValueStr,
+                                new_value: newValueStr,
+                            });
+                        } catch {
+                            // Silently ignore history recording errors
+                        }
+                    })();
+                }
             }
         } catch (error) {
             console.error("Error updating patient:", error);
             fetchPatients(); // Revert on error
+            notifications.error({
+                title: "Update failed",
+                description: "Patient changes could not be saved. Please try again.",
+            });
         }
     }, [user, fetchPatients, notifications, patientsRef, setPatients]);
 
@@ -216,13 +238,17 @@ export function usePatientMutations({
         const patient = patientsRef.current.find((p) => p.id === id);
         if (!patient) return;
 
+        const nextNumber =
+            1 +
+            Math.max(0, ...patientsRef.current.map((p) => p.patientNumber ?? 0));
         try {
             const { data, error } = await supabase
                 .from("patients")
                 .insert([buildPatientInsertPayload({
                     userId: user.id,
-                    patientNumber: patientCounter,
+                    patientNumber: nextNumber,
                     name: `${patient.name} (Copy)`,
+                    mrn: patient.mrn,
                     bed: patient.bed,
                     clinicalSummary: patient.clinicalSummary,
                     intervalEvents: patient.intervalEvents,
@@ -235,11 +261,12 @@ export function usePatientMutations({
                 .single();
 
             if (error) throw error;
+            if (data == null) throw new Error("No data returned from insert");
 
             const newPatient = mapPatientRecord(data);
 
             setPatients((prev) => [...prev, newPatient]);
-            setPatientCounter((prev) => prev + 1);
+            setPatientCounter((prev) => Math.max(prev, nextNumber));
 
             notifications.success({
                 title: "Patient Duplicated",
@@ -252,7 +279,7 @@ export function usePatientMutations({
                 description: "Failed to duplicate patient.",
             });
         }
-    }, [user, patientCounter, notifications, patientsRef, setPatients, setPatientCounter]);
+    }, [user, notifications, patientsRef, setPatients, setPatientCounter]);
 
     const toggleCollapse = React.useCallback(async (id: string) => {
         const patient = patientsRef.current.find((p) => p.id === id);

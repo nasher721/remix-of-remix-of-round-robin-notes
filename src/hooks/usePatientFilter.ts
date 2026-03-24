@@ -22,6 +22,7 @@ export function usePatientFilter({ patients, sortBy }: UsePatientFilterOptions) 
         const matchesSearch =
           !searchQuery ||
           patient.name.toLowerCase().includes(searchLower) ||
+          (patient.mrn ?? "").toLowerCase().includes(searchLower) ||
           patient.bed.toLowerCase().includes(searchLower) ||
           patient.clinicalSummary.toLowerCase().includes(searchLower) ||
           patient.intervalEvents.toLowerCase().includes(searchLower);

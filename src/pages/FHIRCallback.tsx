@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { handleCallback, fetchPatientData } from '@/integrations/fhir';
+import { extractMRN } from '@/integrations/fhir/mapper';
 import { usePatients } from '@/hooks/usePatients';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
@@ -41,8 +42,11 @@ export default function FHIRCallback() {
         setPatientName(fullName);
         setStatus('importing');
 
+        const mrn = extractMRN(fhirData.patient.identifier);
+
         const patientData = {
           name: fullName,
+          mrn,
           bed: '',
           clinicalSummary: `Imported from EHR on ${new Date().toLocaleDateString()}`,
           intervalEvents: '',
@@ -93,38 +97,38 @@ export default function FHIRCallback() {
   }, [addPatientWithData, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <main id="main-content" className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md" role="region" aria-labelledby="fhir-import-title">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle id="fhir-import-title" className="flex items-center gap-2 text-balance">
             {status === 'loading' && (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Connecting to EHR...
+                <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden />
+                <span>Connecting to EHR…</span>
               </>
             )}
             {status === 'fetching' && (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Fetching Patient Data...
+                <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden />
+                <span>Fetching patient data…</span>
               </>
             )}
             {status === 'importing' && (
               <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Importing {patientName}...
+                <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none shrink-0" aria-hidden />
+                <span>Importing {patientName}…</span>
               </>
             )}
             {status === 'success' && (
               <>
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                Import Successful!
+                <CheckCircle className="h-5 w-5 text-green-500 shrink-0" aria-hidden />
+                <span>Import successful</span>
               </>
             )}
             {status === 'error' && (
               <>
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                Import Failed
+                <AlertCircle className="h-5 w-5 text-destructive shrink-0" aria-hidden />
+                <span>Import failed</span>
               </>
             )}
           </CardTitle>
@@ -132,17 +136,17 @@ export default function FHIRCallback() {
         <CardContent>
           {status === 'loading' && (
             <p className="text-sm text-muted-foreground">
-              Please wait while we connect to your EHR system...
+              Please wait while we connect to your EHR system…
             </p>
           )}
           {status === 'fetching' && (
             <p className="text-sm text-muted-foreground">
-              Retrieving patient demographics, medications, and allergies...
+              Retrieving patient demographics, medications, and allergies…
             </p>
           )}
           {status === 'importing' && (
             <p className="text-sm text-muted-foreground">
-              Creating patient record for <strong>{patientName}</strong>...
+              Creating patient record for <strong>{patientName}</strong>…
             </p>
           )}
           {status === 'success' && (
@@ -151,25 +155,26 @@ export default function FHIRCallback() {
                 Successfully imported <strong>{patientName}</strong> from your EHR.
               </p>
               <p className="text-sm text-muted-foreground">
-                Redirecting to dashboard...
+                Redirecting to dashboard…
               </p>
             </div>
           )}
           {status === 'error' && (
             <div className="space-y-4">
-              <p className="text-sm text-destructive">
+              <p className="text-sm text-destructive" role="alert">
                 {error || 'An error occurred while importing patient data.'}
               </p>
               <button
+                type="button"
                 onClick={() => navigate('/')}
-                className="text-sm text-primary hover:underline"
+                className="text-sm text-primary hover:underline min-h-[44px] px-1 -mx-1 rounded-md inline-flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                Return to Dashboard
+                Return to dashboard
               </button>
             </div>
           )}
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }

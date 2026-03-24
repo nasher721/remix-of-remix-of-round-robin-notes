@@ -37,6 +37,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
         return patients.filter(
             (p) =>
                 p.name.toLowerCase().includes(lowerFilter) ||
+                (p.mrn ?? "").toLowerCase().includes(lowerFilter) ||
                 p.bed.toLowerCase().includes(lowerFilter)
         );
     }, [patients, filter]);
@@ -46,7 +47,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
     return (
         <div
             className={cn(
-                "fixed right-0 top-16 bottom-0 z-30 transition-all duration-300 ease-in-out border-l border-border/20 bg-card/95 backdrop-blur-xl shadow-lg flex flex-col no-print",
+                "fixed right-0 top-16 bottom-0 z-30 transition-all duration-300 ease-in-out border-l border-border/30 bg-card/95 backdrop-blur-xl shadow-card flex flex-col no-print rounded-l-lg",
                 isOpen ? "w-64" : "w-12",
                 className
             )}
@@ -56,16 +57,16 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
                 variant="ghost"
                 size="icon"
                 onClick={handleToggleOpen}
-                className="absolute -left-3 top-4 h-6 w-6 rounded-full bg-card border border-border/30 shadow-md z-50 hover:bg-white/10"
+                className="absolute -left-3 top-4 h-6 w-6 rounded-full bg-card border border-border/40 shadow-card z-50 hover:bg-secondary/60"
             >
                 {isOpen ? <ChevronsRight className="h-3 w-3" /> : <ChevronsLeft className="h-3 w-3" />}
             </Button>
 
             {isOpen ? (
                 <>
-                    <div className="p-4 border-b border-border/20">
-                        <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                            <Hash className="h-4 w-4 text-card-foreground" />
+                    <div className="p-3 border-b border-border/30">
+                        <h3 className="font-semibold text-sm mb-2 flex items-center gap-2 text-foreground">
+                            <Hash className="h-4 w-4 text-muted-foreground" />
                             Quick Jump
                         </h3>
                         <div className="relative">
@@ -74,7 +75,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
                                 placeholder="Find patient..."
                                 value={filter}
                                 onChange={(e) => setFilter(e.target.value)}
-                                className="h-8 pl-8 text-xs bg-white/8 border-transparent focus:border-white/20 text-card-foreground placeholder:text-card-foreground/40"
+                                className="h-8 pl-8 text-xs bg-secondary/50 border-border/40 rounded-lg text-foreground placeholder:text-muted-foreground"
                             />
                         </div>
                     </div>
@@ -84,14 +85,14 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
                                 <button
                                     key={patient.id}
                                     onClick={() => onScrollToPatient(patient.id)}
-                                    className="w-full text-left px-3 py-2 rounded-md hover:bg-white/8 transition-colors group flex items-center gap-3"
+                                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-secondary/50 transition-colors group flex items-center gap-3"
                                 >
-                                    <div className="h-8 w-8 rounded-full bg-white/10 flex items-center justify-center shrink-0 border border-white/10 group-hover:border-white/20 transition-colors">
-                                        <span className="text-xs font-semibold text-card-foreground">{patient.bed.slice(0, 3)}</span>
+                                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                                        <span className="text-xs font-semibold text-primary">{patient.bed.slice(0, 3)}</span>
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-medium truncate leading-none mb-1">{patient.name || "Unnamed"}</p>
-                                        <p className="text-[10px] text-card-foreground/50 truncate font-mono">{patient.bed}</p>
+                                        <p className="text-sm font-medium truncate leading-none mb-0.5 text-foreground">{patient.name || "Unnamed"}</p>
+                                        <p className="text-[10px] text-muted-foreground truncate font-mono">{patient.bed}</p>
                                     </div>
                                     <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>

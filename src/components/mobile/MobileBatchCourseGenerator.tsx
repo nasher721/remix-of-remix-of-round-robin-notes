@@ -32,12 +32,14 @@ import {
 import { useBatchCourseGenerator, BatchResult, BatchGenerationType } from '@/hooks/useBatchCourseGenerator';
 import { AIErrorBoundary } from '@/components/AIErrorBoundary';
 import type { Patient } from '@/types/patient';
+import type { PatientTodo } from '@/types/todo';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface MobileBatchCourseGeneratorProps {
   patients: Patient[];
   onUpdatePatient: (id: string, field: string, value: unknown) => void;
+  todosMap?: Record<string, PatientTodo[]>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -45,6 +47,7 @@ interface MobileBatchCourseGeneratorProps {
 export const MobileBatchCourseGenerator = ({
   patients,
   onUpdatePatient,
+  todosMap,
   open,
   onOpenChange,
 }: MobileBatchCourseGeneratorProps) => {
@@ -124,7 +127,8 @@ export const MobileBatchCourseGenerator = ({
     const batchResults = await generateBatch(
       selectedPatients,
       generationType,
-      autoInsert ? onUpdatePatient : undefined
+      autoInsert ? onUpdatePatient : undefined,
+      generationType === 'dailySummary' ? todosMap : undefined
     );
     
     setResults(batchResults);

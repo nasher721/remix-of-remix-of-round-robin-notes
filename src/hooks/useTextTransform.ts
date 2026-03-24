@@ -4,8 +4,21 @@ import { toast } from 'sonner';
 import { useAuth } from './useAuth';
 import type { Json } from '@/integrations/supabase/types';
 import { useSettings } from '@/contexts/SettingsContext';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export type TransformType = 'comma-list' | 'medical-shorthand' | 'custom';
+
+/** Result of a successful transform-text call (for preview + trust UX). */
+export type TextTransformResult = {
+  text: string
+  latencyMs: number
+  inputChars: number
+  outputChars: number
+  /** Rough output size for display (~tokens); not from the model API. */
+  approxTokensOut: number
+}
 
 export interface CustomPrompt {
   id: string;
@@ -149,39 +162,106 @@ export const useTextTransform = () => {
     text: string,
     transformType: TransformType,
     customPrompt?: string
-  ): Promise<string | null> => {
+  ): Promise<TextTransformResult | null> => {
     if (!text.trim()) {
       toast.error('No text selected');
       return null;
     }
 
     setIsTransforming(true);
+    const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
     try {
-      const { data, error } = await supabase.functions.invoke('transform-text', {
-        body: { text, transformType, customPrompt, model: getModelForFeature('text_transform') },
-      });
+      const bankId = user ? `clinician:${user.id}` : null;
+
+      let combinedCustomPrompt = customPrompt;
+
+      if (bankId) {
+        const recalled = await recallMemories({
+          bankId,
+          query: `text_transform preferences and style for transform type ${transformType}`,
+          filters: {
+            feature: 'text_transform',
+            transformType,
+          },
+          limit: 8,
+        });
+
+        const styleSummary = recalled?.memories
+          ?.map((memory) => memory.content)
+          .filter(Boolean)
+          .join('\n---\n');
+
+        if (styleSummary) {
+          const prefix = `Clinician style and preferences for text transforms:\n${styleSummary}`;
+          combinedCustomPrompt = [prefix, customPrompt].filter(Boolean).join('\n\n');
+        }
+      }
+
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('transform-text', {
+          body: { text, transformType, customPrompt: combinedCustomPrompt, model: getModelForFeature('text_transform') },
+        }),
+        'textTransform',
+        'transform-text',
+      );
 
       if (error) {
         console.error('Transform error:', error);
-        toast.error(error.message || 'Failed to transform text');
+        toast.error(getUserFacingErrorMessage(error, 'Failed to transform text'));
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(getUserFacingErrorMessage(data.error, 'Failed to transform text'));
         return null;
       }
 
-      return data.transformedText;
+      const out = data?.transformedText
+      if (typeof out !== 'string' || !out) {
+        toast.error('No transformed text returned');
+        return null
+      }
+
+      if (bankId) {
+        const content = [
+          `Original text:\n${text}`,
+          `Transform type: ${transformType}`,
+          combinedCustomPrompt ? `Custom prompt used:\n${combinedCustomPrompt}` : null,
+          `Transformed text:\n${out}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature: 'text_transform',
+            transformType,
+            source: 'transform-text',
+          },
+        });
+      }
+
+      const endedAt = typeof performance !== 'undefined' ? performance.now() : Date.now()
+      const latencyMs = Math.round(endedAt - startedAt)
+      const outputChars = out.length
+      return {
+        text: out,
+        latencyMs,
+        inputChars: text.length,
+        outputChars,
+        approxTokensOut: Math.max(1, Math.ceil(outputChars / 4)),
+      }
     } catch (err) {
       console.error('Transform error:', err);
-      toast.error('Failed to transform text');
+      toast.error(getUserFacingErrorMessage(err, 'Failed to transform text'));
       return null;
     } finally {
       setIsTransforming(false);
     }
-  }, [getModelForFeature]);
+  }, [getModelForFeature, user]);
 
   return {
     transformText,

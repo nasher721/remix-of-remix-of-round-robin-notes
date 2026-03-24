@@ -82,14 +82,6 @@ export function CriticalValueAlerts({
   const criticalCount = unacknowledgedAlerts.filter(a => a.severity === 'critical').length;
   const warningCount = unacknowledgedAlerts.filter(a => a.severity === 'warning').length;
 
-  // Play sound for new critical alerts
-  React.useEffect(() => {
-    if (soundEnabled && criticalCount > 0) {
-      // Would integrate with audio API for actual sound
-      console.log('Critical alert sound would play');
-    }
-  }, [criticalCount, soundEnabled]);
-
   if (unacknowledgedAlerts.length === 0) {
     return null;
   }

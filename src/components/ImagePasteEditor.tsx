@@ -27,7 +27,7 @@ import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import { ImageLightbox } from "./ImageLightbox";
 import { DictationButton } from "./DictationButton";
-import { AITextTools } from "./AITextTools";
+import { UnifiedAIDropdown } from "./UnifiedAIDropdown";
 import { PhrasePicker, PhraseFormDialog } from "./phrases";
 import { usePhraseExpansion } from "@/hooks/usePhraseExpansion";
 import { useClinicalPhrases } from "@/hooks/useClinicalPhrases";
@@ -966,7 +966,7 @@ export const ImagePasteEditor = ({
   return (
     <div
       className={cn(
-        "border-2 border-border rounded-md bg-card relative h-auto transition-colors",
+        "border border-border/50 rounded-lg bg-card relative h-auto transition-colors shadow-card",
         isDragActive && "ring-2 ring-ring/40 bg-accent/20",
         className
       )}
@@ -986,16 +986,16 @@ export const ImagePasteEditor = ({
         />
       )}
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-1.5 border-b border-border bg-muted/30 flex-wrap">
+      <div role="toolbar" aria-label="Text formatting" className="flex items-center gap-1.5 p-2 border-b border-border/50 bg-muted/40 rounded-t-lg flex-wrap">
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={() => execCommand('undo')}
           title="Undo"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
-          <Undo2 className="h-3 w-3" />
+          <Undo2 className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button"
@@ -1003,9 +1003,9 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('redo')}
           title="Redo"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
-          <Redo2 className="h-3 w-3" />
+          <Redo2 className="h-3.5 w-3.5" />
         </Button>
         <div className="w-px h-4 bg-border mx-1" />
         <Button
@@ -1014,9 +1014,9 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('bold')}
           title="Bold"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
-          <Bold className="h-3 w-3" />
+          <Bold className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button"
@@ -1024,7 +1024,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('italic')}
           title="Italic"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Italic className="h-3 w-3" />
         </Button>
@@ -1034,7 +1034,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('strikeThrough')}
           title="Strikethrough"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Strikethrough className="h-3 w-3" />
         </Button>
@@ -1044,7 +1044,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('superscript')}
           title="Superscript"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Superscript className="h-3 w-3" />
         </Button>
@@ -1054,7 +1054,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('subscript')}
           title="Subscript"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Subscript className="h-3 w-3" />
         </Button>
@@ -1071,7 +1071,7 @@ export const ImagePasteEditor = ({
             }
           }}
           defaultValue="p"
-          className="h-6 px-1 text-[10px] bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring w-20"
+          className="h-7 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 w-20"
           title="Heading level"
         >
           <option value="p">Normal</option>
@@ -1088,9 +1088,9 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('insertUnorderedList')}
           title="Bullet List"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
-          <List className="h-3 w-3" />
+          <List className="h-3.5 w-3.5" />
         </Button>
         <Button
           type="button"
@@ -1098,7 +1098,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('insertOrderedList')}
           title="Numbered List"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <ListOrdered className="h-3 w-3" />
         </Button>
@@ -1109,7 +1109,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('outdent')}
           title="Decrease Indent"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Outdent className="h-3 w-3" />
         </Button>
@@ -1119,7 +1119,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('indent')}
           title="Increase Indent"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Indent className="h-3 w-3" />
         </Button>
@@ -1132,7 +1132,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyLeft')}
           title="Align Left"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignLeft className="h-3 w-3" />
         </Button>
@@ -1142,7 +1142,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyCenter')}
           title="Align Center"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignCenter className="h-3 w-3" />
         </Button>
@@ -1152,7 +1152,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyRight')}
           title="Align Right"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignRight className="h-3 w-3" />
         </Button>
@@ -1162,7 +1162,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyFull')}
           title="Justify"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignJustify className="h-3 w-3" />
         </Button>
@@ -1175,7 +1175,7 @@ export const ImagePasteEditor = ({
               variant="ghost"
               size="sm"
               title="Text Color"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0"
             >
               <Palette className="h-3 w-3" />
             </Button>
@@ -1217,7 +1217,7 @@ export const ImagePasteEditor = ({
               variant="ghost"
               size="sm"
               title="Highlight Color"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0"
             >
               <Highlighter className="h-3 w-3" />
             </Button>
@@ -1259,7 +1259,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={handleInsertLink}
           title="Insert Link (Ctrl+K)"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Link2 className="h-3 w-3" />
         </Button>
@@ -1271,7 +1271,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('insertHorizontalRule')}
           title="Horizontal Rule"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Minus className="h-3 w-3" />
         </Button>
@@ -1284,7 +1284,7 @@ export const ImagePasteEditor = ({
               variant="ghost"
               size="sm"
               title="Insert Table"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0"
             >
               <TableIcon className="h-3 w-3" />
             </Button>
@@ -1321,7 +1321,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
           title="Find & Replace (Ctrl+F)"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Search className="h-3 w-3" />
         </Button>
@@ -1333,7 +1333,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('bold')}
           title="Bold"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Bold className="h-3 w-3" />
         </Button>
@@ -1343,7 +1343,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('italic')}
           title="Italic"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Italic className="h-3 w-3" />
         </Button>
@@ -1353,7 +1353,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('insertUnorderedList')}
           title="Bullet List"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <List className="h-3 w-3" />
         </Button>
@@ -1364,7 +1364,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('outdent')}
           title="Decrease Indent"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Outdent className="h-3 w-3" />
         </Button>
@@ -1374,7 +1374,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('indent')}
           title="Increase Indent"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Indent className="h-3 w-3" />
         </Button>
@@ -1384,7 +1384,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('strikeThrough')}
           title="Strikethrough"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Strikethrough className="h-3 w-3" />
         </Button>
@@ -1419,7 +1419,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyLeft')}
           title="Align Left"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignLeft className="h-3 w-3" />
         </Button>
@@ -1429,7 +1429,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyCenter')}
           title="Align Center"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignCenter className="h-3 w-3" />
         </Button>
@@ -1439,7 +1439,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyRight')}
           title="Align Right"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignRight className="h-3 w-3" />
         </Button>
@@ -1450,7 +1450,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('strikeThrough')}
           title="Strikethrough"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Strikethrough className="h-3 w-3" />
         </Button>
@@ -1485,7 +1485,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyLeft')}
           title="Align Left"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignLeft className="h-3 w-3" />
         </Button>
@@ -1495,7 +1495,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyCenter')}
           title="Align Center"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignCenter className="h-3 w-3" />
         </Button>
@@ -1505,7 +1505,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => execCommand('justifyRight')}
           title="Align Right"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <AlignRight className="h-3 w-3" />
         </Button>
@@ -1518,7 +1518,7 @@ export const ImagePasteEditor = ({
               variant="ghost"
               size="sm"
               title="Text Color"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0"
             >
               <Palette className="h-3 w-3" />
             </Button>
@@ -1560,7 +1560,7 @@ export const ImagePasteEditor = ({
               variant="ghost"
               size="sm"
               title="Highlight Color"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0"
             >
               <Highlighter className="h-3 w-3" />
             </Button>
@@ -1603,7 +1603,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={handleInsertLink}
           title="Insert Link (Ctrl+K)"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Link2 className="h-3 w-3" />
         </Button>
@@ -1616,7 +1616,7 @@ export const ImagePasteEditor = ({
               variant="ghost"
               size="sm"
               title="Insert Table"
-              className="h-6 w-6 p-0"
+              className="h-7 w-7 p-0"
             >
               <TableIcon className="h-3 w-3" />
             </Button>
@@ -1653,7 +1653,7 @@ export const ImagePasteEditor = ({
           size="sm"
           onClick={() => setFindReplaceMode(findReplaceMode ? null : "find")}
           title="Find & Replace (Ctrl+F)"
-          className="h-6 w-6 p-0"
+          className="h-7 w-7 p-0"
         >
           <Search className="h-3 w-3" />
         </Button>
@@ -1700,7 +1700,7 @@ export const ImagePasteEditor = ({
           </Button>
         )}
         <div className="ml-auto flex items-center gap-1">
-          <AITextTools
+          <UnifiedAIDropdown
             getSelectedText={() => {
               const selection = window.getSelection();
               if (!selection || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
@@ -1737,6 +1737,18 @@ export const ImagePasteEditor = ({
               isInternalUpdate.current = true;
               onChange(editorRef.current!.innerHTML);
             }}
+            getDocumentText={() => editorRef.current?.innerText ?? null}
+            onDraftNoteGenerated={(draft) => {
+              if (!editorRef.current) return;
+              const isEmpty = editorRef.current.innerText.trim() === "";
+              const separator = isEmpty ? "" : "<br/><br/>";
+              const newContent = isEmpty ? draft : `${editorRef.current.innerHTML}${separator}${draft}`;
+              editorRef.current.innerHTML = newContent;
+              isInternalUpdate.current = true;
+              onChange(newContent);
+            }}
+            patient={patient}
+            triggerClassName="h-7 w-7 p-0"
           />
           <DictationButton
             onTranscript={handleDictationTranscript}
@@ -1805,9 +1817,6 @@ export const ImagePasteEditor = ({
         aria-label="Upload images"
       />
 
-      <EditorStatusBar html={value} />
-
-      {/* Autocomplete dropdown */}
       {/* Thumbnail Gallery */}
       {imageUrls.length > 0 && (
         <div className="p-2 border-b border-border bg-muted/30">
@@ -1823,7 +1832,7 @@ export const ImagePasteEditor = ({
                 key={`${url}-${index}`}
                 type="button"
                 onClick={() => openLightbox(index)}
-                className="relative group rounded-md overflow-hidden border-2 border-border hover:border-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                className="relative group rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
                 <img
                   src={url}
@@ -1857,19 +1866,22 @@ export const ImagePasteEditor = ({
 
       {/* Editor with scroll container - relative positioning ensures proper document flow */}
       <div
-        className="max-h-[300px] editor-scroll-container relative"
+        className="max-h-[300px] overflow-y-auto editor-scroll-container relative"
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
       >
         {isDragActive && (
-          <div className="absolute inset-2 z-10 flex items-center justify-center rounded-md border-2 border-dashed border-ring/60 bg-accent/80 text-accent-foreground text-sm font-medium pointer-events-none">
+          <div className="absolute inset-2 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary/30 bg-accent/80 text-accent-foreground text-sm font-medium pointer-events-none">
             Drop images to upload
           </div>
         )}
         <div
           ref={editorRef}
+          role="textbox"
+          aria-multiline="true"
+          aria-label={section ? `${section} notes` : placeholder}
           contentEditable
-          className="p-2 focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all prose prose-sm max-w-none min-h-[80px] relative text-card-foreground"
+          className="p-3 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 transition-all prose prose-sm max-w-none min-h-[120px] relative text-foreground"
           style={{ fontSize: `${fontSize}px` }}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
@@ -1880,6 +1892,8 @@ export const ImagePasteEditor = ({
           suppressContentEditableWarning
         />
       </div>
+
+      <EditorStatusBar html={value} />
 
       {/* Lightbox */}
       <ImageLightbox
@@ -1968,7 +1982,7 @@ export const ImagePasteEditor = ({
             <div className="rounded-lg border bg-muted/20 p-2 flex justify-center">
               <canvas
                 ref={canvasRef}
-                className="max-h-[65vh] w-full max-w-3xl rounded-md border bg-white touch-none"
+                className="max-h-[65vh] w-full max-w-3xl rounded-lg border border-border bg-white touch-none"
                 onPointerDown={handleCanvasPointerDown}
                 onPointerMove={handleCanvasPointerMove}
                 onPointerUp={handleCanvasPointerUp}

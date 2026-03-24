@@ -228,6 +228,7 @@ export type Database = {
           labs: string
           last_modified: string
           medications: Json | null
+          mrn: string
           name: string
           mrn: string
           patient_number: number
@@ -246,6 +247,7 @@ export type Database = {
           labs?: string
           last_modified?: string
           medications?: Json | null
+          mrn?: string
           name?: string
           mrn?: string
           patient_number: number
@@ -264,6 +266,7 @@ export type Database = {
           labs?: string
           last_modified?: string
           medications?: Json | null
+          mrn?: string
           name?: string
           mrn?: string
           patient_number?: number

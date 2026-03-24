@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
@@ -12,10 +12,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileUp, Loader2, FileText, Users, AlertCircle, Settings2, Info } from "lucide-react";
-import { extractPdfText, extractPdfAsImages } from "@/lib/import-utils";
+import { extractPdfText, extractPdfAsImages, OCR_HARD_PAGE_LIMIT } from "@/lib/import-utils";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
+import { withCategoryTimeout } from "@/lib/requestTimeout";
+import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
 
 interface PatientSystems {
   neuro: string;
@@ -63,6 +66,7 @@ interface EpicHandoffImportProps {
 }
 
 export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = false }: EpicHandoffImportProps) => {
+  const assertBackendReady = useAssertBackendReady();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -75,6 +79,36 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   const { settings, updateSettings } = useImportSettings();
   const { getModelForFeature } = useSettings();
 
+  const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }) => {
+    return withCategoryTimeout(
+      supabase.functions.invoke('parse-handoff', { body }),
+      'aiEdgeFunction',
+      'parse-handoff',
+    );
+  };
+
+  const getSafePageLimit = () => Math.max(1, Math.min(settings.pageLimit, OCR_HARD_PAGE_LIMIT));
+
+  const tryInvokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }, retries = 1) => {
+    let attempt = 0;
+
+    while (true) {
+      const result = await invokeParseHandoff(body);
+      if (!result.error || attempt >= retries) {
+        return result;
+      }
+
+      const status = (result.error as { context?: { status?: number } }).context?.status;
+      if (status && status < 500 && status !== 429) {
+        return result;
+      }
+
+      attempt += 1;
+      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
+      setStatusMessage(`Retrying parse request (${attempt + 1}/${retries + 1})...`);
+    }
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -85,6 +119,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
         description: "Please upload a PDF or text file from Epic.",
         variant: "destructive",
       });
+      return;
+    }
+
+    if (!assertBackendReady()) {
       return;
     }
 
@@ -127,38 +165,33 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
             throw new Error("Text extraction failed and OCR is disabled. Enable OCR in settings to process this document.");
           }
 
-          setStatusMessage(`Converting PDF to images (Quality: ${settings.imageScale}x)...`);
-          const images = await extractPdfAsImages(file, settings.imageScale, settings.pageLimit);
+          const safePageLimit = getSafePageLimit();
+          if (settings.pageLimit > OCR_HARD_PAGE_LIMIT) {
+            toast({
+              title: "Page limit reduced",
+              description: `For reliability, OCR is limited to ${OCR_HARD_PAGE_LIMIT} pages per import.`,
+            });
+          }
+
+          setStatusMessage(`Converting PDF to images (Quality: ${settings.imageScale}x, up to ${safePageLimit} pages)...`);
+          const images = await extractPdfAsImages(file, settings.imageScale, safePageLimit);
 
           if (images.length === 0) {
             throw new Error("Could not extract any content from the PDF.");
           }
 
           setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
-          const ocrController = new AbortController();
-          const ocrTimeout = setTimeout(() => ocrController.abort(), 180000);
-          try {
-            const { data, error } = await supabase.functions.invoke('parse-handoff', {
-              body: { images, model: getModelForFeature('parsing') },
-            });
-            clearTimeout(ocrTimeout);
+          const { data, error } = await tryInvokeParseHandoff({ images, model: getModelForFeature('parsing') });
 
           // Enhanced error logging
           if (error) {
-            console.error("Edge Function invocation error (OCR path):", {
-              message: error.message,
-              details: error,
-              stack: error.stack,
-            });
+            console.error("Edge Function invocation error (OCR path):", error.message);
             throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
           }
           if (!data.success) throw new Error(data.error || "Failed to parse handoff");
 
           finalizeImport(data.data?.patients || []);
           return;
-          } finally {
-            clearTimeout(ocrTimeout);
-          }
         }
       } else {
         // Text file
@@ -176,17 +209,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       }
 
       setStatusMessage("Parsing extracted text...");
-      const { data, error } = await supabase.functions.invoke('parse-handoff', {
-        body: { pdfContent: content, model: getModelForFeature('parsing') },
-      });
+      const { data, error } = await tryInvokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') });
 
       // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error:", {
-          message: error.message,
-          details: error,
-          stack: error.stack,
-        });
+        console.error("Edge Function invocation error:", error.message);
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -197,7 +224,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       console.error("Error parsing handoff:", error);
       toast({
         title: "Parsing failed",
-        description: error instanceof Error ? error.message : "Failed to parse the handoff document.",
+        description: getUserFacingErrorMessage(error, "Unable to parse the handoff document right now."),
         variant: "destructive",
       });
       setIsLoading(false);
@@ -210,7 +237,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     if (patients.length === 0) {
       toast({
         title: "No patients found",
-        description: "The AI couldn't extract any patients. detailed in this document.",
+        description: "The AI couldn't extract any patients detailed in this document.",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -256,22 +283,20 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
         return;
       }
 
+      if (!assertBackendReady()) {
+        return;
+      }
+
       setIsLoading(true);
       setStatusMessage("Processing pasted text...");
       setParsedPatients([]);
       setSelectedPatients(new Set());
 
-      const { data, error } = await supabase.functions.invoke('parse-handoff', {
-        body: { pdfContent: text, model: getModelForFeature('parsing') },
-      });
+      const { data, error } = await tryInvokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') });
 
       // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error (paste path):", {
-          message: error.message,
-          details: error,
-          stack: error.stack,
-        });
+        console.error("Edge Function invocation error (paste path):", error.message);
         throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
       }
       if (!data.success) throw new Error(data.error || "Failed to parse handoff");
@@ -281,7 +306,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       console.error("Error parsing pasted content:", error);
       toast({
         title: "Parsing failed",
-        description: error instanceof Error ? error.message : "Failed to parse the pasted content.",
+        description: getUserFacingErrorMessage(error, "Unable to parse the pasted content right now."),
         variant: "destructive",
       });
       setIsLoading(false);
@@ -365,21 +390,21 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
 
   const bedExists = (bed: string) => existingBeds.some(b => b.toLowerCase() === bed.toLowerCase());
 
-  // Sync internal open state with external control when noDialog is true
-  useEffect(() => {
-    if (noDialog) {
-      setOpen(true);
-    }
-  }, [noDialog]);
-
   const content = (
     <>
       <DialogHeader className="flex-shrink-0">
           <div className="flex justify-between items-center pr-8">
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Import Epic Handoff
-            </DialogTitle>
+            {noDialog ? (
+              <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
+                <FileText className="h-5 w-5" aria-hidden="true" />
+                Import Epic Handoff
+              </h2>
+            ) : (
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" aria-hidden="true" />
+                Import Epic Handoff
+              </DialogTitle>
+            )}
 
             <Popover>
               <PopoverTrigger asChild>
@@ -435,11 +460,11 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                     <div className="space-y-2">
                       <div className="flex justify-between">
                         <Label>Page Limit</Label>
-                        <span className="text-xs text-muted-foreground">{settings.pageLimit} parsed</span>
+                        <span className="text-xs text-muted-foreground">{getSafePageLimit()} parsed</span>
                       </div>
                       <Slider
                         min={1}
-                        max={20}
+                        max={OCR_HARD_PAGE_LIMIT}
                         step={1}
                         value={[settings.pageLimit]}
                         onValueChange={([v]) => updateSettings({ pageLimit: v })}
@@ -516,12 +541,19 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                         key={index}
                         className={`p-3 cursor-pointer transition-colors ${selectedPatients.has(index) ? 'border-primary bg-primary/5' : ''
                           } ${exists ? 'border-warning' : ''}`}
-                        onClick={() => togglePatient(index)}
+                        onClick={(event) => {
+                          const target = event.target as HTMLElement;
+                          if (target.closest('button, input, a, [role="checkbox"]')) {
+                            return;
+                          }
+                          togglePatient(index);
+                        }}
                       >
                         <div className="flex items-start gap-3">
                           <Checkbox
                             checked={selectedPatients.has(index)}
                             onCheckedChange={() => togglePatient(index)}
+                            onClick={(event) => event.stopPropagation()}
                             className="mt-1"
                           />
                           <div className="flex-1 min-w-0">
@@ -602,8 +634,8 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   return (
     <Dialog open={open} onOpenChange={(o) => o ? setOpen(true) : handleClose()}>
       <DialogTrigger asChild>
-        <Button variant="secondary" className="bg-white/10 hover:bg-white/20">
-          <FileUp className="h-4 w-4 mr-2" />
+        <Button type="button" variant="outline" className="w-full justify-start gap-2">
+          <FileUp className="h-4 w-4" />
           Import Epic Handoff
         </Button>
       </DialogTrigger>

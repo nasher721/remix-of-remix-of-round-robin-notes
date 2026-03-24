@@ -49,9 +49,20 @@ interface SettingsContextType {
   setAiFeatureModel: (feature: AIFeatureCategory, model: string) => void;
   getModelForFeature: (feature: AIFeatureCategory) => string;
 
+  // Editor toolbar (affects all text boxes)
+  editorToolbarMode: 'minimal' | 'full' | 'custom';
+  setEditorToolbarMode: (mode: 'minimal' | 'full' | 'custom') => void;
+  editorToolbarButtons: string[];
+  setEditorToolbarButtons: (buttons: string[]) => void;
+
   // Sync status
   isSyncingSettings: boolean;
 }
+
+export const DEFAULT_EDITOR_TOOLBAR_BUTTONS = [
+  'undo', 'redo', 'bold', 'italic', 'underline', 'bulletList', 'numberedList',
+  'heading', 'indent', 'alignLeft', 'alignCenter', 'alignRight', 'link', 'find', 'fontSize',
+] as const;
 
 interface AppPreferences {
   globalFontSize: number;
@@ -63,6 +74,8 @@ interface AppPreferences {
   aiModel: string;
   aiCredentials?: Partial<Record<LLMProviderName, string>>;
   aiFeatureModels?: AIFeatureModels;
+  editorToolbarMode?: 'minimal' | 'full' | 'custom';
+  editorToolbarButtons?: string[];
 }
 
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
@@ -147,6 +160,22 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     return DEFAULT_SECTION_VISIBILITY;
   });
 
+  const [editorToolbarMode, setEditorToolbarModeState] = React.useState<'minimal' | 'full' | 'custom'>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.EDITOR_TOOLBAR_MODE);
+    return (saved === 'minimal' || saved === 'full' || saved === 'custom') ? saved : 'minimal';
+  });
+
+  const [editorToolbarButtons, setEditorToolbarButtonsState] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS);
+    if (!saved) return [...DEFAULT_EDITOR_TOOLBAR_BUTTONS];
+    try {
+      const parsed = JSON.parse(saved) as string[];
+      return Array.isArray(parsed) ? parsed : [...DEFAULT_EDITOR_TOOLBAR_BUTTONS];
+    } catch {
+      return [...DEFAULT_EDITOR_TOOLBAR_BUTTONS];
+    }
+  });
+
   const buildAppPreferences = React.useCallback((): AppPreferences => ({
     globalFontSize,
     todosAlwaysVisible,
@@ -157,7 +186,9 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiModel,
     aiCredentials,
     aiFeatureModels,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels]);
+    editorToolbarMode,
+    editorToolbarButtons,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels, editorToolbarMode, editorToolbarButtons]);
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
@@ -212,6 +243,15 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       } else {
         localStorage.removeItem(STORAGE_KEYS.AI_FEATURE_MODELS);
       }
+    }
+
+    if (prefs.editorToolbarMode !== undefined) {
+      setEditorToolbarModeState(prefs.editorToolbarMode);
+      localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_MODE, prefs.editorToolbarMode);
+    }
+    if (prefs.editorToolbarButtons !== undefined) {
+      setEditorToolbarButtonsState(prefs.editorToolbarButtons);
+      localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, JSON.stringify(prefs.editorToolbarButtons));
     }
   }, []);
 
@@ -336,6 +376,16 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(showLabFishbones));
   }, [showLabFishbones]);
 
+  const setEditorToolbarMode = React.useCallback((mode: 'minimal' | 'full' | 'custom') => {
+    setEditorToolbarModeState(mode);
+    localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_MODE, mode);
+  }, []);
+
+  const setEditorToolbarButtons = React.useCallback((buttons: string[]) => {
+    setEditorToolbarButtonsState(buttons);
+    localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, JSON.stringify(buttons));
+  }, []);
+
   // Persist section visibility to local storage and sync to DB with debounce
   React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
@@ -352,7 +402,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         });
       }, 1000);
     }
-  }, [sectionVisibility, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
+  }, [sectionVisibility, editorToolbarMode, editorToolbarButtons, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(size);
@@ -480,6 +530,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiFeatureModels,
     setAiFeatureModel,
     getModelForFeature,
+    editorToolbarMode,
+    setEditorToolbarMode,
+    editorToolbarButtons,
+    setEditorToolbarButtons,
     isSyncingSettings,
   }), [
     globalFontSize,
@@ -493,6 +547,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiModel,
     aiCredentials,
     aiFeatureModels,
+    editorToolbarMode,
+    editorToolbarButtons,
     isSyncingSettings,
     setGlobalFontSize,
     setTheme,
@@ -506,6 +562,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setAiCredential,
     setAiFeatureModel,
     getModelForFeature,
+    setEditorToolbarMode,
+    setEditorToolbarButtons,
     setSectionVisibility,
     resetSectionVisibility,
   ]);

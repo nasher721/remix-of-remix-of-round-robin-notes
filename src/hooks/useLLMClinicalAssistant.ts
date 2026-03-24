@@ -29,6 +29,9 @@ import type {
 import { stripHtml, buildClinicalContextString } from '@/lib/openai-config';
 import { getLLMRouter } from '@/services/llm';
 import type { LLMProviderName, TaskCategory } from '@/services/llm';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import { useAssertBackendReady } from '@/contexts/EdgeHealthContext';
 
 // ---------------------------------------------------------------------------
 // Feature → task category mapping
@@ -686,9 +689,13 @@ async function doEdgeFunctionRequest<T>(
   onSuccess?: (result: unknown, feature: AIFeature) => void,
   model?: string,
 ): Promise<T | null> {
-  const { data, error: fnError } = await supabase.functions.invoke('ai-clinical-assistant', {
-    body: { feature, text, context, customPrompt, model },
-  });
+  const { data, error: fnError } = await withCategoryTimeout(
+    supabase.functions.invoke('ai-clinical-assistant', {
+      body: { feature, text, context, customPrompt, model },
+    }),
+    'aiEdgeFunction',
+    'ai-clinical-assistant',
+  );
 
   if (fnError) throw new Error(fnError.message || 'AI processing failed');
   if (!data?.success) throw new Error(data?.error || 'AI processing failed');
@@ -708,6 +715,7 @@ export const useLLMClinicalAssistant = (
   options: UseLLMClinicalAssistantOptions = {}
 ): UseLLMClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
+  const assertBackendReady = useAssertBackendReady();
   const { aiProvider, aiModel, getModelForFeature } = useSettings();
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -758,6 +766,10 @@ export const useLLMClinicalAssistant = (
     setLastFeature(feature);
 
     try {
+      if (!assertBackendReady()) {
+        return null;
+      }
+
       const rawContext = patient ? patientToContext(patient) : context;
 
       if (!text && !rawContext) {
@@ -813,7 +825,7 @@ export const useLLMClinicalAssistant = (
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return null;
 
-      const message = err instanceof Error ? err.message : 'AI processing failed';
+      const message = getUserFacingErrorMessage(err, 'AI processing failed');
       setError(message);
       onError?.(message);
 
@@ -828,7 +840,7 @@ export const useLLMClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast, options.provider, options.model, aiProvider, aiModel, getModelForFeature]);
+  }, [onSuccess, onError, toast, options.provider, options.model, aiProvider, aiModel, getModelForFeature, assertBackendReady]);
 
   // -----------------------------------------------------------------------
   // Convenience methods

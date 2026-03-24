@@ -89,6 +89,7 @@ export interface Patient {
   id: string;
   patientNumber: number;
   name: string;
+  /** Medical record number or hospital ID; may be empty when not yet captured */
   mrn: string;
   bed: string;
   clinicalSummary: string;

@@ -29,7 +29,8 @@ export interface ChangeTrackingContextValue extends ChangeTrackingState {
   wrapWithMarkup: (text: string) => string;
 }
 
-export const DEFAULT_TRACKING_COLOR = "#C92A2A";
+/** Default: primary (teal) for design-system alignment */
+export const DEFAULT_TRACKING_COLOR = "#0d9488";
 
 export const DEFAULT_STYLES: ChangeTrackingStyles = {
   textColor: true,

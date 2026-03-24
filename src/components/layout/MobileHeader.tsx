@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { KeyboardShortcutSystem } from "@/components/KeyboardShortcutSystem";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,7 @@ export const MobileHeader = ({
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="pl-9 h-10 bg-secondary/40 border-border/30 rounded-xl text-sm"
                 autoFocus
+                aria-label="Search patients"
               />
             </div>
             <Button
@@ -59,8 +61,9 @@ export const MobileHeader = ({
                 onSearchChange("");
               }}
               className="h-10 w-10 rounded-full"
+              aria-label="Close search"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden />
             </Button>
           </div>
         ) : (
@@ -91,6 +94,7 @@ export const MobileHeader = ({
             </div>
 
             <div className="flex items-center gap-0.5">
+              <KeyboardShortcutSystem />
               <ThemeToggle />
               <OfflineIndicator />
               {showSearch && onSearchChange && (
@@ -98,9 +102,10 @@ export const MobileHeader = ({
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsSearchOpen(true)}
-                  className="h-9 w-9 rounded-full text-muted-foreground"
+                  className="h-11 w-11 rounded-full text-muted-foreground md:h-9 md:w-9"
+                  aria-label="Open patient search"
                 >
-                  <Search className="h-4.5 w-4.5" />
+                  <Search className="h-5 w-5 md:h-4.5 md:w-4.5" aria-hidden />
                 </Button>
               )}
               {rightAction}

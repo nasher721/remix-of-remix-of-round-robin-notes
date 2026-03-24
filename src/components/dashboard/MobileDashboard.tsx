@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useDashboard } from "@/contexts/DashboardContext";
+import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PatientFilterType } from "@/constants/config";
@@ -58,7 +59,6 @@ export const MobileDashboard = () => {
     autotexts,
     templates,
     customDictionary,
-    todosMap,
     onAddPatient,
     onAddPatientWithData,
     onUpdatePatient,
@@ -79,8 +79,9 @@ export const MobileDashboard = () => {
     setMobileTab,
     lastSaved,
   } = useDashboard();
+  const todosMap = useDashboardTodos();
 
-  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones } = useSettings();
+  const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones, editorToolbarMode, setEditorToolbarMode } = useSettings();
   const changeTracking = useChangeTracking();
 
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -148,6 +149,7 @@ export const MobileDashboard = () => {
           autotexts={autotexts}
           globalFontSize={globalFontSize}
           changeTracking={changeTracking}
+          initialTodos={todosMap[selectedPatient.id]}
           onNext={() => {
             const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
             if (currentIndex < filteredPatients.length - 1) {
@@ -308,6 +310,8 @@ export const MobileDashboard = () => {
                   showLabFishbones={showLabFishbones}
                   onShowLabFishbonesChange={setShowLabFishbones}
                   patientCount={patients.length}
+                  editorToolbarMode={editorToolbarMode}
+                  onEditorToolbarModeChange={setEditorToolbarMode}
                 />
               </div>
             </>
@@ -368,6 +372,7 @@ export const MobileDashboard = () => {
       <MobileBatchCourseGenerator
         patients={patients}
         onUpdatePatient={onUpdatePatient}
+        todosMap={todosMap}
         open={showBatchCourse}
         onOpenChange={setShowBatchCourse}
       />

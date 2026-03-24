@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/hooks/useAuth';
 import type {
   AIFeature,
   DDxResponse,
@@ -13,8 +14,11 @@ import type {
 } from '@/lib/openai-config';
 import { stripHtml } from '@/lib/openai-config';
 import { withTimeout, TIMEOUT_DEFAULTS } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import { recordTelemetryEvent } from '@/lib/observability/telemetry';
 import { sanitizeClinicalContext } from '@/lib/piiSanitizer';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { useAssertBackendReady } from '@/contexts/EdgeHealthContext';
 
 interface UseAIClinicalAssistantOptions {
   onSuccess?: (result: unknown, feature: AIFeature) => void;
@@ -72,7 +76,9 @@ export const useAIClinicalAssistant = (
   options: UseAIClinicalAssistantOptions = {}
 ): UseAIClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
+  const assertBackendReady = useAssertBackendReady();
   const { getModelForFeature } = useSettings();
+  const { user } = useAuth();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResult, setLastResult] = useState<unknown | null>(null);
@@ -123,15 +129,18 @@ export const useAIClinicalAssistant = (
     setLastFeature(feature);
 
     try {
-      // Build context from patient if provided
+      if (!assertBackendReady()) {
+        return null;
+      }
+
+      const bankId = user ? `clinician:${user.id}` : null;
+
       const finalContext = patient ? patientToContext(patient) : context;
 
-      // Validate we have something to process
       if (!text && !finalContext) {
         throw new Error('No text or patient data provided');
       }
 
-      // Check if context has any content
       if (finalContext && !text) {
         const hasContent =
           finalContext.clinicalSummary ||
@@ -145,10 +154,35 @@ export const useAIClinicalAssistant = (
         }
       }
 
-      // Sanitize PII before sending to AI
       const sanitizedContext = finalContext
         ? sanitizeClinicalContext(finalContext as Record<string, unknown>).sanitized
         : undefined;
+
+      let combinedCustomPrompt = customPrompt;
+
+      if (bankId) {
+        const recalled = await recallMemories(
+          {
+            bankId,
+            query: `clinical_assistant preferences and style for feature ${feature}`,
+            filters: {
+              feature,
+            },
+            limit: 8,
+          },
+          { signal: abortControllerRef.current?.signal ?? undefined }
+        );
+
+        const styleSummary = recalled?.memories
+          ?.map((memory) => memory.content)
+          .filter(Boolean)
+          .join('\n---\n');
+
+        if (styleSummary) {
+          const prefix = `Clinician style and preferences (from prior interactions):\n${styleSummary}`;
+          combinedCustomPrompt = [prefix, customPrompt].filter(Boolean).join('\n\n');
+        }
+      }
 
       const { data, error: fnError } = await withTimeout(
         supabase.functions.invoke('ai-clinical-assistant', {
@@ -156,7 +190,7 @@ export const useAIClinicalAssistant = (
             feature,
             text,
             context: sanitizedContext,
-            customPrompt,
+            customPrompt: combinedCustomPrompt,
             model: getModelForFeature('clinical_assistant'),
           },
         }),
@@ -176,6 +210,26 @@ export const useAIClinicalAssistant = (
       setLastResult(result);
       setLastModel(data.model || null);
 
+      if (bankId) {
+        const contentPieces = [
+          text ? `Input text:\n${text}` : null,
+          sanitizedContext ? `Context:\n${JSON.stringify(sanitizedContext)}` : null,
+          result ? `AI result:\n${String(result)}` : null,
+        ].filter(Boolean);
+
+        const content = contentPieces.join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature,
+            noteType: (sanitizedContext as { noteType?: string } | undefined)?.noteType ?? null,
+            source: 'ai-clinical-assistant',
+          },
+        });
+      }
+
       onSuccess?.(result, feature);
 
       return result;
@@ -184,7 +238,7 @@ export const useAIClinicalAssistant = (
         return null;
       }
 
-      const message = err instanceof Error ? err.message : 'AI processing failed';
+      const message = getUserFacingErrorMessage(err, 'AI processing failed');
       setError(message);
       onError?.(message);
 
@@ -201,7 +255,7 @@ export const useAIClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast, getModelForFeature]);
+  }, [onSuccess, onError, toast, getModelForFeature, user, assertBackendReady]);
 
   // Convenience methods
   const smartExpand = useCallback(

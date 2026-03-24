@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { jsonResponse, handleOptions } from "../_shared/mod.ts";
+import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 
 /**
  * Healthcheck Edge Function
@@ -27,10 +27,10 @@ Deno.serve(async (req) => {
 
     if (dbError) {
       console.error("Healthcheck DB Ping failed:", dbError);
-      return jsonResponse(req, { 
-        status: "unhealthy", 
-        component: "database", 
-        message: dbError.message 
+      return jsonResponse(req, {
+        status: "unhealthy",
+        component: "database",
+        message: "Database unavailable",
       }, 503);
     }
 
@@ -46,9 +46,9 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error("Healthcheck severe failure:", error);
-    return jsonResponse(req, { 
-      status: "unhealthy", 
-      message: error instanceof Error ? error.message : "Internal Server Error" 
+    return jsonResponse(req, {
+      status: "unhealthy",
+      message: "Internal Server Error",
     }, 500);
   }
 });

@@ -58,6 +58,9 @@ export function QuickModelSwitcher({ className }: { className?: string }) {
                 <Button
                     variant="outline"
                     size="sm"
+                    type="button"
+                    title={`AI model for editor tools: ${currentModel?.label || 'Select model'}. Open to switch.`}
+                    aria-label={`AI model: ${currentModel?.label || 'Select model'}. Open menu to change model.`}
                     className={cn("h-8 gap-2 px-2 bg-background/50 backdrop-blur-sm border-border/50 hover:bg-muted/80 transition-all", className)}
                 >
                     <div className={cn(

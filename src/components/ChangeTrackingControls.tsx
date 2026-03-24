@@ -22,8 +22,9 @@ interface ChangeTrackingControlsProps {
 }
 
 const PRESET_COLORS = [
+  "#0d9488", // Primary (teal) – design system default
   "#C92A2A", // Red
-  "#E67700", // Orange  
+  "#E67700", // Orange
   "#2B8A3E", // Green
   "#1864AB", // Blue
   "#862E9C", // Purple

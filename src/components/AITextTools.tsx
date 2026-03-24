@@ -93,8 +93,8 @@ export const AITextTools = ({
     const combinedPrompt = customPrompt ? `${stylePrompt}\n\n${customPrompt}` : stylePrompt;
     const result = await transformText(selectedText, type, combinedPrompt);
     if (result) {
-      replaceSelectedText(result);
-      updateFromSample(result);
+      replaceSelectedText(result.text);
+      updateFromSample(result.text);
       setIsOpen(false);
       setShowCustomDialog(false);
       toast.success('Text transformed');

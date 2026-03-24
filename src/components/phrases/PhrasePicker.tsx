@@ -31,6 +31,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { ClinicalPhrase, PhraseFolder } from '@/types/phrases';
+import { useAuth } from '@/hooks/useAuth';
+import { recallMemories } from '@/lib/hindsightClient';
 
 interface PhrasePickerProps {
   phrases: ClinicalPhrase[];
@@ -53,14 +55,56 @@ export const PhrasePicker: React.FC<PhrasePickerProps> = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [preferredPhraseIds, setPreferredPhraseIds] = useState<Set<string>>(new Set());
 
   // Reset when closed
   useEffect(() => {
     if (!open) {
       setSearch('');
       setSelectedFolder(null);
+      setPreferredPhraseIds(new Set());
     }
   }, [open]);
+
+  // Load preferred phrases from Hindsight when opened
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (!open || !user) return;
+
+      const bankId = `clinician:${user.id}`;
+      const filters: Record<string, unknown> = { feature: 'phrases' };
+      if (context?.noteType) {
+        filters.noteType = context.noteType;
+      }
+      if (context?.section) {
+        filters.section = context.section;
+      }
+
+      const recalled = await recallMemories({
+        bankId,
+        query: 'phrase and template preferences for this clinician and context',
+        filters,
+        limit: 20,
+      });
+
+      if (!recalled?.memories) {
+        setPreferredPhraseIds(new Set());
+        return;
+      }
+
+      const ids = new Set<string>();
+      for (const memory of recalled.memories) {
+        const meta = memory.metadata as { phraseId?: string } | undefined;
+        if (meta?.phraseId) {
+          ids.add(meta.phraseId);
+        }
+      }
+      setPreferredPhraseIds(ids);
+    };
+
+    void loadPreferences();
+  }, [open, user, context?.noteType, context?.section]);
 
   // Build folder tree
   const folderTree = useMemo(() => {
@@ -100,14 +144,22 @@ export const PhrasePicker: React.FC<PhrasePickerProps> = ({
       );
     }
 
+    if (preferredPhraseIds.size > 0) {
+      result = [...result].sort((a, b) => {
+        const aPref = preferredPhraseIds.has(a.id) ? 1 : 0;
+        const bPref = preferredPhraseIds.has(b.id) ? 1 : 0;
+        return bPref - aPref;
+      });
+    }
+
     return result;
-  }, [phrases, selectedFolder, search]);
+  }, [phrases, selectedFolder, search, preferredPhraseIds]);
 
   // Context-matched phrases
   const contextPhrases = useMemo(() => {
     if (!context?.noteType && !context?.section) return [];
     
-    return phrases.filter(p => {
+    const base = phrases.filter(p => {
       if (!p.isActive || !p.contextTriggers) return false;
       
       const matchesNoteType = !context.noteType || 
@@ -121,23 +173,47 @@ export const PhrasePicker: React.FC<PhrasePickerProps> = ({
       return matchesNoteType && matchesSection && 
         (p.contextTriggers.noteType?.length || p.contextTriggers.section?.length);
     });
-  }, [phrases, context]);
+    if (preferredPhraseIds.size === 0) {
+      return base;
+    }
+    return [...base].sort((a, b) => {
+      const aPref = preferredPhraseIds.has(a.id) ? 1 : 0;
+      const bPref = preferredPhraseIds.has(b.id) ? 1 : 0;
+      return bPref - aPref;
+    });
+  }, [phrases, context, preferredPhraseIds]);
 
   // Recent phrases (sorted by last used)
   const recentPhrases = useMemo(() => {
-    return phrases
+    const base = phrases
       .filter(p => p.isActive && p.lastUsedAt)
       .sort((a, b) => new Date(b.lastUsedAt!).getTime() - new Date(a.lastUsedAt!).getTime())
       .slice(0, 5);
-  }, [phrases]);
+    if (preferredPhraseIds.size === 0) {
+      return base;
+    }
+    return [...base].sort((a, b) => {
+      const aPref = preferredPhraseIds.has(a.id) ? 1 : 0;
+      const bPref = preferredPhraseIds.has(b.id) ? 1 : 0;
+      return bPref - aPref;
+    });
+  }, [phrases, preferredPhraseIds]);
 
   // Frequently used phrases
   const frequentPhrases = useMemo(() => {
-    return phrases
+    const base = phrases
       .filter(p => p.isActive && p.usageCount > 0)
       .sort((a, b) => b.usageCount - a.usageCount)
       .slice(0, 5);
-  }, [phrases]);
+    if (preferredPhraseIds.size === 0) {
+      return base;
+    }
+    return [...base].sort((a, b) => {
+      const aPref = preferredPhraseIds.has(a.id) ? 1 : 0;
+      const bPref = preferredPhraseIds.has(b.id) ? 1 : 0;
+      return bPref - aPref;
+    });
+  }, [phrases, preferredPhraseIds]);
 
   const handleSelect = useCallback((phrase: ClinicalPhrase) => {
     onSelect(phrase);

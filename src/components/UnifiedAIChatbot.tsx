@@ -19,8 +19,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useStreamingAI } from '@/hooks/useStreamingAI';
-import { usePatients } from '@/hooks/usePatients';
+import { useCurrentPatients } from '@/contexts/CurrentPatientsContext';
 import { useAuth } from '@/hooks/useAuth';
+import { useMotionPreference } from '@/hooks/useReducedMotion';
+import { shouldRunAnime, useAnimeTimeline } from '@/lib/anime';
 import type { AIFeature } from '@/lib/openai-config';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -277,7 +279,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCopy, copiedId
 
 export const UnifiedAIChatbot: React.FC = () => {
   const { user } = useAuth();
-  const { patients } = usePatients();
+  const patients = useCurrentPatients();
+  const { prefersReducedMotion } = useMotionPreference();
 
   const [isOpen, setIsOpen] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -291,6 +294,7 @@ export const UnifiedAIChatbot: React.FC = () => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
   const streamingIdRef = React.useRef<string | null>(null);
+  const quickActionsStaggerRef = React.useRef<HTMLDivElement>(null);
 
   const selectedPatient = React.useMemo(
     () => patients.find((p) => p.id === selectedPatientId) ?? null,
@@ -462,9 +466,39 @@ export const UnifiedAIChatbot: React.FC = () => {
     streamingIdRef.current = null;
   }, [cancel, isStreaming]);
 
-  if (!user) return null;
+  const filteredActions = React.useMemo(
+    () => (!user ? [] : QUICK_ACTIONS.filter((a) => a.category === activeCategory)),
+    [user, activeCategory],
+  );
 
-  const filteredActions = QUICK_ACTIONS.filter((a) => a.category === activeCategory);
+  const quickActionsChipsKey = React.useMemo(
+    () => `${activeCategory}|${filteredActions.map((a) => a.id).join(',')}`,
+    [activeCategory, filteredActions],
+  );
+
+  const animeRunQuickChips =
+    shouldRunAnime(prefersReducedMotion) && !!user && isOpen && filteredActions.length > 0;
+
+  useAnimeTimeline(
+    ({ createTimeline, stagger }) => {
+      const root = quickActionsStaggerRef.current;
+      if (!root) return null;
+      const items = root.querySelectorAll<HTMLElement>('[data-anime-stagger-item]');
+      if (items.length === 0) return null;
+      const tl = createTimeline({ defaults: { ease: 'outCubic' } });
+      tl.add(items, {
+        opacity: { from: 0, to: 1 },
+        y: { from: 6, to: 0 },
+        duration: 280,
+        delay: stagger(28, { from: 'start' }),
+      });
+      return tl;
+    },
+    [quickActionsChipsKey, isOpen, activeCategory],
+    { enabled: animeRunQuickChips, afterLayout: true },
+  );
+
+  if (!user) return null;
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -475,13 +509,15 @@ export const UnifiedAIChatbot: React.FC = () => {
         {!isOpen && (
           <motion.button
             key="trigger"
+            type="button"
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.93 }}
+            whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
+            whileTap={prefersReducedMotion ? undefined : { scale: 0.93 }}
             onClick={() => setIsOpen(true)}
             title="AI Clinical Assistant (⌘⇧K)"
+            aria-label="Open AI Clinical Assistant"
             className={cn(
               'fixed bottom-6 right-6 z-50',
               'h-14 w-14 rounded-full',
@@ -490,9 +526,10 @@ export const UnifiedAIChatbot: React.FC = () => {
               'flex items-center justify-center text-white',
               'hover:shadow-xl hover:shadow-violet-500/40 transition-shadow',
               'ring-2 ring-white/30 dark:ring-white/10',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             )}
           >
-            <Sparkles className="h-6 w-6" />
+            <Sparkles className="h-6 w-6" aria-hidden />
           </motion.button>
         )}
       </AnimatePresence>
@@ -502,6 +539,9 @@ export const UnifiedAIChatbot: React.FC = () => {
         {isOpen && (
           <motion.div
             key="panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-chatbot-title"
             initial={{ opacity: 0, scale: 0.96, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 16 }}
@@ -519,22 +559,25 @@ export const UnifiedAIChatbot: React.FC = () => {
             {/* ── Header ── */}
             <div className="relative flex-shrink-0 bg-gradient-to-r from-violet-600 via-indigo-600 to-purple-600 text-white">
               {/* Subtle animated shimmer overlay */}
-              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 animate-[shimmer_3s_ease-in-out_infinite]" />
+              <div
+                className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 animate-[shimmer_3s_ease-in-out_infinite] motion-reduce:animate-none"
+                aria-hidden
+              />
 
               <div className="relative px-4 py-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/15 backdrop-blur-sm ring-1 ring-white/20">
-                      <Sparkles className="h-4.5 w-4.5" />
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-white/15 backdrop-blur-sm ring-1 ring-white/20 shrink-0">
+                      <Sparkles className="h-4.5 w-4.5" aria-hidden />
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm leading-tight tracking-tight">
+                    <div className="min-w-0">
+                      <p id="ai-chatbot-title" className="font-semibold text-sm leading-tight tracking-tight">
                         AI Clinical Assistant
                       </p>
                       <p className="text-[11px] text-white/65 mt-0.5">
                         {isStreaming ? (
                           <span className="flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                            <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse motion-reduce:animate-none shrink-0" aria-hidden />
                             Generating…
                           </span>
                         ) : (
@@ -545,15 +588,17 @@ export const UnifiedAIChatbot: React.FC = () => {
                   </div>
 
                   {/* Header controls */}
-                  <div className="flex items-center gap-0.5">
+                  <div className="flex items-center gap-0.5 shrink-0">
                     {messages.length > 0 && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
+                            type="button"
                             onClick={handleClear}
-                            className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+                            className="p-2 min-h-[40px] min-w-[40px] rounded-lg hover:bg-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-700"
+                            aria-label="Clear conversation"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>Clear conversation</TooltipContent>
@@ -562,23 +607,28 @@ export const UnifiedAIChatbot: React.FC = () => {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
+                          type="button"
                           onClick={() => setIsExpanded((v) => !v)}
-                          className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+                          className="p-2 min-h-[40px] min-w-[40px] rounded-lg hover:bg-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-700"
+                          aria-label={isExpanded ? 'Minimize panel' : 'Expand panel'}
+                          aria-expanded={isExpanded}
                         >
                           {isExpanded ? (
-                            <Minimize2 className="h-3.5 w-3.5" />
+                            <Minimize2 className="h-3.5 w-3.5" aria-hidden />
                           ) : (
-                            <Maximize2 className="h-3.5 w-3.5" />
+                            <Maximize2 className="h-3.5 w-3.5" aria-hidden />
                           )}
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>{isExpanded ? 'Minimize' : 'Expand'}</TooltipContent>
                     </Tooltip>
                     <button
+                      type="button"
                       onClick={() => setIsOpen(false)}
-                      className="p-1.5 rounded-lg hover:bg-white/15 transition-colors"
+                      className="p-2 min-h-[40px] min-w-[40px] rounded-lg hover:bg-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-violet-700"
+                      aria-label="Close AI assistant"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4" aria-hidden />
                     </button>
                   </div>
                 </div>
@@ -586,7 +636,10 @@ export const UnifiedAIChatbot: React.FC = () => {
                 {/* Patient selector */}
                 <div className="mt-2.5">
                   <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
-                    <SelectTrigger className="h-8 text-xs bg-white/10 border-white/25 text-white hover:bg-white/20 focus:ring-white/30 [&>span]:text-white/90 [&>svg]:text-white/60">
+                    <SelectTrigger
+                      aria-label="Patient context for AI"
+                      className="h-8 text-xs bg-white/10 border-white/25 text-white hover:bg-white/20 focus:ring-white/30 [&>span]:text-white/90 [&>svg]:text-white/60"
+                    >
                       <SelectValue placeholder="No patient selected" />
                     </SelectTrigger>
                     <SelectContent>
@@ -613,13 +666,15 @@ export const UnifiedAIChatbot: React.FC = () => {
             {/* ── Quick actions bar ── */}
             <div className="flex-shrink-0 px-3 pt-2.5 pb-2 border-b border-border/50 bg-muted/20 backdrop-blur-sm">
               {/* Category tabs */}
-              <div className="flex gap-1 mb-2">
+              <div className="flex gap-1 mb-2" role="group" aria-label="AI action categories">
                 {CATEGORIES.map((cat) => (
                   <button
                     key={cat}
+                    type="button"
+                    aria-pressed={activeCategory === cat}
                     onClick={() => setActiveCategory(cat)}
                     className={cn(
-                      'px-2.5 py-1 text-xs rounded-full font-medium transition-all duration-150',
+                      'px-2.5 py-1.5 min-h-[36px] text-xs rounded-full font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2',
                       activeCategory === cat
                         ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 shadow-sm'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted/70',
@@ -631,17 +686,22 @@ export const UnifiedAIChatbot: React.FC = () => {
               </div>
 
               {/* Action chips */}
-              <div className="flex flex-wrap gap-1.5">
+              <div ref={quickActionsStaggerRef} className="flex flex-wrap gap-1.5">
                 {filteredActions.map((action) => (
                   <Tooltip key={action.id}>
                     <TooltipTrigger asChild>
                       <button
+                        data-anime-stagger-item
+                        type="button"
+                        style={animeRunQuickChips ? { opacity: 0 } : undefined}
                         onClick={() => handleQuickAction(action)}
                         disabled={isStreaming}
+                        aria-label={`${action.name}: ${action.description}`}
                         className={cn(
-                          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+                          'inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[36px] rounded-full text-xs font-medium',
                           'border bg-background transition-all duration-150',
                           'disabled:opacity-40 disabled:cursor-not-allowed',
+                          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2',
                           pendingAction?.id === action.id
                             ? 'border-violet-400 bg-violet-50 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 dark:border-violet-600'
                             : [
@@ -652,10 +712,12 @@ export const UnifiedAIChatbot: React.FC = () => {
                               ],
                         )}
                       >
-                        {action.icon}
+                        <span aria-hidden className="inline-flex [&>svg]:shrink-0">
+                          {action.icon}
+                        </span>
                         {action.name}
                         {action.requiresText && (
-                          <ChevronRight className="h-2.5 w-2.5 opacity-50" />
+                          <ChevronRight className="h-2.5 w-2.5 opacity-50 shrink-0" aria-hidden />
                         )}
                       </button>
                     </TooltipTrigger>
@@ -732,10 +794,12 @@ export const UnifiedAIChatbot: React.FC = () => {
                       <strong>{pendingAction.name}:</strong> {pendingAction.description}. Type your text below.
                     </span>
                     <button
+                      type="button"
                       onClick={() => setPendingAction(null)}
-                      className="text-violet-400 hover:text-violet-600 dark:hover:text-violet-300"
+                      className="p-1 rounded-md text-violet-400 hover:text-violet-600 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 min-h-[32px] min-w-[32px] inline-flex items-center justify-center"
+                      aria-label="Cancel pending action"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3 w-3" aria-hidden />
                     </button>
                   </motion.div>
                 )}
@@ -745,12 +809,14 @@ export const UnifiedAIChatbot: React.FC = () => {
               {isStreaming && (
                 <div className="flex items-center justify-between mb-2 px-0.5">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Sparkles className="h-3 w-3 animate-spin text-violet-500" />
+                    <Sparkles className="h-3 w-3 animate-spin motion-reduce:animate-none text-violet-500" aria-hidden />
                     <span>Generating response…</span>
                   </div>
                   <button
+                    type="button"
                     onClick={cancel}
-                    className="text-xs text-destructive/70 hover:text-destructive transition-colors"
+                    className="text-xs min-h-[44px] px-2 rounded-md text-destructive/70 hover:text-destructive transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/40"
+                    aria-label="Stop generating"
                   >
                     Stop
                   </button>
@@ -759,7 +825,7 @@ export const UnifiedAIChatbot: React.FC = () => {
 
               {/* Input row */}
               <div className="flex gap-2 items-end">
-                <Textarea
+                  <Textarea
                   ref={inputRef}
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
@@ -777,14 +843,17 @@ export const UnifiedAIChatbot: React.FC = () => {
                       ? `Enter text for ${pendingAction.name}…`
                       : 'Ask a clinical question, paste notes, or use a quick action…'
                   }
+                  aria-label={pendingAction ? `Text for ${pendingAction.name}` : 'Message to AI assistant'}
                   className="min-h-[44px] max-h-[120px] resize-none text-sm rounded-xl flex-1 focus-visible:ring-violet-400/50"
                   disabled={isStreaming}
                   rows={1}
                 />
                 <Button
+                  type="button"
                   onClick={handleSend}
                   disabled={!inputValue.trim() || isStreaming}
                   size="icon"
+                  aria-label="Send message"
                   className={cn(
                     'flex-shrink-0 h-[44px] w-[44px] rounded-xl shadow-none transition-all',
                     'bg-gradient-to-br from-violet-500 to-indigo-600',
@@ -792,7 +861,7 @@ export const UnifiedAIChatbot: React.FC = () => {
                     'disabled:opacity-40',
                   )}
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4" aria-hidden />
                 </Button>
               </div>
 

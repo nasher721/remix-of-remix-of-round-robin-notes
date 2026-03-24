@@ -233,6 +233,7 @@ class SyncService {
       return progress;
     }
     
+    const syncStart = performance.now();
     console.log(`[SyncService] Starting sync of ${queue.length} mutations`);
     
     // Sort by timestamp (oldest first)
@@ -269,6 +270,21 @@ class SyncService {
     
     this.isSyncing = false;
     offlineQueue.setSyncInProgress(false);
+    
+    const durationMs = Math.round(performance.now() - syncStart);
+    logMetric('offline.sync.duration_ms', durationMs, 'ms', {
+      total: progress.total,
+      completed: progress.completed,
+      failed: progress.failed,
+      skipped: progress.skipped,
+    });
+    logMetric('offline.sync.completed', progress.completed, 'count', {});
+    if (progress.failed > 0) {
+      logMetric('offline.sync.failed', progress.failed, 'count', {});
+    }
+    if (progress.skipped > 0) {
+      logMetric('offline.sync.skipped', progress.skipped, 'count', {});
+    }
     
     const summary = [
       `${progress.completed} succeeded`,

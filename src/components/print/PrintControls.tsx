@@ -1,11 +1,9 @@
-import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
     FileText,
     FileSpreadsheet,
     Download,
     Printer,
-    FileJson,
     Type,
     Loader2
 } from "lucide-react";
@@ -37,14 +35,6 @@ export function PrintControls({
     onPrint,
     isGenerating
 }: PrintControlsProps) {
-    // Keyboard shortcuts
-    const handleKeyDown = React.useCallback((e: React.KeyboardEvent, handler: () => void) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handler();
-        }
-    }, []);
-
     return (
         <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Export options">
             {/* Screen reader live region for status announcements */}
@@ -53,13 +43,14 @@ export function PrintControls({
             </div>
 
             <Button 
+                type="button"
                 onClick={onPrint} 
                 disabled={isGenerating}
                 aria-label={isGenerating ? 'Generating document' : 'Print document'}
                 aria-busy={isGenerating}
             >
                 {isGenerating ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden />
                 ) : (
                     <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
                 )}
@@ -67,30 +58,33 @@ export function PrintControls({
             </Button>
 
             <Button 
+                type="button"
                 variant="outline" 
                 onClick={onExportPDF} 
                 disabled={isGenerating}
                 aria-label="Export as PDF document"
             >
                 <FileText className="mr-2 h-4 w-4 text-rose-400/80" aria-hidden="true" />
-                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
                 PDF
             </Button>
 
             <Button 
+                type="button"
                 variant="outline" 
                 onClick={onExportExcel} 
                 disabled={isGenerating}
                 aria-label="Export as Excel spreadsheet"
             >
                 <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500/80" aria-hidden="true" />
-                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
                 Excel
             </Button>
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button 
+                        type="button"
                         variant="outline" 
                         disabled={isGenerating}
                         aria-label="More export formats"

@@ -51,9 +51,18 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
   // Defer CSS transition until after mount to avoid an initial-render flash
   React.useEffect(() => { setMounted(true); }, []);
 
-  // Calculate approximate page count based on patients and settings
+  // Paged preview: same chunking as the toolbar page count (subset per "page")
   const patientsPerPage = settings.onePatientPerPage ? 1 : Math.max(1, Math.ceil(patients.length / 3));
   const totalPages = Math.max(1, Math.ceil(patients.length / patientsPerPage));
+
+  React.useEffect(() => {
+    setCurrentPage((p) => Math.min(Math.max(1, p), totalPages))
+  }, [totalPages, patients.length])
+
+  const previewPatients = React.useMemo(() => {
+    const start = (currentPage - 1) * patientsPerPage
+    return patients.slice(start, start + patientsPerPage)
+  }, [patients, currentPage, patientsPerPage])
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(200, prev + 25));
@@ -105,12 +114,12 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
     <div
       ref={containerRef}
       className={cn(
-        "bg-muted/30 border rounded-lg h-full flex flex-col overflow-hidden",
+        "bg-muted/30 border rounded-lg h-full min-h-0 flex flex-col overflow-hidden",
         isFullscreen && "fixed inset-0 z-50 rounded-none"
       )}
     >
-      {/* Preview Toolbar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-muted/50 border-b gap-2 flex-wrap">
+      {/* Preview Toolbar — single scroll row on narrow screens so controls stay reachable */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/50 border-b shrink-0 overflow-x-auto overflow-y-hidden min-h-[44px] [scrollbar-width:thin]">
         {/* Zoom Controls */}
         <div className="flex items-center gap-1">
           <TooltipProvider>
@@ -238,8 +247,8 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
         </div>
       </div>
 
-      {/* Preview Content */}
-      <ScrollArea className="flex-1 p-4">
+      {/* Preview Content — min-h-0 so flex + ScrollArea can shrink and scroll */}
+      <ScrollArea className="flex-1 min-h-0 p-4">
         <div
           className={cn(
             "mx-auto origin-top",
@@ -248,7 +257,7 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
           style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center", willChange: "transform" }}
         >
           <PrintDocument
-            patients={patients}
+            patients={previewPatients}
             patientTodos={patientTodos}
             patientNotes={patientNotes}
             settings={settings}

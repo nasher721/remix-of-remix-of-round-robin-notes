@@ -1,11 +1,12 @@
-import { Component, ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { recordTelemetryEvent } from "@/lib/observability/telemetry";
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
   resetKeys?: unknown[];
 }
 
@@ -30,8 +31,12 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    recordTelemetryEvent("render_error", error, {
+      boundary: "ErrorBoundary",
+      componentStack: errorInfo.componentStack?.slice(0, 1000),
+    });
     this.props.onError?.(error, errorInfo);
   }
 
@@ -100,6 +105,14 @@ export function createSectionErrorBoundary(sectionName: string) {
 
     static getDerivedStateFromError(error: Error): State {
       return { hasError: true, error };
+    }
+
+    componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+      recordTelemetryEvent("render_error", error, {
+        boundary: "SectionErrorBoundary",
+        sectionName,
+        componentStack: errorInfo.componentStack?.slice(0, 1000),
+      });
     }
 
     handleRetry = (): void => {

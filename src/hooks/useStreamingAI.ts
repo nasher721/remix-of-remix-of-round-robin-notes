@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Patient } from '@/types/patient';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/hooks/useAuth';
 import type {
   AIFeature,
   ClinicalContext,
 } from '@/lib/openai-config';
 import { stripHtml } from '@/lib/openai-config';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { getEdgeFunctionAuthHeaders } from '@/lib/edgeFunctionHeaders';
 
 export interface StreamingChunk {
   chunk: string;
@@ -20,6 +23,25 @@ interface UseStreamingAIOptions {
   onComplete?: (fullResponse: string) => void;
   onError?: (error: string) => void;
 }
+
+const parseEdgeErrorMessage = async (response: Response): Promise<string> => {
+  const text = await response.text();
+  const trimmed = text?.trim() ?? '';
+  if (!trimmed) {
+    return `AI processing failed: ${response.status} ${response.statusText}`;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as { error?: string; msg?: string; message?: string };
+    return (
+      parsed.error ||
+      parsed.msg ||
+      parsed.message ||
+      trimmed.slice(0, 500)
+    );
+  } catch {
+    return trimmed.slice(0, 500);
+  }
+};
 
 interface UseStreamingAIReturn {
   isStreaming: boolean;
@@ -57,6 +79,7 @@ export const useStreamingAI = (
 ): UseStreamingAIReturn => {
   const { onChunk, onComplete, onError } = options;
   const { getModelForFeature } = useSettings();
+  const { user } = useAuth();
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [accumulatedResponse, setAccumulatedResponse] = useState('');
@@ -102,6 +125,8 @@ export const useStreamingAI = (
     setAccumulatedResponse('');
 
     try {
+      const bankId = user ? `clinician:${user.id}` : null;
+
       const finalContext = patient ? patientToContext(patient) : context;
 
       if (!text && !finalContext) {
@@ -121,19 +146,44 @@ export const useStreamingAI = (
         }
       }
 
-      // Use direct fetch for streaming - supabase.functions.invoke doesn't support streaming
+      let combinedCustomPrompt = customPrompt;
+
+      if (bankId) {
+        const recalled = await recallMemories(
+          {
+            bankId,
+            query: `clinical_assistant preferences and style for feature ${feature}`,
+            filters: {
+              feature,
+            },
+            limit: 8,
+          },
+          { signal: abortControllerRef.current?.signal ?? undefined }
+        );
+
+        const styleSummary = recalled?.memories
+          ?.map((memory) => memory.content)
+          .filter(Boolean)
+          .join('\n---\n');
+
+        if (styleSummary) {
+          const prefix = `Clinician style and preferences (from prior interactions):\n${styleSummary}`;
+          combinedCustomPrompt = [prefix, customPrompt].filter(Boolean).join('\n\n');
+        }
+      }
+
+      // Direct fetch for SSE — must send apikey + user JWT like functions.invoke does
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(`${supabaseUrl}/functions/v1/ai-clinical-assistant`, {
         method: 'POST',
-        headers: {
+        headers: await getEdgeFunctionAuthHeaders({
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
+        }),
         body: JSON.stringify({
           feature,
           text,
           context: finalContext,
-          customPrompt,
+          customPrompt: combinedCustomPrompt,
           model: getModelForFeature('clinical_assistant'),
           stream: true,
         }),
@@ -141,20 +191,13 @@ export const useStreamingAI = (
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `AI processing failed: ${response.statusText}`);
+        throw new Error(await parseEdgeErrorMessage(response));
       }
 
       // Check if response is SSE stream or JSON
       const contentType = response.headers.get('content-type') || '';
 
       if (contentType.includes('text/event-stream')) {
-        // Handle SSE streaming response
-
-        if (!response.ok) {
-          throw new Error(`Streaming failed: ${response.statusText}`);
-        }
-
         if (!response.body) {
           throw new Error('No response body');
         }
@@ -162,37 +205,84 @@ export const useStreamingAI = (
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let accumulated = '';
-        let done = false;
+        let lineBuffer = '';
+        let readerDone = false;
+        let sawDoneEvent = false;
 
-        while (!done) {
-          const { value, done: doneReading } = await reader.read();
-          done = doneReading;
+        while (!readerDone && !sawDoneEvent) {
+          const { value, done: inputDone } = await reader.read();
+          readerDone = inputDone;
 
           if (value) {
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
+            lineBuffer += decoder.decode(value, { stream: true });
+          }
+          if (readerDone) {
+            lineBuffer += decoder.decode();
+          }
 
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
+          const segments = lineBuffer.split('\n');
+          lineBuffer = segments.pop() ?? '';
 
-                if (data === '[DONE]') {
-                  done = true;
-                  break;
-                }
+          for (const rawLine of segments) {
+            const line = rawLine.replace(/\r$/, '');
+            if (!line.startsWith('data: ')) {
+              continue;
+            }
+            const payload = line.slice(6).trimEnd();
 
-                try {
-                  const parsed = JSON.parse(data);
-                  if (parsed.chunk) {
-                    accumulated += parsed.chunk;
-                    setAccumulatedResponse(accumulated);
-                    onChunk?.(parsed.chunk, accumulated);
-                  } else if (parsed.error) {
-                    throw new Error(parsed.error);
-                  }
-                } catch {
-                  // Skip malformed JSON
-                }
+            if (payload === '[DONE]') {
+              sawDoneEvent = true;
+              await reader.cancel();
+              break;
+            }
+            if (!payload) {
+              continue;
+            }
+
+            let parsed: { chunk?: unknown; error?: string };
+            try {
+              parsed = JSON.parse(payload) as { chunk?: unknown; error?: string };
+            } catch {
+              throw new Error(
+                `AI stream returned invalid JSON (connection may be unstable). First bytes: ${payload.slice(0, 120)}`,
+              );
+            }
+
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
+            if (typeof parsed.chunk === 'string') {
+              accumulated += parsed.chunk;
+              setAccumulatedResponse(accumulated);
+              onChunk?.(parsed.chunk, accumulated);
+            }
+          }
+        }
+
+        // Remainder after last newline (or full stream if server omits trailing \n)
+        if (lineBuffer.trim()) {
+          const line = lineBuffer.replace(/\r$/, '');
+          if (line.startsWith('data: ')) {
+            const payload = line.slice(6).trimEnd();
+            if (payload === '[DONE]') {
+              sawDoneEvent = true;
+              void reader.cancel().catch(() => {});
+            } else if (payload) {
+              let parsed: { chunk?: unknown; error?: string };
+              try {
+                parsed = JSON.parse(payload) as { chunk?: unknown; error?: string };
+              } catch {
+                throw new Error(
+                  `AI stream ended with invalid JSON. First bytes: ${payload.slice(0, 120)}`,
+                );
+              }
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+              if (typeof parsed.chunk === 'string') {
+                accumulated += parsed.chunk;
+                setAccumulatedResponse(accumulated);
+                onChunk?.(parsed.chunk, accumulated);
               }
             }
           }
@@ -200,6 +290,24 @@ export const useStreamingAI = (
 
         setIsStreaming(false);
         onComplete?.(accumulated);
+
+        if (bankId && accumulated) {
+          const contentPieces = [
+            text ? `Input text:\n${text}` : null,
+            finalContext ? `Context:\n${JSON.stringify(finalContext)}` : null,
+            `AI result:\n${accumulated}`,
+          ].filter(Boolean);
+
+          void retainMemory({
+            bankId,
+            content: contentPieces.join('\n\n'),
+            metadata: {
+              feature,
+              source: 'ai-clinical-assistant-streaming',
+            },
+          });
+        }
+
         return accumulated;
       }
 
@@ -212,6 +320,26 @@ export const useStreamingAI = (
       const result = jsonData.result as string;
       setAccumulatedResponse(result);
       onComplete?.(result);
+
+      if (bankId) {
+        const contentPieces = [
+          text ? `Input text:\n${text}` : null,
+          finalContext ? `Context:\n${JSON.stringify(finalContext)}` : null,
+          result ? `AI result:\n${String(result)}` : null,
+        ].filter(Boolean);
+
+        const content = contentPieces.join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature,
+            source: 'ai-clinical-assistant-streaming',
+          },
+        });
+      }
+
       return result;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -233,7 +361,7 @@ export const useStreamingAI = (
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [onChunk, onComplete, onError, toast, getModelForFeature]);
+  }, [onChunk, onComplete, onError, toast, getModelForFeature, user]);
 
   return {
     isStreaming,

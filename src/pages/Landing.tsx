@@ -1,50 +1,119 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  motion,
-  useReducedMotion,
-  type TargetAndTransition,
-  type Variants,
-} from "framer-motion";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { stagger } from "animejs";
 import { useAuth } from "@/hooks/useAuth";
 import FeatureHighlights from "@/components/landing/FeatureHighlights";
+import { LANDING_INTRO_DISABLED, LANDING_INTRO_VIDEO_SRC } from "@/config/marketing";
+import { useAnimeTimeline } from "@/hooks/useAnimeTimeline";
+import { useMotionPreference } from "@/hooks/useReducedMotion";
+import { cn } from "@/lib/utils";
 
-const featureChips = [
-  { icon: "devices", label: "Mobile access" },
-  { icon: "speed", label: "Realtime sync" },
-  { icon: "lock", label: "HIPAA secure" },
-  { icon: "task", label: "Team tasks" },
-];
+const INTRO_MAX_MS = 9000;
 
-const checklist = [
-  "Live sign-outs with change tracking",
-  "Bedside-ready layout for ICU teams",
-  "Exportable notes for handoff & reports",
-];
-
-const signalCards = [
-  { label: "Rounds", value: "In progress", tone: "bg-primary/15 text-primary" },
-  { label: "Drafts", value: "Auto-saved", tone: "bg-emerald-50 text-emerald-600" },
-  { label: "Alerts", value: "Labs updated", tone: "bg-amber-50 text-amber-700" },
-];
-
-const CartWheel: React.FC<{ shouldReduceMotion: boolean }> = ({ shouldReduceMotion }) => (
-  <motion.div
-    className="relative h-10 w-10 rounded-full border-2 border-slate-500 bg-white"
-    animate={shouldReduceMotion ? undefined : { rotate: 360 }}
-    transition={shouldReduceMotion ? undefined : { duration: 2.7, repeat: Infinity, ease: "linear" }}
-  >
-    <span className="absolute left-1/2 top-1 h-4 w-0.5 -translate-x-1/2 bg-slate-500" />
-    <span className="absolute left-1/2 top-1 h-4 w-0.5 -translate-x-1/2 rotate-[120deg] bg-slate-500" />
-    <span className="absolute left-1/2 top-1 h-4 w-0.5 -translate-x-1/2 rotate-[240deg] bg-slate-500" />
-    <span className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-500" />
-  </motion.div>
-);
+/** SSR-safe: skip video intro when disabled, system reduced motion, or user chose reduced in settings */
+function getLandingSkipIntroInitial(): boolean {
+  if (LANDING_INTRO_DISABLED) return true;
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = localStorage.getItem("motion-preference");
+    if (stored === "reduced") return true;
+    if (stored === "enabled") return false;
+  } catch {
+    // ignore
+  }
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const shouldReduceMotion = useReducedMotion();
+  const { prefersReducedMotion } = useMotionPreference();
+  const [showContent, setShowContent] = useState(() => getLandingSkipIntroInitial());
+  const [isActive, setIsActive] = useState(false);
+  const [showPlayOverlay, setShowPlayOverlay] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const heroRootRef = useRef<HTMLDivElement>(null);
+  const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const startTransition = useCallback(() => {
+    if (introTimerRef.current) {
+      clearTimeout(introTimerRef.current);
+      introTimerRef.current = null;
+    }
+    setShowContent(true);
+    setTimeout(() => {
+      setIsActive(true);
+    }, 200);
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (containerRef.current) {
+      setScrollY(containerRef.current.scrollTop);
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [handleScroll]);
+
+  useEffect(() => {
+    if (prefersReducedMotion || LANDING_INTRO_DISABLED) {
+      startTransition();
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    const tryPlay = () => {
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          setShowPlayOverlay(true);
+        });
+      }
+    };
+
+    tryPlay();
+
+    introTimerRef.current = setTimeout(() => {
+      startTransition();
+    }, INTRO_MAX_MS);
+
+    const handleEnded = () => {
+      startTransition();
+    };
+
+    const handleError = () => {
+      startTransition();
+    };
+
+    video.addEventListener("ended", handleEnded);
+    video.addEventListener("error", handleError);
+
+    return () => {
+      video.removeEventListener("ended", handleEnded);
+      video.removeEventListener("error", handleError);
+      if (introTimerRef.current) {
+        clearTimeout(introTimerRef.current);
+        introTimerRef.current = null;
+      }
+    };
+  }, [prefersReducedMotion, startTransition]);
+
+  const handlePlayClick = () => {
+    const video = videoRef.current;
+    if (video) {
+      video.play();
+      setShowPlayOverlay(false);
+    }
+  };
 
   const handleLaunchPortal = () => {
     if (user) {
@@ -55,213 +124,397 @@ const Landing: React.FC = () => {
     }
   };
 
-  const fadeUp: Variants = {
-    hidden: { opacity: 0, y: shouldReduceMotion ? 0 : 18 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-    },
+  const handleGetStarted = () => {
+    navigate("/auth");
   };
 
-  const stagger: Variants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.08, delayChildren: 0.05 },
-    },
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
+    }
   };
 
-  const float: TargetAndTransition | undefined = shouldReduceMotion
-    ? undefined
-    : {
-        y: [0, -12, 0],
-        scale: [1, 1.02, 1],
-        transition: { duration: 8, repeat: Infinity, ease: [0.37, 0, 0.63, 1] },
-      };
+  const parallaxSlow = scrollY * 0.3;
+  const parallaxMed = scrollY * 0.5;
+  const parallaxFast = scrollY * 0.7;
+  const bgOpacity = Math.min(scrollY / 600, 0.15);
+
+  useAnimeTimeline({
+    rootRef: heroRootRef,
+    enabled: showContent && isActive,
+    prefersReducedMotion,
+    setup: ({ timeline, root }) => {
+      const title = root.querySelector("[data-anime-hero-title]");
+      const subtitle = root.querySelector("[data-anime-hero-subtitle]");
+      const chips = root.querySelectorAll("[data-anime-hero-chip]");
+      const cta = root.querySelector("[data-anime-hero-cta]");
+      if (!title || !subtitle || chips.length === 0 || !cta) {
+        return;
+      }
+      timeline.add(title, { opacity: [0, 1], y: [24, 0], duration: 650, ease: "outCubic" }, 0);
+      timeline.add(subtitle, { opacity: [0, 1], y: [20, 0], duration: 600, ease: "outCubic" }, "+=120");
+      timeline.add(chips, { opacity: [0, 1], y: [16, 0], duration: 500, ease: "outCubic" }, stagger(80));
+      timeline.add(cta, { opacity: [0, 1], y: [16, 0], duration: 550, ease: "outCubic" }, "+=100");
+    },
+    deps: [showContent, isActive],
+  });
 
   return (
-    <div className="landing-page min-h-screen relative overflow-hidden bg-background text-foreground">
-      {/* Ambient glow orbs */}
-      <motion.div
-        className="pointer-events-none absolute -left-32 -top-40 h-[500px] w-[500px] rounded-full bg-primary/15 blur-3xl"
-        animate={float}
-      />
-      <motion.div
-        className="pointer-events-none absolute -right-24 top-10 h-[400px] w-[400px] rounded-full bg-sky-400/15 blur-3xl"
-        animate={float}
-        transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="pointer-events-none absolute left-1/2 bottom-0 h-64 w-96 -translate-x-1/2 rounded-full bg-violet-400/10 blur-3xl"
-        animate={shouldReduceMotion ? undefined : { opacity: [0.4, 0.7, 0.4], transition: { duration: 6, repeat: Infinity } }}
-      />
-
-      <section className="relative mx-auto flex max-w-6xl flex-col gap-12 px-6 pt-20 pb-16 md:flex-row md:items-center md:pt-24">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-primary/8 via-sky-500/8 to-background" />
-        <motion.div className="flex-1 space-y-6" variants={stagger} initial="hidden" animate="visible">
-          <motion.span
-            variants={fadeUp}
-            className="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary ring-1 ring-primary/25 shadow-sm"
-          >
-            <span className="material-icons text-base">auto_awesome</span>
-            ICU-ready workflows
-          </motion.span>
-
-          <motion.h1
-            variants={fadeUp}
-            className="font-heading text-4xl font-extrabold leading-tight tracking-tight text-foreground md:text-5xl lg:text-6xl"
-          >
-            Rolling Rounds
-            <span className="block text-[85%] text-gradient mt-1">
-              Clinical documentation built for bedside teams
-            </span>
-          </motion.h1>
-
-          <motion.p variants={fadeUp} className="max-w-2xl text-lg text-muted-foreground">
-            Organize patients, capture handoffs, and keep the team in sync with realtime updates
-            across mobile and desktop.
-          </motion.p>
-
-          <motion.div variants={stagger} className="flex flex-wrap gap-2">
-            {featureChips.map((chip) => (
-              <motion.span
-                key={chip.label}
-                variants={fadeUp}
-                whileHover={{ y: shouldReduceMotion ? 0 : -2, scale: shouldReduceMotion ? 1 : 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm font-medium text-foreground shadow-sm ring-1 ring-foreground/10 backdrop-blur"
-              >
-                <span className="material-icons text-base text-primary">{chip.icon}</span>
-                {chip.label}
-              </motion.span>
-            ))}
-          </motion.div>
-
-          <motion.div variants={fadeUp} className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
-            <motion.button
-              whileHover={{ y: shouldReduceMotion ? 0 : -3, scale: shouldReduceMotion ? 1 : 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleLaunchPortal}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-7 py-3.5 text-base font-semibold text-primary-foreground shadow-xl shadow-primary/30 transition-all duration-200 hover:bg-primary/90"
-            >
-              Launch portal
-              <span className="material-icons text-base">arrow_forward</span>
-            </motion.button>
-
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Live sync keeps bedside and desktop aligned
-            </div>
-          </motion.div>
-
-          <motion.ul variants={stagger} className="grid gap-3 md:grid-cols-2">
-            {checklist.map((item) => (
-              <motion.li
-                key={item}
-                variants={fadeUp}
-                className="flex items-start gap-2 rounded-xl bg-white/70 px-4 py-3 text-sm font-medium text-foreground shadow-sm ring-1 ring-foreground/5 backdrop-blur"
-              >
-                <span className="mt-0.5 h-5 w-5 rounded-full bg-primary/15 text-primary">
-                  <span className="material-icons text-sm leading-5">check</span>
-                </span>
-                <span className="text-left text-muted-foreground">{item}</span>
-              </motion.li>
-            ))}
-          </motion.ul>
-        </motion.div>
-
-        <motion.div className="relative flex-1" variants={fadeUp} initial="hidden" animate="visible">
-          <motion.div
-            className="relative overflow-hidden rounded-3xl bg-white/85 dark:bg-card/85 p-6 shadow-2xl ring-1 ring-foreground/10 backdrop-blur-xl"
-            animate={float}
-          >
-            <div className="flex items-center justify-between text-sm font-semibold text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span className="material-icons text-primary">monitor_heart</span>
-                Patient list
-              </div>
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100">
-                Live updates
-              </span>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              {signalCards.map((card) => (
-                <div
-                  key={card.label}
-                  className="flex items-center justify-between rounded-2xl bg-muted/60 px-4 py-3 text-sm font-semibold text-foreground"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="material-icons text-base text-primary">arrow_forward</span>
-                    {card.label}
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${card.tone}`}>
-                    {card.value}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <motion.div
-              className="mt-6 rounded-2xl border border-slate-300/70 bg-gradient-to-br from-slate-50 to-blue-50 px-4 py-4"
-              animate={shouldReduceMotion ? undefined : { y: [0, -4, 0] }}
-              transition={shouldReduceMotion ? undefined : { duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="relative mx-auto h-40 w-52">
-                <div className="absolute left-1/2 top-2 h-16 w-24 -translate-x-1/2 rounded-lg border-2 border-slate-600 bg-white shadow-sm">
-                  <div className="mx-1 mt-1 flex h-12 items-center justify-center rounded bg-primary/85 text-white">
-                    <span className="material-icons text-lg">analytics</span>
-                  </div>
-                </div>
-                <div className="absolute left-1/2 top-[68px] h-8 w-2 -translate-x-1/2 rounded bg-slate-400" />
-                <div className="absolute left-1/2 top-[88px] h-2 w-28 -translate-x-1/2 rounded bg-slate-500/50" />
-                <div className="absolute left-1/2 top-[95px] h-8 w-36 -translate-x-1/2 rounded-full border-2 border-slate-600 bg-white" />
-                <div className="absolute bottom-0 left-1/2 flex w-40 -translate-x-1/2 items-center justify-between">
-                  <CartWheel shouldReduceMotion={shouldReduceMotion ?? false} />
-                  <CartWheel shouldReduceMotion={shouldReduceMotion ?? false} />
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-
-          <motion.div
-            className="absolute -bottom-6 -left-6 w-[220px] rounded-2xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-4 shadow-2xl ring-4 ring-primary/25 backdrop-blur"
-            animate={float}
-            transition={{ duration: 9, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
-          >
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <span className="material-icons text-base">radar</span>
-              Shift snapshot
-            </div>
-            <ul className="mt-3 space-y-2 text-sm">
-              <li className="flex items-center justify-between">
-                <span>Patients followed</span>
-                <span className="font-bold">12</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span>Tasks due</span>
-                <span className="font-bold">5</span>
-              </li>
-              <li className="flex items-center justify-between">
-                <span>Sign-outs</span>
-                <span className="font-bold">ready</span>
-              </li>
-            </ul>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      <motion.div
-        id="feature-highlights"
-        className="relative"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-120px" }}
-        variants={fadeUp}
+    <div
+      ref={containerRef}
+      className="landing-page min-h-screen relative overflow-y-auto overflow-x-hidden transition-colors duration-[1500ms] ease-in-out scroll-smooth"
+      style={{ backgroundColor: "#eef4f9" }}
+    >
+      {/* Video intro overlay — omitted when VITE_LANDING_INTRO_DISABLED=true */}
+      {!LANDING_INTRO_DISABLED && (
+      <div
+        className={`intro-container fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-[800ms] ease-out ${showContent ? "opacity-0 invisible pointer-events-none" : ""}`}
+        style={{ backgroundColor: "#eef4f9" }}
       >
-        <FeatureHighlights />
-      </motion.div>
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-[#0D47A1] via-[#1976D2] to-[#42A5F5]"
+          aria-hidden
+        />
+        <button
+          type="button"
+          onClick={startTransition}
+          className="absolute top-4 right-4 z-[210] min-h-[44px] px-4 py-2 rounded-full text-sm font-semibold text-white/95 bg-black/35 hover:bg-black/50 backdrop-blur-sm border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
+        >
+          Skip intro
+        </button>
+        <video
+          ref={videoRef}
+          className="intro-video relative z-[1] w-full h-full object-cover"
+          style={{ mixBlendMode: "multiply" }}
+          poster="/landing-hero-poster.svg"
+          muted
+          playsInline
+          loop={!prefersReducedMotion}
+          autoPlay={!prefersReducedMotion}
+          preload="metadata"
+          aria-label="Rolling Rounds product introduction animation"
+        >
+          <source src={LANDING_INTRO_VIDEO_SRC} type="video/mp4" />
+          <span className="sr-only">Video introduction (optional)</span>
+        </video>
+        {showPlayOverlay && (
+          <button
+            type="button"
+            onClick={handlePlayClick}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white px-10 py-5 min-h-[44px] min-w-[44px] rounded-full cursor-pointer z-[200] font-semibold backdrop-blur-sm hover:bg-black/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/40"
+            aria-label="Play intro video"
+          >
+            Start Experience
+          </button>
+        )}
+      </div>
+      )}
+
+      {showContent && (
+        <header className="sticky top-0 z-[90] border-b border-white/10 bg-[#1565C0]/95 backdrop-blur-md text-white shadow-sm">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 py-3">
+            <a
+              href="#top"
+              className="font-bold font-[Montserrat] text-lg tracking-tight shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
+              onClick={(e) => {
+                e.preventDefault();
+                containerRef.current?.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
+              }}
+            >
+              Rolling Rounds
+            </a>
+            <nav className="flex flex-wrap items-center gap-1 sm:gap-4 text-sm font-medium" aria-label="Primary">
+              <button
+                type="button"
+                onClick={() => scrollToSection("features")}
+                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                Features
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollToSection("pricing")}
+                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                Pricing
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollToSection("security")}
+                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                Security
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollToSection("contact")}
+                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                Contact
+              </button>
+            </nav>
+            <button
+              type="button"
+              onClick={handleGetStarted}
+              className="min-h-[44px] px-4 py-2 rounded-full bg-white text-[#1565C0] text-sm font-bold shadow-md hover:bg-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1565C0]"
+            >
+              Get started
+            </button>
+          </div>
+        </header>
+      )}
+
+      {/* Hero section with parallax */}
+      <div
+        id="top"
+        ref={heroRootRef}
+        className={`poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
+        style={isActive ? { background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" } : {}}
+      >
+        {/* Parallax background circles */}
+        <div
+          className="bg-circle absolute rounded-full bg-white/5 z-0"
+          style={{
+            width: "300px", height: "300px", top: "-100px", right: "-50px",
+            transform: `translateY(${parallaxSlow}px)`,
+            transition: "transform 0.1s linear",
+          }}
+        />
+        <div
+          className="bg-circle absolute rounded-full bg-white/5"
+          style={{
+            width: "200px", height: "200px", bottom: "100px", left: "-50px",
+            transform: `translateY(${-parallaxMed}px)`,
+            transition: "transform 0.1s linear",
+          }}
+        />
+        <div
+          className="bg-circle absolute rounded-full bg-white/5"
+          style={{
+            width: "150px", height: "150px", top: "50%", right: "-30px",
+            transform: `translateY(${parallaxSlow}px)`,
+            transition: "transform 0.1s linear",
+          }}
+        />
+
+        {/* Parallax floating icons */}
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ top: "15%", left: "10%", transform: `translateY(${-parallaxFast}px)`, transition: "transform 0.1s linear" }}
+        >
+          <span className="material-icons" aria-hidden>local_hospital</span>
+        </span>
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ top: "25%", right: "15%", transform: `translateY(${-parallaxMed}px)`, transition: "transform 0.1s linear" }}
+        >
+          <span className="material-icons" aria-hidden>medical_services</span>
+        </span>
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ bottom: "25%", left: "12%", transform: `translateY(${parallaxSlow}px)`, transition: "transform 0.1s linear" }}
+        >
+          <span className="material-icons" aria-hidden>health_and_safety</span>
+        </span>
+        <span
+          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
+          style={{ bottom: "30%", right: "10%", transform: `translateY(${parallaxMed}px)`, transition: "transform 0.1s linear" }}
+        >
+          <span className="material-icons" aria-hidden>monitor_heart</span>
+        </span>
+
+        {/* Extra parallax glow layer */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0"
+          style={{
+            background: `radial-gradient(ellipse at 50% ${30 + parallaxSlow * 0.05}%, rgba(255,255,255,${bgOpacity}), transparent 70%)`,
+          }}
+        />
+
+        {/* Logo / cart with parallax — smaller on narrow viewports */}
+        <div
+          className="logo-container relative w-[min(100%,280px)] max-[375px]:w-[min(100%,240px)] h-[min(85vw,380px)] max-[375px]:h-[300px] flex justify-center items-center mb-6 sm:mb-10 z-10 transition-transform duration-[1200ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] order-2 sm:order-1"
+          style={{
+            transform: `scale(${isActive ? 1 : 0.9}) translateY(${-parallaxSlow * 0.2}px)`,
+          }}
+        >
+          <div className="cart-wrapper relative w-full max-w-[320px] h-[min(75vw,380px)] max-[375px]:max-h-[300px]">
+            <div className="monitor absolute top-[10px] left-1/2 -translate-x-1/2 w-[min(56vw,180px)] h-[min(34vw,130px)] bg-[#f0f4f8] rounded-xl border-4 border-[#2c3e50] shadow-[0_10px_30px_rgba(0,0,0,0.2)] z-[5]">
+              <div className="screen w-[calc(100%-16px)] h-[min(26vw,100px)] mx-2 bg-[#1976D2] rounded-md flex justify-center items-center relative overflow-hidden border-2 border-[#2c3e50]">
+                <span className="material-icons text-[clamp(28px,8vw,40px)] text-white/90 animate-[iconFloat_3s_ease-in-out_infinite]" aria-hidden>analytics</span>
+              </div>
+            </div>
+            <div className="stand-pole absolute left-1/2 top-[140px] max-[375px]:top-[120px] -translate-x-1/2 w-[24px] h-[min(42vw,160px)] bg-[#e0e0e0] border-l-2 border-r-2 border-[#bdc3c7] z-[1]" />
+            <div className="work-surface absolute top-[180px] max-[375px]:top-[155px] left-1/2 -translate-x-1/2 w-[min(68vw,220px)] h-[15px] bg-white rounded-lg border-3 border-[#2c3e50] z-[4] shadow-[0_5px_15px_rgba(0,0,0,0.1)]" />
+            <div className="keyboard-tray absolute top-[205px] max-[375px]:top-[175px] left-1/2 -translate-x-1/2 w-[140px] h-[10px] bg-[#90A4AE] rounded border-2 border-[#2c3e50] z-[3]" />
+            <div className="cart-base absolute bottom-[60px] left-1/2 -translate-x-1/2 w-[200px] h-[40px] bg-white rounded-[20px] border-3 border-[#2c3e50] z-[2]" />
+            <div className="wheels-container absolute bottom-0 left-1/2 -translate-x-1/2 w-[240px] h-[70px] flex justify-between z-[1]">
+              <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
+              </div>
+              <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
+                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Title section — headline first on small screens */}
+        <div className="title-section text-center relative z-10 -mt-2 sm:-mt-5 w-full max-w-3xl order-1 sm:order-2">
+          <h1
+            className={cn(
+              "main-title font-[Montserrat] text-[clamp(2rem,7vw,56px)] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]",
+              prefersReducedMotion &&
+                `transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+            )}
+            style={{
+              fontFamily: "'Montserrat', sans-serif",
+              transform: isActive ? `translateY(${-parallaxSlow * 0.15}px)` : undefined,
+              transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
+            }}
+          >
+            {prefersReducedMotion ? (
+              "Rolling Rounds"
+            ) : (
+              <span data-anime-hero-title className="inline-block opacity-0 will-change-transform">
+                Rolling Rounds
+              </span>
+            )}
+          </h1>
+          <p
+            className={cn(
+              "subtitle text-[clamp(1rem,3.5vw,1.2rem)] font-light text-white mb-7.5 max-w-[65ch] mx-auto leading-[1.5]",
+              prefersReducedMotion &&
+                `transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+            )}
+            style={{
+              fontFamily: "'Poppins', sans-serif",
+              transform: isActive ? `translateY(${-parallaxSlow * 0.1}px)` : undefined,
+              transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
+            }}
+          >
+            {prefersReducedMotion ? (
+              "Medical Rounding & Patient List Management"
+            ) : (
+              <span data-anime-hero-subtitle className="inline-block opacity-0 will-change-transform">
+                Medical Rounding & Patient List Management
+              </span>
+            )}
+          </p>
+
+          <div
+            className={cn(
+              "features flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 mt-5",
+              prefersReducedMotion &&
+                `transition-all duration-[800ms] ease-out delay-[900ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+            )}
+          >
+            <div
+              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
+              className={cn(
+                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default",
+                !prefersReducedMotion && "opacity-0",
+              )}
+              title="Works on phone, tablet, and desktop browsers"
+            >
+              <span className="material-icons text-[22px] shrink-0" aria-hidden>devices</span>
+              <span>Mobile access</span>
+            </div>
+            <div
+              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
+              className={cn(
+                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default",
+                !prefersReducedMotion && "opacity-0",
+              )}
+              title="Updates sync across your team"
+            >
+              <span className="material-icons text-[22px] shrink-0" aria-hidden>speed</span>
+              <span>Real-time sync</span>
+            </div>
+            <button
+              type="button"
+              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
+              onClick={() => scrollToSection("security")}
+              className={cn(
+                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-semibold flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all min-h-[44px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]",
+                !prefersReducedMotion && "opacity-0",
+              )}
+              aria-label="HIPAA-aligned safeguards — jump to Security section"
+            >
+              <span className="material-icons text-[22px] shrink-0" aria-hidden>cloud_done</span>
+              <span>HIPAA-aligned</span>
+            </button>
+          </div>
+        </div>
+
+        {prefersReducedMotion ? (
+          <div
+            className={`cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+          >
+            <button
+              type="button"
+              onClick={handleGetStarted}
+              className="cta-button min-h-[44px] min-w-[min(100%,280px)] bg-white text-[#0D47A1] px-10 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
+              aria-label="Create an account or sign in to get started"
+            >
+              <span>Get started free</span>
+              <span className="material-icons text-xl" aria-hidden>rocket_launch</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleLaunchPortal}
+              className="min-h-[44px] px-8 py-3.5 rounded-full text-base font-semibold text-white border-2 border-white/80 bg-transparent hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
+              aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
+            >
+              <span>{user ? "Open dashboard" : "Returning? Sign in"}</span>
+              <span className="material-icons text-xl" aria-hidden>login</span>
+            </button>
+          </div>
+        ) : (
+          <div className="cta-section order-3 mt-10 z-10">
+            <div
+              data-anime-hero-cta=""
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 opacity-0 will-change-transform"
+            >
+              <button
+                type="button"
+                onClick={handleGetStarted}
+                className="cta-button min-h-[44px] min-w-[min(100%,280px)] bg-white text-[#0D47A1] px-10 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
+                aria-label="Create an account or sign in to get started"
+              >
+                <span>Get started free</span>
+                <span className="material-icons text-xl" aria-hidden>rocket_launch</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleLaunchPortal}
+                className="min-h-[44px] px-8 py-3.5 rounded-full text-base font-semibold text-white border-2 border-white/80 bg-transparent hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
+                aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
+              >
+                <span>{user ? "Open dashboard" : "Returning? Sign in"}</span>
+                <span className="material-icons text-xl" aria-hidden>login</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Feature highlights section */}
+      {showContent && <FeatureHighlights prefersReducedMotion={prefersReducedMotion} />}
+
+      <style>{`
+        @keyframes iconFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+      `}</style>
     </div>
   );
 };

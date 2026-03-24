@@ -2,9 +2,9 @@ import React, { createContext, useContext, ReactNode } from "react";
 import { Patient } from "@/types/patient";
 import { AutoText, Template } from "@/types/autotext";
 import { MobileTab } from "@/components/layout";
-import { PatientTodo } from "@/types/todo";
 import { PatientFilterType } from "@/constants/config";
 
+/** Todos are provided via DashboardTodosContext (useDashboardTodos) to limit re-renders when only todos change. */
 interface DashboardContextType {
     // Data
     user: { email?: string } | null;
@@ -13,7 +13,6 @@ interface DashboardContextType {
     autotexts: AutoText[];
     templates: Template[];
     customDictionary: Record<string, string>;
-    todosMap: Record<string, PatientTodo[]>;
 
     // State
     searchQuery: string;
@@ -35,6 +34,8 @@ interface DashboardContextType {
     onCollapseAll: () => void;
     onClearAll: () => void;
     onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
+    /** Refresh patient list from the server (e.g. manual sync) */
+    onRefetchPatients: () => void | Promise<void>;
 
     // Autotext Actions
     onAddAutotext: (shortcut: string, expansion: string, category: string) => Promise<boolean>;
@@ -46,6 +47,10 @@ interface DashboardContextType {
     // Auth
     onSignOut: () => void;
     onPatientSelect: (patient: Patient | null) => void;
+
+    /** Desktop list/detail: which patient is shown in the main pane */
+    desktopSelectedPatientId: string | null;
+    setDesktopSelectedPatientId: (id: string | null) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);

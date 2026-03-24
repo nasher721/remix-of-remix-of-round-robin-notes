@@ -18,6 +18,15 @@ Deployed on Vercel with React, TypeScript, Supabase, and Tailwind CSS.
 | Routing | React Router 6 (SPA, client-side only) |
 | Forms | React Hook Form + Zod validation |
 | Package Manager | npm (bun.lockb also present) |
+| Motion (UI) | Framer Motion (default) + **Anime.js v4** (`animejs`) for timelines / choreography |
+
+## Motion libraries (Framer Motion vs Anime.js)
+
+- **Framer Motion** remains the default for declarative enter/exit, springs, `AnimatePresence`, layout, and gesture-driven UI. Shared variants live in `src/lib/animations.ts`; route transitions use `src/components/ui/page-transition.tsx`.
+- **Anime.js v4** is a **complement**: use it for multi-step **timelines**, SVG/path motion, staggered choreography, or one-off hero sequences where imperative control is clearer. Import only what you need from `animejs` (e.g. `createTimeline`, `stagger`).
+- **Lifecycle-safe usage**: wrap timelines in **`useAnimeTimeline`** (`src/hooks/useAnimeTimeline.ts`) so unmount calls **`timeline.cancel()`** and optional teardown. Do not scatter raw `animate()` calls without cleanup.
+- **Accessibility**: **`prefers-reduced-motion`** must gate motion-heavy work. Use **`useMotionPreference()`** from `src/hooks/useReducedMotion.tsx` (same signal as the rest of the app—OS + `localStorage` override). When reduced motion is preferred, **skip Anime timelines** or jump to the final visual state; **no-op** is handled inside `useAnimeTimeline` when `prefersReducedMotion` is true.
+- **Conflicts**: Do not animate the same DOM properties on the same node with both Framer Motion and Anime.js at once.
 
 ## Commands
 
@@ -29,6 +38,10 @@ npm run lint       # ESLint (flat config, TS/TSX files)
 npm run preview    # Preview production build
 npm test           # Node.js native test runner with custom TS loader
 ```
+
+## Deployment
+
+See **[docs/deployment.md](docs/deployment.md)** for Supabase + Vercel order, CORS/`ALLOWED_ORIGINS`, GitHub Actions secrets, and post-deploy healthcheck.
 
 ## Project Structure
 
@@ -53,7 +66,8 @@ src/
 │   ├── IBCCContext.tsx
 │   ├── ClinicalGuidelinesContext.tsx
 │   ├── ChangeTrackingContext.tsx
-│   └── DashboardContext.tsx
+│   ├── DashboardContext.tsx
+│   └── DashboardTodosContext.tsx
 ├── pages/               # Route pages
 │   ├── Index.tsx         # Main dashboard (responsive desktop/mobile)
 │   ├── Auth.tsx          # Login/signup
@@ -99,19 +113,23 @@ supabase/
 ### Provider Hierarchy (App.tsx)
 
 ```
-QueryClientProvider
-  └── AuthProvider
-        └── SettingsProvider
-              └── IBCCProvider
-                    └── ClinicalGuidelinesProvider
-                          └── TooltipProvider
-                                └── BrowserRouter (Routes)
+GlobalErrorBoundary
+  └── QueryClientProvider (createOptimizedQueryClient)
+        └── ThemeProvider
+              └── AuthProvider
+                    └── SettingsProvider
+                          └── IBCCProvider
+                                └── ClinicalGuidelinesProvider
+                                      └── TooltipProvider
+                                            └── BrowserRouter (Routes)
 ```
+
+Route-scoped: `ChangeTrackingProvider` and `DashboardProvider` wrap only the Index route (`/`), not `/auth` or `/fhir/callback`.
 
 ### Data Flow
 
 1. **Components** call **custom hooks** (e.g., `usePatients`)
-2. Hooks use **React Query** for server state (Supabase queries)
+2. Hooks use **React Query** (where adopted) or **useState + Supabase** for server state
 3. **Context providers** manage global app state (auth, settings, IBCC, guidelines)
 4. **Supabase Edge Functions** handle AI/server-side operations
 5. Optimistic updates provide responsive UX
@@ -270,6 +288,7 @@ import { usePatients } from "@/hooks/usePatients";
 - Client configured in `src/integrations/supabase/`
 - Auto-generated types in `src/integrations/supabase/types.ts`
 - Environment variables prefixed with `VITE_SUPABASE_*` (in `.env`)
+- Optional: `VITE_SENTRY_DSN` (errors); release is `VITE_APP_VERSION` or auto from `package.json` / Vercel SHA — see [docs/deployment.md](docs/deployment.md#observability-sentry)
 - Edge Functions in `supabase/functions/` use Deno runtime
 
 ## Database Schema (Key Tables)

@@ -1,3 +1,8 @@
+/**
+ * Patient service: Supabase access and row-level mapping.
+ * Owns mapPatientRecord (DB row → Patient), buildPatientInsertPayload, and shouldTrackTimestamp.
+ * JSON parsing and update-payload building live in @/lib/mappers/patientMapper.
+ */
 import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import type { Patient, PatientMedications, PatientSystems } from "@/types/patient";
 import { parseFieldTimestampsJson, parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
@@ -26,7 +31,7 @@ export const mapPatientRecord = (record: {
   id: string;
   patient_number: number;
   name: string;
-  mrn: string | null;
+  mrn?: string | null;
   bed: string;
   clinical_summary: string;
   interval_events: string;
@@ -42,7 +47,7 @@ export const mapPatientRecord = (record: {
   id: record.id,
   patientNumber: record.patient_number,
   name: record.name,
-  mrn: record.mrn || "",
+  mrn: record.mrn ?? "",
   bed: record.bed,
   clinicalSummary: record.clinical_summary,
   intervalEvents: record.interval_events,
@@ -89,6 +94,9 @@ export const shouldTrackTimestamp = (field: string): boolean => {
 };
 
 export const getNextPatientCounter = (patients: Patient[]): number => {
-  const maxNumber = patients.reduce((max, patient) => Math.max(max, patient.patientNumber), 0);
+  const maxNumber = patients.reduce(
+    (max, patient) => Math.max(max, patient.patientNumber ?? 0),
+    0,
+  );
   return maxNumber + 1;
 };

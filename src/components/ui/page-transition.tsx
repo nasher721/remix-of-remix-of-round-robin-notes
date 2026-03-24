@@ -1,4 +1,8 @@
+import { type RefObject, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { createTimeline } from 'animejs';
+import { durations, ease } from '@/lib/anime-presets';
+import { useMotionPreference } from '@/hooks/useReducedMotion';
 
 /**
  * Page transition variants for smooth navigation
@@ -51,5 +55,40 @@ export const slideUpVariants: Variants = {
     transition: { duration: 0.15 },
   },
 };
+
+/**
+ * Hook for an anime.js clip-path wipe entrance.
+ * Attach the returned ref to a wrapper div around route content.
+ * The element clips from left-to-right while fading in.
+ */
+export function useClipWipeEntrance<T extends HTMLElement = HTMLDivElement>(): RefObject<T | null> {
+  const ref = useRef<T>(null);
+  const { prefersReducedMotion } = useMotionPreference();
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    if (prefersReducedMotion) {
+      el.style.opacity = '1';
+      el.style.clipPath = 'none';
+      return;
+    }
+
+    el.style.opacity = '0';
+    el.style.clipPath = 'inset(0 100% 0 0)';
+
+    const tl = createTimeline({ defaults: { ease: ease.out } })
+      .add(el, {
+        opacity: [0, 1],
+        clipPath: ['inset(0 100% 0 0)', 'inset(0 0% 0 0)'],
+        duration: durations.slow,
+      }, 0);
+
+    return () => { tl.pause(); };
+  }, [prefersReducedMotion]);
+
+  return ref;
+}
 
 export { motion, AnimatePresence };

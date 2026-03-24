@@ -1,6 +1,36 @@
+import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { animate, stagger } from "animejs";
 import { Loader2, AlertCircle, Inbox } from "lucide-react";
+import { useMotionPreference } from "@/hooks/useReducedMotion";
+
+function useShimmer<T extends HTMLElement = HTMLDivElement>() {
+  const ref = useRef<T>(null);
+  const { prefersReducedMotion } = useMotionPreference();
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || prefersReducedMotion) return;
+
+    const bars = el.querySelectorAll<HTMLElement>(".skeleton-bar");
+    if (!bars.length) return;
+
+    bars.forEach(b => b.classList.remove("animate-pulse"));
+
+    const anim = animate(bars, {
+      opacity: [0.4, 1, 0.4],
+      delay: stagger(40),
+      duration: 1200,
+      ease: "inOut(2)",
+      loop: true,
+    });
+
+    return () => { anim.pause(); };
+  }, [prefersReducedMotion]);
+
+  return ref;
+}
 
 interface LoadingStateProps {
   /** Main message to display */
@@ -191,22 +221,24 @@ export function EmptyState({
  * Skeleton variants for content loading
  */
 export function CardSkeleton({ className }: { className?: string }) {
+  const shimmerRef = useShimmer();
   return (
-    <div className={cn("rounded-lg border bg-card p-4 space-y-3", className)}>
-      <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+    <div ref={shimmerRef} className={cn("rounded-lg border bg-card p-4 space-y-3", className)}>
+      <div className="skeleton-bar h-4 w-1/3 animate-pulse rounded bg-muted" />
       <div className="space-y-2">
-        <div className="h-3 w-full animate-pulse rounded bg-muted" />
-        <div className="h-3 w-2/3 animate-pulse rounded bg-muted" />
+        <div className="skeleton-bar h-3 w-full animate-pulse rounded bg-muted" />
+        <div className="skeleton-bar h-3 w-2/3 animate-pulse rounded bg-muted" />
       </div>
     </div>
   );
 }
 
 export function ListSkeleton({ count = 3, className }: { count?: number; className?: string }) {
+  const shimmerRef = useShimmer();
   return (
-    <div className={cn("space-y-2", className)}>
+    <div ref={shimmerRef} className={cn("space-y-2", className)}>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="h-12 w-full animate-pulse rounded-md bg-muted" />
+        <div key={i} className="skeleton-bar h-12 w-full animate-pulse rounded-md bg-muted" />
       ))}
     </div>
   );
@@ -221,13 +253,14 @@ export function TableSkeleton({
   cols?: number; 
   className?: string;
 }) {
+  const shimmerRef = useShimmer();
   return (
-    <div className={cn("space-y-2", className)}>
+    <div ref={shimmerRef} className={cn("space-y-2", className)}>
       <div className="flex gap-2">
         {Array.from({ length: cols }).map((_, i) => (
           <div 
             key={i} 
-            className="h-4 flex-1 animate-pulse rounded bg-muted"
+            className="skeleton-bar h-4 flex-1 animate-pulse rounded bg-muted"
             style={{ opacity: 0.5 }}
           />
         ))}
@@ -235,7 +268,7 @@ export function TableSkeleton({
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="flex gap-2">
           {Array.from({ length: cols }).map((_, j) => (
-            <div key={j} className="h-8 flex-1 animate-pulse rounded bg-muted" />
+            <div key={j} className="skeleton-bar h-8 flex-1 animate-pulse rounded bg-muted" />
           ))}
         </div>
       ))}

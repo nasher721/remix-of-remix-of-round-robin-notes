@@ -4,9 +4,14 @@ import { toast } from 'sonner';
 import type { PatientSystems } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useAuth } from '@/hooks/useAuth';
+import { retainMemory, recallMemories } from '@/lib/hindsightClient';
+import { withCategoryTimeout } from '@/lib/requestTimeout';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const useIntervalEventsGenerator = () => {
   const { getModelForFeature } = useSettings();
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -35,9 +40,38 @@ export const useIntervalEventsGenerator = () => {
     setIsGenerating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-interval-events', {
-        body: { systems, existingIntervalEvents, patientName, model: getModelForFeature('interval_events') },
-      });
+      const bankId = user ? `clinician:${user.id}` : null;
+
+      if (bankId) {
+        const recalled = await recallMemories(
+          {
+            bankId,
+            query: 'interval_events preferences and style',
+            filters: {
+              feature: 'interval_events',
+            },
+            limit: 6,
+          },
+          { signal: abortControllerRef.current?.signal ?? undefined }
+        );
+
+        const styleSummary = recalled?.memories
+          ?.map((memory) => memory.content)
+          .filter(Boolean)
+          .join('\n---\n');
+
+        if (styleSummary && patientName) {
+          patientName = `${patientName} (with clinician interval event preferences applied)`;
+        }
+      }
+
+      const { data, error } = await withCategoryTimeout(
+        supabase.functions.invoke('generate-interval-events', {
+          body: { systems, existingIntervalEvents, patientName, model: getModelForFeature('interval_events') },
+        }),
+        'aiEdgeFunction',
+        'generate-interval-events',
+      );
 
       // Check if aborted
       if (abortControllerRef.current?.signal.aborted) {
@@ -46,30 +80,49 @@ export const useIntervalEventsGenerator = () => {
 
       if (error) {
         console.error('Generate interval events error:', error);
-        toast.error(error.message || 'Failed to generate interval events');
+        toast.error(getUserFacingErrorMessage(error, 'Failed to generate interval events'));
         return null;
       }
 
       if (data?.error) {
-        toast.error(data.error);
+        toast.error(getUserFacingErrorMessage(data.error, 'Failed to generate interval events'));
         return null;
       }
 
       toast.success('Interval events generated');
-      return ensureString(data.intervalEvents);
+      const intervalEvents = ensureString(data.intervalEvents);
+
+      if (bankId && intervalEvents) {
+        const content = [
+          `Patient name: ${patientName || 'Unknown'}`,
+          `Systems input:\n${JSON.stringify(systems)}`,
+          `Generated interval events:\n${intervalEvents}`,
+        ].join('\n\n');
+
+        void retainMemory({
+          bankId,
+          content,
+          metadata: {
+            feature: 'interval_events',
+            source: 'generate-interval-events',
+          },
+        });
+      }
+
+      return intervalEvents;
     } catch (err) {
       // Don't show error if it was cancelled
       if (err instanceof Error && err.name === 'AbortError') {
         return null;
       }
       console.error('Generate interval events error:', err);
-      toast.error('Failed to generate interval events');
+      toast.error(getUserFacingErrorMessage(err, 'Failed to generate interval events'));
       return null;
     } finally {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, [getModelForFeature]);
+  }, [getModelForFeature, user]);
 
   const cancelGeneration = useCallback(() => {
     if (abortControllerRef.current) {

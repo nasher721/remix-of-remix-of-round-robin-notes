@@ -9,6 +9,7 @@ import { AlertTriangle, RefreshCw, Copy, ChevronDown, ChevronUp } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { recordTelemetryEvent } from '@/lib/observability/telemetry';
 
 interface AIErrorBoundaryProps {
   children: React.ReactNode;
@@ -52,6 +53,12 @@ export class AIErrorBoundary extends React.Component<AIErrorBoundaryProps, AIErr
     // Log error for debugging
     console.error('[AIErrorBoundary] Caught error:', error);
     console.error('[AIErrorBoundary] Component stack:', errorInfo.componentStack);
+
+    recordTelemetryEvent('render_error', error, {
+      boundary: 'AIErrorBoundary',
+      featureLabel: this.props.featureLabel,
+      componentStack: errorInfo.componentStack?.slice(0, 1000),
+    });
 
     // Call optional error callback
     this.props.onError?.(error, errorInfo);

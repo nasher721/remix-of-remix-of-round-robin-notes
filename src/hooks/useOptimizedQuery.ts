@@ -1,3 +1,7 @@
+/**
+ * Helpers for React Query cache invalidation and optimistic updates.
+ * Currently unused; adopt when core patient/todo data is migrated to React Query.
+ */
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { QUERY_KEYS, CACHE_CONFIG } from '@/lib/cache/cacheConfig';

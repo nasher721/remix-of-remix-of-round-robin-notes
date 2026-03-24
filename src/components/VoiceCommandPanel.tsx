@@ -73,6 +73,35 @@ export function VoiceCommandPanel({ onCommand, className }: VoiceCommandPanelPro
 
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
 
+  const speak = React.useCallback((text: string) => {
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = settings.language;
+      window.speechSynthesis.speak(utterance);
+    }
+  }, [settings.language]);
+
+  const processCommand = React.useCallback((text: string) => {
+    const result = findMatchingCommand(text);
+    setLastResult(result);
+
+    if (result.command && result.confidence > 0.5) {
+      // Show feedback
+      setShowFeedback(true);
+      setTimeout(() => setShowFeedback(false), 2000);
+
+      // Speak feedback if enabled
+      if (settings.voiceFeedback && result.command.feedback) {
+        speak(result.command.feedback);
+      }
+
+      // Execute command
+      if (!result.command.requiresConfirmation) {
+        onCommand(result.command.action, result.parameters);
+      }
+    }
+  }, [onCommand, settings.voiceFeedback, speak]);
+
   // Initialize speech recognition
   React.useEffect(() => {
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -109,37 +138,7 @@ export function VoiceCommandPanel({ onCommand, className }: VoiceCommandPanelPro
     return () => {
       recognitionRef.current?.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.continuous, settings.interimResults, settings.language]);
-
-  const processCommand = (text: string) => {
-    const result = findMatchingCommand(text);
-    setLastResult(result);
-
-    if (result.command && result.confidence > 0.5) {
-      // Show feedback
-      setShowFeedback(true);
-      setTimeout(() => setShowFeedback(false), 2000);
-
-      // Speak feedback if enabled
-      if (settings.voiceFeedback && result.command.feedback) {
-        speak(result.command.feedback);
-      }
-
-      // Execute command
-      if (!result.command.requiresConfirmation) {
-        onCommand(result.command.action, result.parameters);
-      }
-    }
-  };
-
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = settings.language;
-      window.speechSynthesis.speak(utterance);
-    }
-  };
+  }, [isListening, processCommand, settings.continuous, settings.interimResults, settings.language]);
 
   const toggleListening = () => {
     if (!settings.enabled) return;

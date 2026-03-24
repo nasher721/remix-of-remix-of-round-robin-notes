@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Keyboard, Command, Plus, X, Save, Search, Copy, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useMotionPreference } from "@/hooks/useReducedMotion";
+import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
 
 interface Shortcut {
   id: string;
@@ -24,8 +26,22 @@ const DEFAULT_SHORTCUTS: Shortcut[] = [
     id: 'quick-search',
     name: 'Quick Search',
     defaultKeys: 'Cmd+K',
-    description: 'Open patient quick search',
+    description: 'Focus patient search (Ctrl+K on Windows/Linux)',
     category: 'navigation',
+  },
+  {
+    id: 'ai-command-palette',
+    name: 'AI workspace',
+    defaultKeys: 'Cmd+Shift+A',
+    description: 'Open AI command palette (Ctrl+Shift+A on Windows/Linux)',
+    category: 'panels',
+  },
+  {
+    id: 'print-export',
+    name: 'Print / export',
+    defaultKeys: 'Cmd+P',
+    description: 'Open print and export dialog (Ctrl+P on Windows/Linux)',
+    category: 'actions',
   },
   {
     id: 'quick-reference',
@@ -37,8 +53,22 @@ const DEFAULT_SHORTCUTS: Shortcut[] = [
   {
     id: 'add-patient',
     name: 'Add Patient',
-    defaultKeys: 'Cmd+N',
-    description: 'Create new patient card',
+    defaultKeys: 'Cmd+Shift+N',
+    description: 'Create new patient (also N when focus is not in a text field)',
+    category: 'actions',
+  },
+  {
+    id: 'focus-search-slash',
+    name: 'Focus patient search',
+    defaultKeys: '/',
+    description: 'Focus patient search (not while typing in an input, textarea, or editor)',
+    category: 'navigation',
+  },
+  {
+    id: 'new-patient-key-n',
+    name: 'Quick add patient',
+    defaultKeys: 'N',
+    description: 'Open add patient sheet (not while typing in an input, textarea, or editor)',
     category: 'actions',
   },
   {
@@ -139,6 +169,8 @@ export function KeyboardShortcutSystem() {
   const [customShortcuts, setCustomShortcuts] = React.useState<Record<string, string>>({});
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [newShortcut, setNewShortcut] = React.useState('');
+  const { prefersReducedMotion } = useMotionPreference();
+  const shortcutListStaggerRef = React.useRef<HTMLDivElement>(null);
 
   const handleKeyDown = React.useCallback((e: KeyboardEvent) => {
     if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
@@ -204,11 +236,33 @@ export function KeyboardShortcutSystem() {
     return groups;
   }, []);
 
+  const animeRunShortcutList =
+    shouldRunAnime(prefersReducedMotion) && open;
+
+  useAnimeTimeline(
+    ({ createTimeline, stagger }) => {
+      const root = shortcutListStaggerRef.current;
+      if (!root) return null;
+      const items = root.querySelectorAll<HTMLElement>('[data-anime-stagger-item]');
+      if (items.length === 0) return null;
+      const tl = createTimeline({ defaults: { ease: 'outCubic' } });
+      tl.add(items, {
+        opacity: { from: 0, to: 1 },
+        y: { from: 8, to: 0 },
+        duration: 300,
+        delay: stagger(40, { from: 'start' }),
+      });
+      return tl;
+    },
+    [open],
+    { enabled: animeRunShortcutList, afterLayout: true },
+  );
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7">
-          <HelpCircle className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground" aria-label="Keyboard shortcuts" title="Keyboard shortcuts — ⌘K search, ⌘⇧A AI, ? list" type="button">
+          <HelpCircle className="h-4 w-4" aria-hidden="true" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -218,12 +272,12 @@ export function KeyboardShortcutSystem() {
             Keyboard Shortcuts
           </DialogTitle>
           <DialogDescription>
-            Customize keyboard shortcuts for faster navigation
+            Press <kbd className="rounded border px-1 py-0.5 font-mono text-xs">?</kbd> anytime to open this list. Core: search (⌘K), AI (⌘⇧A), next/prev patient (⌘[ / ⌘]), print (⌘P). You can customize bindings below.
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6">
+          <div ref={shortcutListStaggerRef} className="space-y-6">
             {Object.entries(groupedShortcuts).map(([category, shortcuts]) => (
               <div key={category}>
                 <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
@@ -234,7 +288,12 @@ export function KeyboardShortcutSystem() {
                 </h3>
                 <div className="space-y-2">
                   {shortcuts.map(shortcut => (
-                    <Card key={shortcut.id} className="p-3">
+                    <Card
+                      key={shortcut.id}
+                      data-anime-stagger-item
+                      style={animeRunShortcutList ? { opacity: 0 } : undefined}
+                      className="p-3"
+                    >
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm">{shortcut.name}</div>
@@ -315,6 +374,11 @@ export function KeyboardShortcutSystem() {
             </CardHeader>
             <CardContent className="text-sm space-y-2">
               <p>• Use <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">?</kbd> to open this dialog</p>
+              <p>
+                • <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">/</kbd> and{" "}
+                <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">N</kbd> only apply when you are{" "}
+                <span className="font-medium">not</span> focused in a text field or editor
+              </p>
               <p>• Customize shortcuts by clicking the copy icon</p>
               <p>• Reset to default by clearing the custom key</p>
               <p>• Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px]">Esc</kbd> to close</p>
