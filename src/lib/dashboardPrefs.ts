@@ -1,5 +1,7 @@
 export type SystemsReviewMode = "split" | "combine_all" | "combine_custom";
 
+export type PatientRosterLayoutMode = "sidebar" | "topbar";
+
 export type DashboardFocusTarget =
   | "clinicalSummary"
   | "intervalEvents"
@@ -14,6 +16,7 @@ export interface DashboardPrefs {
   focusModeEnabled: boolean;
   systemsReviewMode: SystemsReviewMode;
   systemsCustomCombineKeys: string[];
+  patientRosterLayoutMode: PatientRosterLayoutMode;
 }
 
 export const DASHBOARD_PREFS_STORAGE_KEY = "rr-dashboard-prefs";
@@ -26,6 +29,7 @@ export const DEFAULT_DASHBOARD_PREFS: DashboardPrefs = {
   focusModeEnabled: false,
   systemsReviewMode: "split",
   systemsCustomCombineKeys: [],
+  patientRosterLayoutMode: "sidebar",
 };
 
 const SYSTEMS_MODE_SET = new Set<SystemsReviewMode>(["split", "combine_all", "combine_custom"]);
@@ -76,6 +80,10 @@ export const sanitizeDashboardPrefs = (value: unknown): DashboardPrefs => {
         : DEFAULT_DASHBOARD_PREFS.focusModeEnabled,
     systemsReviewMode,
     systemsCustomCombineKeys: sanitizeCustomCombineKeys(value.systemsCustomCombineKeys),
+    patientRosterLayoutMode:
+      value.patientRosterLayoutMode === "topbar" || value.patientRosterLayoutMode === "sidebar"
+        ? value.patientRosterLayoutMode
+        : DEFAULT_DASHBOARD_PREFS.patientRosterLayoutMode,
   };
 
   return migrated;

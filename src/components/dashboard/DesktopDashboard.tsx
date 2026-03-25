@@ -300,7 +300,15 @@ export const DesktopDashboard = () => {
     return () => { tl.pause(); };
   }, [shouldReduceMotion]);
 
-  const { panelLeftCollapsed, panelRightCollapsed, toggleLeftPanel, toggleRightPanel } = useDashboardLayout();
+  const {
+    panelLeftCollapsed,
+    panelRightCollapsed,
+    toggleLeftPanel,
+    toggleRightPanel,
+    focusModeActive,
+    patientRosterLayoutMode,
+    setPatientRosterLayoutMode,
+  } = useDashboardLayout();
 
   const TogglePanelsButton = () => {
     const bothCollapsed = panelLeftCollapsed && panelRightCollapsed;
@@ -314,6 +322,7 @@ export const DesktopDashboard = () => {
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
+              disabled={focusModeActive}
               onClick={() => {
                 if (bothCollapsed) {
                   toggleLeftPanel();
@@ -439,6 +448,8 @@ export const DesktopDashboard = () => {
           globalFontSize={globalFontSize}
           setTodosAlwaysVisible={setTodosAlwaysVisible}
           setGlobalFontSize={setGlobalFontSize}
+          patientRosterLayoutMode={patientRosterLayoutMode}
+          onPatientRosterLayoutModeChange={setPatientRosterLayoutMode}
           editorToolbarMode={editorToolbarMode}
           setEditorToolbarMode={setEditorToolbarMode}
           ctEnabled={ctEnabled}
@@ -612,7 +623,7 @@ export const DesktopDashboard = () => {
               </div>
             </div>
 
-            <div className={`flex-1 flex flex-col transition-all duration-300 ${panelLeftCollapsed ? 'w-16' : panelRightCollapsed ? 'w-[calc(100%-4rem)]' : 'w-full'}`}>
+            <div className="flex-1 flex flex-col transition-all duration-300">
               <ScrollArea className="flex-1 px-4 md:px-6 py-4">
               {filteredPatients.length === 0 ? (
                 <motion.div
@@ -733,6 +744,8 @@ interface DesktopUtilityPanelProps {
   globalFontSize: number;
   setTodosAlwaysVisible: (updater: (prev: boolean) => boolean) => void;
   setGlobalFontSize: (size: number) => void;
+  patientRosterLayoutMode: "sidebar" | "topbar";
+  onPatientRosterLayoutModeChange: (mode: "sidebar" | "topbar") => void;
   editorToolbarMode: 'minimal' | 'full' | 'custom';
   setEditorToolbarMode: (mode: 'minimal' | 'full' | 'custom') => void;
   ctEnabled: boolean;
@@ -763,6 +776,8 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   globalFontSize,
   setTodosAlwaysVisible,
   setGlobalFontSize,
+  patientRosterLayoutMode,
+  onPatientRosterLayoutModeChange,
   editorToolbarMode,
   setEditorToolbarMode,
   ctEnabled,
@@ -882,23 +897,42 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
               { id: "resources" as const, label: "Resources" },
               { id: "tools" as const, label: "Tools" },
               { id: "settings" as const, label: "Settings" },
-            ]).map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === id}
-                onClick={() => setActiveTab(id)}
-                className={cn(
-                  "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  activeTab === id
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-background/80",
-                )}
-              >
-                {label}
-              </button>
-            ))}
+            ]).map(({ id, label }) => {
+              const isSelected = activeTab === id;
+              if (isSelected) {
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected="true"
+                    onClick={() => setActiveTab(id)}
+                    className={cn(
+                      "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      "bg-primary text-primary-foreground shadow-sm",
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected="false"
+                  onClick={() => setActiveTab(id)}
+                  className={cn(
+                    "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "text-muted-foreground hover:text-foreground hover:bg-background/80",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
 
           {activeTab === "resources" && (
@@ -969,6 +1003,18 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   >
                     <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible
                   </Button>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Patient list view</p>
+                    <select
+                      value={patientRosterLayoutMode}
+                      onChange={(e) => onPatientRosterLayoutModeChange(e.target.value as "sidebar" | "topbar")}
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                      aria-label="Patient list view mode"
+                    >
+                      <option value="sidebar">Sidebar (compact)</option>
+                      <option value="topbar">Top bar (wide)</option>
+                    </select>
+                  </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Font size</span>

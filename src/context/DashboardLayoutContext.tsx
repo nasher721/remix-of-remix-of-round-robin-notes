@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import {
   createContext,
   useContext,
@@ -7,6 +8,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
   type ReactNode,
 } from "react"
 import {
@@ -14,19 +16,13 @@ import {
   saveDashboardPrefs,
   DEFAULT_DASHBOARD_PREFS,
   type DashboardPrefs,
+  type DashboardFocusTarget,
 } from "@/lib/dashboardPrefs"
-
-export type SystemsLayoutMode = "split" | "combine_all" | "custom"
-
-const toLayoutMode = (mode: DashboardPrefs["systemsReviewMode"]): SystemsLayoutMode => {
-  if (mode === "combine_custom") return "custom"
-  return mode
-}
-
-const toPrefsMode = (mode: SystemsLayoutMode): DashboardPrefs["systemsReviewMode"] => {
-  if (mode === "custom") return "combine_custom"
-  return mode
-}
+import {
+  toLayoutMode,
+  toPrefsMode,
+  type SystemsLayoutMode,
+} from "@/lib/dashboardLayoutModes"
 
 interface DashboardLayoutState {
   // Panel state
@@ -34,10 +30,12 @@ interface DashboardLayoutState {
   panelRightCollapsed: boolean
   // Focus mode
   focusModeActive: boolean
-  focusModeEditorId: string | null
+  focusModeEditorId: DashboardFocusTarget | null
   // Systems layout
   systemsLayoutMode: SystemsLayoutMode
   customSystemsGroupIds: string[]
+  // Patient roster layout
+  patientRosterLayoutMode: DashboardPrefs["patientRosterLayoutMode"]
 }
 
 interface DashboardLayoutActions {
@@ -45,10 +43,11 @@ interface DashboardLayoutActions {
   toggleRightPanel: () => void
   setLeftPanelCollapsed: (collapsed: boolean) => void
   setRightPanelCollapsed: (collapsed: boolean) => void
-  enterFocusMode: (editorId: string) => void
+  enterFocusMode: (editorId: DashboardFocusTarget) => void
   exitFocusMode: () => void
   setSystemsLayoutMode: (mode: SystemsLayoutMode) => void
   setCustomSystemsGroup: (ids: string[]) => void
+  setPatientRosterLayoutMode: (mode: DashboardPrefs["patientRosterLayoutMode"]) => void
 }
 
 type DashboardLayoutContextValue = DashboardLayoutState & DashboardLayoutActions
@@ -58,10 +57,11 @@ const DashboardLayoutContext = createContext<DashboardLayoutContextValue | null>
 export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
   const [prefs, setPrefs] = useState<DashboardPrefs>(DEFAULT_DASHBOARD_PREFS)
   const [focusModeActive, setFocusModeActive] = useState(false)
-  const [focusModeEditorId, setFocusModeEditorId] = useState<string | null>(null)
+  const [focusModeEditorId, setFocusModeEditorId] = useState<DashboardFocusTarget | null>(null)
   const [systemsLayoutMode, setSystemsLayoutModeState] = useState<SystemsLayoutMode>("split")
   const [customSystemsGroupIds, setCustomSystemsGroupIdsState] = useState<string[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
+  const preFocusLayoutRef = useRef<{ leftPatientListOpen: boolean; rightTasksPanelOpen: boolean } | null>(null)
 
   // Load prefs on mount
   useEffect(() => {
@@ -86,31 +86,67 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
   }, [isInitialized, prefs, focusModeActive, systemsLayoutMode, customSystemsGroupIds])
 
   const toggleLeftPanel = useCallback(() => {
-    setPrefs((p) => ({ ...p, leftPatientListOpen: !p.leftPatientListOpen }))
+    setPrefs((p) => {
+      // In focus mode, keep the writing surface uncluttered.
+      if (p.focusModeEnabled) return p
+      return { ...p, leftPatientListOpen: !p.leftPatientListOpen }
+    })
   }, [])
 
   const toggleRightPanel = useCallback(() => {
-    setPrefs((p) => ({ ...p, rightTasksPanelOpen: !p.rightTasksPanelOpen }))
+    setPrefs((p) => {
+      // In focus mode, keep the writing surface uncluttered.
+      if (p.focusModeEnabled) return p
+      return { ...p, rightTasksPanelOpen: !p.rightTasksPanelOpen }
+    })
   }, [])
 
   const setLeftPanelCollapsed = useCallback((collapsed: boolean) => {
-    setPrefs((p) => ({ ...p, leftPatientListOpen: !collapsed }))
+    setPrefs((p) => {
+      if (p.focusModeEnabled) return p
+      return { ...p, leftPatientListOpen: !collapsed }
+    })
   }, [])
 
   const setRightPanelCollapsed = useCallback((collapsed: boolean) => {
-    setPrefs((p) => ({ ...p, rightTasksPanelOpen: !collapsed }))
+    setPrefs((p) => {
+      if (p.focusModeEnabled) return p
+      return { ...p, rightTasksPanelOpen: !collapsed }
+    })
   }, [])
 
-  const enterFocusMode = useCallback((editorId: string) => {
+  const enterFocusMode = useCallback((editorId: DashboardFocusTarget) => {
     setFocusModeActive(true)
     setFocusModeEditorId(editorId)
-    setPrefs((p) => ({ ...p, focusModeEnabled: true }))
+    setPrefs((prev) => {
+      if (prev.focusModeEnabled) return prev
+      preFocusLayoutRef.current = {
+        leftPatientListOpen: prev.leftPatientListOpen,
+        rightTasksPanelOpen: prev.rightTasksPanelOpen,
+      }
+      return {
+        ...prev,
+        focusModeEnabled: true,
+        leftPatientListOpen: false,
+        rightTasksPanelOpen: false,
+      }
+    })
   }, [])
 
   const exitFocusMode = useCallback(() => {
     setFocusModeActive(false)
     setFocusModeEditorId(null)
-    setPrefs((p) => ({ ...p, focusModeEnabled: false }))
+    setPrefs((prev) => {
+      if (!prev.focusModeEnabled) return prev
+      const restore = preFocusLayoutRef.current
+      preFocusLayoutRef.current = null
+      return {
+        ...prev,
+        focusModeEnabled: false,
+        leftPatientListOpen: restore?.leftPatientListOpen ?? true,
+        rightTasksPanelOpen: restore?.rightTasksPanelOpen ?? true,
+      }
+    })
   }, [])
 
   const setSystemsLayoutMode = useCallback((mode: SystemsLayoutMode) => {
@@ -119,25 +155,29 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
 
   const setCustomSystemsGroup = useCallback((ids: string[]) => {
     setCustomSystemsGroupIdsState(ids)
-    if (ids.length > 0) {
-      setSystemsLayoutModeState("custom")
-    }
+    setSystemsLayoutModeState(ids.length > 0 ? "custom" : "split")
   }, [])
 
-  // Keyboard handler for Esc to exit focus mode
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && focusModeActive) {
-        setFocusModeActive(false)
-        setFocusModeEditorId(null)
-      }
-    }
-    
-    if (focusModeActive) {
-      document.addEventListener("keydown", handleKeyDown)
-      return () => document.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [focusModeActive])
+  const setPatientRosterLayoutMode = useCallback(
+    (mode: DashboardPrefs["patientRosterLayoutMode"]) => {
+      setPrefs((p) => ({ ...p, patientRosterLayoutMode: mode }))
+    },
+    [],
+  )
+
+   // Keyboard handler for Esc to exit focus mode
+   useEffect(() => {
+     const handleKeyDown = (e: KeyboardEvent) => {
+       if (e.key === "Escape" && focusModeActive) {
+         exitFocusMode()
+       }
+     }
+     
+     if (focusModeActive) {
+       document.addEventListener("keydown", handleKeyDown)
+       return () => document.removeEventListener("keydown", handleKeyDown)
+     }
+   }, [focusModeActive, exitFocusMode])
 
   const value: DashboardLayoutContextValue = useMemo(() => ({
     panelLeftCollapsed: !prefs.leftPatientListOpen,
@@ -146,6 +186,7 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     focusModeEditorId,
     systemsLayoutMode,
     customSystemsGroupIds,
+    patientRosterLayoutMode: prefs.patientRosterLayoutMode,
     toggleLeftPanel,
     toggleRightPanel,
     setLeftPanelCollapsed,
@@ -154,9 +195,11 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     exitFocusMode,
     setSystemsLayoutMode,
     setCustomSystemsGroup,
+    setPatientRosterLayoutMode,
   }), [
     prefs.leftPatientListOpen,
     prefs.rightTasksPanelOpen,
+    prefs.patientRosterLayoutMode,
     focusModeActive,
     focusModeEditorId,
     systemsLayoutMode,
@@ -169,6 +212,7 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     exitFocusMode,
     setSystemsLayoutMode,
     setCustomSystemsGroup,
+    setPatientRosterLayoutMode,
   ])
 
   return (

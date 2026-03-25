@@ -1,11 +1,12 @@
 /**
  * Dashboard Layout E2E Tests
- * 
+ *
  * Tests for dashboard panel collapse, focus mode, and systems layout behaviors.
  * Run with: npm run test:e2e
  */
 
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 const DASHBOARD_URL = "/dashboard";
 
@@ -145,8 +146,9 @@ test.describe("Accessibility", () => {
 
     // Should be able to activate with Enter
     await collapseButton.press("Enter");
-    
+
     // Verify action worked (panel state changed)
     await expect(collapseButton).toHaveAttribute("aria-expanded", "true");
   });
 });
+
