@@ -100,7 +100,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PatientFilterType } from "@/constants/config";
+import { PatientFilterType, MIN_GLOBAL_FONT_SIZE_PX, MAX_GLOBAL_FONT_SIZE_PX } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -972,9 +972,15 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Font size</span>
-                      <span>{globalFontSize}%</span>
+                      <span>{globalFontSize}px</span>
                     </div>
-                    <Slider min={85} max={125} step={5} value={[globalFontSize]} onValueChange={(value) => setGlobalFontSize(value[0])} />
+                    <Slider
+                      min={MIN_GLOBAL_FONT_SIZE_PX}
+                      max={MAX_GLOBAL_FONT_SIZE_PX}
+                      step={1}
+                      value={[globalFontSize]}
+                      onValueChange={(value) => setGlobalFontSize(value[0])}
+                    />
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Text box toolbar</p>

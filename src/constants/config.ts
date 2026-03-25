@@ -78,6 +78,30 @@ export const DEFAULT_CONFIG = {
   PRINT_COMPACT_MODE: false,
 } as const;
 
+/** Editor note text uses pixel font size; base matches DEFAULT_CONFIG.GLOBAL_FONT_SIZE for % migration. */
+export const GLOBAL_FONT_SIZE_BASE_PX = DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
+export const MIN_GLOBAL_FONT_SIZE_PX = 10;
+export const MAX_GLOBAL_FONT_SIZE_PX = 24;
+
+/**
+ * `globalFontSize` is stored as px (10–24). Legacy bug: desktop showed 85–125 "%" but passed the
+ * number through as px (e.g. 100 → 100px). Values in 80–130 are treated as percentages of the base.
+ */
+export function normalizeGlobalFontSizeToPx(raw: unknown): number {
+  const n = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+  if (!Number.isFinite(n) || n < 8) return DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
+  if (n >= 80 && n <= 130) {
+    return Math.min(
+      MAX_GLOBAL_FONT_SIZE_PX,
+      Math.max(
+        MIN_GLOBAL_FONT_SIZE_PX,
+        Math.round(GLOBAL_FONT_SIZE_BASE_PX * (n / 100)),
+      ),
+    );
+  }
+  return Math.min(MAX_GLOBAL_FONT_SIZE_PX, Math.max(MIN_GLOBAL_FONT_SIZE_PX, Math.round(n)));
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
 // AI feature categories for per-feature model customization

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels, type Theme } from '@/constants/config';
+import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, normalizeGlobalFontSizeToPx, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels, type Theme } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -99,7 +99,11 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(DEFAULT_CONFIG.GLOBAL_FONT_SIZE));
         return DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
       }
-      return parsed;
+      const normalized = normalizeGlobalFontSizeToPx(parsed);
+      if (normalized !== parsed) {
+        localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(normalized));
+      }
+      return normalized;
     }
     return DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
   });
@@ -201,8 +205,9 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
-      setGlobalFontSizeState(prefs.globalFontSize);
-      localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(prefs.globalFontSize));
+      const normalized = normalizeGlobalFontSizeToPx(prefs.globalFontSize);
+      setGlobalFontSizeState(normalized);
+      localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(normalized));
     }
     if (prefs.todosAlwaysVisible !== undefined) {
       setTodosAlwaysVisibleState(prefs.todosAlwaysVisible);
@@ -414,7 +419,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   }, [sectionVisibility, editorToolbarMode, editorToolbarButtons, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
-    setGlobalFontSizeState(size);
+    setGlobalFontSizeState(normalizeGlobalFontSizeToPx(size));
   }, []);
 
   const setTodosAlwaysVisible = React.useCallback((visible: boolean) => {

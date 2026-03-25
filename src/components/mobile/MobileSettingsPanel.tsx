@@ -36,7 +36,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useTheme } from "@/components/theme-provider";
-import { CLINICAL_SECTIONS, DEFAULT_SECTION_VISIBILITY, type ClinicalSectionKey } from "@/constants/config";
+import {
+  CLINICAL_SECTIONS,
+  DEFAULT_SECTION_VISIBILITY,
+  MIN_GLOBAL_FONT_SIZE_PX,
+  MAX_GLOBAL_FONT_SIZE_PX,
+  type ClinicalSectionKey,
+} from "@/constants/config";
 import { SpecialtySelectionPanel } from "@/components/settings/SpecialtySelectionPanel";
 import { AIModelSettingsPanel } from "@/components/settings/AIModelSettingsPanel";
 import { ObservabilitySupportCard } from "@/components/settings/ObservabilitySupportCard";
@@ -142,8 +148,8 @@ export const MobileSettingsPanel = ({
           </div>
           <Slider
             value={[globalFontSize]}
-            min={12}
-            max={24}
+            min={MIN_GLOBAL_FONT_SIZE_PX}
+            max={MAX_GLOBAL_FONT_SIZE_PX}
             step={1}
             onValueChange={(v) => onFontSizeChange(v[0])}
             className="w-full"
