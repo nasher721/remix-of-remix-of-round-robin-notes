@@ -47,7 +47,7 @@ export default defineConfig(({ mode }) => ({
           // React core - rarely changes
           'vendor-react': ['react', 'react-dom'],
           // React Router - occasionally changes
-          'vendor-router': ['react-router', 'react-router-dom'],
+          'vendor-router': ['react-router-dom'],
           // TanStack Query - occasionally changes
           'vendor-query': ['@tanstack/react-query'],
           // UI components (shadcn/ui primitives)
