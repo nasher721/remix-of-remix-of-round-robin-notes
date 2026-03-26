@@ -71,7 +71,7 @@ export function PrintPreview({
     if (isPaginated) {
       setCurrentPage((p) => Math.min(Math.max(1, p), totalPages));
     }
-  }, [totalPages, patients.length, isPaginated]);
+  }, [totalPages, isPaginated]);
 
   // When paginated, show one patient per page. Otherwise, show all patients.
   const previewPatients = React.useMemo(() => {
@@ -82,29 +82,29 @@ export function PrintPreview({
     return patients.slice(start, start + patientsPerPage);
   }, [patients, currentPage, patientsPerPage, isPaginated]);
 
-  const handleZoomIn = () => {
+  const handleZoomIn = React.useCallback(() => {
     setZoom((prev) => Math.min(200, prev + 25));
-  };
+  }, []);
 
-  const handleZoomOut = () => {
+  const handleZoomOut = React.useCallback(() => {
     setZoom((prev) => Math.max(50, prev - 25));
-  };
+  }, []);
 
-  const handleResetZoom = () => {
+  const handleResetZoom = React.useCallback(() => {
     setZoom(100);
-  };
+  }, []);
 
-  const handleFitToWidth = () => {
+  const handleFitToWidth = React.useCallback(() => {
     setFitToWidth((prev) => !prev);
-  };
+  }, []);
 
-  const handleFullscreen = () => {
+  const handleFullscreen = React.useCallback(() => {
     if (!isFullscreen) {
       containerRef.current?.requestFullscreen?.();
     } else {
       document.exitFullscreen?.();
     }
-  };
+  }, [isFullscreen]);
 
   React.useEffect(() => {
     const handleFullscreenChange = () => {
@@ -130,7 +130,7 @@ export function PrintPreview({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [handleZoomIn, handleZoomOut, handleResetZoom]);
 
   // Compute the actual scale to apply
   const effectiveScale = fitToWidth ? 100 : zoom;
@@ -247,6 +247,7 @@ export function PrintPreview({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
+                    type="button"
                     onClick={() => onViewModeChange('table')}
                     className={cn(
                       "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
@@ -268,6 +269,7 @@ export function PrintPreview({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
+                    type="button"
                     onClick={() => onViewModeChange('cards')}
                     className={cn(
                       "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
@@ -289,6 +291,7 @@ export function PrintPreview({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
+                    type="button"
                     onClick={() => onViewModeChange('list')}
                     className={cn(
                       "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",

@@ -133,13 +133,10 @@ export function PrintTemplateSelector({
               >
                 <CardContent className="p-2.5">
                   <div className="flex items-start gap-2.5">
-                    {/* Mini layout preview */}
                     <MiniLayoutPreview
                       template={template}
                       isSelected={isSelected}
                     />
-
-                    {/* Icon */}
                     <div
                       className={cn(
                         "p-1.5 rounded-md flex-shrink-0 transition-colors",
@@ -150,8 +147,6 @@ export function PrintTemplateSelector({
                     >
                       <IconComponent className="h-3.5 w-3.5" />
                     </div>
-
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <h4 className="text-sm font-medium truncate">
@@ -199,7 +194,6 @@ export function PrintTemplateSelector({
   );
 }
 
-// Compact version for mobile or smaller spaces
 export function PrintTemplateSelectorCompact({
   selectedTemplate,
   onSelectTemplate,
