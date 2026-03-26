@@ -6,12 +6,78 @@ import { COLUMN_COMBINATIONS } from "@/lib/print/constants";
 import type { Patient } from "@/types/patient";
 import { getPageMetrics } from "@/lib/print/layout";
 import { formatMedicationsHtml } from "./utils";
+import DOMPurify from "dompurify";
 
 interface PrintDocumentProps extends PrintDataProps {
   settings: PrintSettings;
   className?: string;
   documentId?: string;
 }
+
+const PRINT_ALLOWED_TAGS = new Set(["b", "strong", "i", "em", "u", "br", "ul", "ol", "li", "p", "div", "span"]);
+
+const parsePrintableStyle = (styleText: string) => {
+  const style: React.CSSProperties = {};
+  styleText
+    .split(";")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .forEach((segment) => {
+      const [rawKey, ...rawValueParts] = segment.split(":");
+      if (!rawKey || rawValueParts.length === 0) return;
+      const key = rawKey.trim().toLowerCase();
+      const value = rawValueParts.join(":").trim();
+      if (key === "color") style.color = value;
+      if (key === "background-color") style.backgroundColor = value;
+    });
+  return style;
+};
+
+const renderPrintableHtml = (html: string): React.ReactNode => {
+  if (!html) return null;
+
+  const sanitized = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: Array.from(PRINT_ALLOWED_TAGS),
+    ALLOWED_ATTR: ["style"],
+  });
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(sanitized, "text/html");
+
+  const renderNode = (node: ChildNode, key: string): React.ReactNode => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent;
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+
+    const element = node as HTMLElement;
+    const tagName = element.tagName.toLowerCase();
+    const children = Array.from(element.childNodes)
+      .map((child, index) => renderNode(child, `${key}.${index}`))
+      .filter((child) => child !== null && child !== undefined && child !== false);
+
+    if (tagName === "br") {
+      return <br key={key} />;
+    }
+
+    if (!PRINT_ALLOWED_TAGS.has(tagName)) {
+      return children;
+    }
+
+    const props: Record<string, unknown> = { key };
+    const inlineStyle = parsePrintableStyle(element.getAttribute("style") || "");
+    if (Object.keys(inlineStyle).length > 0) {
+      props.style = inlineStyle;
+    }
+
+    return React.createElement(tagName, props, children);
+  };
+
+  return Array.from(doc.body.childNodes).map((node, index) => renderNode(node, String(index)));
+};
 
 const PRINT_STYLE_ID = "print-formatting-styles";
 
@@ -37,6 +103,9 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
             }
             [data-print-document] { color: black; }
             [data-print-document] *:not([style*="color"]) { color: inherit; }
+            .print-patient-break { page-break-before: always; break-before: page; }
+            [data-print-document] .print-avoid-break { break-inside: avoid; page-break-inside: avoid; }
+            .print-export-sandbox { display: none !important; }
           }
         `;
         document.head.appendChild(style);
@@ -74,10 +143,10 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
       return temp.innerHTML;
     };
 
-    const getSystemLabel = (key: string) => {
+    const getSystemLabel = React.useCallback((key: string) => {
       const sysKey = key.replace("systems.", "");
       return SYSTEM_LABELS_SHORT[sysKey] || key;
-    };
+    }, []);
 
     const getHeaderFontSize = () => {
       const base = settings.printFontSize;
@@ -117,7 +186,9 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
               sourceKeys: combo.columns,
               width: settings.combinedColumnWidths?.[combo.key],
             });
-            combo.columns.forEach((k) => processedKeys.add(k));
+            combo.columns.forEach((k) => {
+              processedKeys.add(k);
+            });
           }
         }
       });
@@ -141,7 +212,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
         if (b.id === "patient") return 1;
         return 0;
       });
-    }, [settings.columns, settings.combinedColumns, settings.columnWidths, settings.combinedColumnWidths]);
+    }, [getSystemLabel, settings.columns, settings.combinedColumns, settings.columnWidths, settings.combinedColumnWidths]);
 
     const renderColumns = getRenderColumns();
 
@@ -167,7 +238,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
         return (
           <ul className="list-none space-y-1">
             {todos.map((t, i) => (
-              <li key={i} className="flex gap-1.5 items-start">
+               <li key={`${t.content}-${t.completed}-${i}`} className="flex gap-1.5 items-start">
                 <span className="mt-0.5 text-[0.8em]">{t.completed ? "☑" : "☐"}</span>
                 <span>{t.content}</span>
               </li>
@@ -182,14 +253,22 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
         const sysKey = colKey.replace("systems.", "") as keyof typeof patient.systems;
         const val = patient.systems[sysKey];
         if (!val) return null;
-        return <div className="whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
+        return <div className="whitespace-pre-wrap break-words">{renderPrintableHtml(cleanInlineStyles(val))}</div>;
       }
       if (colKey === "medications") {
-        return <div className="whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: formatMedicationsHtml((patient as Patient & { medications?: { infusions?: string[]; scheduled?: string[]; prn?: string[]; rawText?: string } }).medications) }} />;
+        return (
+          <div className="whitespace-pre-wrap break-words">
+            {renderPrintableHtml(
+              formatMedicationsHtml(
+                (patient as Patient & { medications?: { infusions?: string[]; scheduled?: string[]; prn?: string[]; rawText?: string } }).medications
+              )
+            )}
+          </div>
+        );
       }
       const val = patient[colKey as keyof typeof patient] as string;
       if (!val) return null;
-      return <div className="whitespace-pre-wrap break-words" dangerouslySetInnerHTML={{ __html: cleanInlineStyles(val) }} />;
+      return <div className="whitespace-pre-wrap break-words">{renderPrintableHtml(cleanInlineStyles(val))}</div>;
     };
 
     const renderCombinedCell = (patient: Patient, sourceKeys: string[]) => {

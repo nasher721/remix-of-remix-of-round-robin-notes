@@ -1,7 +1,6 @@
 import * as React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
@@ -26,10 +25,14 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
+  Table2,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 
 interface PrintPreviewProps extends PrintDataProps {
   settings: PrintSettings;
+  onViewModeChange?: (mode: 'table' | 'cards' | 'list') => void;
 }
 
 const ZOOM_LEVELS = [
@@ -41,8 +44,15 @@ const ZOOM_LEVELS = [
   { value: 200, label: "200%" },
 ];
 
-export function PrintPreview({ patients, patientTodos, patientNotes, settings }: PrintPreviewProps) {
+export function PrintPreview({ 
+  patients, 
+  patientTodos, 
+  patientNotes, 
+  settings,
+  onViewModeChange 
+}: PrintPreviewProps) {
   const [zoom, setZoom] = React.useState(100);
+  const [fitToWidth, setFitToWidth] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [mounted, setMounted] = React.useState(false);
@@ -51,18 +61,26 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
   // Defer CSS transition until after mount to avoid an initial-render flash
   React.useEffect(() => { setMounted(true); }, []);
 
-  // Paged preview: same chunking as the toolbar page count (subset per "page")
-  const patientsPerPage = settings.onePatientPerPage ? 1 : Math.max(1, Math.ceil(patients.length / 3));
-  const totalPages = Math.max(1, Math.ceil(patients.length / patientsPerPage));
+  // Paged preview: when onePatientPerPage is true, each patient gets their own page
+  // When false, show ALL patients in a single scrollable preview (no pagination)
+  const isPaginated = settings.onePatientPerPage;
+  const totalPages = isPaginated ? patients.length : 1;
+  const patientsPerPage = isPaginated ? 1 : patients.length;
 
   React.useEffect(() => {
-    setCurrentPage((p) => Math.min(Math.max(1, p), totalPages))
-  }, [totalPages, patients.length])
+    if (isPaginated) {
+      setCurrentPage((p) => Math.min(Math.max(1, p), totalPages));
+    }
+  }, [totalPages, patients.length, isPaginated]);
 
+  // When paginated, show one patient per page. Otherwise, show all patients.
   const previewPatients = React.useMemo(() => {
-    const start = (currentPage - 1) * patientsPerPage
-    return patients.slice(start, start + patientsPerPage)
-  }, [patients, currentPage, patientsPerPage])
+    if (!isPaginated) {
+      return patients;
+    }
+    const start = (currentPage - 1) * patientsPerPage;
+    return patients.slice(start, start + patientsPerPage);
+  }, [patients, currentPage, patientsPerPage, isPaginated]);
 
   const handleZoomIn = () => {
     setZoom((prev) => Math.min(200, prev + 25));
@@ -74,6 +92,10 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
 
   const handleResetZoom = () => {
     setZoom(100);
+  };
+
+  const handleFitToWidth = () => {
+    setFitToWidth((prev) => !prev);
   };
 
   const handleFullscreen = () => {
@@ -110,6 +132,9 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Compute the actual scale to apply
+  const effectiveScale = fitToWidth ? 100 : zoom;
+
   return (
     <div
       ref={containerRef}
@@ -130,7 +155,7 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
                   size="icon"
                   className="h-7 w-7"
                   onClick={handleZoomOut}
-                  disabled={zoom <= 50}
+                  disabled={zoom <= 50 || fitToWidth}
                   aria-label="Zoom out"
                 >
                   <ZoomOut className="h-4 w-4" />
@@ -143,6 +168,7 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
           <Select
             value={zoom.toString()}
             onValueChange={(v) => setZoom(parseInt(v))}
+            disabled={fitToWidth}
           >
             <SelectTrigger className="w-[80px] h-7 text-xs">
               <SelectValue />
@@ -164,7 +190,7 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
                   size="icon"
                   className="h-7 w-7"
                   onClick={handleZoomIn}
-                  disabled={zoom >= 200}
+                  disabled={zoom >= 200 || fitToWidth}
                   aria-label="Zoom in"
                 >
                   <ZoomIn className="h-4 w-4" />
@@ -190,34 +216,126 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
               <TooltipContent>Reset Zoom (Ctrl+0)</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {/* Fit-to-Width Toggle */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={fitToWidth ? "secondary" : "ghost"}
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={handleFitToWidth}
+                  aria-label={fitToWidth ? "Exit fit to width" : "Fit to width"}
+                >
+                  {fitToWidth ? (
+                    <Minimize2 className="h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{fitToWidth ? "Exit Fit to Width" : "Fit to Width"}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
-        {/* Page Navigation */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage <= 1}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-xs text-muted-foreground min-w-[60px] text-center">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        {/* View Mode Switcher (only if onViewModeChange is provided) */}
+        {onViewModeChange && (
+          <div className="flex bg-muted p-1 rounded-lg">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onViewModeChange('table')}
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
+                      settings.activeTab === 'table'
+                        ? "bg-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-label="Table view"
+                  >
+                    <Table2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Table</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Table View</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onViewModeChange('cards')}
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
+                      settings.activeTab === 'cards'
+                        ? "bg-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-label="Cards view"
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Cards</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Cards View</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onViewModeChange('list')}
+                    className={cn(
+                      "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
+                      settings.activeTab === 'list'
+                        ? "bg-background shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-label="List view"
+                  >
+                    <List className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">List</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>List View</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )}
+
+        {/* Page Navigation (only when onePatientPerPage is true) */}
+        {isPaginated && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-xs text-muted-foreground min-w-[60px] text-center">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              aria-label="Next page"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         {/* Fullscreen Toggle */}
         <TooltipProvider>
@@ -254,7 +372,12 @@ export function PrintPreview({ patients, patientTodos, patientNotes, settings }:
             "mx-auto origin-top",
             mounted && "transition-transform duration-200"
           )}
-          style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center", willChange: "transform" }}
+          style={{ 
+            transform: `scale(${effectiveScale / 100})`, 
+            transformOrigin: "top center", 
+            willChange: "transform",
+            width: fitToWidth ? "100%" : undefined
+          }}
         >
           <PrintDocument
             patients={previewPatients}
