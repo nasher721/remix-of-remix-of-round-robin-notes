@@ -9,6 +9,29 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { recordTelemetryEvent } from "@/lib/observability/telemetry";
 
+function isDynamicImportFetchError(error: Error): boolean {
+  const msg = (error?.message || "").toLowerCase();
+  return (
+    msg.includes("failed to fetch dynamically imported module") ||
+    msg.includes("loading chunk") ||
+    msg.includes("chunkloaderror") ||
+    msg.includes("importing a module script failed")
+  );
+}
+
+async function clearServiceWorkerCaches(): Promise<void> {
+  if (!("serviceWorker" in navigator) || !navigator.serviceWorker.controller) return;
+
+  await new Promise<void>((resolve) => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => resolve();
+    navigator.serviceWorker.controller?.postMessage({ type: "CLEAR_CACHE" }, [channel.port2]);
+
+    // Don't hang the UI if the SW doesn't respond for any reason.
+    window.setTimeout(() => resolve(), 1500);
+  });
+}
+
 export interface LazyPanelErrorFallbackProps {
   title: string;
   error: Error;
@@ -86,15 +109,33 @@ export class LazyPanelErrorBoundary extends React.Component<
     this.setState({ hasError: false, error: null });
   };
 
+  handleHardReload = (): void => {
+    const err = this.state.error;
+    void (async () => {
+      if (err && isDynamicImportFetchError(err)) {
+        await clearServiceWorkerCaches();
+      }
+      window.location.reload();
+    })();
+  };
+
   render(): React.ReactNode {
     if (this.state.hasError && this.state.error) {
       return (
-        <LazyPanelErrorFallback
-          title={this.props.title}
-          error={this.state.error}
-          onRetry={this.handleReset}
-          className={this.props.fallbackClassName}
-        />
+        <div className={this.props.fallbackClassName}>
+          <LazyPanelErrorFallback
+            title={this.props.title}
+            error={this.state.error}
+            onRetry={this.handleReset}
+          />
+          {isDynamicImportFetchError(this.state.error) ? (
+            <div className="mt-4 flex justify-center">
+              <Button onClick={this.handleHardReload} variant="default" type="button">
+                Reload app
+              </Button>
+            </div>
+          ) : null}
+        </div>
       );
     }
     return this.props.children;

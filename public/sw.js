@@ -1,5 +1,6 @@
 // Service Worker for comprehensive caching strategies
-const CACHE_VERSION = 'v1.0.0';
+// NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
+const CACHE_VERSION = 'v1.0.1';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -12,13 +13,9 @@ const CACHE_TTL = {
   static: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
-// Assets to precache on install
-const PRECACHE_ASSETS = [
-  '/',
-  '/index.html',
-  '/favicon.ico',
-  '/placeholder.svg',
-];
+// Assets to precache on install.
+// Avoid precaching HTML/navigations: stale HTML can reference deleted hashed chunks after deploy.
+const PRECACHE_ASSETS = ['/favicon.ico', '/placeholder.svg'];
 
 // API endpoints to cache
 const CACHEABLE_API_PATTERNS = [
@@ -93,6 +90,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // SPA navigations / HTML should be network-first.
+  // Caching HTML with a SW can easily cause "Failed to fetch dynamically imported module"
+  // after a deployment when the cached HTML points at old hashed chunk filenames.
+  if (request.mode === 'navigate' || isHtmlRequest(request)) {
+    event.respondWith(networkFirstWithCache(request, DYNAMIC_CACHE, 24 * 60 * 60 * 1000));
+    return;
+  }
+
   // Determine caching strategy based on request type
   if (isApiRequest(url)) {
     event.respondWith(networkFirstWithCache(request, API_CACHE, CACHE_TTL.api));
@@ -121,6 +126,12 @@ function isImageRequest(url) {
 // Check if request is for a static asset
 function isStaticAsset(url) {
   return /\.(js|css|woff|woff2|ttf|eot)$/i.test(url.pathname);
+}
+
+// Check if request is for HTML
+function isHtmlRequest(request) {
+  const accept = request.headers.get('accept') || '';
+  return accept.includes('text/html');
 }
 
 // Network First with Cache Fallback (for API requests)
