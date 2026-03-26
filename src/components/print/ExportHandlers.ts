@@ -10,6 +10,29 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2pdf from 'html2pdf.js';
 
+export function generateExportFilename(
+  format: 'pdf' | 'xlsx' | 'doc' | 'rtf' | 'txt' | 'md' | 'json',
+  options?: { physicianName?: string; patientCount?: number; title?: string }
+): string {
+  const date = new Date().toISOString().split('T')[0];
+  const time = new Date().toISOString().split('T')[1].slice(0, 5).replace(':', '');
+  const parts: string[] = ['patient-rounding'];
+
+  if (options?.physicianName) {
+    parts.push(options.physicianName.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase());
+  }
+
+  parts.push(date);
+  parts.push(time);
+
+  if (options?.patientCount && options.patientCount > 0) {
+    parts.push(`${options.patientCount}pts`);
+  }
+
+  const baseName = parts.join('-');
+  return `${baseName}.${format}`;
+}
+
 type RgbColor = { r: number; g: number; b: number };
 
 interface PdfRenderableColumn {
@@ -65,8 +88,6 @@ const normalizePdfText = (text: string): string =>
     .replace(/\u00a0/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-
-const getPdfFileName = () => `patient-rounding-${new Date().toISOString().split('T')[0]}.pdf`;
 
 const clampNumber = (value: number, min: number, max: number): number => {
   if (Number.isNaN(value)) return min;
@@ -283,7 +304,9 @@ const buildRenderableColumns = (ctx: ExportContext): PdfRenderableColumn[] => {
       sourceKeys: activeSourceKeys,
     });
 
-    activeSourceKeys.forEach(columnKey => processedKeys.add(columnKey));
+    activeSourceKeys.forEach(columnKey => {
+      processedKeys.add(columnKey);
+    });
   });
 
   ctx.columns.forEach(column => {
@@ -537,55 +560,109 @@ const renderPdfTableLayout = (
     return styles;
   }, {} as Record<number, { cellWidth: number }>);
 
-  autoTable(doc, {
-    head: [renderColumns.map(column => column.label)],
-    body: tableData,
-    startY: metrics.contentTop,
-    margin: {
-      top: metrics.contentTop,
-      left: metrics.margins.left,
-      right: metrics.margins.right,
-      bottom: metrics.contentBottom,
-    },
-    showHead: 'everyPage',
-    rowPageBreak: 'auto',
-    tableWidth: 'auto',
-    styles: {
-      font: pdfFontFamily,
-      fontSize: typography.bodyFontSize,
-      cellPadding: typography.cellPadding,
-      overflow: 'linebreak',
-      lineWidth: 0.1,
-      lineColor: PDF_BORDER_COLOR,
-      textColor: [15, 23, 42],
-      valign: 'top',
-      minCellHeight: typography.lineHeight + 2,
-    },
-    headStyles: {
-      fillColor: PDF_ACCENT_COLOR,
-      textColor: 255,
-      fontStyle: 'bold',
-      font: pdfFontFamily,
-      fontSize: clampNumber(typography.bodyFontSize + 0.5, 8, 12),
-      cellPadding: typography.cellPadding + 0.2,
-    },
-    alternateRowStyles: {
-      fillColor: PDF_ALTERNATE_ROW_COLOR,
-    },
-    columnStyles,
-    didParseCell: data => {
-      if (data.section !== 'body') return;
+  const renderTableChunk = (startY: number, body: string[][], bodyColors: PdfCellData[][]) => {
+    autoTable(doc, {
+      head: [renderColumns.map(column => column.label)],
+      body,
+      startY,
+      margin: {
+        top: metrics.contentTop,
+        left: metrics.margins.left,
+        right: metrics.margins.right,
+        bottom: metrics.contentBottom,
+      },
+      showHead: 'everyPage',
+      rowPageBreak: 'auto',
+      tableWidth: 'auto',
+      styles: {
+        font: pdfFontFamily,
+        fontSize: typography.bodyFontSize,
+        cellPadding: typography.cellPadding,
+        overflow: 'linebreak',
+        lineWidth: 0.1,
+        lineColor: PDF_BORDER_COLOR,
+        textColor: [15, 23, 42],
+        valign: 'top',
+        minCellHeight: typography.lineHeight + 2,
+      },
+      headStyles: {
+        fillColor: PDF_ACCENT_COLOR,
+        textColor: 255,
+        fontStyle: 'bold',
+        font: pdfFontFamily,
+        fontSize: clampNumber(typography.bodyFontSize + 0.5, 8, 12),
+        cellPadding: typography.cellPadding + 0.2,
+      },
+      alternateRowStyles: {
+        fillColor: PDF_ALTERNATE_ROW_COLOR,
+      },
+      columnStyles,
+      didParseCell: data => {
+        if (data.section !== 'body') return;
 
-      const rowIndex = data.row.index;
-      const columnIndex = data.column.index;
-      const cellData = tableRowsWithColors[rowIndex]?.[columnIndex];
-      if (!cellData?.color || !preserveHighlightColors) return;
+        const rowIndex = data.row.index;
+        const columnIndex = data.column.index;
+        const cellData = bodyColors[rowIndex]?.[columnIndex];
+        if (!cellData?.color || !preserveHighlightColors) return;
 
-      data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
-      const tintedColor = tintColor(cellData.color, 0.92);
-      data.cell.styles.fillColor = [tintedColor.r, tintedColor.g, tintedColor.b];
-    },
+        data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
+        const tintedColor = tintColor(cellData.color, 0.92);
+        data.cell.styles.fillColor = [tintedColor.r, tintedColor.g, tintedColor.b];
+      },
+    });
+  };
+
+  const estimateRowHeight = (rowData: string[]): number => {
+    const minHeight = typography.lineHeight + 2;
+    let maxHeight = minHeight;
+
+    rowData.forEach((cellText, columnIndex) => {
+      const columnWidth = columnStyles[columnIndex]?.cellWidth ?? 24;
+      const contentWidth = Math.max(10, Number(columnWidth) - typography.cellPadding * 2);
+      const lines = doc.splitTextToSize(cellText || '—', contentWidth);
+      const lineCount = Array.isArray(lines) ? lines.length : 1;
+      const estimatedHeight = Math.max(minHeight, lineCount * typography.lineHeight + typography.cellPadding * 2);
+      if (estimatedHeight > maxHeight) {
+        maxHeight = estimatedHeight;
+      }
+    });
+
+    return maxHeight;
+  };
+
+  const pageHeight = metrics.pageHeight;
+  const margin = metrics.margins.bottom;
+  const headerHeight = 20;
+  const pageBottom = pageHeight - margin;
+  let currentY = metrics.contentTop;
+  let bufferedRows: string[][] = [];
+  let bufferedRowColors: PdfCellData[][] = [];
+  let bufferedHeight = 0;
+
+  tableData.forEach((row, rowIndex) => {
+    const rowHeight = estimateRowHeight(row);
+
+    if (currentY + headerHeight + bufferedHeight + rowHeight > pageBottom && bufferedRows.length > 0) {
+      renderTableChunk(currentY, bufferedRows, bufferedRowColors);
+      currentY = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? currentY;
+      bufferedRows = [];
+      bufferedRowColors = [];
+      bufferedHeight = 0;
+    }
+
+    if (currentY + headerHeight + rowHeight > pageBottom) {
+      doc.addPage();
+      currentY = metrics.contentTop;
+    }
+
+    bufferedRows.push(row);
+    bufferedRowColors.push(tableRowsWithColors[rowIndex]);
+    bufferedHeight += rowHeight;
   });
+
+  if (bufferedRows.length > 0) {
+    renderTableChunk(currentY, bufferedRows, bufferedRowColors);
+  }
 };
 
 const renderPdfMultiColumnLayout = (
@@ -649,45 +726,100 @@ const renderPdfMultiColumnLayout = (
     {}
   );
 
-  autoTable(doc, {
-    body: bodyRows,
-    startY: metrics.contentTop,
-    margin: {
-      top: metrics.contentTop,
-      left: metrics.margins.left,
-      right: metrics.margins.right,
-      bottom: metrics.contentBottom,
-    },
-    rowPageBreak: 'avoid',
-    tableWidth: 'auto',
-    styles: {
-      font: pdfFontFamily,
-      fontSize: clampNumber(typography.bodyFontSize - (layoutColumns === 3 ? 1 : 0), 6.5, 11),
-      cellPadding: layoutColumns === 3 ? 1.4 : 2,
-      overflow: 'linebreak',
-      lineWidth: 0.12,
-      lineColor: PDF_BORDER_COLOR,
-      textColor: [15, 23, 42],
-      valign: 'top',
-      minCellHeight: layoutColumns === 3 ? 34 : 42,
-    },
-    alternateRowStyles: {
-      fillColor: PDF_ALTERNATE_ROW_COLOR,
-    },
-    columnStyles,
-    didParseCell: data => {
-      if (data.section !== 'body') return;
+  const bodyFontSize = clampNumber(typography.bodyFontSize - (layoutColumns === 3 ? 1 : 0), 6.5, 11);
+  const cellPadding = layoutColumns === 3 ? 1.4 : 2;
+  const minCellHeight = layoutColumns === 3 ? 34 : 42;
 
-      const rowIndex = data.row.index;
-      const columnIndex = data.column.index;
-      const cellData = rowsWithColors[rowIndex]?.[columnIndex];
-      if (!cellData?.color || !preserveHighlightColors) return;
+  const renderMultiColumnChunk = (startY: number, body: string[][], bodyColors: PdfCellData[][]) => {
+    autoTable(doc, {
+      body,
+      startY,
+      margin: {
+        top: metrics.contentTop,
+        left: metrics.margins.left,
+        right: metrics.margins.right,
+        bottom: metrics.contentBottom,
+      },
+      rowPageBreak: 'avoid',
+      tableWidth: 'auto',
+      styles: {
+        font: pdfFontFamily,
+        fontSize: bodyFontSize,
+        cellPadding,
+        overflow: 'linebreak',
+        lineWidth: 0.12,
+        lineColor: PDF_BORDER_COLOR,
+        textColor: [15, 23, 42],
+        valign: 'top',
+        minCellHeight,
+      },
+      alternateRowStyles: {
+        fillColor: PDF_ALTERNATE_ROW_COLOR,
+      },
+      columnStyles,
+      didParseCell: data => {
+        if (data.section !== 'body') return;
 
-      data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
-      const cardTint = tintColor(cellData.color, 0.94);
-      data.cell.styles.fillColor = [cardTint.r, cardTint.g, cardTint.b];
-    },
+        const rowIndex = data.row.index;
+        const columnIndex = data.column.index;
+        const cellData = bodyColors[rowIndex]?.[columnIndex];
+        if (!cellData?.color || !preserveHighlightColors) return;
+
+        data.cell.styles.textColor = [cellData.color.r, cellData.color.g, cellData.color.b];
+        const cardTint = tintColor(cellData.color, 0.94);
+        data.cell.styles.fillColor = [cardTint.r, cardTint.g, cardTint.b];
+      },
+    });
+  };
+
+  const estimateCardRowHeight = (rowData: string[]): number => {
+    let maxHeight = minCellHeight;
+    rowData.forEach(cellText => {
+      const contentWidth = Math.max(12, cardColumnWidth - cellPadding * 2);
+      const lines = doc.splitTextToSize(cellText || ' ', contentWidth);
+      const lineCount = Array.isArray(lines) ? lines.length : 1;
+      const lineHeight = clampNumber(bodyFontSize * 0.43, 2.8, 4.8);
+      const estimatedHeight = Math.max(minCellHeight, lineCount * lineHeight + cellPadding * 2);
+      if (estimatedHeight > maxHeight) {
+        maxHeight = estimatedHeight;
+      }
+    });
+    return maxHeight;
+  };
+
+  const pageHeight = metrics.pageHeight;
+  const margin = metrics.margins.bottom;
+  const headerHeight = 20;
+  const pageBottom = pageHeight - margin;
+  let currentY = metrics.contentTop;
+  let bufferedRows: string[][] = [];
+  let bufferedRowColors: PdfCellData[][] = [];
+  let bufferedHeight = 0;
+
+  bodyRows.forEach((row, rowIndex) => {
+    const estimatedContentHeight = estimateCardRowHeight(row);
+
+    if (currentY + headerHeight + bufferedHeight + estimatedContentHeight > pageBottom && bufferedRows.length > 0) {
+      renderMultiColumnChunk(currentY, bufferedRows, bufferedRowColors);
+      currentY = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? currentY;
+      bufferedRows = [];
+      bufferedRowColors = [];
+      bufferedHeight = 0;
+    }
+
+    if (currentY + headerHeight + estimatedContentHeight > pageBottom) {
+      doc.addPage();
+      currentY = metrics.contentTop;
+    }
+
+    bufferedRows.push(row);
+    bufferedRowColors.push(rowsWithColors[rowIndex]);
+    bufferedHeight += estimatedContentHeight;
   });
+
+  if (bufferedRows.length > 0) {
+    renderMultiColumnChunk(currentY, bufferedRows, bufferedRowColors);
+  }
 };
 
 const exportWithHtml2PdfFallback = async (ctx: ExportContext, element: HTMLElement, fileName: string) => {
@@ -769,14 +901,21 @@ export const handleExportExcel = (ctx: ExportContext) => {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Patient Rounding");
 
-  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.xlsx`;
+  const fileName = generateExportFilename('xlsx', {
+    physicianName: ctx.physicianName,
+    patientCount: ctx.patients.length,
+  });
   XLSX.writeFile(wb, fileName);
 
   return fileName;
 };
 
 export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement | null) => {
-  const fileName = getPdfFileName();
+  const fileName = generateExportFilename('pdf', {
+    physicianName: ctx.physicianName,
+    patientCount: ctx.patients.length,
+    title: ctx.pdf?.title,
+  });
   const generatedAt = new Date().toLocaleString();
 
   try {
@@ -883,7 +1022,10 @@ export const handleExportTXT = (ctx: ExportContext) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.txt`;
+  const fileName = generateExportFilename('txt', {
+    physicianName: ctx.physicianName,
+    patientCount: ctx.patients.length,
+  });
   link.download = fileName;
   document.body.appendChild(link);
   link.click();
@@ -984,7 +1126,10 @@ export const handleExportRTF = (ctx: ExportContext) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.rtf`;
+  const fileName = generateExportFilename('rtf', {
+    physicianName: ctx.physicianName,
+    patientCount: ctx.patients.length,
+  });
   link.download = fileName;
   document.body.appendChild(link);
   link.click();
@@ -1147,7 +1292,10 @@ export const handleExportDOC = (ctx: ExportContext) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.doc`;
+  const fileName = generateExportFilename('doc', {
+    physicianName: ctx.physicianName,
+    patientCount: ctx.patients.length,
+  });
   link.download = fileName;
   document.body.appendChild(link);
   link.click();
@@ -1220,7 +1368,10 @@ export const handleExportMarkdown = (ctx: ExportContext) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.md`;
+  const fileName = generateExportFilename('md', {
+    physicianName: ctx.physicianName,
+    patientCount: ctx.patients.length,
+  });
   link.download = fileName;
   document.body.appendChild(link);
   link.click();
@@ -1302,7 +1453,10 @@ export const handleExportJSON = (ctx: ExportContext) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  const fileName = `patient-rounding-${new Date().toISOString().split('T')[0]}.json`;
+  const fileName = generateExportFilename('json', {
+    physicianName: ctx.physicianName,
+    patientCount: ctx.patients.length,
+  });
   link.download = fileName;
   document.body.appendChild(link);
   link.click();

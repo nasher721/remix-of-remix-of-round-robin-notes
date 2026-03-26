@@ -27,6 +27,7 @@ import { STORAGE_KEYS } from "@/constants/config";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
+import type { PatientTodo } from "@/types/todo";
 import {
   handleExportExcel,
   handleExportPDF,
@@ -34,6 +35,7 @@ import {
   handleExportRTF,
   handleExportDOC,
   handleExportMarkdown,
+  generateExportFilename,
 } from "./print/ExportHandlers";
 import type { PrintExportModalProps, PatientTodosMap } from "./print/types";
 
@@ -255,7 +257,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     syncTimeoutRef.current = setTimeout(() => {
       syncPrintSettingsToDb(buildPrintPayload());
     }, 1000);
-  }, [settings, customCombinations, templatePresets, selectedTemplateId, user, buildPrintPayload, syncPrintSettingsToDb]);
+  }, [user, buildPrintPayload, syncPrintSettingsToDb]);
 
   React.useEffect(() => {
     if (!user) {
@@ -761,6 +763,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               patientTodos={patientTodos}
               patientNotes={patientNotes}
               settings={settings}
+              onViewModeChange={(mode) => handleUpdateSettings({ activeTab: mode })}
             />
           </div>
         </div>
