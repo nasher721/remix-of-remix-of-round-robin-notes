@@ -23,6 +23,8 @@ interface DashboardContextType {
     mobileTab: MobileTab;
     setMobileTab: (tab: MobileTab) => void;
     lastSaved: Date;
+    patientListViewMode: "rich" | "compact";
+    setPatientListViewMode: (mode: "rich" | "compact") => void;
 
     // Actions
     onAddPatient: () => void;

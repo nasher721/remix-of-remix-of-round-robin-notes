@@ -136,6 +136,8 @@ export const DesktopDashboard = () => {
     onRefetchPatients,
     desktopSelectedPatientId,
     setDesktopSelectedPatientId,
+    patientListViewMode,
+    setPatientListViewMode,
   } = useDashboard();
   const todosMap = useDashboardTodos();
   const navigate = useNavigate();
@@ -548,6 +550,63 @@ export const DesktopDashboard = () => {
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs text-muted-foreground">View</span>
+                  <Select
+                    value={patientListViewMode}
+                    onValueChange={(value) => setPatientListViewMode(value as "rich" | "compact")}
+                  >
+                    <SelectTrigger className="h-10 md:h-9 w-[120px] rounded-lg border-border/60">
+                      <SelectValue placeholder="View mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rich">Rich</SelectItem>
+                      <SelectItem value="compact">Compact</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {filterLabel}
+                </Badge>
+                {searchQuery.trim() ? (
+                  <Badge variant="secondary" className="text-xs">
+                    Search: {searchQuery}
+                  </Badge>
+                ) : null}
+                {activeFilterCount > 0 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setFilter(PatientFilterType.All);
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="mb-3 rounded-lg border border-border/30 bg-card/50 p-2.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Team actions</span>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowComparisonModal(true)}>
+                    Compare
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowPrintModal(true)}>
+                    Print / Export
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAICommandPaletteOpen(true)}>
+                    AI
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSyncNow} disabled={syncingList}>
+                    Sync
+                  </Button>
+                </div>
               </div>
 
               <div className="mt-2 pb-3 border-b border-border/20 space-y-1.5">

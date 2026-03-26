@@ -1,6 +1,16 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription as AlertDialogDescriptionText,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -99,6 +109,9 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
   const [signatures, setSignatures] = React.useState<Record<string, string>>({});
   const [completedSections, setCompletedSections] = React.useState<Record<string, Set<string>>>({});
   const [isSigning, setIsSigning] = React.useState(false);
+  const [showIncompleteConfirm, setShowIncompleteConfirm] = React.useState(false);
+  const [pendingUnsatisfiedPatients, setPendingUnsatisfiedPatients] = React.useState<string[]>([]);
+  const [pendingPatientSignatures, setPendingPatientSignatures] = React.useState<Record<string, string>>({});
   const [signOffHistory, setSignOffHistory] = React.useState<Array<{ patientId: string; timestamp: string; signature: string }>>([]);
 
   const handlePatientToggle = (patientId: string) => {
@@ -145,6 +158,30 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
     };
   };
 
+  const finalizeSignOff = async (patientSignatures: Record<string, string>) => {
+    setIsSigning(true);
+    try {
+      const timestamp = new Date().toISOString();
+      const newHistory = Array.from(selectedPatients).map(patientId => ({
+        patientId,
+        timestamp,
+        signature: patientSignatures[patientId],
+      }));
+
+      onSignOff(Array.from(selectedPatients), Object.values(patientSignatures)[0]);
+
+      setSignOffHistory(prev => [...prev, ...newHistory]);
+      setSelectedPatients(new Set());
+      setSignatures({});
+      toast.success(`Signed off ${selectedPatients.size} patient${selectedPatients.size > 1 ? 's' : ''}`);
+      setOpen(false);
+    } catch (error) {
+      toast.error('Failed to sign off patients');
+    } finally {
+      setIsSigning(false);
+    }
+  };
+
   const handleSignOff = async () => {
     if (selectedPatients.size === 0) {
       toast.error('Please select at least one patient to sign off');
@@ -167,33 +204,13 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
     }
 
     if (unsatisfiedPatients.length > 0) {
-      const confirm = window.confirm(
-        `${unsatisfiedPatients.length} patient${unsatisfiedPatients.length > 1 ? 's' : ''} ha${unsatisfiedPatients.length > 1 ? 've' : 's'} incomplete documentation:\n\n${unsatisfiedPatients.join('\n')}\n\nContinue signing off?`
-      );
-      if (!confirm) return;
+      setPendingUnsatisfiedPatients(unsatisfiedPatients);
+      setPendingPatientSignatures(patientSignatures);
+      setShowIncompleteConfirm(true);
+      return;
     }
 
-    setIsSigning(true);
-    try {
-      const timestamp = new Date().toISOString();
-      const newHistory = Array.from(selectedPatients).map(patientId => ({
-        patientId,
-        timestamp,
-        signature: patientSignatures[patientId],
-      }));
-
-      onSignOff(Array.from(selectedPatients), Object.values(patientSignatures)[0]);
-
-      setSignOffHistory(prev => [...prev, ...newHistory]);
-      setSelectedPatients(new Set());
-      setSignatures({});
-      toast.success(`Signed off ${selectedPatients.size} patient${selectedPatients.size > 1 ? 's' : ''}`);
-      setOpen(false);
-    } catch (error) {
-      toast.error('Failed to sign off patients');
-    } finally {
-      setIsSigning(false);
-    }
+    await finalizeSignOff(patientSignatures);
   };
 
   const PatientCard = ({ patient }: { patient: Patient }) => {
@@ -376,6 +393,45 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
           </Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog
+        open={showIncompleteConfirm}
+        onOpenChange={(openState) => {
+          setShowIncompleteConfirm(openState);
+          if (!openState) {
+            setPendingUnsatisfiedPatients([]);
+            setPendingPatientSignatures({});
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Incomplete documentation detected</AlertDialogTitle>
+            <AlertDialogDescriptionText>
+              {pendingUnsatisfiedPatients.length} patient{pendingUnsatisfiedPatients.length > 1 ? 's have' : ' has'} incomplete documentation.
+            </AlertDialogDescriptionText>
+          </AlertDialogHeader>
+          <div className="max-h-40 overflow-y-auto rounded-md border border-border p-2 text-sm">
+            {pendingUnsatisfiedPatients.map((name) => (
+              <div key={name} className="py-0.5">
+                {name}
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                setShowIncompleteConfirm(false);
+                await finalizeSignOff(pendingPatientSignatures);
+                setPendingUnsatisfiedPatients([]);
+                setPendingPatientSignatures({});
+              }}
+            >
+              Continue sign-off
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

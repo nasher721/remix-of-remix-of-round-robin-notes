@@ -39,6 +39,7 @@ export const VirtualizedPatientList = React.memo(() => {
     onToggleCollapse,
     desktopSelectedPatientId,
     setDesktopSelectedPatientId,
+    patientListViewMode,
   } = useDashboard();
   const todosMap = useDashboardTodos();
 
@@ -174,20 +175,30 @@ export const VirtualizedPatientList = React.memo(() => {
                           data-anime-stagger-item
                           onClick={() => setDesktopSelectedPatientId(patient.id)}
                           className={cn(
-                            "w-full text-left rounded-lg px-3 py-2.5 transition-all flex items-start gap-2 border",
+                            "w-full text-left rounded-lg transition-all flex items-start gap-2 border",
+                            patientListViewMode === "compact" ? "px-2.5 py-2" : "px-3 py-2.5",
                             isActive
                               ? "bg-primary/12 border-primary/35 shadow-sm border-l-[3px] border-l-primary/60"
                               : "border-transparent hover:bg-secondary/70 hover:shadow-md hover:border-l-[3px] hover:border-l-primary/40",
                           )}
                         >
-                          <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 text-sm font-semibold text-primary">
+                          <div className={cn(
+                            "rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 font-semibold text-primary",
+                            patientListViewMode === "compact" ? "h-8 w-8 text-xs" : "h-9 w-9 text-sm",
+                          )}>
                             {patient.name ? patient.name.charAt(0).toUpperCase() : "#"}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate text-foreground leading-tight">
+                            <p className={cn(
+                              "font-medium truncate text-foreground leading-tight",
+                              patientListViewMode === "compact" ? "text-xs" : "text-sm",
+                            )}>
                               {patient.name || "Unnamed"}
                             </p>
-                            <p className="text-[11px] text-muted-foreground truncate font-mono mt-0.5">
+                            <p className={cn(
+                              "text-muted-foreground truncate font-mono",
+                              patientListViewMode === "compact" ? "text-[10px] mt-0" : "text-[11px] mt-0.5",
+                            )}>
                               {[patient.mrn?.trim(), patient.bed?.trim()].filter(Boolean).join(" · ") || "—"}
                             </p>
                           </div>
@@ -249,7 +260,8 @@ export const VirtualizedPatientList = React.memo(() => {
                             type="button"
                             onClick={() => setDesktopSelectedPatientId(patient.id)}
                             className={cn(
-                              "flex items-center gap-2 rounded-lg px-2 py-1 border transition-colors whitespace-nowrap",
+                              "flex items-center gap-2 rounded-lg border transition-colors whitespace-nowrap",
+                              patientListViewMode === "compact" ? "px-2 py-0.5" : "px-2 py-1",
                               isActive
                                 ? "bg-primary/12 border-primary/35 shadow-sm"
                                 : "border-transparent hover:bg-secondary/70",
@@ -257,10 +269,16 @@ export const VirtualizedPatientList = React.memo(() => {
                             aria-label={`Select patient ${patient.name || patient.bed || patient.id}`}
                             title={patient.name || patient.bed || "Patient"}
                           >
-                            <div className="h-6 w-6 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 text-xs font-semibold text-primary">
+                            <div className={cn(
+                              "rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 text-xs font-semibold text-primary",
+                              patientListViewMode === "compact" ? "h-5 w-5" : "h-6 w-6",
+                            )}>
                               {patient.name ? patient.name.charAt(0).toUpperCase() : "#"}
                             </div>
-                            <span className="text-[11px] font-medium truncate max-w-[10rem]">
+                            <span className={cn(
+                              "font-medium truncate max-w-[10rem]",
+                              patientListViewMode === "compact" ? "text-[10px]" : "text-[11px]",
+                            )}>
                               {patient.name || "Unnamed"}
                             </span>
                           </button>

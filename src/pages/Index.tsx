@@ -69,6 +69,7 @@ function IndexContent(): React.ReactElement | null {
   const [lastSaved, setLastSaved] = React.useState<Date>(new Date());
   const [newPatientSheetOpen, setNewPatientSheetOpen] = React.useState(false);
   const [desktopSelectedPatientId, setDesktopSelectedPatientId] = React.useState<string | null>(null);
+  const [patientListViewMode, setPatientListViewMode] = React.useState<"rich" | "compact">("rich");
 
   // Mobile-specific state
   const [mobileTab, setMobileTab] = React.useState<MobileTab>("patients");
@@ -193,6 +194,8 @@ function IndexContent(): React.ReactElement | null {
     mobileTab,
     setMobileTab,
     lastSaved,
+    patientListViewMode,
+    setPatientListViewMode,
   }), [
     user,
     patients,
@@ -227,6 +230,8 @@ function IndexContent(): React.ReactElement | null {
     mobileTab,
     setMobileTab,
     lastSaved,
+    patientListViewMode,
+    setPatientListViewMode,
   ]);
 
   if (authLoading || patientsLoading) {

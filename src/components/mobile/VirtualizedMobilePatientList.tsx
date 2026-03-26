@@ -13,6 +13,7 @@ interface VirtualizedMobilePatientListProps {
   searchQuery?: string;
   onAddPatient?: () => void;
   onOpenImport?: () => void;
+  viewMode?: "rich" | "compact";
 }
 
 interface RowProps {
@@ -20,6 +21,7 @@ interface RowProps {
   onSelect: (patient: Patient) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
+  viewMode: "rich" | "compact";
 }
 
 const ROW_HEIGHT = 88; // Fixed height for mobile cards
@@ -33,6 +35,7 @@ const PatientRowComponent = ({
   onSelect,
   onDelete,
   onDuplicate,
+  viewMode,
 }: RowComponentProps<RowProps>): React.ReactElement | null => {
   const patient = patients[index];
 
@@ -46,6 +49,7 @@ const PatientRowComponent = ({
         onDelete={onDelete}
         onDuplicate={onDuplicate}
         index={index}
+        compact={viewMode === "compact"}
       />
     </div>
   );
@@ -59,6 +63,7 @@ export const VirtualizedMobilePatientList = React.memo(({
   searchQuery,
   onAddPatient,
   onOpenImport,
+  viewMode = "rich",
 }: VirtualizedMobilePatientListProps) => {
   const listRef = React.useRef<ListImperativeAPI>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -87,7 +92,8 @@ export const VirtualizedMobilePatientList = React.memo(({
     onSelect: onPatientSelect,
     onDelete: onPatientDelete,
     onDuplicate: onPatientDuplicate,
-  }), [patients, onPatientSelect, onPatientDelete, onPatientDuplicate]);
+    viewMode,
+  }), [patients, onPatientSelect, onPatientDelete, onPatientDuplicate, viewMode]);
 
   // Track scroll position via scroll event listener
   React.useEffect(() => {
@@ -135,7 +141,7 @@ export const VirtualizedMobilePatientList = React.memo(({
       <List
         listRef={listRef}
         rowCount={patients.length}
-        rowHeight={ROW_HEIGHT}
+        rowHeight={viewMode === "compact" ? 72 : ROW_HEIGHT}
         rowComponent={PatientRowComponent}
         rowProps={rowProps}
         overscanCount={3}

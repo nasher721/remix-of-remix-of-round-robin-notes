@@ -9,6 +9,7 @@ interface SwipeablePatientCardProps {
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   index: number;
+  compact?: boolean;
 }
 
 const SWIPE_THRESHOLD = 80;
@@ -20,6 +21,7 @@ export const SwipeablePatientCard = ({
   onDelete,
   onDuplicate,
   index,
+  compact = false,
 }: SwipeablePatientCardProps) => {
   const [translateX, setTranslateX] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -131,7 +133,8 @@ export const SwipeablePatientCard = ({
       {/* Main card content */}
       <div
         className={cn(
-          "relative bg-background flex items-center gap-3 px-4 py-3.5",
+          "relative bg-background flex items-center gap-3 px-4",
+          compact ? "py-2.5" : "py-3.5",
           isAnimating && "transition-transform duration-300 ease-out"
         )}
         style={{ transform: `translateX(${translateX}px)` }}
@@ -141,8 +144,11 @@ export const SwipeablePatientCard = ({
         onClick={handleCardClick}
       >
         {/* Avatar */}
-        <div className="h-10 w-10 rounded-lg bg-primary/8 flex items-center justify-center flex-shrink-0 border border-primary/10">
-          <span className="text-sm font-semibold text-primary">
+        <div className={cn(
+          "rounded-lg bg-primary/8 flex items-center justify-center flex-shrink-0 border border-primary/10",
+          compact ? "h-8 w-8" : "h-10 w-10",
+        )}>
+          <span className={cn("font-semibold text-primary", compact ? "text-xs" : "text-sm")}>
             {patient.name ? patient.name.charAt(0).toUpperCase() : '#'}
           </span>
         </div>
@@ -150,7 +156,7 @@ export const SwipeablePatientCard = ({
         {/* Patient Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="font-semibold text-[15px] truncate">
+            <span className={cn("font-semibold truncate", compact ? "text-[13px]" : "text-[15px]")}>
               {patient.name || "Unnamed Patient"}
             </span>
             {patient.bed && (
@@ -159,7 +165,7 @@ export const SwipeablePatientCard = ({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+          <div className={cn("flex items-center gap-2 text-muted-foreground/60", compact ? "text-[11px]" : "text-xs")}>
             {patient.clinicalSummary ? (
               <span className="truncate">
                 {patient.clinicalSummary.replace(/<[^>]*>/g, "").slice(0, 50)}
@@ -169,7 +175,7 @@ export const SwipeablePatientCard = ({
             )}
           </div>
           {/* Content indicators */}
-          <div className="flex items-center gap-1 mt-1.5">
+          <div className={cn("flex items-center gap-1", compact ? "mt-1" : "mt-1.5")}>
             {patient.clinicalSummary && (
               <span className="h-1 w-1 rounded-full bg-primary/50" />
             )}

@@ -10,6 +10,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   MoreHorizontal,
   FileText,
@@ -84,6 +94,9 @@ export const MobilePatientDetail = ({
   initialTodos,
 }: MobilePatientDetailProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
+  const [pendingClearField, setPendingClearField] = useState<string | null>(null);
+  const [showRemovePatientDialog, setShowRemovePatientDialog] = useState(false);
+  const [showClearSystemsDialog, setShowClearSystemsDialog] = useState(false);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id, { initialTodos });
   const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
   const { enabledSystems } = useSystemsConfig();
@@ -141,16 +154,11 @@ export const MobilePatientDetail = ({
   };
 
   const clearSection = (field: string) => {
-    if (confirm("Clear this section?")) {
-      onUpdate(patient.id, field, "");
-    }
+    setPendingClearField(field);
   };
 
   const handleRemove = () => {
-    if (confirm("Remove this patient from rounds?")) {
-      onRemove(patient.id);
-      onBack();
-    }
+    setShowRemovePatientDialog(true);
   };
 
   const handleDuplicate = () => {
@@ -159,11 +167,26 @@ export const MobilePatientDetail = ({
   };
 
   const clearAllSystems = () => {
-    if (confirm('Clear ALL systems review data? This cannot be undone.')) {
-      enabledSystems.forEach((system) => {
-        onUpdate(patient.id, `systems.${system.key}`, '');
-      });
-    }
+    setShowClearSystemsDialog(true);
+  };
+
+  const handleConfirmClearField = () => {
+    if (!pendingClearField) return;
+    onUpdate(patient.id, pendingClearField, "");
+    setPendingClearField(null);
+  };
+
+  const handleConfirmRemovePatient = () => {
+    onRemove(patient.id);
+    setShowRemovePatientDialog(false);
+    onBack();
+  };
+
+  const handleConfirmClearSystems = () => {
+    enabledSystems.forEach((system) => {
+      onUpdate(patient.id, `systems.${system.key}`, "");
+    });
+    setShowClearSystemsDialog(false);
   };
 
   return (
@@ -628,6 +651,66 @@ export const MobilePatientDetail = ({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
+      <AlertDialog open={pendingClearField !== null} onOpenChange={(open) => !open && setPendingClearField(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear section</AlertDialogTitle>
+            <AlertDialogDescription>
+              Clear this section? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClearField}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showRemovePatientDialog} onOpenChange={setShowRemovePatientDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this patient from rounds? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmRemovePatient}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showClearSystemsDialog} onOpenChange={setShowClearSystemsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all systems review</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove all systems review content for this patient? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClearSystems}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear all systems
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

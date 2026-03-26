@@ -12,6 +12,16 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +67,8 @@ export const SystemsConfigManager: React.FC<SystemsConfigManagerProps> = ({
   } = useSystemsConfig();
 
   const [isAdding, setIsAdding] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [pendingDeleteSystem, setPendingDeleteSystem] = useState<SystemConfig | null>(null);
   const [newSystem, setNewSystem] = useState({
     label: '',
     shortLabel: '',
@@ -96,10 +108,16 @@ export const SystemsConfigManager: React.FC<SystemsConfigManagerProps> = ({
   };
 
   const handleReset = () => {
-    if (confirm('Reset all systems to defaults? This will remove custom systems.')) {
-      resetToDefaults();
-      toast.success('Systems reset to defaults');
-    }
+    resetToDefaults();
+    setShowResetConfirm(false);
+    toast.success('Systems reset to defaults');
+  };
+
+  const handleConfirmDeleteSystem = () => {
+    if (!pendingDeleteSystem) return;
+    removeSystem(pendingDeleteSystem.key);
+    toast.success('System removed');
+    setPendingDeleteSystem(null);
   };
 
   return (
@@ -173,12 +191,7 @@ export const SystemsConfigManager: React.FC<SystemsConfigManagerProps> = ({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => {
-                      if (confirm(`Delete "${system.label}"?`)) {
-                        removeSystem(system.key);
-                        toast.success('System removed');
-                      }
-                    }}
+                    onClick={() => setPendingDeleteSystem(system)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -263,13 +276,53 @@ export const SystemsConfigManager: React.FC<SystemsConfigManagerProps> = ({
         </ScrollArea>
 
         <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
-          <Button variant="ghost" size="sm" onClick={handleReset}>
+          <Button variant="ghost" size="sm" onClick={() => setShowResetConfirm(true)}>
             <RotateCcw className="h-4 w-4 mr-2" />
             Reset to Defaults
           </Button>
           <Button onClick={() => onOpenChange(false)}>Done</Button>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset systems to defaults</AlertDialogTitle>
+            <AlertDialogDescription>
+              Reset all systems to defaults? This will remove custom systems.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReset}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={pendingDeleteSystem !== null} onOpenChange={(open) => !open && setPendingDeleteSystem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete custom system</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDeleteSystem
+                ? `Delete "${pendingDeleteSystem.label}"?`
+                : 'Delete this custom system?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteSystem}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };

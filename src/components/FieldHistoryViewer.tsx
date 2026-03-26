@@ -8,6 +8,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent as AlertDialogContentRoot,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader as AlertDialogHeaderRoot,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -110,6 +120,7 @@ export const FieldHistoryViewer = ({
 }: FieldHistoryViewerProps) => {
   const [open, setOpen] = useState(false);
   const [selectedField, setSelectedField] = useState<string>("all");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const { history, loading, fetchHistory, clearHistory } = useFieldHistory(patientId);
   const { systems } = useSystemsConfig();
 
@@ -134,9 +145,8 @@ export const FieldHistoryViewer = ({
   }, [open, selectedField, fetchHistory]);
 
   const handleClearHistory = async () => {
-    if (confirm("Clear all history for this patient? This cannot be undone.")) {
-      await clearHistory();
-    }
+    await clearHistory();
+    setShowClearConfirm(false);
   };
 
   return (
@@ -179,7 +189,7 @@ export const FieldHistoryViewer = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleClearHistory}
+            onClick={() => setShowClearConfirm(true)}
             className="text-destructive hover:text-destructive"
             disabled={history.length === 0}
           >
@@ -208,6 +218,25 @@ export const FieldHistoryViewer = ({
           )}
         </ScrollArea>
       </DialogContent>
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContentRoot>
+          <AlertDialogHeaderRoot>
+            <AlertDialogTitle>Clear history</AlertDialogTitle>
+            <AlertDialogDescription>
+              Clear all history for this patient? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeaderRoot>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearHistory}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear history
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContentRoot>
+      </AlertDialog>
     </Dialog>
   );
 };

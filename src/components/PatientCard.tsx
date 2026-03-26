@@ -33,6 +33,16 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { DashboardFocusTarget, SystemsReviewMode } from "@/lib/dashboardPrefs";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface PatientCardProps {
   patient: Patient;
@@ -81,6 +91,9 @@ const PatientCardComponent = ({
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
+  const [pendingClearField, setPendingClearField] = React.useState<string | null>(null);
+  const [showClearSystemsDialog, setShowClearSystemsDialog] = React.useState(false);
+  const [showAdvancedSections, setShowAdvancedSections] = React.useState(false);
   const internalTodos = usePatientTodos(sharedPatientTodos ? null : patient.id, {
     initialTodos: sharedPatientTodos ? undefined : initialTodos,
   });
@@ -128,19 +141,25 @@ const PatientCardComponent = ({
   };
 
   const clearSection = (field: string) => {
-    if (confirm('Clear this section?')) {
-      onUpdate(patient.id, field, '');
-    }
+    setPendingClearField(field);
   };
 
   const clearAllSystems = () => {
-    if (confirm('Clear ALL systems review data? This cannot be undone.')) {
-      // Clear each enabled system
-      enabledSystems.forEach((system) => {
-        onUpdate(patient.id, `systems.${system.key}`, '');
-      });
-    }
+    setShowClearSystemsDialog(true);
   };
+
+  const handleConfirmClearField = React.useCallback(() => {
+    if (!pendingClearField) return;
+    onUpdate(patient.id, pendingClearField, "");
+    setPendingClearField(null);
+  }, [onUpdate, patient.id, pendingClearField]);
+
+  const handleConfirmClearAllSystems = React.useCallback(() => {
+    enabledSystems.forEach((system) => {
+      onUpdate(patient.id, `systems.${system.key}`, "");
+    });
+    setShowClearSystemsDialog(false);
+  }, [enabledSystems, onUpdate, patient.id]);
 
 
 
@@ -537,6 +556,22 @@ const PatientCardComponent = ({
 
               {/* Imaging & Labs Row */}
               {(sectionVisibility.imaging || sectionVisibility.labs) && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 px-3 py-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Advanced sections
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => setShowAdvancedSections((prev) => !prev)}
+                    >
+                      {showAdvancedSections ? "Hide" : "Show"}
+                    </Button>
+                  </div>
+                  {showAdvancedSections && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Imaging */}
                   {sectionVisibility.imaging && (
@@ -674,10 +709,12 @@ const PatientCardComponent = ({
                     </div>
                   )}
                 </div>
+                  )}
+                </div>
               )}
 
               {/* Medications */}
-              {sectionVisibility.medications && (
+              {sectionVisibility.medications && showAdvancedSections && (
                 <div className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60">
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
@@ -724,6 +761,46 @@ const PatientCardComponent = ({
         open={showSystemsConfig}
         onOpenChange={setShowSystemsConfig}
       />
+
+      <AlertDialog open={pendingClearField !== null} onOpenChange={(open) => !open && setPendingClearField(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear section</AlertDialogTitle>
+            <AlertDialogDescription>
+              Clear this section? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClearField}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showClearSystemsDialog} onOpenChange={setShowClearSystemsDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all systems review</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove all systems review content for this patient? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmClearAllSystems}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Clear all systems
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.article>
   );
 };

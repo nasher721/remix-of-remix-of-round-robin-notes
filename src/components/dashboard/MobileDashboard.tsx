@@ -78,6 +78,8 @@ export const MobileDashboard = () => {
     mobileTab,
     setMobileTab,
     lastSaved,
+    patientListViewMode,
+    setPatientListViewMode,
   } = useDashboard();
   const todosMap = useDashboardTodos();
 
@@ -212,6 +214,21 @@ export const MobileDashboard = () => {
                 </div>
                 <div className="flex items-center gap-1.5 px-4 pb-2.5 overflow-x-auto scrollbar-thin">
                   <div className="flex items-center gap-1.5 bg-secondary/40 rounded-full px-2 py-0.5">
+                    <span className="text-[10px] text-muted-foreground">View</span>
+                    <Select
+                      value={patientListViewMode}
+                      onValueChange={(value) => setPatientListViewMode(value as "rich" | "compact")}
+                    >
+                      <SelectTrigger className="h-7 w-[92px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
+                        <SelectValue placeholder="View" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="rich">Rich</SelectItem>
+                        <SelectItem value="compact">Compact</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-secondary/40 rounded-full px-2 py-0.5">
                     <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v as "number" | "room" | "name")}>
                       <SelectTrigger className="h-7 w-[110px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
@@ -253,6 +270,7 @@ export const MobileDashboard = () => {
                   searchQuery={searchQuery}
                   onAddPatient={handleAddPatient}
                   onOpenImport={() => setShowImportModal(true)}
+                  viewMode={patientListViewMode}
                 />
               </div>
               <Button
