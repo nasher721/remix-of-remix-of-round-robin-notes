@@ -361,12 +361,24 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     });
   }, []);
 
+  const previewScrollRef = React.useRef<HTMLDivElement | null>(null);
+  
   const handleApplyTemplate = React.useCallback((templateId: PrintTemplateType) => {
     const template = getTemplateById(templateId);
     if (!template) return;
 
     setSelectedTemplateId(templateId);
     applyTemplateSettings(template);
+
+    // Reset preview scroll position after applying template
+    requestAnimationFrame(() => {
+      const viewport = previewScrollRef.current?.querySelector<HTMLElement>(
+        '[data-radix-scroll-area-viewport]'
+      );
+      if (viewport) {
+        viewport.scrollTop = 0;
+      }
+    });
 
     toast({ title: `Applied ${template.name} template` });
   }, [applyTemplateSettings, toast]);
@@ -720,7 +732,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                       onChange={(e) => setTemplatePresetName(e.target.value)}
                       placeholder="Preset name"
                     />
-                    <Button onClick={handleSaveTemplatePreset}>Save</Button>
+                    <Button 
+                      onClick={handleSaveTemplatePreset}
+                      disabled={!templatePresetName.trim()}
+                    >Save</Button>
                   </div>
                   {templatePresets.length === 0 ? (
                     <p className="text-xs text-muted-foreground italic">No saved presets yet.</p>
@@ -757,7 +772,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           </div>
 
           {/* Main Content - Preview */}
-          <div className="flex-1 bg-slate-100/50 p-3 md:p-6 min-h-0 overflow-hidden flex flex-col">
+          <div ref={previewScrollRef} className="flex-1 bg-slate-100/50 p-3 md:p-6 min-h-0 overflow-hidden flex flex-col">
             <PrintPreview
               patients={patients}
               patientTodos={patientTodos}
@@ -767,7 +782,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             />
           </div>
         </div>
-        <div className="print-export-sandbox" aria-hidden="true">
+        <div className="print-export-sandbox" aria-hidden="true" style={{ display: 'none' }}>
           <PrintDocument
             ref={exportRef}
             patients={patients}

@@ -108,7 +108,7 @@ export function PrintTemplateSelector({
       </div>
 
       <ScrollArea className="h-[400px] pr-3">
-        <div className="space-y-1.5">
+        <div className="space-y-1.5" role="listbox" aria-label="Print templates">
           {PRINT_TEMPLATES.map((template) => {
             const IconComponent = ICON_MAP[template.icon] || FileText;
             const isSelected = selectedTemplate === template.id;
@@ -117,10 +117,14 @@ export function PrintTemplateSelector({
             return (
               <Card
                 key={template.id}
+                role="option"
+                aria-selected={isSelected}
+                tabIndex={0}
                 className={cn(
                   "cursor-pointer transition-all duration-150",
                   "hover:shadow-sm hover:scale-[1.01]",
-                  "border-l-4"
+                  "border-l-4",
+                  isSelected && "ring-2 ring-primary/50"
                 )}
                 style={{
                   borderLeftColor: template.styling.headerColor,
@@ -130,6 +134,12 @@ export function PrintTemplateSelector({
                     : undefined,
                 }}
                 onClick={() => onSelectTemplate(template.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectTemplate(template.id);
+                  }
+                }}
               >
                 <CardContent className="p-2.5">
                   <div className="flex items-start gap-2.5">
@@ -166,20 +176,23 @@ export function PrintTemplateSelector({
                         <Badge
                           variant="secondary"
                           className="text-[9px] px-1 py-0 h-4 font-normal"
+                          aria-label={template.layout.orientation === "portrait" ? "Portrait orientation" : "Landscape orientation"}
                         >
-                          {template.layout.orientation === "portrait" ? "P" : "L"}
+                          {template.layout.orientation === "portrait" ? "Portrait" : "Landscape"}
                         </Badge>
                         <Badge
                           variant="secondary"
                           className="text-[9px] px-1 py-0 h-4 font-normal"
+                          aria-label={`${template.layout.columns} column${template.layout.columns > 1 ? "s" : ""}`}
                         >
-                          {template.layout.columns}c
+                          {template.layout.columns} col{template.layout.columns > 1 ? "s" : ""}
                         </Badge>
                         <Badge
                           variant="secondary"
                           className="text-[9px] px-1 py-0 h-4 font-normal"
+                          aria-label={`${enabledSectionsCount} section${enabledSectionsCount !== 1 ? "s" : ""}`}
                         >
-                          {enabledSectionsCount}s
+                          {enabledSectionsCount} section{enabledSectionsCount !== 1 ? "s" : ""}
                         </Badge>
                       </div>
                     </div>
@@ -204,7 +217,7 @@ export function PrintTemplateSelectorCompact({
       <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
         Template
       </h3>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2" role="listbox" aria-label="Print templates">
         {PRINT_TEMPLATES.slice(0, 6).map((template) => {
           const IconComponent = ICON_MAP[template.icon] || FileText;
           const isSelected = selectedTemplate === template.id;
@@ -213,6 +226,8 @@ export function PrintTemplateSelectorCompact({
             <button
               type="button"
               key={template.id}
+              role="option"
+              aria-selected={isSelected}
               onClick={() => onSelectTemplate(template.id)}
               className={cn(
                 "flex items-center gap-2 p-2 rounded-lg border text-left transition-all duration-150",
@@ -238,6 +253,12 @@ export function PrintTemplateSelectorCompact({
               <span className="text-[11px] font-medium leading-tight truncate">
                 {template.name}
               </span>
+              {isSelected && (
+                <Check
+                  className="h-3 w-3 text-primary flex-shrink-0 ml-auto"
+                  style={{ color: template.styling.accentColor }}
+                />
+              )}
             </button>
           );
         })}
