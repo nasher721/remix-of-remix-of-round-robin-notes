@@ -49,6 +49,15 @@
     /* Shadows: card and modal for consistent elevation */
     --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
     --shadow-modal: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+    --shadow-elevated: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    --shadow-floating: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+
+    /* Gradient meshes for atmospheric depth */
+    --gradient-header-mesh: radial-gradient(ellipse at 20% 50%, hsl(198 70% 30% / 0.06) 0%, transparent 50%),
+                           radial-gradient(ellipse at 80% 20%, hsl(198 50% 96% / 0.15) 0%, transparent 40%);
+    --gradient-empty-state: radial-gradient(ellipse at 50% 30%, hsl(198 70% 30% / 0.04) 0%, transparent 60%),
+                           radial-gradient(ellipse at 20% 80%, hsl(150 60% 40% / 0.03) 0%, transparent 50%);
+    --gradient-card-depth: linear-gradient(135deg, hsl(198 50% 96% / 0.3) 0%, transparent 50%);
 
     /* Spacing scale (4px base): use for padding/gap consistency */
     --space-1: 0.25rem;
@@ -219,6 +228,34 @@
     /* Removed for performance & clarity */
   }
   
+  /* Atmospheric depth utilities */
+  .gradient-mesh-subtle {
+    background-image: var(--gradient-header-mesh);
+    background-size: 200% 200%;
+    background-position: center;
+  }
+  .gradient-mesh-empty {
+    background-image: var(--gradient-empty-state);
+    background-size: 150% 150%;
+    background-position: center;
+  }
+  .glass-morphic {
+    background: hsl(var(--card) / 0.85);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid hsl(var(--border) / 0.3);
+  }
+  .depth-shadow-hover {
+    transition: box-shadow 0.25s ease-out, transform 0.25s ease-out;
+  }
+  .depth-shadow-hover:hover {
+    box-shadow: var(--shadow-elevated);
+    transform: translateY(-1px);
+  }
+  .card-depth-gradient {
+    background-image: var(--gradient-card-depth);
+  }
+  
   /* Standard utilities */
   .section-divider {
     @apply border-t border-border mt-4 pt-4;
@@ -254,6 +291,34 @@
   }
   @page {
     margin: 0;
+  }
+}
+
+/* Reduced motion overrides - disable all atmospheric animations */
+@media (prefers-reduced-motion: reduce) {
+  .gradient-mesh-subtle,
+  .gradient-mesh-empty,
+  .card-depth-gradient {
+    background-image: none;
+  }
+  
+  .glass-morphic {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  
+  .depth-shadow-hover {
+    transition: none;
+  }
+  
+  .depth-shadow-hover:hover {
+    transform: none;
+  }
+  
+  .animate-stagger-fade-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
   }
 }
 

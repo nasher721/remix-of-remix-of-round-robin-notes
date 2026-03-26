@@ -20,7 +20,7 @@ export const MobileNavBar = ({ activeTab, onTabChange, patientCount = 0 }: Mobil
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-t border-border/30 safe-area-bottom"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-background/85 backdrop-blur-xl border-t border-border/30 safe-area-bottom gradient-mesh-subtle"
       aria-label="Main sections"
     >
       <div className="flex items-center justify-around h-16 px-2">
@@ -43,12 +43,12 @@ export const MobileNavBar = ({ activeTab, onTabChange, patientCount = 0 }: Mobil
             )}
           >
             {activeTab === id && (
-              <span className="absolute top-0 left-1/4 right-1/4 h-[2px] rounded-full bg-primary" aria-hidden />
+              <span className="absolute top-0 left-1/4 right-1/4 h-[3px] rounded-full bg-primary" aria-hidden />
             )}
             <div
               className={cn(
                 "relative px-4 py-1.5 rounded-2xl transition-all duration-200",
-                activeTab === id && "bg-primary/8"
+                activeTab === id && "bg-primary/8 shadow-sm"
               )}
             >
               <Icon className={cn("h-5 w-5", activeTab === id && "text-primary")} aria-hidden />

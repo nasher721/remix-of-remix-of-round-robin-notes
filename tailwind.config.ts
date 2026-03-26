@@ -165,14 +165,24 @@ export default {
 						transform: 'translateX(6px)'
 					}
 				},
-				'glow-pulse': {
-					'0%, 100%': {
-						boxShadow: '0 0 0 0 hsl(160 8% 55% / 0.2)'
-					},
-					'50%': {
-						boxShadow: '0 0 20px 4px hsl(160 8% 55% / 0.1)'
-					}
+			'glow-pulse': {
+				'0%, 100%': {
+					boxShadow: '0 0 0 0 hsl(160 8% 55% / 0.2)'
+				},
+				'50%': {
+					boxShadow: '0 0 20px 4px hsl(160 8% 55% / 0.1)'
 				}
+			},
+			'stagger-fade-up': {
+				'0%': {
+					opacity: '0',
+					transform: 'translateY(8px)'
+				},
+				'100%': {
+					opacity: '1',
+					transform: 'translateY(0)'
+				}
+			}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',

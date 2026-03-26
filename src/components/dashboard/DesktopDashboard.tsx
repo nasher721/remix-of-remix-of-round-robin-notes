@@ -357,7 +357,7 @@ export const DesktopDashboard = () => {
   return (
     <div className="min-h-screen bg-background" id="main-content" role="main">
       <motion.header
-        className="sticky top-0 z-50 isolate border-b border-border/20 bg-card/95 backdrop-blur-xl no-print shadow-card"
+        className="sticky top-0 z-50 isolate border-b border-border/20 bg-card/95 backdrop-blur-xl no-print shadow-card gradient-mesh-subtle"
         initial={shouldReduceMotion ? false : { opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={transitions.smooth}
@@ -627,21 +627,21 @@ export const DesktopDashboard = () => {
               <ScrollArea className="flex-1 px-4 md:px-6 py-4">
               {filteredPatients.length === 0 ? (
                 <motion.div
-                  className="flex flex-col items-center justify-center py-20 text-center"
+                  className="flex flex-col items-center justify-center py-20 text-center gradient-mesh-empty rounded-xl"
                   variants={shouldReduceMotion ? undefined : scaleIn}
                   initial="hidden"
                   animate="visible"
                   transition={{ ...transitions.spring, delay: 0.15 }}
                 >
                   <div className="mb-8 relative flex items-center justify-center">
-                    <div className="bg-secondary/30 rounded-3xl p-8 border border-border shadow-sm">
-                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-16 w-auto opacity-50" />
+                    <div className="bg-secondary/30 rounded-3xl p-8 border border-border/40 shadow-sm depth-shadow-hover">
+                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto opacity-60" />
                     </div>
                   </div>
-                  <h3 className="text-2xl font-semibold mb-2 text-foreground tracking-tight">
+                  <h3 className="text-3xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
                     {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
                   </h3>
-                  <p className="text-muted-foreground text-sm mb-8 max-w-xs leading-relaxed">
+                  <p className="text-muted-foreground text-base mb-8 max-w-sm leading-relaxed">
                     {patients.length === 0
                       ? "Add your first patient to begin documenting rounds with your team."
                       : "Try adjusting your search or filter criteria."}
@@ -959,7 +959,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
           {activeTab === "tools" && (
             <div role="tabpanel" className="m-0 mt-0">
               <div className="space-y-2">
-                <Collapsible defaultOpen className="rounded-md border border-border/30 bg-card/40">
+                <Collapsible defaultOpen className="rounded-md border border-border/30 bg-card/40 animate-[stagger-fade-up_0.3s_ease-out_forwards]" style={{ animationDelay: '0ms', opacity: 0 }}>
                   <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <span>Import & AI</span>
                     <ChevronDown className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
@@ -974,7 +974,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                     <ClinicalRiskCalculator />
                   </CollapsibleContent>
                 </Collapsible>
-                <Collapsible className="rounded-md border border-border/30 bg-card/40">
+                <Collapsible className="rounded-md border border-border/30 bg-card/40 animate-[stagger-fade-up_0.3s_ease-out_forwards]" style={{ animationDelay: '100ms', opacity: 0 }}>
                   <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     <span>Analytics & batch</span>
                     <ChevronDown className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />

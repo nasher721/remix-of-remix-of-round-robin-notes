@@ -83,10 +83,11 @@ export const staggerItem: Variants = {
 
 // ─── Card hover (GPU-accelerated only) ──────────────────────────
 export const cardHover: Variants = {
-    rest: { scale: 1, y: 0 },
+    rest: { scale: 1, y: 0, boxShadow: 'var(--shadow-card)' },
     hover: {
-        scale: 1.003,
-        y: -1,
+        scale: 1.005,
+        y: -2,
+        boxShadow: 'var(--shadow-elevated)',
         transition: { type: 'spring' as const, stiffness: 400, damping: 25 },
     },
     tap: { scale: 0.998 },

@@ -122,12 +122,14 @@ export const VirtualizedPatientList = React.memo(() => {
 
   if (patients.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
-          <span className="text-3xl">🏥</span>
+      <div className="flex flex-col items-center justify-center py-20 px-6 text-center gradient-mesh-empty rounded-xl">
+        <div className="w-20 h-20 rounded-3xl bg-secondary/30 border border-border/40 flex items-center justify-center mb-6 depth-shadow-hover">
+          <span className="text-4xl">🏥</span>
         </div>
-        <h3 className="text-xl font-semibold mb-2">Ready to Start Rounds</h3>
-        <p className="text-muted-foreground text-sm max-w-xs">
+        <h3 className="text-2xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+          Ready to Start Rounds
+        </h3>
+        <p className="text-muted-foreground text-base max-w-sm leading-relaxed">
           Click &quot;Add Patient&quot; to add your first patient to the list.
         </p>
       </div>
@@ -171,12 +173,11 @@ export const VirtualizedPatientList = React.memo(() => {
                           type="button"
                           data-anime-stagger-item
                           onClick={() => setDesktopSelectedPatientId(patient.id)}
-                          style={animeEnabled ? { opacity: 0 } : undefined}
                           className={cn(
-                            "w-full text-left rounded-lg px-3 py-2.5 transition-colors flex items-start gap-2 border",
+                            "w-full text-left rounded-lg px-3 py-2.5 transition-all flex items-start gap-2 border",
                             isActive
-                              ? "bg-primary/12 border-primary/35 shadow-sm"
-                              : "border-transparent hover:bg-secondary/70",
+                              ? "bg-primary/12 border-primary/35 shadow-sm border-l-[3px] border-l-primary/60"
+                              : "border-transparent hover:bg-secondary/70 hover:shadow-md hover:border-l-[3px] hover:border-l-primary/40",
                           )}
                         >
                           <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 text-sm font-semibold text-primary">
