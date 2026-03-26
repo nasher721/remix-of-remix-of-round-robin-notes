@@ -45,7 +45,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { AVAILABLE_MODELS } from "@/services/llm";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -77,6 +76,8 @@ import {
   RefreshCw,
   Minimize2,
   Maximize2,
+  CheckCircle2,
+  Upload,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -221,11 +222,37 @@ export const DesktopDashboard = () => {
 
   const [showClearAllDialog, setShowClearAllDialog] = React.useState(false);
   const [syncingList, setSyncingList] = React.useState(false);
+  const [showSamplePreview, setShowSamplePreview] = React.useState(false);
+  const [openToolsRequestToken, setOpenToolsRequestToken] = React.useState(0);
 
   const profileCoaching = React.useMemo(() => getPatientProfileCoaching(patients), [patients]);
 
   const activeFilterCount =
     (searchQuery.trim() ? 1 : 0) + (filter !== PatientFilterType.All ? 1 : 0);
+
+  const activePatientsCount = React.useMemo(() => {
+    const hasClinicalContent = (value: string) => value.trim().length > 0;
+    const hasArrayContent = (value: string[]) => value.some((entry) => entry.trim().length > 0);
+    return patients.filter((patient) => {
+      if (hasClinicalContent(patient.clinicalSummary)) return true;
+      if (hasClinicalContent(patient.intervalEvents)) return true;
+      if (hasClinicalContent(patient.imaging)) return true;
+      if (hasClinicalContent(patient.labs)) return true;
+      if (Object.values(patient.systems).some((systemValue) => hasClinicalContent(systemValue))) return true;
+      if (hasArrayContent(patient.medications.infusions)) return true;
+      if (hasArrayContent(patient.medications.scheduled)) return true;
+      if (hasArrayContent(patient.medications.prn)) return true;
+      return false;
+    }).length;
+  }, [patients]);
+
+  const inactivePatientsCount = Math.max(0, patients.length - activePatientsCount);
+
+  const outstandingTodosCount = React.useMemo(() => {
+    return Object.values(todosMap).reduce((total, patientTodos) => {
+      return total + patientTodos.filter((todo) => !todo.completed).length;
+    }, 0);
+  }, [todosMap]);
 
   const handleSyncNow = React.useCallback(async () => {
     setSyncingList(true);
@@ -312,6 +339,23 @@ export const DesktopDashboard = () => {
     setPatientRosterLayoutMode,
   } = useDashboardLayout();
 
+  const handleTogglePanels = React.useCallback(() => {
+    const bothCollapsed = panelLeftCollapsed && panelRightCollapsed;
+    const anyCollapsed = panelLeftCollapsed || panelRightCollapsed;
+    if (bothCollapsed) {
+      toggleLeftPanel();
+      toggleRightPanel();
+      return;
+    }
+    if (anyCollapsed) {
+      if (panelLeftCollapsed) toggleLeftPanel();
+      if (panelRightCollapsed) toggleRightPanel();
+      return;
+    }
+    toggleLeftPanel();
+    toggleRightPanel();
+  }, [panelLeftCollapsed, panelRightCollapsed, toggleLeftPanel, toggleRightPanel]);
+
   const TogglePanelsButton = () => {
     const bothCollapsed = panelLeftCollapsed && panelRightCollapsed;
     const anyCollapsed = panelLeftCollapsed || panelRightCollapsed;
@@ -325,18 +369,7 @@ export const DesktopDashboard = () => {
               size="sm"
               className="h-8 w-8 p-0"
               disabled={focusModeActive}
-              onClick={() => {
-                if (bothCollapsed) {
-                  toggleLeftPanel();
-                  toggleRightPanel();
-                } else if (anyCollapsed) {
-                  if (panelLeftCollapsed) toggleLeftPanel();
-                  if (panelRightCollapsed) toggleRightPanel();
-                } else {
-                  toggleLeftPanel();
-                  toggleRightPanel();
-                }
-              }}
+              onClick={handleTogglePanels}
               aria-label={bothCollapsed ? "Expand panels" : "Collapse panels"}
             >
               {bothCollapsed ? (
@@ -364,74 +397,127 @@ export const DesktopDashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={transitions.smooth}
       >
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="flex items-center gap-2.5 group cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
-              <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors border border-primary/10">
-                <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-5 w-auto" />
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 py-2.5">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Link to="/" className="flex items-center gap-2.5 group cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
+                  <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors border border-primary/10">
+                    <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-5 w-auto" />
+                  </div>
+                  <h1 className="text-lg font-semibold tracking-tight text-card-foreground group-hover:text-primary transition-colors hidden sm:block">Rolling Rounds</h1>
+                </Link>
+                <nav className="hidden lg:flex items-center gap-0.5 text-xs" aria-label="Workspace sections">
+                  <a
+                    href="#main-content"
+                    className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
+                  >
+                    Patients
+                  </a>
+                  <a
+                    href="#desktop-patient-search"
+                    className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
+                  >
+                    Search
+                  </a>
+                </nav>
               </div>
-              <h1 className="text-lg font-semibold tracking-tight text-card-foreground group-hover:text-primary transition-colors hidden sm:block">Rolling Rounds</h1>
-            </Link>
-            <nav className="hidden lg:flex items-center gap-0.5 text-xs" aria-label="Workspace sections">
-              <a
-                href="#main-content"
-                className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
-              >
-                Patients
-              </a>
-              <a
-                href="#desktop-patient-search"
-                className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
-              >
-                Search
-              </a>
-            </nav>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" onClick={onAddPatient} size="sm" className="gap-1.5 h-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-md hover:shadow-lg transition-all px-3">
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  Add patient
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p className="font-medium">Add new patient</p>
-                <p className="text-xs text-muted-foreground">Shortcut: N or ⌘⇧N</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button type="button" onClick={() => setShowPrintModal(true)} variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60">
-                  <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                  Print
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Print / export patient summaries</p>
-                <p className="text-xs text-muted-foreground">Shortcut: ⌘P</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" onClick={onAddPatient} size="sm" className="gap-1.5 h-9 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-sm hover:shadow-md transition-all px-3">
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                      Add patient
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="font-medium">Add new patient</p>
+                    <p className="text-xs text-muted-foreground">Shortcut: N or ⌘⇧N</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button type="button" onClick={() => setShowPrintModal(true)} variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60">
+                      <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                      Print
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>Print / export patient summaries</p>
+                    <p className="text-xs text-muted-foreground">Shortcut: ⌘P</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
 
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-secondary/50 rounded-lg text-xs border border-border/30">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-            <span className="font-semibold text-foreground">{patients.length}</span>
-            <span className="text-foreground/80">on roster</span>
-            <span className="text-muted-foreground/60" aria-hidden="true">·</span>
-            <OfflineIndicator />
-            <span className="text-muted-foreground/60" aria-hidden="true">·</span>
-            <Clock className="h-3 w-3 text-foreground/70" aria-hidden="true" />
-            <span className="text-foreground/80">{todayLabel}</span>
-          </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              {patients.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-secondary/40 rounded-lg text-xs border border-border/30">
+                  <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  <span className="font-semibold text-foreground">{patients.length} total</span>
+                  <span className="text-muted-foreground/60" aria-hidden="true">·</span>
+                  <span className="text-foreground/80">{activePatientsCount} active</span>
+                  <span className="text-muted-foreground/60" aria-hidden="true">·</span>
+                  <span className="text-foreground/80">{inactivePatientsCount} inactive</span>
+                  <span className="text-muted-foreground/60" aria-hidden="true">·</span>
+                  <span className="text-foreground/80">{outstandingTodosCount} open tasks</span>
+                  <span className="text-muted-foreground/60" aria-hidden="true">·</span>
+                  <span className="text-foreground/80">Synced {lastSavedRelative}</span>
+                  <span className="text-muted-foreground/60" aria-hidden="true">·</span>
+                  <OfflineIndicator />
+                  <span className="text-muted-foreground/60" aria-hidden="true">·</span>
+                  <Clock className="h-3 w-3 text-foreground/70" aria-hidden="true" />
+                  <span className="text-foreground/80">{todayLabel}</span>
+                </div>
+              ) : (
+                <div className="hidden sm:block" />
+              )}
 
-          <div className="flex items-center gap-2">
-            <PresenceIndicator />
-            <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
-            <KeyboardShortcutSystem />
-            <TogglePanelsButton />
-            <ThemeToggle />
-            <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
-              <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
+              <div className="hidden min-[1100px]:flex items-center gap-2">
+                <PresenceIndicator />
+                <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
+                <KeyboardShortcutSystem />
+                <TogglePanelsButton />
+                <ThemeToggle />
+                <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
+                  <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </div>
+
+              <div className="flex min-[1100px]:hidden items-center gap-1.5">
+                <PresenceIndicator />
+                <ThemeToggle />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg border-border/60"
+                      aria-label="Workspace settings"
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-lg">
+                    <DropdownMenuLabel className="truncate" title={user.email}>
+                      {user.email}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleTogglePanels} disabled={focusModeActive}>
+                      {panelLeftCollapsed && panelRightCollapsed ? "Expand panels" : "Collapse panels"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <a href="#desktop-patient-search">Jump to search</a>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onSignOut} className="text-destructive focus:text-destructive">
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
           </div>
         </div>
       </motion.header>
@@ -470,6 +556,7 @@ export const DesktopDashboard = () => {
           onImportDictionary={onImportDictionary}
           onOpenPhraseManager={() => setShowPhraseManager(true)}
           onOpenAICommandPalette={() => setAICommandPaletteOpen(true)}
+          openToolsRequestToken={openToolsRequestToken}
         />
       </div>
 
@@ -483,12 +570,13 @@ export const DesktopDashboard = () => {
                   <Input
                     ref={searchInputRef}
                     id="desktop-patient-search"
-                    placeholder="Search patients… ( / or Ctrl+K )"
+                    placeholder={patients.length === 0 ? "Add a patient to enable search (Shortcut: /)" : "Search patients... ( / or Ctrl+K )"}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     aria-label="Search patients"
                     autoComplete="off"
-                    autoFocus
+                    autoFocus={patients.length > 0}
+                    disabled={patients.length === 0}
                     className="pl-10 h-10 md:h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm min-h-[44px] md:min-h-0"
                   />
                 </div>
@@ -635,29 +723,33 @@ export const DesktopDashboard = () => {
                     )}
                   </span>
                   <div className="flex items-center gap-2 sm:gap-2.5 justify-end shrink-0 flex-nowrap">
-                    <span className="flex items-center gap-1.5 text-foreground/85 whitespace-nowrap text-xs">
+                    <Badge variant="secondary" className="text-[11px] font-medium gap-1.5">
                       <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
                       <time
                         dateTime={lastSaved.toISOString()}
-                        title={`Last saved at ${lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+                        title={`Last sync at ${lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
                       >
-                        Updated {lastSavedRelative}
+                        Last sync {lastSavedRelative}
                       </time>
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1 border-border/60 shrink-0"
-                      onClick={handleSyncNow}
-                      disabled={syncingList}
-                      aria-busy={syncingList}
-                      aria-label="Sync offline changes and refresh patient list from server"
-                    >
-                      <RefreshCw className={cn("h-3 w-3", syncingList && "animate-spin")} aria-hidden="true" />
-                      <span className="hidden sm:inline">Sync now</span>
-                      <span className="sm:hidden">Sync</span>
-                    </Button>
+                      <span className="text-muted-foreground">· Auto-sync on</span>
+                    </Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7 border-border/60 shrink-0"
+                          onClick={handleSyncNow}
+                          disabled={syncingList}
+                          aria-busy={syncingList}
+                          aria-label="Retry sync and refresh patient list"
+                        >
+                          <RefreshCw className={cn("h-3 w-3", syncingList && "animate-spin")} aria-hidden="true" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">Retry sync now</TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
                 <p
@@ -686,7 +778,7 @@ export const DesktopDashboard = () => {
               <ScrollArea className="flex-1 px-4 md:px-6 py-4">
               {filteredPatients.length === 0 ? (
                 <motion.div
-                  className="flex flex-col items-center justify-center py-20 text-center gradient-mesh-empty rounded-xl"
+                  className="flex flex-col items-center justify-start pt-6 pb-12 text-center gradient-mesh-empty rounded-xl"
                   variants={shouldReduceMotion ? undefined : scaleIn}
                   initial="hidden"
                   animate="visible"
@@ -700,16 +792,60 @@ export const DesktopDashboard = () => {
                   <h3 className="text-3xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
                     {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
                   </h3>
-                  <p className="text-muted-foreground text-base mb-8 max-w-sm leading-relaxed">
+                  <p className="text-muted-foreground text-base mb-6 max-w-sm leading-relaxed">
                     {patients.length === 0
                       ? "Add your first patient to begin documenting rounds with your team."
                       : "Try adjusting your search or filter criteria."}
                   </p>
                   {patients.length === 0 && (
-                    <Button onClick={onAddPatient} size="lg" className="gap-2.5 rounded-2xl shadow-md hover:shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 px-6">
-                      <Plus className="h-4 w-4" />
-                      Add First Patient
-                    </Button>
+                    <div className="w-full max-w-xl rounded-xl border border-border/40 bg-card/70 p-5 text-left shadow-sm">
+                      <p className="text-sm font-semibold text-foreground mb-3">Quick start checklist</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-start gap-2 text-foreground/90">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+                          <span>Add your first patient to build today&apos;s roster</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-foreground/90">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+                          <span>Share rounds with your team using synced notes</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-foreground/90">
+                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+                          <span>Try the AI assistant for drafts and interval updates</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button onClick={onAddPatient} size="sm" className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          Add First Patient
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => setOpenToolsRequestToken((prev) => prev + 1)}
+                        >
+                          <Upload className="h-4 w-4" />
+                          Import from CSV/EHR
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowSamplePreview((prev) => !prev)}
+                        >
+                          {showSamplePreview ? "Hide sample patient" : "See a sample patient"}
+                        </Button>
+                      </div>
+                      {showSamplePreview ? (
+                        <div className="mt-4 rounded-lg border border-border/50 bg-background p-3 text-xs text-left">
+                          <p className="font-semibold text-foreground">Sample patient preview</p>
+                          <p className="mt-1 text-muted-foreground">Bed 12A · Jane Doe · Septic shock improving</p>
+                          <p className="mt-2 text-foreground/90">CV: norepinephrine 0.04, MAP &gt; 65. Resp: 2L NC, wean as tolerated.</p>
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                 </motion.div>
               ) : (
@@ -726,7 +862,7 @@ export const DesktopDashboard = () => {
           <TooltipTrigger asChild>
             <Button
               onClick={() => setAICommandPaletteOpen(true)}
-              className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-2xl shadow-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-blue-500 text-white hover:shadow-violet-500/30 hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-white/20 p-3"
+              className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-xl shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-primary/40 p-3"
               aria-label={`Open AI command palette — model ${activeAiModelLabel}`}
               title={`AI workspace — ${activeAiModelLabel}`}
               style={{ height: "3.25rem", width: "3.25rem" }}
@@ -823,6 +959,7 @@ interface DesktopUtilityPanelProps {
   onImportDictionary: ReturnType<typeof useDashboard>["onImportDictionary"];
   onOpenPhraseManager: () => void;
   onOpenAICommandPalette: () => void;
+  openToolsRequestToken: number;
 }
 
 const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
@@ -855,6 +992,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   onImportDictionary,
   onOpenPhraseManager,
   onOpenAICommandPalette,
+  openToolsRequestToken,
 }) => {
   const MENU_OPEN_STORAGE_KEY = "rr-desktop-utility-menu-open";
 
@@ -918,6 +1056,12 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
     };
   }, [setMenuOpen]);
 
+  React.useEffect(() => {
+    if (openToolsRequestToken === 0) return;
+    setMenuOpen(true);
+    setActiveTab("tools");
+  }, [openToolsRequestToken, setMenuOpen]);
+
   return (
     <div
       ref={panelRef}
@@ -939,7 +1083,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
           aria-haspopup="true"
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
-          Menu
+          Tools
           <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${menuOpen ? "rotate-180" : ""}`} />
         </Button>
       </div>
