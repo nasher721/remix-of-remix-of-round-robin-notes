@@ -1,4 +1,5 @@
 import * as React from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import {
@@ -51,6 +52,7 @@ export function PrintPreview({
   settings,
   onViewModeChange 
 }: PrintPreviewProps) {
+  const prefersReducedMotion = useReducedMotion();
   const [zoom, setZoom] = React.useState(100);
   const [fitToWidth, setFitToWidth] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -136,15 +138,18 @@ export function PrintPreview({
   const effectiveScale = fitToWidth ? 100 : zoom;
 
   return (
-    <div
+    <motion.div
       ref={containerRef}
+      initial={!prefersReducedMotion ? { opacity: 0, y: 8 } : {}}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
       className={cn(
-        "bg-muted/30 border rounded-lg h-full min-h-0 flex flex-col overflow-hidden",
-        isFullscreen && "fixed inset-0 z-50 rounded-none"
+        "bg-background border border-border/50 rounded-xl shadow-lg h-full min-h-0 flex flex-col overflow-hidden",
+        isFullscreen && "fixed inset-0 z-50 rounded-none shadow-none"
       )}
     >
       {/* Preview Toolbar — single scroll row on narrow screens so controls stay reachable */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-muted/50 border-b shrink-0 overflow-x-auto overflow-y-hidden min-h-[44px] [scrollbar-width:thin]">
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-muted/30 border-b border-border/30 shrink-0 overflow-x-auto overflow-y-hidden min-h-[48px] [scrollbar-width:thin]">
         {/* Zoom Controls */}
         <div className="flex items-center gap-1">
           <TooltipProvider>
@@ -369,11 +374,11 @@ export function PrintPreview({
       </div>
 
       {/* Preview Content — min-h-0 so flex + ScrollArea can shrink and scroll */}
-      <ScrollArea className="flex-1 min-h-0 p-4">
+      <ScrollArea className="flex-1 min-h-0 p-4 md:p-6">
         <div
           className={cn(
             "mx-auto origin-top",
-            mounted && "transition-transform duration-200"
+            mounted && "transition-transform duration-200 ease-out"
           )}
           style={{ 
             transform: `scale(${effectiveScale / 100})`, 
@@ -387,11 +392,11 @@ export function PrintPreview({
             patientTodos={patientTodos}
             patientNotes={patientNotes}
             settings={settings}
-            className="shadow-lg"
+            className="shadow-xl rounded-sm"
             documentId="preview"
           />
         </div>
       </ScrollArea>
-    </div>
+    </motion.div>
   );
 }

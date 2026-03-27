@@ -1,4 +1,5 @@
 import * as React from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { Patient } from "@/types/patient";
 import {
   Dialog,
@@ -654,11 +655,13 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden">
-        <DialogHeader className="px-4 md:px-6 py-3 md:py-4 pr-14 md:pr-16 border-b border-border/50 flex-shrink-0">
+      <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-2xl border-0 shadow-2xl bg-background/95 backdrop-blur-xl">
+        <DialogHeader className="px-5 md:px-6 py-4 pr-14 md:pr-16 border-b border-border/30 flex-shrink-0 bg-gradient-to-b from-muted/20 to-transparent">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2 min-w-0">
-            <DialogTitle className="flex items-center gap-2 min-w-0 shrink">
-              <Printer className="h-5 w-5 shrink-0" aria-hidden />
+            <DialogTitle className="flex items-center gap-2.5 min-w-0 shrink text-lg font-semibold tracking-tight">
+              <div className="p-1.5 rounded-lg bg-primary/10">
+                <Printer className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              </div>
               Print & Export
               {appliedLayout && (
                 <span className="text-xs font-normal text-muted-foreground ml-2 px-2 py-0.5 rounded bg-primary/10">
@@ -696,7 +699,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
         <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
           {/* Left Sidebar - Settings (scrollable; cap height on small screens so preview keeps space) */}
-          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/10 flex flex-col min-h-0 max-h-[min(42vh,320px)] md:max-h-none overflow-hidden flex-shrink-0">
+          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/5 flex flex-col min-h-0 max-h-[min(42vh,320px)] md:max-h-none overflow-hidden flex-shrink-0">
             <Tabs defaultValue="settings" className="flex-1 flex flex-col min-h-0">
               <div className="px-4 pt-3 md:pt-4 flex-shrink-0">
                 <TabsList className="w-full">
