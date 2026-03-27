@@ -32,6 +32,7 @@ import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard } from "@/components/UnitCensusDashboard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PresenceIndicator } from "@/components/PresenceIndicator";
+import { TrustIndicators } from "@/components/trust/TrustIndicators";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
@@ -474,6 +475,7 @@ export const DesktopDashboard = () => {
               )}
 
               <div className="hidden min-[1100px]:flex items-center gap-2">
+                <TrustIndicators />
                 <PresenceIndicator />
                 <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
                 <KeyboardShortcutSystem />
@@ -566,19 +568,29 @@ export const DesktopDashboard = () => {
             <div className="p-3 md:p-4 pb-0">
               <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between mb-4">
                 <div className="relative flex-1 max-w-md" role="search">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 pointer-events-none" aria-hidden="true" />
-                  <Input
-                    ref={searchInputRef}
-                    id="desktop-patient-search"
-                    placeholder={patients.length === 0 ? "Add a patient to enable search (Shortcut: /)" : "Search patients... ( / or Ctrl+K )"}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    aria-label="Search patients"
-                    autoComplete="off"
-                    autoFocus={patients.length > 0}
-                    disabled={patients.length === 0}
-                    className="pl-10 h-10 md:h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm min-h-[44px] md:min-h-0"
-                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="relative w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 pointer-events-none" aria-hidden="true" />
+                        <Input
+                          ref={searchInputRef}
+                          id="desktop-patient-search"
+                          placeholder={patients.length === 0 ? "Add a patient to enable search" : "Search patients..."}
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          aria-label="Search patients"
+                          autoComplete="off"
+                          autoFocus={patients.length > 0}
+                          disabled={patients.length === 0}
+                          className="pl-10 h-10 md:h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm min-h-[44px] md:min-h-0"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="font-medium">Search patients</p>
+                      <p className="text-xs text-muted-foreground">Shortcut: / or ⌘K</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -883,6 +895,7 @@ export const DesktopDashboard = () => {
             <p className="text-xs text-muted-foreground mt-1">
               Same tools as the header menu: drafting, analysis, and utilities. Current model: {activeAiModelLabel}
             </p>
+            <p className="text-xs text-muted-foreground mt-1">Shortcut: ⌘⇧A</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
