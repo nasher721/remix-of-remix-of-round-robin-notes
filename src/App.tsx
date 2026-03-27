@@ -19,6 +19,7 @@ const Auth = React.lazy(() => import("./pages/Auth"));
 const FHIRCallback = React.lazy(() => import("./pages/FHIRCallback"));
 const PrintExportTest = React.lazy(() => import("./pages/PrintExportTest"));
 const Privacy = React.lazy(() => import("./pages/Privacy"));
+const Security = React.lazy(() => import("./pages/Security"));
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -27,6 +28,15 @@ import { CurrentPatientsProvider } from "@/contexts/CurrentPatientsContext";
 import { preloadClinicalData } from "@/lib/lazyData";
 import { NavigationBreadcrumbTracker } from "@/components/observability/NavigationBreadcrumbTracker";
 import { SuspenseLoadingFallback } from "@/components/SuspenseLoadingFallback";
+
+/** Dev-only: Agentation visual feedback toolbar (not bundled in production). */
+const DevAgentationOverlay = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("@/dev/AgentationDevOverlay").then((m) => ({
+        default: m.AgentationDevOverlay,
+      }))
+    )
+  : null
 
 // Preload clinical data in background after initial render
 preloadClinicalData();
@@ -43,6 +53,7 @@ function AppRoutesShell(): React.ReactElement {
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/security" element={<Security />} />
           <Route path="/fhir/callback" element={<FHIRCallback />} />
           {import.meta.env.DEV && (
             <Route path="/__print-export-test" element={<PrintExportTest />} />
@@ -72,6 +83,11 @@ function App(): React.ReactElement {
                     <CurrentPatientsProvider>
                       <SkipToContent />
                       <UnifiedAIChatbot />
+                      {DevAgentationOverlay ? (
+                        <React.Suspense fallback={null}>
+                          <DevAgentationOverlay />
+                        </React.Suspense>
+                      ) : null}
                       <AppRoutesShell />
                     </CurrentPatientsProvider>
                   </BrowserRouter>
