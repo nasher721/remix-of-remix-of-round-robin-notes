@@ -232,8 +232,7 @@ export function AnnouncerProvider({
 export function useAnnouncerContext(): ReturnType<typeof useAnnouncer> {
   const context = React.useContext(AnnouncerContext);
   if (!context) {
-    // Return a default implementation if not in provider
-    return useAnnouncer();
+    throw new Error("useAnnouncerContext must be used within AnnouncerProvider");
   }
   return context;
 }

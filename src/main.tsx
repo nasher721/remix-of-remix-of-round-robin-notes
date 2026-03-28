@@ -11,21 +11,17 @@ initGlobalErrorCapture();
 initAppSentry();
 installObservabilityDebugApi();
 
-// Register service worker outside of React to avoid HMR issues
-if ('serviceWorker' in navigator) {
+// Register service worker outside of React to avoid HMR / Vite dynamic-import issues in dev.
+// In development, caching can prevent lazy route chunks from loading reliably.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
-      if (import.meta.env.DEV) {
-        console.log('[App] Service Worker registered:', registration.scope);
-      }
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              if (import.meta.env.DEV) {
-                console.log('[App] New content available, refresh to update');
-              }
+              console.log('[App] New content available, refresh to update');
             }
           });
         }

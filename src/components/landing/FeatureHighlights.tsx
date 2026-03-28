@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { CONTACT_EMAIL, CONTACT_EMAIL_IS_PLACEHOLDER } from "@/config/marketing";
 import { animate, round, stagger } from "animejs";
@@ -284,9 +284,12 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = ({ prefersReducedMot
             <p>
               We use industry-standard practices for authentication, encryption in transit (HTTPS), and access control backed by your identity provider where configured.
               Rolling Rounds is designed so PHI stays in your approved environment — review our{" "}
-              <a href="/privacy" className="text-primary font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
+              <Link
+                to="/privacy"
+                className="text-primary font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+              >
                 Privacy policy
-              </a>{" "}
+              </Link>{" "}
               for how we handle account data.
             </p>
             <p>
@@ -296,7 +299,15 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = ({ prefersReducedMot
             <ul className="list-disc pl-5 space-y-2">
               <li>Role-based access via your auth provider</li>
               <li>Audit-friendly field history where enabled</li>
-              <li>No selling of patient data — see Privacy policy</li>
+              <li>
+                No selling of patient data — see{" "}
+                <Link
+                  to="/privacy"
+                  className="text-primary font-medium underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                >
+                  Privacy policy
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -479,8 +490,21 @@ const BottomCTA: React.FC<{ prefersReducedMotion: boolean }> = ({ prefersReduced
           <button
             type="button"
             onClick={() => {
-              const reduced = prefersReducedMotion || (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-              window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+              const reduced =
+                prefersReducedMotion ||
+                (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+              const behavior = reduced ? "auto" : "smooth";
+              const heroTop = document.getElementById("top");
+              if (heroTop) {
+                heroTop.scrollIntoView({ behavior, block: "start" });
+                return;
+              }
+              const landing = document.querySelector(".landing-page");
+              if (landing instanceof HTMLElement) {
+                landing.scrollTo({ top: 0, behavior });
+                return;
+              }
+              window.scrollTo({ top: 0, behavior });
             }}
             className="mt-8 text-sm text-white/80 hover:text-white underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
           >
@@ -506,9 +530,12 @@ const LandingFooter: React.FC = () => {
           <p className="font-semibold text-foreground mb-2">Legal</p>
           <ul className="space-y-2">
             <li>
-              <a href="/privacy" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
+              <Link
+                to="/privacy"
+                className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+              >
                 Privacy policy
-              </a>
+              </Link>
             </li>
             <li>
               <a href="#security" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">

@@ -1,6 +1,6 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.1';
+const CACHE_VERSION = 'v1.0.2';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -94,6 +94,13 @@ self.addEventListener('fetch', (event) => {
   // Caching HTML with a SW can easily cause "Failed to fetch dynamically imported module"
   // after a deployment when the cached HTML points at old hashed chunk filenames.
   if (request.mode === 'navigate' || isHtmlRequest(request)) {
+    event.respondWith(networkFirstWithCache(request, DYNAMIC_CACHE, 24 * 60 * 60 * 1000));
+    return;
+  }
+
+  // Hashed Vite bundles: network-first so a post-deploy tab does not read a stale
+  // cached chunk while index.html already references new filenames (avoids lazy-load failures).
+  if (url.pathname.startsWith('/assets/') && /\.(js|mjs|css)$/i.test(url.pathname)) {
     event.respondWith(networkFirstWithCache(request, DYNAMIC_CACHE, 24 * 60 * 60 * 1000));
     return;
   }

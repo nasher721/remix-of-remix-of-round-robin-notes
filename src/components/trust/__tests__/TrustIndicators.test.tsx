@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TrustIndicators } from "../TrustIndicators";
 
@@ -21,9 +22,9 @@ function renderWithProviders(component: React.ReactElement) {
   document.body.appendChild(div);
   const root = createRoot(div);
   root.render(
-    <TooltipProvider>
-      {component}
-    </TooltipProvider>
+    <MemoryRouter>
+      <TooltipProvider>{component}</TooltipProvider>
+    </MemoryRouter>
   );
   return { div, root };
 }

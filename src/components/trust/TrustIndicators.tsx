@@ -1,10 +1,11 @@
-import { Shield, Lock, FileText, ExternalLink } from "lucide-react";
+import type { ReactNode } from "react";
+import { Shield, Lock, FileText, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface TrustBadgeProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   description: string;
   testId: string;
@@ -68,8 +69,8 @@ export function TrustIndicators({ className }: TrustIndicatorsProps) {
         variant="secondary"
       />
       
-      <a
-        href="/security"
+      <Link
+        to="/security"
         className={cn(
           "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
           "text-muted-foreground hover:text-foreground transition-colors",
@@ -78,8 +79,8 @@ export function TrustIndicators({ className }: TrustIndicatorsProps) {
         aria-label="Learn more about our security practices"
       >
         <span>Security</span>
-        <ExternalLink className="h-3 w-3" aria-hidden="true" />
-      </a>
+        <ChevronRight className="h-3 w-3" aria-hidden="true" />
+      </Link>
     </div>
   );
 }
