@@ -101,6 +101,15 @@ export const dbToUiPatient = (dbPatient: DbPatient): Patient => ({
   collapsed: dbPatient.collapsed,
   createdAt: dbPatient.created_at,
   lastModified: dbPatient.last_modified,
+  age: dbPatient.age,
+  serviceLine: dbPatient.service_line ?? undefined,
+  attendingPhysician: dbPatient.attending_physician ?? undefined,
+  consultingTeam: dbPatient.consulting_team ?? undefined,
+  acuity: dbPatient.acuity ?? undefined,
+  codeStatus: dbPatient.code_status ?? undefined,
+  alerts: dbPatient.alerts ?? undefined,
+  vitals: dbPatient.vitals ?? undefined,
+  assignedTo: dbPatient.assigned_to ?? undefined,
 });
 
 /**
@@ -113,6 +122,14 @@ export const uiFieldToDbField = (field: string): string => {
     patientNumber: "patient_number",
     createdAt: "created_at",
     lastModified: "last_modified",
+    serviceLine: "service_line",
+    attendingPhysician: "attending_physician",
+    consultingTeam: "consulting_team",
+    acuity: "acuity",
+    codeStatus: "code_status",
+    alerts: "alerts",
+    vitals: "vitals",
+    assignedTo: "assigned_to",
   };
   return fieldMap[field] || field;
 };

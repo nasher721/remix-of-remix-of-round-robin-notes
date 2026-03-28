@@ -10,6 +10,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { IBCCProvider } from "@/contexts/IBCCContext";
 import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
+import { TeamProvider } from "@/contexts/TeamContext";
 import { DashboardLayoutProvider } from "@/context/DashboardLayoutContext";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -28,6 +29,7 @@ import { CurrentPatientsProvider } from "@/contexts/CurrentPatientsContext";
 import { preloadClinicalData } from "@/lib/lazyData";
 import { NavigationBreadcrumbTracker } from "@/components/observability/NavigationBreadcrumbTracker";
 import { SuspenseLoadingFallback } from "@/components/SuspenseLoadingFallback";
+import { AnnouncerProvider, useAnnouncerContext, LiveRegion } from "@/hooks/useAnnouncer";
 
 /** Dev-only: Agentation visual feedback toolbar (not bundled in production). */
 const DevAgentationOverlay = import.meta.env.DEV
@@ -65,37 +67,65 @@ function AppRoutesShell(): React.ReactElement {
   );
 }
 
+function AppContent(): React.ReactElement {
+  const { announce } = useAnnouncerContext();
+  return (
+    <>
+      <LiveRegionWrapper />
+      <NavigationBreadcrumbTracker />
+      <CurrentPatientsProvider>
+        <SkipToContent />
+        <UnifiedAIChatbot />
+        {DevAgentationOverlay ? (
+          <React.Suspense fallback={null}>
+            <DevAgentationOverlay />
+          </React.Suspense>
+        ) : null}
+        <AppRoutesShell />
+      </CurrentPatientsProvider>
+    </>
+  );
+}
+
+function LiveRegionWrapper(): React.ReactElement {
+  const { announce } = useAnnouncerContext();
+  const [message, setMessage] = React.useState("");
+  
+  React.useEffect(() => {
+    (window as unknown as { __announce?: typeof announce }).__announce = (msg: string) => setMessage(msg);
+    return () => {
+      delete (window as unknown as { __announce?: typeof announce }).__announce;
+    };
+  }, []);
+  
+  return <LiveRegion message={message} priority="polite" />;
+}
+
 function App(): React.ReactElement {
   return (
     <GlobalErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <AuthProvider>
-          <SettingsProvider>
-            <DashboardLayoutProvider>
+          <TeamProvider>
+            <SettingsProvider>
+              <DashboardLayoutProvider>
               <IBCCProvider>
                 <ClinicalGuidelinesProvider>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner position="top-right" />
-                  <BrowserRouter>
-                    <NavigationBreadcrumbTracker />
-                    <CurrentPatientsProvider>
-                      <SkipToContent />
-                      <UnifiedAIChatbot />
-                      {DevAgentationOverlay ? (
-                        <React.Suspense fallback={null}>
-                          <DevAgentationOverlay />
-                        </React.Suspense>
-                      ) : null}
-                      <AppRoutesShell />
-                    </CurrentPatientsProvider>
-                  </BrowserRouter>
+                  <AnnouncerProvider>
+                    <BrowserRouter>
+                      <AppContent />
+                    </BrowserRouter>
+                  </AnnouncerProvider>
                 </TooltipProvider>
               </ClinicalGuidelinesProvider>
             </IBCCProvider>
             </DashboardLayoutProvider>
-          </SettingsProvider>
+            </SettingsProvider>
+          </TeamProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -137,4 +137,5 @@ export enum PatientFilterType {
   All = 'all',
   Filled = 'filled',
   Empty = 'empty',
+  MyPatients = 'myPatients',
 }

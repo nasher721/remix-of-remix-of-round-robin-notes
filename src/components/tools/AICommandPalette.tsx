@@ -9,11 +9,45 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command';
-import { Sparkles, Stethoscope, FileText, ListChecks, ClipboardCheck, Brain, Calendar, Activity, Pill, Mic, Wand2, Settings, Lightbulb } from 'lucide-react';
+import { Sparkles, Stethoscope, FileText, ListChecks, ClipboardCheck, Brain, Calendar, Activity, Pill, Mic, Wand2, Settings, Lightbulb, Info, Zap, ArrowRight } from 'lucide-react';
 import { useStreamingAI } from '@/hooks/useStreamingAI';
 import { useToast } from '@/hooks/use-toast';
+import { AITransparencyPanel } from '@/components/ai/AITransparencyPanel';
 import type { AIFeature, ClinicalContext } from '@/lib/openai-config';
 import type { Patient } from '@/types/patient';
+import { Button } from '@/components/ui/button';
+
+// Example prompts for the "Try these" section
+const EXAMPLE_PROMPTS = [
+  { id: 'soap-note', label: "Draft today's SOAP note", icon: FileText },
+  { id: 'interval-events', label: 'Summarize interval events', icon: Calendar },
+  { id: 'format-meds', label: 'Format medications list', icon: Pill },
+];
+
+// Contextual suggestions when patient is selected
+const getContextualSuggestions = (patient?: Patient): string[] => {
+  if (!patient) return [];
+  const suggestions: string[] = [];
+  
+  if (patient.name) {
+    suggestions.push(`Draft note for ${patient.name}`);
+    suggestions.push(`Summarize ${patient.name}'s overnight events`);
+  }
+  if (patient.systems?.neuro) {
+    suggestions.push('Generate neuro exam');
+  }
+  if (patient.medications) {
+    const hasMeds = 
+      (patient.medications.infusions?.length ?? 0) > 0 ||
+      (patient.medications.scheduled?.length ?? 0) > 0 ||
+      (patient.medications.prn?.length ?? 0) > 0;
+    if (hasMeds) {
+      suggestions.push('Format medication list');
+    }
+  }
+  
+  return suggestions.slice(0, 3);
+};
 
 interface AICommandPaletteProps {
   open: boolean;
@@ -182,6 +216,51 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
 
   const [selectedCommand, setSelectedCommand] = React.useState<AICommand | null>(null);
   const [textInput, setTextInput] = React.useState('');
+  const [transparencyOpen, setTransparencyOpen] = React.useState(false);
+  const [selectedExample, setSelectedExample] = React.useState<string | null>(null);
+
+  const contextualSuggestions = getContextualSuggestions(patient);
+
+  const handleExampleClick = (exampleId: string) => {
+    setSelectedExample(exampleId);
+    const exampleMap: Record<string, string> = {
+      'soap-note': "Draft today's SOAP note",
+      'interval-events': 'Summarize interval events',
+      'format-meds': 'Format medications list',
+    };
+    setTextInput(exampleMap[exampleId] || '');
+  };
+
+  const handleQuickAction = async (action: string) => {
+    if (!patient) {
+      toast({
+        title: 'No Patient Selected',
+        description: 'Please select a patient to use AI features',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const featureMap: Record<string, AIFeature> = {
+      'soap': 'soap_format',
+      'summarize': 'interval_events_generator',
+      'format-meds': 'medical_correction',
+    };
+
+    try {
+      const result = await streamWithAI(featureMap[action] || 'clinical_summary', {
+        patient,
+      });
+      
+      if (result && onInsertToField) {
+        onInsertToField('clinicalSummary', result);
+      }
+    } catch (error) {
+      console.error('Quick action failed:', error);
+    }
+    
+    onOpenChange(false);
+  };
 
   const handleCommandSelect = React.useCallback(async (command: AICommand) => {
     // If command requires text input, store it for later
@@ -263,6 +342,81 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
             )}
           </CommandEmpty>
 
+          {/* Example Prompts Section - visible when no command selected */}
+          {!selectedCommand && !isStreaming && (
+            <CommandGroup heading="Try these prompts">
+              <div className="px-2 py-2 flex flex-wrap gap-2">
+                {EXAMPLE_PROMPTS.map((example) => (
+                  <button
+                    key={example.id}
+                    type="button"
+                    onClick={() => handleExampleClick(example.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-secondary/60 hover:bg-secondary border border-border/40 rounded-full transition-colors"
+                  >
+                    <example.icon className="h-3 w-3 text-muted-foreground" />
+                    <span>{example.label}</span>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground ml-1" />
+                  </button>
+                ))}
+              </div>
+            </CommandGroup>
+          )}
+
+          {/* Quick Action Buttons - visible when patient is selected */}
+          {!selectedCommand && !isStreaming && patient && contextualSuggestions.length > 0 && (
+            <CommandGroup heading="Quick Actions">
+              <div className="px-2 py-2 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickAction('soap')}
+                  className="text-xs"
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  SOAP Note
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickAction('summarize')}
+                  className="text-xs"
+                >
+                  <Calendar className="h-3 w-3 mr-1" />
+                  Summarize
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickAction('format-meds')}
+                  className="text-xs"
+                >
+                  <Pill className="h-3 w-3 mr-1" />
+                  Format Meds
+                </Button>
+              </div>
+            </CommandGroup>
+          )}
+
+          {/* Contextual Suggestions - when patient is selected */}
+          {!selectedCommand && !isStreaming && contextualSuggestions.length > 0 && (
+            <CommandGroup heading="Suggestions for this patient">
+              {contextualSuggestions.map((suggestion) => (
+                <CommandItem
+                  key={suggestion}
+                  onSelect={() => {
+                    setTextInput(suggestion);
+                  }}
+                >
+                  <Zap className="mr-2 h-4 w-4 text-amber-500" />
+                  <span className="text-sm">{suggestion}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+
           {selectedCommand ? (
             // Text input mode for commands that require input
             <CommandGroup heading={selectedCommand.name}>
@@ -280,12 +434,14 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
                 />
                 <div className="flex justify-between mt-2">
                   <button
+                    type="button"
                     className="text-sm text-muted-foreground hover:text-foreground"
                     onClick={() => setSelectedCommand(null)}
                   >
                     ← Back to commands
                   </button>
                   <button
+                    type="button"
                     className="text-sm bg-primary text-primary-foreground px-3 py-1 rounded-md"
                     onClick={handleTextSubmit}
                     disabled={!textInput.trim() || isStreaming}
@@ -358,7 +514,6 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
               <CommandGroup heading="Quick Actions">
                 <CommandItem
                   onSelect={() => {
-                    // Could open settings
                     toast({
                       title: 'AI Settings',
                       description: 'Configure AI models in Settings → AI',
@@ -367,6 +522,14 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
                 >
                   <Settings className="mr-2 h-4 w-4" />
                   <span>AI Settings</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => {
+                    setTransparencyOpen(true);
+                  }}
+                >
+                  <Info className="mr-2 h-4 w-4" />
+                  <span>AI Transparency</span>
                 </CommandItem>
               </CommandGroup>
             </>
@@ -381,6 +544,11 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
           <span className="text-sm">AI Processing...</span>
         </div>
       )}
+
+      <AITransparencyPanel
+        open={transparencyOpen}
+        onOpenChange={setTransparencyOpen}
+      />
     </>
   );
 };

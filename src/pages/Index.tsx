@@ -64,6 +64,7 @@ function IndexContent(): React.ReactElement | null {
   const { searchQuery, setSearchQuery, filter, setFilter, filteredPatients } = usePatientFilter({
     patients,
     sortBy,
+    currentUserId: user?.id,
   });
 
   const [lastSaved, setLastSaved] = React.useState<Date>(new Date());

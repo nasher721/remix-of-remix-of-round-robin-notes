@@ -15,6 +15,7 @@ import { getPatientProfileCoaching } from "@/lib/patientProfileCoaching";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
+import { CSVColumnMapper } from "@/components/import/CSVColumnMapper";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
@@ -36,8 +37,9 @@ import { TrustIndicators } from "@/components/trust/TrustIndicators";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
-import { KeyboardShortcutSystem } from "@/components/KeyboardShortcutSystem";
+import { KeyboardShortcutHelp, useKeyboardShortcutHelp } from "@/components/KeyboardShortcutHelp";
 import { LiveRegion } from "@/components/LiveRegion";
+import { SyncHistoryPanel } from "@/components/sync/SyncHistoryPanel";
 import { AICommandPalette, useAICommandPalette } from "@/components/tools/AICommandPalette";
 import { Button } from "@/components/ui/button";
 import {
@@ -172,6 +174,7 @@ export const DesktopDashboard = () => {
   const [showPhraseManager, setShowPhraseManager] = React.useState(false);
   const [showComparisonModal, setShowComparisonModal] = React.useState(false);
   const { isOpen: isAICommandPaletteOpen, setIsOpen: setAICommandPaletteOpen } = useAICommandPalette();
+  const { isOpen: isShortcutHelpOpen, setIsOpen: setShortcutHelpOpen } = useKeyboardShortcutHelp();
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   const goNextPatient = React.useCallback(() => {
@@ -223,6 +226,7 @@ export const DesktopDashboard = () => {
 
   const [showClearAllDialog, setShowClearAllDialog] = React.useState(false);
   const [syncingList, setSyncingList] = React.useState(false);
+  const [showSyncHistory, setShowSyncHistory] = React.useState(false);
   const [showSamplePreview, setShowSamplePreview] = React.useState(false);
   const [openToolsRequestToken, setOpenToolsRequestToken] = React.useState(0);
 
@@ -276,6 +280,7 @@ export const DesktopDashboard = () => {
   const filterLabel = React.useMemo(() => {
     if (filter === PatientFilterType.Filled) return "With notes";
     if (filter === PatientFilterType.Empty) return "Empty notes";
+    if (filter === PatientFilterType.MyPatients) return "My patients";
     return "All patients";
   }, [filter]);
 
@@ -478,7 +483,7 @@ export const DesktopDashboard = () => {
                 <TrustIndicators />
                 <PresenceIndicator />
                 <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
-                <KeyboardShortcutSystem />
+                <KeyboardShortcutHelp open={isShortcutHelpOpen} onOpenChange={setShortcutHelpOpen} />
                 <TogglePanelsButton />
                 <ThemeToggle />
                 <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
@@ -622,6 +627,7 @@ export const DesktopDashboard = () => {
                       <DropdownMenuRadioItem value={PatientFilterType.All}>All patients</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value={PatientFilterType.Filled}>With notes</DropdownMenuRadioItem>
                       <DropdownMenuRadioItem value={PatientFilterType.Empty}>Empty notes</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value={PatientFilterType.MyPatients}>My patients</DropdownMenuRadioItem>
                     </DropdownMenuRadioGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel className="text-xs text-muted-foreground">Sort</DropdownMenuLabel>
@@ -694,12 +700,42 @@ export const DesktopDashboard = () => {
               <div className="mb-3 rounded-lg border border-border/30 bg-card/50 p-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-semibold text-muted-foreground">Team actions</span>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowComparisonModal(true)}>
-                    Compare
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowPrintModal(true)}>
-                    Print / Export
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => setShowComparisonModal(true)}
+                        disabled={patients.length < 2}
+                      >
+                        Compare
+                      </Button>
+                    </TooltipTrigger>
+                    {patients.length < 2 && (
+                      <TooltipContent side="bottom">
+                        Add at least 2 patients to compare
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => setShowPrintModal(true)}
+                        disabled={patients.length === 0}
+                      >
+                        Print / Export
+                      </Button>
+                    </TooltipTrigger>
+                    {patients.length === 0 && (
+                      <TooltipContent side="bottom">
+                        Add at least 1 patient to print
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAICommandPaletteOpen(true)}>
                     AI
                   </Button>
@@ -735,16 +771,23 @@ export const DesktopDashboard = () => {
                     )}
                   </span>
                   <div className="flex items-center gap-2 sm:gap-2.5 justify-end shrink-0 flex-nowrap">
-                    <Badge variant="secondary" className="text-[11px] font-medium gap-1.5">
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
-                      <time
-                        dateTime={lastSaved.toISOString()}
-                        title={`Last sync at ${lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
-                      >
-                        Last sync {lastSavedRelative}
-                      </time>
-                      <span className="text-muted-foreground">· Auto-sync on</span>
-                    </Badge>
+                    <button
+                      type="button"
+                      onClick={() => setShowSyncHistory(true)}
+                      className="text-left"
+                      aria-label="View sync history"
+                    >
+                      <Badge variant="secondary" className="text-[11px] font-medium gap-1.5 hover:bg-secondary/80 transition-colors">
+                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
+                        <time
+                          dateTime={lastSaved.toISOString()}
+                          title={`Last sync at ${lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
+                        >
+                          Last sync {lastSavedRelative}
+                        </time>
+                        <span className="text-muted-foreground">· Auto-sync on</span>
+                      </Badge>
+                    </button>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -1183,6 +1226,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
                     <SmartPatientImport onImportPatient={onAddPatientWithData} />
                     <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
+                    <CSVColumnMapper onImportPatients={onImportPatients} />
                     <Button onClick={onOpenAICommandPalette} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20">
                       <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
                     </Button>
@@ -1295,6 +1339,17 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
           )}
         </div>
       )}
+
+      <SyncHistoryPanel
+        open={showSyncHistory}
+        onOpenChange={setShowSyncHistory}
+        onRetry={(dataSource) => {
+          if (dataSource === "patients" || dataSource === "supabase") {
+            handleSyncNow();
+          }
+        }}
+        isRetrying={syncingList}
+      />
     </div>
   );
 };

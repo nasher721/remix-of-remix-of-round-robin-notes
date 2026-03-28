@@ -5,7 +5,9 @@ import { cardHover, collapseVariants } from '@/lib/animations';
 import { durations, ease, staggers } from '@/lib/anime-presets';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList, AlertTriangle, User } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { RichTextEditor } from "./RichTextEditor";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
@@ -21,6 +23,7 @@ import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggesti
 import { LabTrendBadge } from "./LabTrendingPanel";
 import { AppleAIAssistant } from "./AppleAIAssistant";
 import { PatientSystemsReview } from "./PatientSystemsReview";
+import { ActivityFeed } from "./patient/ActivityFeed";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -31,6 +34,7 @@ import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import { useDailySummaryGenerator } from "@/hooks/useDailySummaryGenerator";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
+import { useTeam } from "@/contexts/TeamContext";
 import { DashboardFocusTarget, SystemsReviewMode } from "@/lib/dashboardPrefs";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +47,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface PatientCardProps {
   patient: Patient;
@@ -88,6 +100,7 @@ const PatientCardComponent = ({
 }: PatientCardProps) => {
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
+  const { teamMembers } = useTeam();
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
@@ -250,30 +263,48 @@ const PatientCardComponent = ({
             </span>
           </div>
           <div className="flex gap-2.5 flex-1 flex-wrap items-center">
-            <Input
-              placeholder="Patient name"
-              value={patient.name}
-              onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
-              aria-label="Patient name"
-              title="Legal name or label used on rounds"
-              className="max-w-[220px] font-semibold bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm tracking-tight"
-            />
-            <Input
-              placeholder="MRN"
-              value={patient.mrn ?? ""}
-              onChange={(e) => onUpdate(patient.id, 'mrn', e.target.value)}
-              aria-label="Medical record number"
-              title="Hospital MRN or account number"
-              className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
-            />
-            <Input
-              placeholder="Bed / room"
-              value={patient.bed}
-              onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
-              aria-label="Bed or room number"
-              title="Unit and room or bay"
-              className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
-            />
+            <div className="relative">
+              <Label htmlFor={`patient-name-${patient.id}`} className="sr-only">
+                Patient name
+              </Label>
+              <Input
+                id={`patient-name-${patient.id}`}
+                placeholder="Patient name"
+                value={patient.name}
+                onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
+                aria-label="Patient name"
+                title="Legal name or label used on rounds"
+                className="max-w-[220px] font-semibold bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm tracking-tight"
+              />
+            </div>
+            <div className="relative">
+              <Label htmlFor={`patient-mrn-${patient.id}`} className="sr-only">
+                Medical record number
+              </Label>
+              <Input
+                id={`patient-mrn-${patient.id}`}
+                placeholder="MRN"
+                value={patient.mrn ?? ""}
+                onChange={(e) => onUpdate(patient.id, 'mrn', e.target.value)}
+                aria-label="Medical record number"
+                title="Hospital MRN or account number"
+                className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+              />
+            </div>
+            <div className="relative">
+              <Label htmlFor={`patient-bed-${patient.id}`} className="sr-only">
+                Bed or room number
+              </Label>
+              <Input
+                id={`patient-bed-${patient.id}`}
+                placeholder="Bed / room"
+                value={patient.bed}
+                onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
+                aria-label="Bed or room number"
+                title="Unit and room or bay"
+                className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+              />
+            </div>
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">
               <PatientAcuityBadge patient={patient} size="sm" />
@@ -281,6 +312,157 @@ const PatientCardComponent = ({
               <LabTrendBadge labText={patient.labs} />
               <ProtocolBadge patient={patient} />
             </div>
+            {/* Assignment Dropdown */}
+            {teamMembers.length > 0 && (
+              <div className="flex items-center gap-1 ml-1">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors gap-1"
+                      aria-label="Assign patient to team member"
+                    >
+                      <User className="h-3 w-3" />
+                      <span>Assign</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48 rounded-lg">
+                    <DropdownMenuLabel className="text-xs">Assign to</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => onUpdate(patient.id, 'assignedTo', null)}
+                      className="text-xs"
+                    >
+                      Unassigned
+                    </DropdownMenuItem>
+                    {teamMembers.map((member) => (
+                      <DropdownMenuItem
+                        key={member.id}
+                        onClick={() => onUpdate(patient.id, 'assignedTo', member.id)}
+                        className="text-xs cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          {member.avatarUrl ? (
+                            <img
+                              src={member.avatarUrl}
+                              alt={member.name}
+                              className="h-5 w-5 rounded-full"
+                            />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
+                              <span className="text-[10px] font-medium text-primary">
+                                {member.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                          <span>{member.name}</span>
+                          {patient.assignedTo === member.id && (
+                            <span className="ml-auto text-primary">✓</span>
+                          )}
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {/* Assigned User Badge */}
+                {patient.assignedTo && (() => {
+                  const assignedMember = teamMembers.find(m => m.id === patient.assignedTo);
+                  return assignedMember ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-secondary/60 border border-border/40">
+                            {assignedMember.avatarUrl ? (
+                              <img
+                                src={assignedMember.avatarUrl}
+                                alt={assignedMember.name}
+                                className="h-4 w-4 rounded-full"
+                              />
+                            ) : (
+                              <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span className="text-[8px] font-medium text-primary">
+                                  {assignedMember.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          Assigned to {assignedMember.name}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : null;
+                })()}
+              </div>
+            )}
+            {(patient.serviceLine || patient.codeStatus || patient.acuity || (patient.alerts && patient.alerts.length > 0)) && (
+              <div className="flex items-center gap-1.5 no-print border-l border-border/50 pl-2 ml-1">
+                {patient.serviceLine && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-secondary/60 text-secondary-foreground border border-border/40">
+                    {patient.serviceLine}
+                  </span>
+                )}
+                {patient.acuity && (
+                  <span
+                    className={cn(
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      patient.acuity === 'low' && "bg-green-500",
+                      patient.acuity === 'moderate' && "bg-yellow-500",
+                      patient.acuity === 'high' && "bg-orange-500",
+                      patient.acuity === 'critical' && "bg-red-500 animate-pulse"
+                    )}
+                    title={`Acuity: ${patient.acuity}`}
+                  />
+                )}
+                {patient.codeStatus && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                      patient.codeStatus === 'full' && "bg-blue-500/10 text-blue-600 border-blue-500/30",
+                      patient.codeStatus === 'dnr' && "bg-purple-500/10 text-purple-600 border-purple-500/30",
+                      patient.codeStatus === 'dni' && "bg-amber-500/10 text-amber-600 border-amber-500/30",
+                      patient.codeStatus === 'comfort' && "bg-pink-500/10 text-pink-600 border-pink-500/30"
+                    )}
+                    title={`Code status: ${patient.codeStatus}`}
+                  >
+                    {patient.codeStatus.toUpperCase()}
+                  </span>
+                )}
+                {patient.alerts && patient.alerts.length > 0 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center w-5 h-5 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                          aria-label={`${patient.alerts.length} alert${patient.alerts.length > 1 ? 's' : ''}`}
+                        >
+                          <AlertTriangle className="w-3 h-3" />
+                          {patient.alerts.length > 1 && (
+                            <span className="text-[9px] font-bold ml-0.5">{patient.alerts.length}</span>
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-xs">Alerts</p>
+                          <ul className="text-xs space-y-0.5">
+                            {patient.alerts.map((alert, idx) => (
+                              <li key={`${patient.id}-alert-${idx}`} className="flex items-start gap-1">
+                                <span className="w-1 h-1 rounded-full bg-destructive mt-1.5 flex-shrink-0" />
+                                <span>{alert}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -304,6 +486,7 @@ const PatientCardComponent = ({
               </Button>
             }
           />
+          <ActivityFeed patientId={patient.id} patientName={patient.name} />
           <Button
             variant="ghost"
             size="icon"

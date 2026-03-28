@@ -383,6 +383,200 @@
   }
 }
 
+/* High Contrast Mode - Automatic detection via prefers-contrast: more */
+@media (prefers-contrast: more) {
+  :root {
+    /* Increase contrast for all semantic colors */
+    --foreground: 0 0% 0%; /* Pure black */
+    --muted-foreground: 0 0% 20%;
+    --border: 0 0% 0%;
+    --input: 0 0% 0%;
+    --ring: 0 0% 0%;
+    --card-foreground: 0 0% 0%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+    --secondary-foreground: 0 0% 0%;
+    --accent-foreground: 0 0% 0%;
+    --destructive-foreground: 0 0% 100%;
+    --success-foreground: 0 0% 100%;
+    --warning-foreground: 0 0% 0%;
+    --popover-foreground: 0 0% 0%;
+  }
+  
+  .dark {
+    --foreground: 0 0% 100%; /* Pure white */
+    --muted-foreground: 0 0% 90%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 0 0% 100%;
+    --card-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary-foreground: 0 0% 100%;
+    --accent-foreground: 0 0% 100%;
+    --destructive-foreground: 0 0% 0%;
+    --success-foreground: 0 0% 0%;
+    --warning-foreground: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+  }
+  
+  /* Increase border widths for better visibility */
+  * {
+    border-color: hsl(var(--border)) !important;
+  }
+  
+  /* Stronger focus states */
+  :focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 2px;
+    box-shadow: none !important;
+  }
+  
+  /* Improve link visibility */
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  
+  /* Increase button borders */
+  button, 
+  [role="button"] {
+    border-width: 2px !important;
+  }
+  
+  /* Increase input borders */
+  input, 
+  textarea, 
+  select {
+    border-width: 2px !important;
+  }
+  
+  /* Card improvements */
+  .card {
+    border-width: 2px !important;
+  }
+  
+  /* Disable gradients and reduce transparency for clarity */
+  .gradient-mesh-subtle,
+  .gradient-mesh-empty,
+  .card-depth-gradient {
+    background-image: none !important;
+  }
+  
+  .glass-morphic {
+    background-color: hsl(var(--background)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-width: 2px !important;
+  }
+  
+  /* Table improvements */
+  th, td {
+    border-width: 2px !important;
+  }
+  
+  /* Badge improvements */
+  .badge-clinical {
+    border-width: 2px !important;
+  }
+}
+
+/* Windows High Contrast Mode - forced-colors support */
+@media (forced-colors: active) {
+  :root {
+    /* Use system colors that work with forced-colors */
+    --foreground: CanvasText;
+    --muted-foreground: CanvasText;
+    --border: CanvasText;
+    --input: CanvasText;
+    --ring: CanvasText;
+    --card-foreground: CanvasText;
+    --primary: CanvasText;
+    --primary-foreground: Canvas;
+    --secondary-foreground: CanvasText;
+    --accent-foreground: CanvasText;
+    --destructive-foreground: Canvas;
+    --success-foreground: Canvas;
+    --warning-foreground: CanvasText;
+    --popover-foreground: CanvasText;
+    --background: Canvas;
+  }
+  
+  /* Reset all backgrounds to canvas */
+  body,
+  .card,
+  .popover,
+  [role="dialog"],
+  .glass-morphic {
+    background-color: Canvas !important;
+  }
+  
+  /* Use system focus */
+  :focus-visible {
+    outline: 2px solid CanvasText !important;
+    outline-offset: 2px !important;
+    box-shadow: none !important;
+  }
+  
+  /* Force borders to be visible */
+  * {
+    border-color: CanvasText !important;
+  }
+  
+  /* Increase border widths */
+  button,
+  [role="button"],
+  input,
+  textarea,
+  select,
+  .card,
+  th,
+  td {
+    border-width: 2px !important;
+  }
+  
+  /* Remove decorative shadows */
+  .shadow-sm,
+  .shadow-md,
+  .shadow-lg,
+  .shadow-xl,
+  .shadow-card,
+  .shadow-modal,
+  .shadow-elevated,
+  .shadow-floating,
+  .depth-shadow-hover,
+  .glass-morphic {
+    box-shadow: none !important;
+  }
+  
+  /* Ensure text is always visible */
+  a, 
+  button, 
+  input, 
+  textarea, 
+  select, 
+  label {
+    color: CanvasText !important;
+  }
+  
+  /* Remove gradients */
+  .gradient-mesh-subtle,
+  .gradient-mesh-empty,
+  .card-depth-gradient,
+  .text-gradient,
+  .text-gradient-primary {
+    background-image: none !important;
+    color: CanvasText !important;
+  }
+  
+  /* System buttons */
+  button, 
+  [role="button"] {
+    background-color: ButtonFace !important;
+    color: ButtonText !important;
+  }
+}
+
 /* Loading Spinner */
 .loading svg polyline {
   fill: none;

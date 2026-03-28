@@ -9,9 +9,10 @@ export { PatientFilterType } from '@/constants/config';
 interface UsePatientFilterOptions {
   patients: Patient[];
   sortBy: SortBy;
+  currentUserId?: string;
 }
 
-export function usePatientFilter({ patients, sortBy }: UsePatientFilterOptions) {
+export function usePatientFilter({ patients, sortBy, currentUserId }: UsePatientFilterOptions) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<PatientFilterType>(PatientFilterType.All);
 
@@ -39,6 +40,9 @@ export function usePatientFilter({ patients, sortBy }: UsePatientFilterOptions) 
             !patient.intervalEvents &&
             !Object.values(patient.systems).some((v) => v);
           return matchesSearch && isEmpty;
+        } else if (filter === PatientFilterType.MyPatients) {
+          const isAssignedToMe = currentUserId && patient.assignedTo === currentUserId;
+          return matchesSearch && isAssignedToMe;
         }
 
         return matchesSearch;
@@ -54,7 +58,7 @@ export function usePatientFilter({ patients, sortBy }: UsePatientFilterOptions) 
             return a.patientNumber - b.patientNumber;
         }
       });
-  }, [patients, searchQuery, filter, sortBy]);
+  }, [patients, searchQuery, filter, sortBy, currentUserId]);
 
   return {
     searchQuery,
