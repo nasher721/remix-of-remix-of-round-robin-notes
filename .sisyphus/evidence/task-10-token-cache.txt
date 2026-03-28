@@ -1,0 +1,42 @@
+# Task 10: Session Token Caching for Edge Function Calls
+
+## Status: COMPLETE
+
+## Implementation Summary
+
+Added in-memory cache for access tokens in `src/lib/edgeFunctionHeaders.ts`:
+
+### Changes Made
+
+1. **Added cache constants and types:**
+   - `TOKEN_CACHE_TTL = 4 * 60 * 1000` (4 minutes in milliseconds)
+   - `TokenCache` interface with `accessToken` and `cachedAt` properties
+   - Module-level `tokenCache` variable for persistence
+
+2. **Added cache helper functions:**
+   - `isCacheValid()`: Returns true if cache exists and token is less than 4 minutes old
+   - `clearCache()`: Clears the token cache (can be called externally if needed)
+
+3. **Modified `getEdgeFunctionAuthHeaders`:**
+   - Checks cache validity first; returns cached token if valid
+   - Falls back to fetching new token only when cache is invalid/empty
+   - Stores new token in cache with timestamp on each fetch
+   - Function signature unchanged - same API externally
+
+### Key Design Decisions
+
+- **In-memory only**: No localStorage/IndexedDB (as requested)
+- **4-minute TTL**: Well below typical 1-hour session token lifetime
+- **Auto-clear**: Cache naturally expires after TTL; `clearCache()` available if needed
+- **No performance impact on hot path**: Token fetching only happens once per 4 minutes
+
+## Build Verification
+
+```
+✓ npm run build - PASSED
+Build completed in 14.69s
+```
+
+## Files Modified
+
+- `src/lib/edgeFunctionHeaders.ts` (54 → 110 lines)

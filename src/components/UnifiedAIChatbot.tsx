@@ -452,7 +452,7 @@ export const UnifiedAIChatbot: React.FC = () => {
   // ── Copy ─────────────────────────────────────────────────────────────────────
 
   const handleCopy = React.useCallback((id: string, content: string) => {
-    navigator.clipboard.writeText(content).catch(() => {});
+    navigator.clipboard.writeText(content).catch((err) => { console.error('[clipboard] Failed to write:', err) });
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   }, []);

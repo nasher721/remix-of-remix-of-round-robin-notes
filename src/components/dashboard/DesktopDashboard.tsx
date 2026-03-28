@@ -482,7 +482,7 @@ export const DesktopDashboard = () => {
               <div className="hidden min-[1100px]:flex items-center gap-2">
                 <TrustIndicators />
                 <PresenceIndicator />
-                <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user.email}>{user.email}</span>
+                <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user?.email ?? ""}>{user?.email ?? ""}</span>
                 <KeyboardShortcutHelp open={isShortcutHelpOpen} onOpenChange={setShortcutHelpOpen} />
                 <TogglePanelsButton />
                 <ThemeToggle />
@@ -507,8 +507,8 @@ export const DesktopDashboard = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 rounded-lg">
-                    <DropdownMenuLabel className="truncate" title={user.email}>
-                      {user.email}
+                    <DropdownMenuLabel className="truncate" title={user?.email ?? ""}>
+                      {user?.email ?? ""}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleTogglePanels} disabled={focusModeActive}>

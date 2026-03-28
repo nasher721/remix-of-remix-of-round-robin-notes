@@ -1,0 +1,97 @@
+# Task 6: Error Boundaries for Lazy Route Imports
+
+## Analysis Summary
+
+### Current State
+- **File**: `src/App.tsx` (140 lines)
+- **Lazy-loaded routes** (lines 30-32):
+  - `Auth` - lazy loaded via `React.lazy()`
+  - `FHIRCallback` - lazy loaded via `React.lazy()`
+  - `PrintExportTest` - lazy loaded via `React.lazy()` (dev-only)
+
+- **Current Routes** (lines 60-68):
+```tsx
+<Route path="/" element={<Index />} />
+<Route path="/auth" element={<Auth />} />
+<Route path="/privacy" element={<Privacy />} />
+<Route path="/security" element={<Security />} />
+<Route path="/fhir/callback" element={<FHIRCallback />} />
+{import.meta.env.DEV && (
+  <Route path="/__print-export-test" element={<PrintExportTest />} />
+)}
+<Route path="*" element={<NotFound />} />
+```
+
+### Component: LazyPanelErrorBoundary
+- **Location**: `src/components/LazyPanelErrorBoundary.tsx`
+- **Type**: Class component extending `React.Component`
+- **Props Interface**:
+  - `children: React.ReactNode` - The lazy-loaded content
+  - `title: string` - Title shown in fallback UI
+  - `fallbackClassName?: string` - Optional wrapper class
+
+### Required Changes
+
+1. **Add Import** (after line 26 or with other imports):
+```tsx
+import { LazyPanelErrorBoundary } from "@/components/LazyPanelErrorBoundary";
+```
+
+2. **Wrap Lazy Routes** (lines 61, 64, 66):
+```tsx
+<Route path="/auth" element={
+  <LazyPanelErrorBoundary title="Authentication">
+    <Auth />
+  </LazyPanelErrorBoundary>
+} />
+
+<Route path="/fhir/callback" element={
+  <LazyPanelErrorBoundary title="FHIR Integration">
+    <FHIRCallback />
+  </LazyPanelErrorBoundary>
+} />
+
+{import.meta.env.DEV && (
+  <Route path="/__print-export-test" element={
+    <LazyPanelErrorBoundary title="Print Export Test">
+      <PrintExportTest />
+    </LazyPanelErrorBoundary>
+  } />
+)}
+```
+
+### Routes NOT to Modify (as per requirements)
+- `/` (Index) - statically imported
+- `/privacy` (Privacy) - statically imported  
+- `/security` (Security) - statically imported
+- `*` (NotFound) - statically imported
+
+### Build Verification
+- ✅ Current build passes successfully
+- ⚠️ Expected warnings: Tailwind ambiguous delay/duration classes (pre-existing)
+- ⚠️ Expected warnings: Large chunks >500KB (pre-existing)
+
+## Implementation Notes
+
+### Why This Works
+1. `LazyPanelErrorBoundary` is a React Error Boundary class component
+2. It catches render errors in lazy-loaded chunks
+3. Provides user-friendly fallback UI with "Try Again" and "Reload app" options
+4. Handles service worker cache issues for chunk loading errors
+
+### Edge Cases Handled
+- Dynamic import fetch errors (chunkloaderror, failed to fetch module)
+- Service worker cache clearing before hard reload
+- Telemetry event recording for error tracking
+
+## Verification Steps After Implementation
+
+1. Run `npm run build` - must succeed
+2. Verify in compiled output that lazy chunks still exist:
+   - `Auth-*.js`
+   - `FHIRCallback-*.js`
+   - `PrintExportTest-*.js` (dev only)
+3. Verify each lazy route is wrapped with `LazyPanelErrorBoundary` component
+
+## Status
+✅ ANALYSIS COMPLETE - Ready for implementation

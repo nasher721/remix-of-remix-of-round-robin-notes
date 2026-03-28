@@ -266,7 +266,7 @@ export const useStreamingAI = (
             const payload = line.slice(6).trimEnd();
             if (payload === '[DONE]') {
               sawDoneEvent = true;
-              void reader.cancel().catch(() => {});
+              void reader.cancel().catch((err) => { console.error('[streamingAI] Failed to cancel reader:', err) });
             } else if (payload) {
               let parsed: { chunk?: unknown; error?: string };
               try {

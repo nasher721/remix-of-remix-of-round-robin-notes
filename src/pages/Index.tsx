@@ -84,7 +84,7 @@ function IndexContent(): React.ReactElement | null {
     }
     setDesktopSelectedPatientId((prev) => {
       if (prev && filteredPatients.some((p) => p.id === prev)) return prev;
-      return filteredPatients[0].id;
+      return filteredPatients[0]?.id ?? null;
     });
   }, [isMobile, filteredPatients]);
 

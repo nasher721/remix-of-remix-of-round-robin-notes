@@ -427,7 +427,7 @@ const PatientCardComponent = ({
                     )}
                     title={`Code status: ${patient.codeStatus}`}
                   >
-                    {patient.codeStatus.toUpperCase()}
+                    {(patient.codeStatus ?? "").toUpperCase()}
                   </span>
                 )}
                 {patient.alerts && patient.alerts.length > 0 && (
@@ -576,7 +576,7 @@ const PatientCardComponent = ({
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Summary</h3>
                       {patient.clinicalSummary && (
                         <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
-                          {patient.clinicalSummary.length}
+                          {(patient.clinicalSummary ?? "").length}
                         </span>
                       )}
                     </div>

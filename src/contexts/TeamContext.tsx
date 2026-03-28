@@ -127,17 +127,21 @@ export const TeamProvider = ({ children, initialTeamId = null }: TeamProviderPro
         };
 
         if (memberIds.length > 0) {
-          const { data: authData } = await supabase.auth.admin.listUsers();
-          const authUser = authData?.users.find((u) => u.id === m.user_id);
-          if (authUser) {
-            memberInfo = {
-              id: m.user_id,
-              email: authUser.email || memberInfo.email,
-              name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || memberInfo.name,
-              avatarUrl: authUser.user_metadata?.avatar_url || null,
-              role: (m.role as 'admin' | 'member' | 'viewer') || 'member',
-              joinedAt: m.created_at,
-            };
+          try {
+            const { data: authData } = await supabase.auth.admin.listUsers();
+            const authUser = authData?.users.find((u) => u.id === m.user_id);
+            if (authUser) {
+              memberInfo = {
+                id: m.user_id,
+                email: authUser.email || memberInfo.email,
+                name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || memberInfo.name,
+                avatarUrl: authUser.user_metadata?.avatar_url || null,
+                role: (m.role as 'admin' | 'member' | 'viewer') || 'member',
+                joinedAt: m.created_at,
+              };
+            }
+          } catch (error) {
+            console.error('[TeamContext] Failed to list users (admin API unavailable in browser):', error);
           }
         }
 

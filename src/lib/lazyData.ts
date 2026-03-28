@@ -106,7 +106,7 @@ export function preloadClinicalData(): void {
     : (fn: () => void) => setTimeout(fn, 2000);
 
   schedule(() => {
-    loadIBCCData().catch(() => {});
-    loadGuidelinesData().catch(() => {});
+    loadIBCCData().catch((err) => { console.error('[lazyData] Failed to load IBCC data:', err) });
+    loadGuidelinesData().catch((err) => { console.error('[lazyData] Failed to load guidelines:', err) });
   });
 }

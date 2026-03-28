@@ -3,6 +3,25 @@ import { supabase } from '@/integrations/supabase/client'
 const publishableKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''
 
+// In-memory cache for access token with 4-minute TTL
+const TOKEN_CACHE_TTL = 4 * 60 * 1000 // 4 minutes in milliseconds
+
+interface TokenCache {
+  accessToken: string
+  cachedAt: number
+}
+
+let tokenCache: TokenCache | null = null
+
+function isCacheValid(): boolean {
+  if (!tokenCache) return false
+  return Date.now() - tokenCache.cachedAt < TOKEN_CACHE_TTL
+}
+
+function clearCache(): void {
+  tokenCache = null
+}
+
 /**
  * Headers required for direct fetch() to Supabase Edge Functions.
  * The JS client's `functions.invoke` adds these automatically; raw fetch must pass both.
@@ -15,6 +34,31 @@ export async function getEdgeFunctionAuthHeaders(
     throw new Error('Supabase is not configured (missing publishable/anon key).')
   }
 
+  // Return cached token if still valid
+  if (isCacheValid() && tokenCache?.accessToken) {
+    const base: Record<string, string> = {
+      Authorization: `Bearer ${tokenCache.accessToken}`,
+      apikey: publishableKey,
+    }
+
+    if (extra) {
+      if (extra instanceof Headers) {
+        extra.forEach((value, key) => {
+          base[key] = value
+        })
+      } else if (Array.isArray(extra)) {
+        for (const [key, value] of extra) {
+          base[key] = value
+        }
+      } else {
+        Object.assign(base, extra as Record<string, string>)
+      }
+    }
+
+    return base
+  }
+
+  // Fetch new token
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -29,6 +73,12 @@ export async function getEdgeFunctionAuthHeaders(
 
   if (!accessToken) {
     throw new Error('Please sign in to use AI features.')
+  }
+
+  // Update cache with new token
+  tokenCache = {
+    accessToken,
+    cachedAt: Date.now(),
   }
 
   const base: Record<string, string> = {

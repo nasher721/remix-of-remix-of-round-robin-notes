@@ -91,7 +91,7 @@ export const VirtualizedPatientList = React.memo(() => {
   }, [patients, desktopSelectedPatientId]);
 
   const sharedPatientTodos = usePatientTodos(selectedPatient?.id ?? null, {
-    initialTodos: selectedPatient ? todosMap[selectedPatient.id] : undefined,
+    initialTodos: selectedPatient ? (todosMap[selectedPatient.id] ?? []) : undefined,
   });
 
   const { prefersReducedMotion } = useMotionPreference();

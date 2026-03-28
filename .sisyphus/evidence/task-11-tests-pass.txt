@@ -1,0 +1,36 @@
+Test Results - Task 11: Null Safety and Auth Race Condition Tests
+===================================================================
+
+Date: 2026-03-28
+Test Command: npm test
+
+Files Created:
+- src/services/__tests__/nullSafety.test.ts
+- src/hooks/__tests__/useAuth.test.ts
+
+Test Results:
+-------------
+ℹ tests 73
+ℹ suites 12
+ℹ pass 73
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1957.96375
+
+New Test Suites Executed:
+------------------------
+
+1. Null Safety Guards (src/services/__tests__/nullSafety.test.ts)
+   ✔ returns null for empty array access
+   ✔ returns empty string for null user email
+   ✔ returns empty array for missing todosMap key
+   ✔ handles undefined codeStatus to toUpperCase safely
+   ✔ handles undefined clinicalSummary length safely
+
+2. Auth Race Condition Fix (src/hooks/__tests__/useAuth.test.ts)
+   ✔ setLoading guard prevents duplicate calls
+   ✔ reset allows re-initialization
+
+Status: PASSED - All 73 tests passed with 0 failures

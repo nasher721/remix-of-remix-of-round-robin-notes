@@ -71,7 +71,16 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
-    }).then(() => self.clients.claim())
+    ).then(async () => {
+      // Clear stale dynamic cache entries on activation
+      // This ensures old hashed chunks don't cause "Failed to fetch dynamically imported module" errors
+      // after a deployment when index.html references new chunks
+      const dynamicCache = await caches.open(DYNAMIC_CACHE);
+      const dynamicKeys = await dynamicCache.keys();
+      await Promise.all(dynamicKeys.map(key => dynamicCache.delete(key)));
+      console.log('[SW] Cleared', dynamicKeys.length, 'stale dynamic cache entries');
+      return self.clients.claim();
+    })
   );
 });
 
@@ -98,10 +107,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Hashed Vite bundles: network-first so a post-deploy tab does not read a stale
-  // cached chunk while index.html already references new filenames (avoids lazy-load failures).
   if (url.pathname.startsWith('/assets/') && /\.(js|mjs|css)$/i.test(url.pathname)) {
-    event.respondWith(networkFirstWithCache(request, DYNAMIC_CACHE, 24 * 60 * 60 * 1000));
+    event.respondWith(networkFirstWithJsRetry(request, DYNAMIC_CACHE, 24 * 60 * 60 * 1000));
     return;
   }
 
@@ -139,6 +146,26 @@ function isStaticAsset(url) {
 function isHtmlRequest(request) {
   const accept = request.headers.get('accept') || '';
   return accept.includes('text/html');
+}
+
+async function networkFirstWithJsRetry(request, cacheName, ttl) {
+  try {
+    return await networkFirstWithCache(request, cacheName, ttl);
+  } catch (error) {
+    const errorMessage = error?.message || '';
+    const isStaleChunkError = errorMessage.includes('Failed to fetch') || errorMessage.includes('imported');
+    if (isStaleChunkError) {
+      console.log('[SW] Stale chunk detected, clearing cache and retrying:', request.url);
+      await caches.open(cacheName).then(cache => cache.delete(request));
+      try {
+        return await networkFirstWithCache(request, cacheName, ttl);
+      } catch (retryError) {
+        console.error('[SW] Retry failed for stale chunk:', request.url);
+        throw retryError;
+      }
+    }
+    throw error;
+  }
 }
 
 // Network First with Cache Fallback (for API requests)

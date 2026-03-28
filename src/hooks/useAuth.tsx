@@ -17,19 +17,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
   const [user, setUser] = React.useState<User | null>(null);
   const [session, setSession] = React.useState<Session | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const initialized = React.useRef(false);
 
   React.useEffect(() => {
+    initialized.current = false;
+
     if (!hasSupabaseConfig) {
-      setLoading(false);
+      if (!initialized.current) {
+        initialized.current = true;
+        setLoading(false);
+      }
       return;
     }
+
+    const finishLoading = () => {
+      if (!initialized.current) {
+        initialized.current = true;
+        setLoading(false);
+      }
+    };
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
+        finishLoading();
       }
     );
 
@@ -44,13 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
         setSession(null);
         setUser(null);
       } finally {
-        setLoading(false);
+        finishLoading();
       }
     };
 
     void initializeSession();
 
-    return () => subscription.unsubscribe();
+    return () => {
+      initialized.current = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

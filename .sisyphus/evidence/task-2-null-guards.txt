@@ -1,0 +1,49 @@
+# Task 2: Null Safety Guards - Verification Evidence
+
+## Build Status
+✓ Build succeeded (npm run build)
+
+## Grep Verification
+
+### 1. filteredPatients[0].id (Index.tsx)
+Old pattern (bare): No matches - FIXED
+New pattern (with null safety):
+  Line 87: return filteredPatients[0]?.id ?? null;
+
+### 2. user.email (DesktopDashboard.tsx)
+Old pattern (bare): No matches - FIXED
+New pattern (with null safety):
+  Line 485: title={user?.email ?? ""} / {user?.email ?? ""}
+  Line 510: title={user?.email ?? ""}
+  Line 511: {user?.email ?? ""}
+
+### 3. user.email (MobileDashboard.tsx)
+Old pattern (bare): No matches - FIXED
+New pattern (with null safety):
+  Line 325: userEmail={user?.email ?? ""}
+
+### 4. todosMap[selectedPatient.id] (dashboard components)
+All instances now have ?? []:
+  VirtualizedPatientList.tsx:94: (todosMap[selectedPatient.id] ?? [])
+  MobileDashboard.tsx:154: (todosMap[selectedPatient.id] ?? [])
+
+### 5. patient.codeStatus.toUpperCase() (PatientCard.tsx)
+Old pattern (bare): No matches - FIXED
+New pattern (with null safety):
+  Line 430: {(patient.codeStatus ?? "").toUpperCase()}
+
+### 6. patient.clinicalSummary.length (PatientCard.tsx)
+Old pattern (bare): No matches - FIXED
+New pattern (with null safety):
+  Line 579: {(patient.clinicalSummary ?? "").length}
+
+## Summary
+All 8 null safety fixes applied and verified:
+1. ✓ Index.tsx:87 - filteredPatients[0].id → filteredPatients[0]?.id ?? null
+2. ✓ DesktopDashboard.tsx:485 - user.email → user?.email ?? ""
+3. ✓ DesktopDashboard.tsx:510-511 - user.email → user?.email ?? ""
+4. ✓ MobileDashboard.tsx:154 - todosMap[selectedPatient.id] → todosMap[selectedPatient.id] ?? []
+5. ✓ MobileDashboard.tsx:325 - user.email → user?.email ?? ""
+6. ✓ VirtualizedPatientList.tsx:94 - todosMap[selectedPatient.id] → (todosMap[selectedPatient.id] ?? [])
+7. ✓ PatientCard.tsx:430 - patient.codeStatus.toUpperCase() → (patient.codeStatus ?? "").toUpperCase()
+8. ✓ PatientCard.tsx:579 - patient.clinicalSummary.length → (patient.clinicalSummary ?? "").length

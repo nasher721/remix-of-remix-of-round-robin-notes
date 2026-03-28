@@ -151,7 +151,7 @@ export const MobileDashboard = () => {
           autotexts={autotexts}
           globalFontSize={globalFontSize}
           changeTracking={changeTracking}
-          initialTodos={todosMap[selectedPatient.id]}
+          initialTodos={todosMap[selectedPatient.id] ?? []}
           onNext={() => {
             const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
             if (currentIndex < filteredPatients.length - 1) {
@@ -322,7 +322,7 @@ export const MobileDashboard = () => {
                   onOpenAutotexts={() => setShowAutotextModal(true)}
                   onOpenPhrases={() => setShowPhraseManager(true)}
                   onOpenBatchCourse={() => setShowBatchCourse(true)}
-                  userEmail={user.email}
+                  userEmail={user?.email ?? ""}
                   todosAlwaysVisible={todosAlwaysVisible}
                   onTodosAlwaysVisibleChange={setTodosAlwaysVisible}
                   showLabFishbones={showLabFishbones}

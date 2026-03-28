@@ -1,0 +1,21 @@
+Task: Fix vercel.json SPA Rewrite and Build Commands
+Date: 2026-03-28
+
+Changes Made:
+1. destination: "/index" → "/index.html" (fixes 404 on direct SPA navigation)
+2. buildCommand: "pnpm run build" → "npm run build"
+3. installCommand: "corepack enable && pnpm install --frozen-lockfile" → "npm install"
+4. devCommand: "pnpm run dev" → "npm run dev"
+
+Verification Results:
+- npm run build: EXIT CODE 0 (built in 11.28s, 4735 modules transformed)
+- grep '"destination": "/index.html"' vercel.json: MATCH FOUND (line 45)
+- grep 'pnpm' vercel.json: NO MATCHES (all pnpm references removed)
+- Headers, cleanUrls, trailingSlash: UNCHANGED (verified)
+- No new rewrites or redirects added
+
+Build Output Summary:
+- dist/index.html: 2.26 kB
+- Largest chunk: dist/assets/index-C7YKdgC6.js (4,192.92 kB gzip: 1,196.63 kB)
+- Total chunks: 19 files
+- Warnings: Tailwind ambiguous classes (pre-existing), chunk size warnings (pre-existing)

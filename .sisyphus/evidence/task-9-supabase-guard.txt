@@ -1,0 +1,34 @@
+# Task 9: Add Runtime Guard for Invalid Supabase Credentials
+
+## Evidence
+
+### File Modified
+- `src/integrations/supabase/client.ts`
+
+### Change Made
+Updated the console.warn message when `hasSupabaseConfig` is false:
+
+**Before:**
+```typescript
+console.warn(
+  '[App] Missing Supabase environment variables. API calls will be disabled until configured.'
+);
+```
+
+**After:**
+```typescript
+console.warn(
+  '[Supabase] Missing required environment variables. Using localhost fallback - edge functions and auth will not work in production.'
+);
+```
+
+### Verification
+- `npm run build` completed successfully
+- Build output shows: "✓ built in 11.09s"
+- No errors or failures
+
+### Behavior Preserved
+- Fallback behavior maintained (localhost + invalid-key)
+- No throwing or crashing
+- No blocking of rendering
+- App continues to function with degraded mode when Supabase config is missing

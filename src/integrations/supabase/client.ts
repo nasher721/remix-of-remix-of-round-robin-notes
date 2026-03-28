@@ -12,7 +12,7 @@ export const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_KEY);
 
 if (!hasSupabaseConfig) {
   console.warn(
-    '[App] Missing Supabase environment variables. API calls will be disabled until configured.'
+    '[Supabase] Missing required environment variables. Using localhost fallback - edge functions and auth will not work in production.'
   );
 }
 

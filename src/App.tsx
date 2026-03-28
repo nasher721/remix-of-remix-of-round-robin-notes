@@ -23,6 +23,7 @@ import { CurrentPatientsProvider } from "@/contexts/CurrentPatientsContext";
 import { preloadClinicalData } from "@/lib/lazyData";
 import { NavigationBreadcrumbTracker } from "@/components/observability/NavigationBreadcrumbTracker";
 import { SuspenseLoadingFallback } from "@/components/SuspenseLoadingFallback";
+import { LazyPanelErrorBoundary } from "@/components/LazyPanelErrorBoundary";
 import { AnnouncerProvider, useAnnouncerContext, LiveRegion } from "@/hooks/useAnnouncer";
 
 // Lazy-load heavier secondary routes (keep small legal pages static — lazy chunks
@@ -49,25 +50,27 @@ const queryClient = createOptimizedQueryClient();
 function AppRoutesShell(): React.ReactElement {
   const location = useLocation();
   return (
-    <React.Suspense fallback={<SuspenseLoadingFallback />}>
-      {/*
-        Do not wrap <Routes> in AnimatePresence: the animated child must be the
-        transitioning page, not the Router. Wrapping Routes breaks lazy routes
-        (e.g. /privacy, /security) — Suspense never resolves in some clients.
-        Route-level transitions live in page-transition / layout components instead.
-      */}
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/security" element={<Security />} />
-        <Route path="/fhir/callback" element={<FHIRCallback />} />
-        {import.meta.env.DEV && (
-          <Route path="/__print-export-test" element={<PrintExportTest />} />
-        )}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </React.Suspense>
+    <LazyPanelErrorBoundary title="Failed to load page">
+      <React.Suspense fallback={<SuspenseLoadingFallback />}>
+        {/*
+          Do not wrap <Routes> in AnimatePresence: the animated child must be the
+          transitioning page, not the Router. Wrapping Routes breaks lazy routes
+          (e.g. /privacy, /security) — Suspense never resolves in some clients.
+          Route-level transitions live in page-transition / layout components instead.
+        */}
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/security" element={<Security />} />
+          <Route path="/fhir/callback" element={<FHIRCallback />} />
+          {import.meta.env.DEV && (
+            <Route path="/__print-export-test" element={<PrintExportTest />} />
+          )}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </React.Suspense>
+    </LazyPanelErrorBoundary>
   );
 }
 
