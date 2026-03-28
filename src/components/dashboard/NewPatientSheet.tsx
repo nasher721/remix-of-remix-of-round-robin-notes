@@ -25,6 +25,9 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { PATIENT_TEMPLATES, getTemplateById } from "@/lib/templates/patientTemplates";
 
+/** Radix Select forbids `value=""` on SelectItem; use this sentinel for "start from scratch". */
+const NEW_PATIENT_TEMPLATE_SCRATCH = "__new_patient_scratch__" as const;
+
 // Service line options for ICU/clinical units
 const SERVICE_LINES = [
   { value: "micu", label: "MICU (Medical ICU)" },
@@ -144,7 +147,7 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
   const [submitting, setSubmitting] = React.useState(false);
 
   // Template selection state
-  const [selectedTemplate, setSelectedTemplate] = React.useState<string>("");
+  const [selectedTemplate, setSelectedTemplate] = React.useState<string>(NEW_PATIENT_TEMPLATE_SCRATCH);
 
   // Extended fields state
   const [serviceLine, setServiceLine] = React.useState<string>("");
@@ -162,7 +165,7 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
       setBed("");
       setNameError(null);
       setSubmitting(false);
-      setSelectedTemplate("");
+      setSelectedTemplate(NEW_PATIENT_TEMPLATE_SCRATCH);
       setServiceLine("");
       setAttendingPhysician("");
       setConsultingTeam("");
@@ -176,9 +179,9 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
   // Apply template values when a template is selected
   const handleTemplateChange = React.useCallback((templateId: string) => {
     setSelectedTemplate(templateId);
-    
-    if (!templateId) {
-      // Reset to defaults when "None" is selected
+
+    if (templateId === NEW_PATIENT_TEMPLATE_SCRATCH) {
+      // Reset to defaults when starting from scratch
       setServiceLine("");
       setAcuity("");
       setCodeStatus("");
@@ -269,7 +272,7 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
                 <SelectValue placeholder="Start from scratch or choose a template" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Start from scratch</SelectItem>
+                <SelectItem value={NEW_PATIENT_TEMPLATE_SCRATCH}>Start from scratch</SelectItem>
                 {PATIENT_TEMPLATES.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     <div className="flex flex-col items-start">
