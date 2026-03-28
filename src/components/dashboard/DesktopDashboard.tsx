@@ -981,6 +981,17 @@ export const DesktopDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <SyncHistoryPanel
+        open={showSyncHistory}
+        onOpenChange={setShowSyncHistory}
+        onRetry={(dataSource) => {
+          if (dataSource === "patients" || dataSource === "supabase") {
+            handleSyncNow();
+          }
+        }}
+        isRetrying={syncingList}
+      />
     </div>
   );
 };
@@ -1339,17 +1350,6 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
           )}
         </div>
       )}
-
-      <SyncHistoryPanel
-        open={showSyncHistory}
-        onOpenChange={setShowSyncHistory}
-        onRetry={(dataSource) => {
-          if (dataSource === "patients" || dataSource === "supabase") {
-            handleSyncNow();
-          }
-        }}
-        isRetrying={syncingList}
-      />
     </div>
   );
 };
