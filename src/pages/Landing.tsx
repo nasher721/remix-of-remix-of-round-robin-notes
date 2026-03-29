@@ -4,50 +4,17 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { stagger } from "animejs";
 import { useAuth } from "@/hooks/useAuth";
 import FeatureHighlights from "@/components/landing/FeatureHighlights";
-import { LANDING_INTRO_DISABLED, LANDING_INTRO_VIDEO_SRC } from "@/config/marketing";
 import { useAnimeTimeline } from "@/hooks/useAnimeTimeline";
 import { useMotionPreference } from "@/hooks/useReducedMotion";
 import { cn } from "@/lib/utils";
-
-const INTRO_MAX_MS = 9000;
-
-/** SSR-safe: skip video intro when disabled, system reduced motion, or user chose reduced in settings */
-function getLandingSkipIntroInitial(): boolean {
-  if (LANDING_INTRO_DISABLED) return true;
-  if (typeof window === "undefined") return false;
-  try {
-    const stored = localStorage.getItem("motion-preference");
-    if (stored === "reduced") return true;
-    if (stored === "enabled") return false;
-  } catch {
-    // ignore
-  }
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { prefersReducedMotion } = useMotionPreference();
-  const [showContent, setShowContent] = useState(() => getLandingSkipIntroInitial());
-  const [isActive, setIsActive] = useState(false);
-  const [showPlayOverlay, setShowPlayOverlay] = useState(false);
   const [scrollY, setScrollY] = useState(0);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const heroRootRef = useRef<HTMLDivElement>(null);
-  const introTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const startTransition = useCallback(() => {
-    if (introTimerRef.current) {
-      clearTimeout(introTimerRef.current);
-      introTimerRef.current = null;
-    }
-    setShowContent(true);
-    setTimeout(() => {
-      setIsActive(true);
-    }, 200);
-  }, []);
 
   const handleScroll = useCallback(() => {
     if (containerRef.current) {
@@ -61,59 +28,6 @@ const Landing: React.FC = () => {
     container.addEventListener("scroll", handleScroll, { passive: true });
     return () => container.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
-
-  useEffect(() => {
-    if (prefersReducedMotion || LANDING_INTRO_DISABLED) {
-      startTransition();
-      return;
-    }
-
-    const video = videoRef.current;
-    if (!video) return;
-
-    const tryPlay = () => {
-      const playPromise = video.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          setShowPlayOverlay(true);
-        });
-      }
-    };
-
-    tryPlay();
-
-    introTimerRef.current = setTimeout(() => {
-      startTransition();
-    }, INTRO_MAX_MS);
-
-    const handleEnded = () => {
-      startTransition();
-    };
-
-    const handleError = () => {
-      startTransition();
-    };
-
-    video.addEventListener("ended", handleEnded);
-    video.addEventListener("error", handleError);
-
-    return () => {
-      video.removeEventListener("ended", handleEnded);
-      video.removeEventListener("error", handleError);
-      if (introTimerRef.current) {
-        clearTimeout(introTimerRef.current);
-        introTimerRef.current = null;
-      }
-    };
-  }, [prefersReducedMotion, startTransition]);
-
-  const handlePlayClick = () => {
-    const video = videoRef.current;
-    if (video) {
-      video.play();
-      setShowPlayOverlay(false);
-    }
-  };
 
   const handleLaunchPortal = () => {
     if (user) {
@@ -142,7 +56,7 @@ const Landing: React.FC = () => {
 
   useAnimeTimeline({
     rootRef: heroRootRef,
-    enabled: showContent && isActive,
+    enabled: true,
     prefersReducedMotion,
     setup: ({ timeline, root }) => {
       const title = root.querySelector("[data-anime-hero-title]");
@@ -157,7 +71,7 @@ const Landing: React.FC = () => {
       timeline.add(chips, { opacity: [0, 1], y: [16, 0], duration: 500, ease: "outCubic" }, stagger(80));
       timeline.add(cta, { opacity: [0, 1], y: [16, 0], duration: 550, ease: "outCubic" }, "+=100");
     },
-    deps: [showContent, isActive],
+    deps: [],
   });
 
   return (
@@ -166,53 +80,7 @@ const Landing: React.FC = () => {
       className="landing-page min-h-screen relative overflow-y-auto overflow-x-hidden transition-colors duration-[1500ms] ease-in-out scroll-smooth"
       style={{ backgroundColor: "#eef4f9" }}
     >
-      {/* Video intro overlay — omitted when VITE_LANDING_INTRO_DISABLED=true */}
-      {!LANDING_INTRO_DISABLED && (
-      <div
-        className={`intro-container fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-[800ms] ease-out ${showContent ? "opacity-0 invisible pointer-events-none" : ""}`}
-        style={{ backgroundColor: "#eef4f9" }}
-      >
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-[#0D47A1] via-[#1976D2] to-[#42A5F5]"
-          aria-hidden
-        />
-        <button
-          type="button"
-          onClick={startTransition}
-          className="absolute top-4 right-4 z-[210] min-h-[44px] px-4 py-2 rounded-full text-sm font-semibold text-white/95 bg-black/35 hover:bg-black/50 backdrop-blur-sm border border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/30"
-        >
-          Skip intro
-        </button>
-        <video
-          ref={videoRef}
-          className="intro-video relative z-[1] w-full h-full object-cover"
-          style={{ mixBlendMode: "multiply" }}
-          poster="/landing-hero-poster.svg"
-          muted
-          playsInline
-          loop={!prefersReducedMotion}
-          autoPlay={!prefersReducedMotion}
-          preload="metadata"
-          aria-label="Rolling Rounds product introduction animation"
-        >
-          <source src={LANDING_INTRO_VIDEO_SRC} type="video/mp4" />
-          <span className="sr-only">Video introduction (optional)</span>
-        </video>
-        {showPlayOverlay && (
-          <button
-            type="button"
-            onClick={handlePlayClick}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/60 text-white px-10 py-5 min-h-[44px] min-w-[44px] rounded-full cursor-pointer z-[200] font-semibold backdrop-blur-sm hover:bg-black/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black/40"
-            aria-label="Play intro video"
-          >
-            Start Experience
-          </button>
-        )}
-      </div>
-      )}
-
-      {showContent && (
-        <header className="sticky top-0 z-[90] border-b border-white/10 bg-[#1565C0]/95 backdrop-blur-md text-white shadow-sm">
+      <header className="sticky top-0 z-[90] border-b border-white/10 bg-[#1565C0]/95 backdrop-blur-md text-white shadow-sm">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 py-3">
             <a
               href="#top"
@@ -263,14 +131,13 @@ const Landing: React.FC = () => {
             </button>
           </div>
         </header>
-      )}
 
       {/* Hero section with parallax */}
       <div
         id="top"
         ref={heroRootRef}
-        className={`poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-0 transition-opacity duration-[1000ms] ease-in ${showContent ? "opacity-100" : ""}`}
-        style={isActive ? { background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" } : {}}
+        className="poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-100 transition-opacity duration-[1000ms] ease-in"
+        style={{ background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" }}
       >
         {/* Parallax background circles */}
         <div
@@ -336,7 +203,7 @@ const Landing: React.FC = () => {
         <div
           className="logo-container relative w-[min(100%,280px)] max-[375px]:w-[min(100%,240px)] h-[min(85vw,380px)] max-[375px]:h-[300px] flex justify-center items-center mb-6 sm:mb-10 z-10 transition-transform duration-[1200ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] order-2 sm:order-1"
           style={{
-            transform: `scale(${isActive ? 1 : 0.9}) translateY(${-parallaxSlow * 0.2}px)`,
+            transform: `scale(1) translateY(${-parallaxSlow * 0.2}px)`,
           }}
         >
           <div className="cart-wrapper relative w-full max-w-[320px] h-[min(75vw,380px)] max-[375px]:max-h-[300px]">
@@ -372,11 +239,11 @@ const Landing: React.FC = () => {
             className={cn(
               "main-title font-[Montserrat] text-[clamp(2rem,7vw,56px)] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]",
               prefersReducedMotion &&
-                `transition-all duration-[800ms] ease-out delay-[500ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+                "transition-all duration-[800ms] ease-out delay-[500ms] opacity-100 translate-y-0",
             )}
             style={{
               fontFamily: "'Montserrat', sans-serif",
-              transform: isActive ? `translateY(${-parallaxSlow * 0.15}px)` : undefined,
+              transform: `translateY(${-parallaxSlow * 0.15}px)`,
               transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
             }}
           >
@@ -392,11 +259,11 @@ const Landing: React.FC = () => {
             className={cn(
               "subtitle text-[clamp(1rem,3.5vw,1.2rem)] font-light text-white mb-7.5 max-w-[65ch] mx-auto leading-[1.5]",
               prefersReducedMotion &&
-                `transition-all duration-[800ms] ease-out delay-[700ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+                "transition-all duration-[800ms] ease-out delay-[700ms] opacity-100 translate-y-0",
             )}
             style={{
               fontFamily: "'Poppins', sans-serif",
-              transform: isActive ? `translateY(${-parallaxSlow * 0.1}px)` : undefined,
+              transform: `translateY(${-parallaxSlow * 0.1}px)`,
               transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
             }}
           >
@@ -413,7 +280,7 @@ const Landing: React.FC = () => {
             className={cn(
               "features flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 mt-5",
               prefersReducedMotion &&
-                `transition-all duration-[800ms] ease-out delay-[900ms] ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`,
+                "transition-all duration-[800ms] ease-out delay-[900ms] opacity-100 translate-y-0",
             )}
           >
             <div
@@ -456,7 +323,7 @@ const Landing: React.FC = () => {
 
         {prefersReducedMotion ? (
           <div
-            className={`cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 ${isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
+            className="cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 opacity-100 translate-y-0"
           >
             <button
               type="button"
@@ -507,7 +374,7 @@ const Landing: React.FC = () => {
       </div>
 
       {/* Feature highlights section */}
-      {showContent && <FeatureHighlights prefersReducedMotion={prefersReducedMotion} />}
+      <FeatureHighlights prefersReducedMotion={prefersReducedMotion} />
 
       <style>{`
         @keyframes iconFloat {

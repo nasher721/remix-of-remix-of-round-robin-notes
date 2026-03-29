@@ -6,10 +6,6 @@ interface ImportMetaEnv {
   readonly VITE_APP_VERSION?: string;
   /** Landing: public contact email (mailto links) */
   readonly VITE_CONTACT_EMAIL?: string;
-  /** Landing: intro MP4 path or full URL; defaults to bundled public filename */
-  readonly VITE_LANDING_INTRO_VIDEO_SRC?: string;
-  /** Landing: when "true", skip intro video overlay (poster/hero only) */
-  readonly VITE_LANDING_INTRO_DISABLED?: string;
 }
 
 interface ImportMeta {
