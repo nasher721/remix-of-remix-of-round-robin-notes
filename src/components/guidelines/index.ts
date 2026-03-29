@@ -7,4 +7,3 @@ export { GuidelinesPanel } from './GuidelinesPanel';
 export { GuidelinesPanelLazy } from './GuidelinesPanelLazy';
 export { GuidelinesTrigger } from './GuidelinesTrigger';
 export { GuidelineDetailView } from './GuidelineDetailView';
-export { default as GuidelinesPanelContent } from './GuidelinesPanelContent';

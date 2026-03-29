@@ -3,6 +3,8 @@
  * SBAR format and handoff workflow support
  */
 
+import { stripHtml } from '@/lib/sanitize';
+
 export interface SBARNote {
   situation: string;
   background: string;
@@ -130,10 +132,6 @@ export const generateSBARFromPatient = (patient: {
   systems: Record<string, string>;
 }): SBARNote => {
   // Extract key info for SBAR sections
-  const stripHtml = (html: string) => {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    return doc.body.textContent || '';
-  };
 
   const situation = `${patient.name} in ${patient.bed}. ${stripHtml(patient.intervalEvents).slice(0, 200)}`;
   const background = stripHtml(patient.clinicalSummary).slice(0, 500);

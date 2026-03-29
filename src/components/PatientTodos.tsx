@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -51,9 +51,14 @@ export function PatientTodos({
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const sectionTodos = todos.filter(t => t.section === section);
-  const incompleteTodos = sectionTodos.filter(t => !t.completed);
-  const completedTodos = sectionTodos.filter(t => t.completed);
+  const { sectionTodos, incompleteTodos, completedTodos } = useMemo(() => {
+    const sec = todos.filter(t => t.section === section);
+    return {
+      sectionTodos: sec,
+      incompleteTodos: sec.filter(t => !t.completed),
+      completedTodos: sec.filter(t => t.completed),
+    };
+  }, [todos, section]);
 
   const handleAddTodo = async () => {
     if (!newTodoText.trim()) return;

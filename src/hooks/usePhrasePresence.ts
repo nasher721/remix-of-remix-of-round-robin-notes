@@ -57,6 +57,16 @@ export function usePhrasePresence(options: UsePhrasePresenceOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const isEditingRef = useRef(false);
 
+  const onPresenceChangeRef = useRef(onPresenceChange);
+  const onEditStartedRef = useRef(onEditStarted);
+  const onEditEndedRef = useRef(onEditEnded);
+  onPresenceChangeRef.current = onPresenceChange;
+  onEditStartedRef.current = onEditStarted;
+  onEditEndedRef.current = onEditEnded;
+
+  const userRef = useRef(user);
+  userRef.current = user;
+
   /**
    * Start editing a phrase
    * Broadcasts cursor position and locks the phrase for others
@@ -129,7 +139,7 @@ export function usePhrasePresence(options: UsePhrasePresenceOptions) {
     
     const channel = supabase.channel(`phrase:${phraseId}`, {
       config: {
-        presence: { key: user?.id },
+        presence: { key: userRef.current?.id },
       },
     });
     
@@ -188,21 +198,20 @@ export function usePhrasePresence(options: UsePhrasePresenceOptions) {
       };
       
       setPresenceState(newState);
-      onPresenceChange?.(newState);
+      onPresenceChangeRef.current?.(newState);
       
       // Notify about edit start/end
       const previousState = presenceStateRef.current;
       if (previousState && editors.length > 0 && previousState.editors.length === 0) {
         // Someone started editing
         const newEditor = editors[0];
-        if (newEditor.userId !== user?.id) {
-          onEditStarted?.(newEditor.userId, newEditor.userName);
+        if (newEditor.userId !== userRef.current?.id) {
+          onEditStartedRef.current?.(newEditor.userId, newEditor.userName);
         }
       } else if (previousState && editors.length === 0 && previousState.editors.length > 0) {
-        // Someone stopped editing
         const oldEditor = previousState.editors[0];
-        if (oldEditor.userId !== user?.id) {
-          onEditEnded?.(oldEditor.userId, oldEditor.userName);
+        if (oldEditor.userId !== userRef.current?.id) {
+          onEditEndedRef.current?.(oldEditor.userId, oldEditor.userName);
         }
       }
       
@@ -212,7 +221,7 @@ export function usePhrasePresence(options: UsePhrasePresenceOptions) {
     // Handle user joining
     channel.on('presence', { event: 'join' }, ({ newPresences }) => {
       (newPresences as Array<Record<string, unknown>>).forEach((presence) => {
-        if (presence.userId !== user?.id) {
+        if (presence.userId !== userRef.current?.id) {
           // Another user joined viewing this phrase
         }
       });
@@ -224,20 +233,20 @@ export function usePhrasePresence(options: UsePhrasePresenceOptions) {
         const presenceStatus = presence.status as string;
         const presenceUserId = presence.userId as string;
         const presenceUserName = presence.userName as string;
-        if (presenceStatus === 'editing' && presenceUserId !== user?.id) {
-          onEditEnded?.(presenceUserId, presenceUserName);
+        if (presenceStatus === 'editing' && presenceUserId !== userRef.current?.id) {
+          onEditEndedRef.current?.(presenceUserId, presenceUserName);
         }
       });
     });
     
     // Subscribe and track
     channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED' && user) {
+      if (status === 'SUBSCRIBED' && userRef.current) {
         await channel.track({
           status: 'viewing',
-          userId: user.id,
-          userName: (user.user_metadata?.full_name as string) || user.email || 'Anonymous',
-          avatarUrl: user.user_metadata?.avatar_url as string,
+          userId: userRef.current!.id,
+          userName: (userRef.current?.user_metadata?.full_name as string) || userRef.current?.email || 'Anonymous',
+          avatarUrl: userRef.current?.user_metadata?.avatar_url as string,
         });
       }
     });
@@ -246,7 +255,7 @@ export function usePhrasePresence(options: UsePhrasePresenceOptions) {
       channel.unsubscribe();
       channelRef.current = null;
     };
-  }, [phraseId, enabled, user?.id]);
+  }, [phraseId, enabled]);
   
   // Use ref to track previous state for change detection
   const presenceStateRef = useRef(presenceState);

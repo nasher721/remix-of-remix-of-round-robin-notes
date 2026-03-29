@@ -3,15 +3,10 @@
  * Displays word count, character count, and estimated reading time.
  */
 import * as React from "react";
+import { stripHtml } from "@/lib/sanitize";
 
 interface EditorStatusBarProps {
     html: string;
-}
-
-function stripHtml(html: string): string {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || "";
 }
 
 export const EditorStatusBar = React.memo(({ html }: EditorStatusBarProps) => {

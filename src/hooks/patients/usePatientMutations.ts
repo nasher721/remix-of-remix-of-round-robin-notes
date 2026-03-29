@@ -176,8 +176,8 @@ export function usePatientMutations({
                                 old_value: oldValueStr,
                                 new_value: newValueStr,
                             });
-                        } catch {
-                            // Silently ignore history recording errors
+                        } catch (error) {
+                            console.warn('Failed to record field history:', error);
                         }
                     })();
                 }

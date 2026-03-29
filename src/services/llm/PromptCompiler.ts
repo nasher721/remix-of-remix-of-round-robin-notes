@@ -13,6 +13,7 @@
  */
 
 import type { LLMProviderName, LLMRequest } from './types';
+import { stripHtml } from '@/lib/sanitize';
 
 // ---------------------------------------------------------------------------
 // Provider-specific prompt adjustments
@@ -196,8 +197,4 @@ function formatPatientContext(context: Record<string, unknown>): string {
   }
 
   return sections.join('\n');
-}
-
-function stripHtml(text: string): string {
-  return text?.replace(/<[^>]*>/g, '').trim() || '';
 }

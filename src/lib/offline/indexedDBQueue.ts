@@ -1,4 +1,5 @@
 import { db, type QueuedMutationDB } from './database';
+import { logInfo } from '../observability/logger';
 
 export type { QueuedMutationDB };
 export type QueuedMutation = QueuedMutationDB;
@@ -35,7 +36,7 @@ class IndexedDBQueueManager {
       await db.open();
       this.initialized = true;
       const count = await db.mutations.count();
-      console.log(`[IndexedDBQueue] Initialized with ${count} pending mutations`);
+      logInfo(`[IndexedDBQueue] Initialized with ${count} pending mutations`);
     } catch (error) {
       console.error('[IndexedDBQueue] Failed to initialize:', error);
       this.fallbackToLocalStorage();
@@ -49,12 +50,12 @@ class IndexedDBQueueManager {
   
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
-      console.log('[IndexedDBQueue] Connection restored');
+      logInfo('[IndexedDBQueue] Connection restored');
       this.notifyListeners();
     });
     
     window.addEventListener('offline', () => {
-      console.log('[IndexedDBQueue] Connection lost');
+      logInfo('[IndexedDBQueue] Connection lost');
       this.notifyListeners();
     });
   }
@@ -62,7 +63,7 @@ class IndexedDBQueueManager {
   private notifyListeners(): void {
     this.getQueue().then(queue => {
       this.listeners.forEach(callback => callback(queue));
-    });
+    }).catch(() => {/* notify listeners of empty queue on error */});
   }
   
   async enqueue(
@@ -105,7 +106,7 @@ class IndexedDBQueueManager {
     }
     
     this.notifyListeners();
-    console.log(`[IndexedDBQueue] Queued: ${mutation.type}/${mutation.operation}`);
+    logInfo(`[IndexedDBQueue] Queued: ${mutation.type}/${mutation.operation}`);
     return id;
   }
   
@@ -190,7 +191,7 @@ class IndexedDBQueueManager {
   
   subscribe(callback: (queue: QueuedMutation[]) => void): () => void {
     this.listeners.add(callback);
-    this.getQueue().then(callback);
+    this.getQueue().then(callback).catch(() => {/* silently fail initial queue load */});
     return () => this.listeners.delete(callback);
   }
   
@@ -212,7 +213,7 @@ class IndexedDBQueueManager {
     await db.mutations.bulkAdd(oldQueue);
     localStorage.removeItem('offline-mutation-queue');
     
-    console.log(`[IndexedDBQueue] Migrated ${oldQueue.length} mutations from localStorage`);
+    logInfo(`[IndexedDBQueue] Migrated ${oldQueue.length} mutations from localStorage`);
     return oldQueue.length;
   }
 
@@ -279,6 +280,6 @@ export const indexedDBQueue = new IndexedDBQueueManager();
 export async function migrateFromOldQueue(): Promise<void> {
   const count = await indexedDBQueue.migrateFromLocalStorage();
   if (count > 0) {
-    console.log(`[Migration] Migrated ${count} mutations to IndexedDB`);
+    logInfo(`[Migration] Migrated ${count} mutations to IndexedDB`);
   }
 }

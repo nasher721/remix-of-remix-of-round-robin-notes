@@ -22,6 +22,11 @@
  * All API calls go through Supabase Edge Functions to keep API keys secure.
  */
 
+import { stripHtml } from '@/lib/sanitize';
+
+// Re-export stripHtml for backward compatibility
+export { stripHtml };
+
 // AI Model options
 export const AI_MODELS = {
   // GPT-4 models for complex clinical reasoning
@@ -179,11 +184,6 @@ Common medical terms and abbreviations:
 - Medications: gtt, mcg, mg, mL, q, prn, bid, tid, qid
 - General: pt, hx, dx, tx, rx, sx, f/u, d/c, w/o, w/
 `;
-
-// Strip HTML for AI processing
-export function stripHtml(text: string): string {
-  return text?.replace(/<[^>]*>/g, '').trim() || '';
-}
 
 // Build clinical context string for AI prompts
 export function buildClinicalContextString(context: ClinicalContext): string {

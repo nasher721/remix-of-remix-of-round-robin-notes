@@ -3,13 +3,10 @@
  * Convert HTML to formatted text for various export formats
  */
 
-/**
- * Strip HTML tags completely for plain text export
- */
-export const stripHtml = (html: string): string => {
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    return doc.body.textContent || "";
-};
+import { stripHtml } from '@/lib/sanitize';
+
+// Re-export stripHtml for backward compatibility
+export { stripHtml };
 
 /**
  * Parse color from CSS style (handles rgb, rgba, hex, and color names)

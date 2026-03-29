@@ -67,6 +67,7 @@ export function usePatientImport({
         try {
             let currentCounter = getNextPatientCounter(patientsRef.current);
             const newPatients: Patient[] = [];
+            const failedPatients: { name: string; error: unknown }[] = [];
 
             for (const p of patientsToImport) {
                 const systems = parseSystemsJson({
@@ -113,8 +114,16 @@ export function usePatientImport({
                     error = retryResult.error;
                 }
 
-                if (error) throw error;
-                if (data == null) throw new Error("No data returned from insert");
+                if (error) {
+                    failedPatients.push({ name: p.name, error });
+                    currentCounter = insertNumber + 1;
+                    continue;
+                }
+                if (data == null) {
+                    failedPatients.push({ name: p.name, error: new Error("No data returned from insert") });
+                    currentCounter = insertNumber + 1;
+                    continue;
+                }
 
                 newPatients.push(mapPatientRecord(data));
 
@@ -123,10 +132,24 @@ export function usePatientImport({
 
             setPatients((prev) => [...prev, ...newPatients]);
 
-            notifications.success({
-                title: "Import Complete",
-                description: `${newPatients.length} patient(s) imported from Epic handoff.`,
-            });
+            if (failedPatients.length > 0) {
+                if (newPatients.length === 0) {
+                    notifications.error({
+                        title: "Import Failed",
+                        description: `Failed to import all ${patientsToImport.length} patients.`,
+                    });
+                    throw new Error(`Failed to import all patients`);
+                }
+                notifications.success({
+                    title: "Partial Import Complete",
+                    description: `${newPatients.length} patient(s) imported, ${failedPatients.length} failed.`,
+                });
+            } else {
+                notifications.success({
+                    title: "Import Complete",
+                    description: `${newPatients.length} patient(s) imported from Epic handoff.`,
+                });
+            }
         } catch (error) {
             console.error("Error importing patients:", error);
             notifications.error({

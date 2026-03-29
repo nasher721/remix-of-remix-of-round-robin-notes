@@ -11,6 +11,7 @@
  */
 
 import Dexie, { type EntityTable } from 'dexie';
+import { logInfo } from '../observability/logger';
 
 // ============================================
 // Type Definitions
@@ -120,7 +121,7 @@ export const db = new RoundRobinDatabase();
 export async function initializeDatabase(): Promise<boolean> {
   try {
     await db.open();
-    console.log('[IndexedDB] Database initialized successfully');
+    logInfo('[IndexedDB] Database initialized successfully');
     return true;
   } catch (error) {
     console.error('[IndexedDB] Failed to initialize database:', error);
@@ -141,7 +142,7 @@ export async function clearAllData(): Promise<void> {
       db.syncMetadata.clear(),
       db.aiCache.clear()
     ]);
-    console.log('[IndexedDB] All data cleared');
+    logInfo('[IndexedDB] All data cleared');
   } catch (error) {
     console.error('[IndexedDB] Failed to clear data:', error);
     throw error;
@@ -217,5 +218,5 @@ export async function importDatabase(backup: {
     ]);
   });
   
-  console.log('[IndexedDB] Database restored from backup');
+  logInfo('[IndexedDB] Database restored from backup');
 }

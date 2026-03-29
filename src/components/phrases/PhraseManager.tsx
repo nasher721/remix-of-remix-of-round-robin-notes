@@ -173,6 +173,8 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
       getPhraseFields(editingPhrase.id).then(fields => {
         setPhraseFields(fields);
         setLoadingFields(false);
+      }).catch(() => {
+        setLoadingFields(false);
       });
     } else if (isCreating) {
       setFormData({

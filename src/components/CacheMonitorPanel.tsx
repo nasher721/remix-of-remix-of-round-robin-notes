@@ -45,7 +45,7 @@ export function CacheMonitorPanel() {
   
   // Load cache size
   useEffect(() => {
-    getCacheSize().then(setCacheSize);
+    getCacheSize().then(setCacheSize).catch(() => setCacheSize(null));
   }, [getCacheSize]);
   
   const formatBytes = (bytes: number): string => {

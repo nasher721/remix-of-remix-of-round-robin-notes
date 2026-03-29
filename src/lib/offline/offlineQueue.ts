@@ -1,4 +1,5 @@
 // Offline mutation queue with persistence
+import { logInfo } from '../observability/logger';
 export interface QueuedMutation {
   id: string;
   type: 'patient' | 'autotext' | 'phrase' | 'todo' | 'template' | 'dictionary';
@@ -36,7 +37,7 @@ class OfflineQueueManager {
       const stored = localStorage.getItem(QUEUE_STORAGE_KEY);
       if (stored) {
         this.queue = JSON.parse(stored);
-        console.log(`[OfflineQueue] Loaded ${this.queue.length} pending mutations`);
+        logInfo(`[OfflineQueue] Loaded ${this.queue.length} pending mutations`);
       }
     } catch (error) {
       console.error('[OfflineQueue] Failed to load queue:', error);
@@ -54,12 +55,12 @@ class OfflineQueueManager {
   
   private setupOnlineListener(): void {
     window.addEventListener('online', () => {
-      console.log('[OfflineQueue] Connection restored, syncing...');
+      logInfo('[OfflineQueue] Connection restored, syncing...');
       this.notifyListeners();
     });
     
     window.addEventListener('offline', () => {
-      console.log('[OfflineQueue] Connection lost, queuing mutations...');
+      logInfo('[OfflineQueue] Connection lost, queuing mutations...');
       this.notifyListeners();
     });
   }
@@ -113,7 +114,7 @@ class OfflineQueueManager {
     this.saveToStorage();
     this.notifyListeners();
     
-    console.log(`[OfflineQueue] Queued mutation: ${mutation.type}/${mutation.operation}`);
+    logInfo(`[OfflineQueue] Queued mutation: ${mutation.type}/${mutation.operation}`);
     return id;
   }
   

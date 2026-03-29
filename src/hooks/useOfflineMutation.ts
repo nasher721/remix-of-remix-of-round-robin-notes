@@ -151,16 +151,25 @@ export function useOfflinePatientMutation() {
     const tempId = `temp_${Date.now()}`;
     
     if (isOnline) {
-      const { data, error } = await supabase
-        .from('patients')
-        .insert(patient)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.patients });
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from('patients')
+          .insert(patient)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.patients });
+        return data;
+      } catch (error) {
+        // Rollback: remove the optimistically added temp patient from cache
+        queryClient.setQueryData<PatientRow[]>(QUERY_KEYS.patients, (old) => {
+          if (!old) return old;
+          return old.filter((p) => p.id !== tempId);
+        });
+        throw error;
+      }
     } else {
       const offlinePatient = { 
         ...patient, 
@@ -189,14 +198,20 @@ export function useOfflinePatientMutation() {
   
   const deletePatient = useCallback(async (patientId: string) => {
     if (isOnline) {
-      const { error } = await supabase
-        .from('patients')
-        .delete()
-        .eq('id', patientId);
-      
-      if (error) throw error;
-      
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.patients });
+      try {
+        const { error } = await supabase
+          .from('patients')
+          .delete()
+          .eq('id', patientId);
+        
+        if (error) throw error;
+        
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.patients });
+      } catch (error) {
+        // Rollback: invalidate queries to force refetch from server
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.patients });
+        throw error;
+      }
     } else {
       queueMutation({
         type: 'patient',

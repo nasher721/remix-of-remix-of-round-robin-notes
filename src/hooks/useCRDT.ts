@@ -50,6 +50,19 @@ export function useCRDT(
   const { onSync, onConflict, onError } = options;
   const { tableName, idField, contentField, supabase, autoSync = true, syncInterval = 5000 } = crdtOptions;
 
+  // Store callbacks in refs so the effect doesn't re-subscribe when they change
+  const onSyncRef = useRef(onSync);
+  const onConflictRef = useRef(onConflict);
+  const onErrorRef = useRef(onError);
+  onSyncRef.current = onSync;
+  onConflictRef.current = onConflict;
+  onErrorRef.current = onError;
+
+  const autoSyncRef = useRef(autoSync);
+  const syncIntervalRef = useRef(syncInterval);
+  autoSyncRef.current = autoSync;
+  syncIntervalRef.current = syncInterval;
+
   const ydocRef = useRef<Y.Doc | null>(null);
   const ytextRef = useRef<Y.Text | null>(null);
   const providerRef = useRef<RealtimeChannel | null>(null);
@@ -79,7 +92,7 @@ export function useCRDT(
         const newContent = ytextRef.current.toString();
         setContent(newContent);
         setIsDirty(true);
-        onSync(newContent);
+        onSyncRef.current(newContent);
         isLocalUpdate.current = false;
       }
     };
@@ -135,7 +148,8 @@ export function useCRDT(
       persistenceRef.current?.destroy();
       ydocRef.current?.destroy();
     };
-  }, [docId, tableName]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- isDirty, syncFns, onError accessed via refs/setInterval closure
+  }, [docId, tableName, autoSync, syncInterval, supabase]);
 
   const syncFromServer = useCallback(async () => {
     if (!docId || !supabase) return;

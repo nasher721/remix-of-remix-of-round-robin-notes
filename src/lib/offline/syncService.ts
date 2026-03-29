@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 import { offlineQueue, QueuedMutation, SyncResult } from './offlineQueue';
-import { logMetric } from '@/lib/observability/logger';
+import { logInfo, logMetric } from '@/lib/observability/logger';
 import { toast } from 'sonner';
 
 export interface SyncProgress {
@@ -188,7 +188,7 @@ class SyncService {
   // Sync all pending mutations
   async syncAll(onProgress?: SyncProgressCallback): Promise<SyncProgress> {
     if (this.isSyncing) {
-      console.log('[SyncService] Sync already in progress');
+      logInfo('[SyncService] Sync already in progress');
       return {
         total: 0,
         completed: 0,
@@ -200,7 +200,7 @@ class SyncService {
     }
     
     if (!navigator.onLine) {
-      console.log('[SyncService] Offline, skipping sync');
+      logInfo('[SyncService] Offline, skipping sync');
       return {
         total: 0,
         completed: 0,
@@ -234,7 +234,7 @@ class SyncService {
     }
     
     const syncStart = performance.now();
-    console.log(`[SyncService] Starting sync of ${queue.length} mutations`);
+    logInfo(`[SyncService] Starting sync of ${queue.length} mutations`);
     
     // Sort by timestamp (oldest first)
     const sortedQueue = [...queue].sort((a, b) => a.timestamp - b.timestamp);
@@ -250,7 +250,7 @@ class SyncService {
       if (result.success) {
         if (result.skipped) {
           progress.skipped++;
-          console.log(`[SyncService] Skipped conflicting mutation: ${mutation.id}`);
+          logInfo(`[SyncService] Skipped conflicting mutation: ${mutation.id}`);
         } else {
           progress.completed++;
         }
@@ -292,7 +292,7 @@ class SyncService {
       progress.failed > 0 ? `${progress.failed} failed` : null,
     ].filter(Boolean).join(', ');
     
-    console.log(`[SyncService] Sync complete: ${summary}`);
+    logInfo(`[SyncService] Sync complete: ${summary}`);
     
     return progress;
   }

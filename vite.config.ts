@@ -66,6 +66,10 @@ export default defineConfig(({ mode }) => ({
           'vendor-date': ['date-fns'],
           // Icons
           'vendor-icons': ['lucide-react'],
+          // Animation libraries
+          'vendor-animation': ['framer-motion'],
+          // Document export (heavy — only loaded when exporting)
+          'vendor-export': ['xlsx', 'jspdf', 'html2pdf.js'],
         },
       },
     },

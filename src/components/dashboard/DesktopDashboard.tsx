@@ -12,7 +12,6 @@ import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
 import { VirtualizedPatientList } from "./VirtualizedPatientList";
 import { ProfileCoachingBanner } from "./ProfileCoachingBanner";
 import { getPatientProfileCoaching } from "@/lib/patientProfileCoaching";
-import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { CSVColumnMapper } from "@/components/import/CSVColumnMapper";
@@ -21,7 +20,6 @@ import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { GuidelinesPanel } from "@/components/guidelines";
-import { PhraseManager } from "@/components/phrases";
 import { SectionVisibilityPanel } from "@/components/SectionVisibilityPanel";
 import { DesktopSpecialtySelector } from "@/components/settings/DesktopSpecialtySelector";
 import { DesktopAIModelSettingsDialog } from "@/components/settings/DesktopAIModelSettingsDialog";
@@ -35,12 +33,17 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { PresenceIndicator } from "@/components/PresenceIndicator";
 import { TrustIndicators } from "@/components/trust/TrustIndicators";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
-import { MultiPatientComparison } from "@/components/MultiPatientComparison";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
 import { KeyboardShortcutHelp, useKeyboardShortcutHelp } from "@/components/KeyboardShortcutHelp";
 import { LiveRegion } from "@/components/LiveRegion";
 import { SyncHistoryPanel } from "@/components/sync/SyncHistoryPanel";
-import { AICommandPalette, useAICommandPalette } from "@/components/tools/AICommandPalette";
+import { useAICommandPalette } from "@/components/tools/AICommandPalette";
+
+// Lazy-load heavy modal components for better initial bundle size
+const PrintExportModal = React.lazy(() => import("@/components/PrintExportModal").then(m => ({ default: m.PrintExportModal })));
+const MultiPatientComparison = React.lazy(() => import("@/components/MultiPatientComparison").then(m => ({ default: m.MultiPatientComparison })));
+const PhraseManager = React.lazy(() => import("@/components/phrases").then(m => ({ default: m.PhraseManager })));
+const AICommandPalette = React.lazy(() => import("@/components/tools/AICommandPalette").then(m => ({ default: m.AICommandPalette })));
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -943,24 +946,32 @@ export const DesktopDashboard = () => {
         </Tooltip>
       </TooltipProvider>
 
-      <PrintExportModal
-        open={showPrintModal}
-        onOpenChange={setShowPrintModal}
-        patients={filteredPatients}
-        patientTodos={todosMap}
-        onUpdatePatient={onUpdatePatient}
-      />
+      <React.Suspense fallback={null}>
+        <PrintExportModal
+          open={showPrintModal}
+          onOpenChange={setShowPrintModal}
+          patients={filteredPatients}
+          patientTodos={todosMap}
+          onUpdatePatient={onUpdatePatient}
+        />
+      </React.Suspense>
 
-      <MultiPatientComparison
-        open={showComparisonModal}
-        onOpenChange={setShowComparisonModal}
-        patients={filteredPatients}
-        todosMap={todosMap}
-      />
+      <React.Suspense fallback={null}>
+        <MultiPatientComparison
+          open={showComparisonModal}
+          onOpenChange={setShowComparisonModal}
+          patients={filteredPatients}
+          todosMap={todosMap}
+        />
+      </React.Suspense>
 
-      <PhraseManager open={showPhraseManager} onOpenChange={setShowPhraseManager} />
+      <React.Suspense fallback={null}>
+        <PhraseManager open={showPhraseManager} onOpenChange={setShowPhraseManager} />
+      </React.Suspense>
 
-      <AICommandPalette open={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
+      <React.Suspense fallback={null}>
+        <AICommandPalette open={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
+      </React.Suspense>
 
       <AlertDialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
         <AlertDialogContent>

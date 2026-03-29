@@ -12,6 +12,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { indexedDBQueue, QueuedMutation, ConflictData } from './indexedDBQueue';
 import { toast } from 'sonner';
+import { logInfo } from '../observability/logger';
 
 // Types
 export type ConflictResolution = 'server-wins' | 'client-wins' | 'merge' | 'manual';
@@ -97,12 +98,12 @@ class SyncEngine {
   // Network listeners
   private setupNetworkListeners(): void {
     window.addEventListener('online', () => {
-      console.log('[SyncEngine] Back online, starting sync...');
+      logInfo('[SyncEngine] Back online, starting sync...');
       this.sync();
     });
 
     window.addEventListener('offline', () => {
-      console.log('[SyncEngine] Gone offline');
+      logInfo('[SyncEngine] Gone offline');
       this.setStatus('offline');
       this.abort();
     });
@@ -114,7 +115,7 @@ class SyncEngine {
       navigator.serviceWorker.ready.then(registration => {
         return (registration as ServiceWorkerRegistration & { sync: { register: (tag: string) => Promise<void> } }).sync.register('offline-mutations');
       }).catch(err => {
-        console.log('[SyncEngine] Background Sync not available:', err);
+        logInfo('[SyncEngine] Background Sync not available: ' + String(err));
       });
     }
   }
@@ -132,12 +133,12 @@ class SyncEngine {
   // Main sync method
   async sync(): Promise<SyncResult> {
     if (this.syncInProgress) {
-      console.log('[SyncEngine] Sync already in progress');
+      logInfo('[SyncEngine] Sync already in progress');
       return { success: 0, failed: 0, conflicts: [], duration: 0 };
     }
 
     if (!navigator.onLine) {
-      console.log('[SyncEngine] Offline, skipping sync');
+      logInfo('[SyncEngine] Offline, skipping sync');
       this.setStatus('offline');
       return { success: 0, failed: 0, conflicts: [], duration: 0 };
     }
@@ -152,12 +153,12 @@ class SyncEngine {
     try {
       const queueSize = await indexedDBQueue.getQueueSize();
       if (queueSize === 0) {
-        console.log('[SyncEngine] Queue empty');
+        logInfo('[SyncEngine] Queue empty');
         this.setStatus('idle');
         return { ...result, duration: Date.now() - startTime };
       }
 
-      console.log(`[SyncEngine] Starting sync of ${queueSize} mutations`);
+      logInfo(`[SyncEngine] Starting sync of ${queueSize} mutations`);
       this.emit('progress', { processed: 0, total: queueSize });
 
       let processed = 0;
@@ -307,7 +308,7 @@ class SyncEngine {
     switch (resolution) {
       case 'server-wins':
         // Do nothing - server data is already correct
-        console.log(`[SyncEngine] Conflict ${conflict.id}: server wins`);
+        logInfo(`[SyncEngine] Conflict ${conflict.id}: server wins`);
         break;
 
       case 'client-wins':
@@ -315,7 +316,7 @@ class SyncEngine {
           .from(conflict.table as 'patients')
           .update(conflict.clientData as never)
           .eq('id', conflict.id);
-        console.log(`[SyncEngine] Conflict ${conflict.id}: client wins`);
+        logInfo(`[SyncEngine] Conflict ${conflict.id}: client wins`);
         break;
 
       case 'merge': {
@@ -324,14 +325,14 @@ class SyncEngine {
           .from(conflict.table as 'patients')
           .update(merged as never)
           .eq('id', conflict.id);
-        console.log(`[SyncEngine] Conflict ${conflict.id}: merged`);
+        logInfo(`[SyncEngine] Conflict ${conflict.id}: merged`);
         break;
       }
 
       case 'manual':
         // Keep in queue for manual resolution
         await indexedDBQueue.updateStatus(mutation.id, 'conflict');
-        console.log(`[SyncEngine] Conflict ${conflict.id}: requires manual resolution`);
+        logInfo(`[SyncEngine] Conflict ${conflict.id}: requires manual resolution`);
         break;
     }
   }

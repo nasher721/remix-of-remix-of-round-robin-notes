@@ -209,7 +209,7 @@ export function IBCCProvider({ children }: IBCCProviderProps) {
     search.searchQuery, search.setSearchQuery, search.searchResults, search.isSearching, search.clearSearch,
     activeCategory, activeSystem, handleSetActiveCategory, handleSetActiveSystem, filteredChapters,
     bookmarks.bookmarkedChapters, bookmarks.recentChapters, bookmarks.toggleBookmark, bookmarks.isBookmarked,
-    context.contextSuggestions, context.hasContextSuggestions,
+    context.contextSuggestions, context.hasContextSuggestions, context.detailedMatches,
     getCalculatorsForChapter, getChecklistsForChapter,
     chapters, isDataLoaded,
   ]);
