@@ -8,7 +8,7 @@
  * and into separate chunks that load asynchronously.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 type LazyDataState<T> = {
   data: T | null;
@@ -38,19 +38,36 @@ export function useLazyData<TModule, TData>(
     error: null,
   });
 
+  const loaderRef = useRef(loader);
+  const selectorRef = useRef(selector);
+  const hasLoadedRef = useRef(false);
+
+  if (loader.toString() !== loaderRef.current.toString()) {
+    loaderRef.current = loader;
+    hasLoadedRef.current = false;
+  }
+  if (selector.toString() !== selectorRef.current.toString()) {
+    selectorRef.current = selector;
+    hasLoadedRef.current = false;
+  }
+
   useEffect(() => {
+    if (hasLoadedRef.current) return;
+    
     let cancelled = false;
 
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    loader()
+    loaderRef.current()
       .then((mod) => {
         if (!cancelled) {
-          setState({ data: selector(mod), loading: false, error: null });
+          hasLoadedRef.current = true;
+          setState({ data: selectorRef.current(mod), loading: false, error: null });
         }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
+          hasLoadedRef.current = true;
           setState({
             data: null,
             loading: false,
@@ -60,7 +77,8 @@ export function useLazyData<TModule, TData>(
       });
 
     return () => { cancelled = true; };
-  }, [loader, selector]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return state;
 }
