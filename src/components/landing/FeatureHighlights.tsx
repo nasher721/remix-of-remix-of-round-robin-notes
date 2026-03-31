@@ -222,7 +222,7 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = ({ prefersReducedMot
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-primary/5 to-transparent" />
 
         <div className="max-w-6xl mx-auto relative z-10">
-          <p className="text-center text-sm font-medium text-muted-foreground mb-10 max-w-xl mx-auto leading-[1.5]">
+          <p className="text-center text-sm font-medium text-slate-600 dark:text-slate-300 mb-10 max-w-xl mx-auto leading-[1.5]">
             Used by rounding teams who need a fast shared list — from academic ICUs to community hospitals.
           </p>
 
@@ -232,10 +232,14 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = ({ prefersReducedMot
             ))}
           </div>
 
+          <SectionHeading>Powerful features</SectionHeading>
+
+          <FeatureGrid prefersReducedMotion={prefersReducedMotion} />
+
           <div className="rounded-2xl border border-border/50 bg-card/40 p-6 sm:p-10 mb-20 overflow-hidden">
             <div className="flex flex-col lg:flex-row gap-8 items-center">
               <div className="flex-1 text-left space-y-3">
-                <h3 className="text-xl font-bold font-heading text-foreground">See the workspace</h3>
+                <h2 className="text-xl font-bold font-heading text-foreground">See the workspace</h2>
                 <p className="text-muted-foreground leading-[1.5] max-w-[65ch]">
                   Rolling Rounds centers on a sortable patient list, per-patient systems, meds, and tools for export — built for the pace of ward and ICU rounds.
                 </p>
@@ -518,7 +522,7 @@ const BottomCTA: React.FC<{ prefersReducedMotion: boolean }> = ({ prefersReduced
 
 const LandingFooter: React.FC = () => {
   return (
-    <footer className="border-t border-border bg-muted/30 py-12 px-6" role="contentinfo">
+    <footer className="border-t border-border bg-muted/30 py-12 px-6">
       <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10 text-sm">
         <div>
           <p className="font-bold font-heading text-foreground text-base mb-2">Rolling Rounds</p>
@@ -528,17 +532,17 @@ const LandingFooter: React.FC = () => {
         </div>
         <div>
           <p className="font-semibold text-foreground mb-2">Legal</p>
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             <li>
               <Link
                 to="/privacy"
-                className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+                className="inline-flex min-h-[44px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
               >
                 Privacy policy
               </Link>
             </li>
             <li>
-              <a href="#security" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
+              <a href="#security" className="inline-flex min-h-[44px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm">
                 Security & HIPAA
               </a>
             </li>

@@ -132,10 +132,12 @@ const Landing: React.FC = () => {
           </div>
         </header>
 
-      {/* Hero section with parallax */}
-      <div
-        id="top"
-        ref={heroRootRef}
+      {/* Main content area */}
+      <main id="main-content">
+        {/* Hero section with parallax */}
+        <div
+          id="top"
+          ref={heroRootRef}
         className="poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-100 transition-opacity duration-[1000ms] ease-in"
         style={{ background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" }}
       >
@@ -375,6 +377,8 @@ const Landing: React.FC = () => {
 
       {/* Feature highlights section */}
       <FeatureHighlights prefersReducedMotion={prefersReducedMotion} />
+
+      </main>
 
       <style>{`
         @keyframes iconFloat {
