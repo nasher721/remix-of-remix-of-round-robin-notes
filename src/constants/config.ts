@@ -17,6 +17,10 @@ export const STORAGE_KEYS = {
   EDITOR_TOOLBAR_MODE: 'editorToolbarMode',
   EDITOR_TOOLBAR_BUTTONS: 'editorToolbarButtons',
 
+  // Patient info toolbar
+  PATIENT_INFO_TOOLBAR_MODE: 'patientInfoToolbarMode',
+  PATIENT_INFO_TOOLBAR_BUTTONS: 'patientInfoToolbarButtons',
+
   // Print preferences
   PRINT_COLUMN_WIDTHS: 'printColumnWidths',
   PRINT_COLUMN_PREFS: 'printColumnPrefs',
@@ -139,3 +143,30 @@ export enum PatientFilterType {
   Empty = 'empty',
   MyPatients = 'myPatients',
 }
+
+// Patient info toolbar - available items that can appear in the toolbar
+export interface PatientInfoToolbarItem {
+  id: string;
+  label: string;
+  icon: string;
+  category: 'patient' | 'clinical' | 'common';
+}
+
+export const PATIENT_INFO_TOOLBAR_ITEMS: PatientInfoToolbarItem[] = [
+  { id: 'patientName', label: 'Patient Name', icon: 'User', category: 'patient' },
+  { id: 'mrn', label: 'MRN', icon: 'Hash', category: 'patient' },
+  { id: 'dob', label: 'Date of Birth', icon: 'Calendar', category: 'patient' },
+  { id: 'room', label: 'Room', icon: 'DoorOpen', category: 'patient' },
+  { id: 'codeStatus', label: 'Code Status', icon: 'AlertCircle', category: 'clinical' },
+  { id: 'attending', label: 'Attending', icon: 'Stethoscope', category: 'clinical' },
+  { id: 'diagnosis', label: 'Diagnosis', icon: 'ClipboardList', category: 'clinical' },
+  { id: 'admissionDate', label: 'Admission Date', icon: 'CalendarDays', category: 'clinical' },
+  { id: 'allergies', label: 'Allergies', icon: 'AlertTriangle', category: 'common' },
+  { id: 'medications', label: 'Medications', icon: 'Pill', category: 'common' },
+  { id: 'vitals', label: 'Vitals', icon: 'Activity', category: 'common' },
+  { id: 'labs', label: 'Labs', icon: 'TestTube', category: 'common' },
+];
+
+export const DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS = [
+  'patientName', 'mrn', 'room', 'codeStatus', 'allergies',
+] as const;

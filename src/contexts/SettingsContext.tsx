@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, normalizeGlobalFontSizeToPx, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels, type Theme } from '@/constants/config';
+import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS, normalizeGlobalFontSizeToPx, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels, type Theme } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,6 +55,12 @@ interface SettingsContextType {
   editorToolbarButtons: string[];
   setEditorToolbarButtons: (buttons: string[]) => void;
 
+  // Patient info toolbar (affects patient info quick-insert in text boxes)
+  patientInfoToolbarMode: 'minimal' | 'full' | 'custom';
+  setPatientInfoToolbarMode: (mode: 'minimal' | 'full' | 'custom') => void;
+  patientInfoToolbarButtons: string[];
+  setPatientInfoToolbarButtons: (buttons: string[]) => void;
+
   // Sync status
   isSyncingSettings: boolean;
 }
@@ -76,6 +82,8 @@ interface AppPreferences {
   aiFeatureModels?: AIFeatureModels;
   editorToolbarMode?: 'minimal' | 'full' | 'custom';
   editorToolbarButtons?: string[];
+  patientInfoToolbarMode?: 'minimal' | 'full' | 'custom';
+  patientInfoToolbarButtons?: string[];
 }
 
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
@@ -189,6 +197,22 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     }
   });
 
+  const [patientInfoToolbarMode, setPatientInfoToolbarModeState] = React.useState<'minimal' | 'full' | 'custom'>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE);
+    return (saved === 'minimal' || saved === 'full' || saved === 'custom') ? saved : 'minimal';
+  });
+
+  const [patientInfoToolbarButtons, setPatientInfoToolbarButtonsState] = React.useState<string[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS);
+    if (!saved) return [...DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS];
+    try {
+      const parsed = JSON.parse(saved) as string[];
+      return Array.isArray(parsed) ? parsed : [...DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS];
+    } catch {
+      return [...DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS];
+    }
+  });
+
   const buildAppPreferences = React.useCallback((): AppPreferences => ({
     globalFontSize,
     todosAlwaysVisible,
@@ -201,7 +225,9 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiFeatureModels,
     editorToolbarMode,
     editorToolbarButtons,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels, editorToolbarMode, editorToolbarButtons]);
+    patientInfoToolbarMode,
+    patientInfoToolbarButtons,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons]);
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
@@ -266,6 +292,14 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     if (prefs.editorToolbarButtons !== undefined) {
       setEditorToolbarButtonsState(prefs.editorToolbarButtons);
       localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, JSON.stringify(prefs.editorToolbarButtons));
+    }
+    if (prefs.patientInfoToolbarMode !== undefined) {
+      setPatientInfoToolbarModeState(prefs.patientInfoToolbarMode);
+      localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE, prefs.patientInfoToolbarMode);
+    }
+    if (prefs.patientInfoToolbarButtons !== undefined) {
+      setPatientInfoToolbarButtonsState(prefs.patientInfoToolbarButtons);
+      localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS, JSON.stringify(prefs.patientInfoToolbarButtons));
     }
   }, []);
 
@@ -400,6 +434,16 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, JSON.stringify(buttons));
   }, []);
 
+  const setPatientInfoToolbarMode = React.useCallback((mode: 'minimal' | 'full' | 'custom') => {
+    setPatientInfoToolbarModeState(mode);
+    localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE, mode);
+  }, []);
+
+  const setPatientInfoToolbarButtons = React.useCallback((buttons: string[]) => {
+    setPatientInfoToolbarButtonsState(buttons);
+    localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS, JSON.stringify(buttons));
+  }, []);
+
   // Persist section visibility to local storage and sync to DB with debounce
   React.useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
@@ -416,7 +460,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
         });
       }, 1000);
     }
-  }, [sectionVisibility, editorToolbarMode, editorToolbarButtons, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
+  }, [sectionVisibility, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(normalizeGlobalFontSizeToPx(size));
@@ -548,6 +592,10 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     setEditorToolbarMode,
     editorToolbarButtons,
     setEditorToolbarButtons,
+    patientInfoToolbarMode,
+    setPatientInfoToolbarMode,
+    patientInfoToolbarButtons,
+    setPatientInfoToolbarButtons,
     isSyncingSettings,
   }), [
     globalFontSize,
@@ -563,6 +611,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     aiFeatureModels,
     editorToolbarMode,
     editorToolbarButtons,
+    patientInfoToolbarMode,
+    patientInfoToolbarButtons,
     isSyncingSettings,
     setGlobalFontSize,
     setTheme,
@@ -578,6 +628,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     getModelForFeature,
     setEditorToolbarMode,
     setEditorToolbarButtons,
+    setPatientInfoToolbarMode,
+    setPatientInfoToolbarButtons,
     setSectionVisibility,
     resetSectionVisibility,
   ]);

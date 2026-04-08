@@ -26,6 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts, medicalDictionary } from "@/data/autotexts";
 import { ImageLightbox } from "./ImageLightbox";
+import { PatientInfoToolbar } from "./PatientInfoToolbar";
 import { DictationButton } from "./DictationButton";
 import { UnifiedAIDropdown } from "./UnifiedAIDropdown";
 import { PhrasePicker, PhraseFormDialog } from "./phrases";
@@ -251,6 +252,40 @@ export const ImagePasteEditor = ({
     } else {
       // Insert at end if no selection
       editorRef.current.innerHTML += ' ' + contentHtml + ' ';
+    }
+
+    isInternalUpdate.current = true;
+    onChange(editorRef.current.innerHTML);
+    editorRef.current.focus();
+  }, [effectiveChangeTracking, onChange]);
+
+  const handleInsertPatientInfo = React.useCallback((text: string) => {
+    if (!editorRef.current) return;
+
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0
+      ? selection.getRangeAt(0)
+      : null;
+
+    let contentHtml = text;
+    if (effectiveChangeTracking?.enabled) {
+      contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
+    }
+
+    if (range && editorRef.current.contains(range.startContainer)) {
+      range.deleteContents();
+      const temp = document.createElement('div');
+      temp.innerHTML = contentHtml + ' ';
+      const fragment = document.createDocumentFragment();
+      while (temp.firstChild) {
+        fragment.appendChild(temp.firstChild);
+      }
+      range.insertNode(fragment);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    } else {
+      editorRef.current.innerHTML += contentHtml + ' ';
     }
 
     isInternalUpdate.current = true;
@@ -971,6 +1006,13 @@ export const ImagePasteEditor = ({
         className
       )}
     >
+      <div className="border-b border-border/50 bg-muted/20">
+        <PatientInfoToolbar
+          onInsert={handleInsertPatientInfo}
+          patient={patient}
+        />
+      </div>
+
       {/* Find & Replace Panel */}
       {findReplaceMode && (
         <EditorFindReplace
