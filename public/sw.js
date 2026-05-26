@@ -1,6 +1,6 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.2';
+const CACHE_VERSION = 'v1.0.3';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -71,7 +71,7 @@ self.addEventListener('activate', (event) => {
             return caches.delete(name);
           })
       );
-    ).then(async () => {
+    }).then(async () => {
       // Clear stale dynamic cache entries on activation
       // This ensures old hashed chunks don't cause "Failed to fetch dynamically imported module" errors
       // after a deployment when index.html references new chunks
