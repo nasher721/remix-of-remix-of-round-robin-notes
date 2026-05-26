@@ -9,7 +9,7 @@ test.describe("Auth and dashboard", () => {
     await page.goto("/auth");
     await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
-    await expect(page.getByLabel(/password/i)).toBeVisible();
+    await expect(page.locator("#password")).toBeVisible();
     await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
   });
 
@@ -18,11 +18,11 @@ test.describe("Auth and dashboard", () => {
 
     await page.goto("/auth");
     await page.getByLabel(/email/i).fill(E2E_EMAIL!);
-    await page.getByLabel(/password/i).fill(E2E_PASSWORD!);
+    await page.locator("#password").fill(E2E_PASSWORD!);
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/(\?.*)?$/);
-    await expect(page.getByRole("button", { name: /open print and export/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: /print/i }).first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("after login, print/export modal can be opened and shows export", async ({ page }) => {
@@ -30,13 +30,14 @@ test.describe("Auth and dashboard", () => {
 
     await page.goto("/auth");
     await page.getByLabel(/email/i).fill(E2E_EMAIL!);
-    await page.getByLabel(/password/i).fill(E2E_PASSWORD!);
+    await page.locator("#password").fill(E2E_PASSWORD!);
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/(\?.*)?$/);
-    await expect(page.getByRole("button", { name: /open print and export/i })).toBeVisible({ timeout: 15_000 });
+    const printButton = page.getByRole("button", { name: /print/i }).first();
+    await expect(printButton).toBeVisible({ timeout: 15_000 });
 
-    await page.getByRole("button", { name: /open print and export/i }).click();
+    await printButton.click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(/print|export/i).first()).toBeVisible();
   });

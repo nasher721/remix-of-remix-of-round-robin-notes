@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Eraser, Layers3, Settings2 } from "lucide-react";
+import { Activity, Eraser, Layers3, Settings2 } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 import { FieldTimestamp } from "./FieldTimestamp";
 import { PatientTodos } from "./PatientTodos";
@@ -145,6 +145,7 @@ export const PatientSystemsReview = ({
     return (
       <div
         key={system.key}
+        data-systems-card
         className={`rounded-lg p-3 border transition-all duration-200 ${
           filled
             ? `${accent.bg} ${accent.border} shadow-card`
@@ -197,13 +198,16 @@ export const PatientSystemsReview = ({
   };
 
   return (
-    <div className="space-y-3" onFocusCapture={onAnyEditorFocus}>
+    <div
+      className="space-y-3"
+      onFocusCapture={onAnyEditorFocus}
+      data-systems-combined={systemsReviewMode === "combine_all" ? "true" : undefined}
+      data-systems-custom={systemsReviewMode === "combine_custom" ? "true" : undefined}
+    >
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
-            <span className="text-[13px] leading-none" aria-hidden="true">
-              ⚕️
-            </span>
+            <Activity className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
           </div>
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Systems Review</h3>
         </div>
@@ -212,7 +216,7 @@ export const PatientSystemsReview = ({
             value={systemsReviewMode}
             onValueChange={(mode) => onSystemsReviewModeChange?.(mode as SystemsReviewMode)}
           >
-            <SelectTrigger className="h-7 w-[148px] text-xs">
+            <SelectTrigger className="h-7 w-[148px] text-xs" data-systems-mode-selector>
               <SelectValue placeholder="View mode" />
             </SelectTrigger>
             <SelectContent>

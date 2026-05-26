@@ -614,6 +614,7 @@ const PatientCardComponent = ({
                     className="space-y-1"
                     ref={bindFocusContainer("clinicalSummary")}
                     onFocusCapture={() => handleEditorFocusIntent("clinicalSummary")}
+                    data-editor-type="clinical-summary"
                   >
                     <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
                       <RichTextEditor
@@ -912,6 +913,7 @@ const PatientCardComponent = ({
                 <div
                   ref={bindFocusContainer("systemsReview")}
                   onFocusCapture={() => handleEditorFocusIntent("systemsReview")}
+                  data-editor-type="systems-review"
                 >
                   <PatientSystemsReview
                     patient={patient}

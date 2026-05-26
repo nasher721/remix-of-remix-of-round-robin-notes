@@ -399,7 +399,16 @@ export const DesktopDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background" id="main-content" role="main">
+    <div
+      className="min-h-screen bg-background"
+      id="main-content"
+      role="main"
+      data-testid="dashboard"
+      data-left-panel-collapsed={String(panelLeftCollapsed)}
+      data-right-panel-collapsed={String(panelRightCollapsed)}
+      data-panel-collapsed={String(panelLeftCollapsed && panelRightCollapsed)}
+      data-focus-mode={String(focusModeActive)}
+    >
       <motion.header
         className="sticky top-0 z-50 isolate border-b border-border/20 bg-card/95 backdrop-blur-xl no-print shadow-card gradient-mesh-subtle"
         initial={shouldReduceMotion ? false : { opacity: 0, y: -10 }}
@@ -416,20 +425,17 @@ export const DesktopDashboard = () => {
                   </div>
                   <h1 className="text-lg font-semibold tracking-tight text-card-foreground group-hover:text-primary transition-colors hidden sm:block">Rolling Rounds</h1>
                 </Link>
-                <nav className="hidden lg:flex items-center gap-0.5 text-xs" aria-label="Workspace sections">
-                  <a
-                    href="#main-content"
-                    className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
-                  >
-                    Patients
-                  </a>
-                  <a
-                    href="#desktop-patient-search"
-                    className="text-foreground/70 hover:text-foreground px-2 py-1 rounded-md transition-colors"
-                  >
-                    Search
-                  </a>
-                </nav>
+                {patients.length > 0 ? (
+                  <div className="hidden md:flex items-center gap-2 rounded-md border border-border/25 bg-background/55 px-2.5 py-1 text-[11px] text-muted-foreground">
+                    <span className="font-semibold text-foreground tabular-nums">{patients.length}</span>
+                    <span>roster</span>
+                    <span className="h-3 w-px bg-border/50" aria-hidden="true" />
+                    <span className="font-semibold text-foreground tabular-nums">{outstandingTodosCount}</span>
+                    <span>open tasks</span>
+                    <span className="h-3 w-px bg-border/50" aria-hidden="true" />
+                    <span>Synced {lastSavedRelative}</span>
+                  </div>
+                ) : null}
               </div>
               <div className="flex items-center gap-2">
                 <Tooltip>
@@ -446,14 +452,29 @@ export const DesktopDashboard = () => {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button type="button" onClick={() => setShowPrintModal(true)} variant="outline" size="sm" className="gap-1.5 h-9 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60">
-                      <Printer className="h-3.5 w-3.5" aria-hidden="true" />
-                      Print
-                    </Button>
+                    <span>
+                      <Button
+                        type="button"
+                        onClick={() => setShowPrintModal(true)}
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 h-9 rounded-lg text-xs font-medium border-border/60 hover:bg-secondary/60"
+                        disabled={patients.length === 0}
+                      >
+                        <Printer className="h-3.5 w-3.5" aria-hidden="true" />
+                        Print
+                      </Button>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    <p>Print / export patient summaries</p>
-                    <p className="text-xs text-muted-foreground">Shortcut: ⌘P</p>
+                    {patients.length === 0 ? (
+                      <p>Add at least 1 patient to print or export</p>
+                    ) : (
+                      <>
+                        <p>Print / export patient summaries</p>
+                        <p className="text-xs text-muted-foreground">Shortcut: ⌘P</p>
+                      </>
+                    )}
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -461,7 +482,7 @@ export const DesktopDashboard = () => {
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               {patients.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 bg-secondary/40 rounded-lg text-xs border border-border/30">
+                <div className="flex md:hidden flex-wrap items-center gap-2 px-3 py-1.5 bg-secondary/40 rounded-lg text-xs border border-border/30">
                   <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
                   <span className="font-semibold text-foreground">{patients.length} total</span>
                   <span className="text-muted-foreground/60" aria-hidden="true">·</span>
@@ -572,9 +593,13 @@ export const DesktopDashboard = () => {
 
       <div ref={dashListRef} style={{ opacity: 0 }} className="h-[calc(100vh-10rem)] w-full no-print pb-4">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
-          <div className="flex flex-col h-full bg-background relative z-10 shadow-card border border-border/30 rounded-lg">
+          <div className="flex flex-col h-full bg-background relative z-10 border-y border-border/25">
             <div className="p-3 md:p-4 pb-0">
-              <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between mb-4">
+              <div
+                className="mb-3 rounded-lg border border-border/25 bg-card/55 p-2.5"
+                data-testid="dashboard-control-band"
+              >
+                <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between">
                 <div className="relative flex-1 max-w-md" role="search">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -674,35 +699,7 @@ export const DesktopDashboard = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="text-xs">
-                  {filterLabel}
-                </Badge>
-                {searchQuery.trim() ? (
-                  <Badge variant="secondary" className="text-xs">
-                    Search: {searchQuery}
-                  </Badge>
-                ) : null}
-                {activeFilterCount > 0 ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-muted-foreground"
-                    onClick={() => {
-                      setSearchQuery("");
-                      setFilter(PatientFilterType.All);
-                    }}
-                  >
-                    Clear filters
-                  </Button>
-                ) : null}
-              </div>
-
-              <div className="mb-3 rounded-lg border border-border/30 bg-card/50 p-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">Team actions</span>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -721,30 +718,37 @@ export const DesktopDashboard = () => {
                       </TooltipContent>
                     )}
                   </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => setShowPrintModal(true)}
-                        disabled={patients.length === 0}
-                      >
-                        Print / Export
-                      </Button>
-                    </TooltipTrigger>
-                    {patients.length === 0 && (
-                      <TooltipContent side="bottom">
-                        Add at least 1 patient to print
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAICommandPaletteOpen(true)}>
                     AI
                   </Button>
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSyncNow} disabled={syncingList}>
                     Sync
                   </Button>
+                </div>
+              </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {filterLabel}
+                  </Badge>
+                  {searchQuery.trim() ? (
+                    <Badge variant="secondary" className="text-xs">
+                      Search: {searchQuery}
+                    </Badge>
+                  ) : null}
+                  {activeFilterCount > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs text-muted-foreground"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setFilter(PatientFilterType.All);
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : null}
                 </div>
               </div>
 
@@ -786,9 +790,8 @@ export const DesktopDashboard = () => {
                           dateTime={lastSaved.toISOString()}
                           title={`Last sync at ${lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
                         >
-                          Last sync {lastSavedRelative}
+                          History
                         </time>
-                        <span className="text-muted-foreground">· Auto-sync on</span>
                       </Badge>
                     </button>
                     <Tooltip>
@@ -814,12 +817,7 @@ export const DesktopDashboard = () => {
                   className="text-[10px] leading-tight text-muted-foreground/90 hidden md:block"
                   aria-hidden="true"
                 >
-                  Shortcuts:{" "}
-                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘K</kbd> search ·{" "}
-                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘⇧A</kbd> AI ·{" "}
-                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘[</kbd>
-                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">⌘]</kbd> patients ·{" "}
-                  <kbd className="rounded border border-border/60 bg-muted/50 px-1 font-mono text-[9px]">?</kbd> all keys
+                  Use keyboard help for shortcuts and command details.
                 </p>
                 <LiveRegion
                   message={
@@ -893,14 +891,14 @@ export const DesktopDashboard = () => {
                           size="sm"
                           onClick={() => setShowSamplePreview((prev) => !prev)}
                         >
-                          {showSamplePreview ? "Hide sample patient" : "See a sample patient"}
+                          {showSamplePreview ? "Hide sample preview" : "Preview example structure"}
                         </Button>
                       </div>
                       {showSamplePreview ? (
                         <div className="mt-4 rounded-lg border border-border/50 bg-background p-3 text-xs text-left">
-                          <p className="font-semibold text-foreground">Sample patient preview</p>
-                          <p className="mt-1 text-muted-foreground">Bed 12A · Jane Doe · Septic shock improving</p>
-                          <p className="mt-2 text-foreground/90">CV: norepinephrine 0.04, MAP &gt; 65. Resp: 2L NC, wean as tolerated.</p>
+                          <p className="font-semibold text-foreground">Example structure</p>
+                          <p className="mt-1 text-muted-foreground">Bed 12A · De-identified ICU admission · Shock improving</p>
+                          <p className="mt-2 text-foreground/90">CV: pressor dose decreasing, MAP goal met. Resp: low-flow oxygen, wean as tolerated.</p>
                         </div>
                       ) : null}
                     </div>
@@ -1144,21 +1142,22 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
     <div
       ref={panelRef}
       className={cn(
-        "relative rounded-lg overflow-hidden transition-[box-shadow,background-color,border-color] duration-200",
+        "relative overflow-hidden transition-[box-shadow,background-color,border-color] duration-200",
         menuOpen
-          ? "border border-border/40 bg-card/80 backdrop-blur-sm shadow-card"
-          : "border border-border/15 bg-muted/15 backdrop-blur-sm shadow-none",
+          ? "rounded-lg border border-border/35 bg-card/80 backdrop-blur-sm shadow-card"
+          : "rounded-md border border-transparent bg-transparent shadow-none",
       )}
     >
-      <div className="flex items-center p-2">
+      <div className={cn("flex items-center", menuOpen ? "p-2" : "p-0")}>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          className={`gap-2 rounded-lg h-8 px-3 text-xs font-medium transition-all ${menuOpen ? "bg-primary/10 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
+          className={`gap-2 rounded-md h-8 px-2.5 text-xs font-medium transition-all ${menuOpen ? "bg-primary/10 text-primary border border-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"}`}
           onClick={() => setMenuOpen((open) => !open)}
           aria-expanded={menuOpen}
           aria-haspopup="true"
+          aria-label={menuOpen ? "Close workspace tools" : "Open workspace tools"}
         >
           <SlidersHorizontal className="h-3.5 w-3.5" />
           Tools

@@ -22,7 +22,7 @@ import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
 import { useMotionPreference } from "@/hooks/useReducedMotion";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { toLayoutMode, toPrefsMode } from "@/lib/dashboardLayoutModes";
-import { ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Hospital, ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
 
 /**
  * Desktop workspace: left = selectable list, right = full card for the selected patient.
@@ -90,6 +90,13 @@ export const VirtualizedPatientList = React.memo(() => {
     return patients[0];
   }, [patients, desktopSelectedPatientId]);
 
+  const getOpenTodoCount = React.useCallback(
+    (patientId: string) => (todosMap[patientId] ?? []).filter((todo) => !todo.completed).length,
+    [todosMap],
+  );
+
+  const selectedOpenTodoCount = selectedPatient ? getOpenTodoCount(selectedPatient.id) : 0;
+
   const sharedPatientTodos = usePatientTodos(selectedPatient?.id ?? null, {
     initialTodos: selectedPatient ? (todosMap[selectedPatient.id] ?? []) : undefined,
   });
@@ -123,11 +130,11 @@ export const VirtualizedPatientList = React.memo(() => {
 
   if (patients.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-6 text-center gradient-mesh-empty rounded-xl">
-        <div className="w-20 h-20 rounded-3xl bg-secondary/30 border border-border/40 flex items-center justify-center mb-6 depth-shadow-hover">
-          <span className="text-4xl">🏥</span>
+      <div className="flex flex-col items-center justify-center py-20 px-6 text-center rounded-lg bg-secondary/20">
+        <div className="w-16 h-16 rounded-lg bg-card border border-border/40 flex items-center justify-center mb-5 shadow-sm">
+          <Hospital className="h-7 w-7 text-primary" aria-hidden="true" />
         </div>
-        <h3 className="text-2xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+        <h3 className="text-xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
           Ready to Start Rounds
         </h3>
         <p className="text-muted-foreground text-base max-w-sm leading-relaxed">
@@ -168,27 +175,35 @@ export const VirtualizedPatientList = React.memo(() => {
                 <ul ref={listStaggerRef} className="p-2 space-y-1">
                   {patients.map((patient) => {
                     const isActive = selectedPatient?.id === patient.id;
+                    const openTodoCount = getOpenTodoCount(patient.id);
+                    const locationLabel = patient.bed?.trim() || "Unassigned";
+                    const secondaryLabel = patient.mrn?.trim() ? `MRN ${patient.mrn.trim()}` : "No MRN";
                     return (
                       <li key={patient.id}>
                         <button
                           type="button"
                           data-anime-stagger-item
                           onClick={() => setDesktopSelectedPatientId(patient.id)}
+                          aria-current={isActive ? "true" : undefined}
+                          aria-label={`Select ${patient.name || "unnamed patient"}, ${locationLabel}${openTodoCount > 0 ? `, ${openTodoCount} open tasks` : ""}`}
                           className={cn(
-                            "w-full text-left rounded-lg transition-all flex items-start gap-2 border",
+                            "w-full text-left rounded-lg transition-colors flex items-start gap-2 border border-l-[3px]",
                             patientListViewMode === "compact" ? "px-2.5 py-2" : "px-3 py-2.5",
                             isActive
-                              ? "bg-primary/12 border-primary/35 shadow-sm border-l-[3px] border-l-primary/60"
-                              : "border-transparent hover:bg-secondary/70 hover:shadow-md hover:border-l-[3px] hover:border-l-primary/40",
+                              ? "bg-primary/12 border-primary/35 shadow-sm border-l-primary/70"
+                              : "border-transparent border-l-transparent hover:bg-secondary/70 hover:border-border/30 hover:border-l-primary/35",
                           )}
                         >
                           <div className={cn(
                             "rounded-lg bg-primary/10 flex items-center justify-center shrink-0 border border-primary/15 font-semibold text-primary",
                             patientListViewMode === "compact" ? "h-8 w-8 text-xs" : "h-9 w-9 text-sm",
                           )}>
-                            {patient.name ? patient.name.charAt(0).toUpperCase() : "#"}
+                            {locationLabel.slice(0, 3).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-primary/80 truncate">
+                              {locationLabel}
+                            </p>
                             <p className={cn(
                               "font-medium truncate text-foreground leading-tight",
                               patientListViewMode === "compact" ? "text-xs" : "text-sm",
@@ -199,9 +214,14 @@ export const VirtualizedPatientList = React.memo(() => {
                               "text-muted-foreground truncate font-mono",
                               patientListViewMode === "compact" ? "text-[10px] mt-0" : "text-[11px] mt-0.5",
                             )}>
-                              {[patient.mrn?.trim(), patient.bed?.trim()].filter(Boolean).join(" · ") || "—"}
+                              {secondaryLabel}
                             </p>
                           </div>
+                          {openTodoCount > 0 ? (
+                            <span className="mt-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
+                              {openTodoCount}
+                            </span>
+                          ) : null}
                         </button>
                       </li>
                     );
@@ -254,6 +274,8 @@ export const VirtualizedPatientList = React.memo(() => {
                     <div className="flex items-center gap-2">
                       {patients.map((patient) => {
                         const isActive = selectedPatient?.id === patient.id;
+                        const openTodoCount = getOpenTodoCount(patient.id);
+                        const locationLabel = patient.bed?.trim() || "Unassigned";
                         return (
                           <button
                             key={patient.id}
@@ -266,6 +288,7 @@ export const VirtualizedPatientList = React.memo(() => {
                                 ? "bg-primary/12 border-primary/35 shadow-sm"
                                 : "border-transparent hover:bg-secondary/70",
                             )}
+                            aria-current={isActive ? "true" : undefined}
                             aria-label={`Select patient ${patient.name || patient.bed || patient.id}`}
                             title={patient.name || patient.bed || "Patient"}
                           >
@@ -279,8 +302,13 @@ export const VirtualizedPatientList = React.memo(() => {
                               "font-medium truncate max-w-[10rem]",
                               patientListViewMode === "compact" ? "text-[10px]" : "text-[11px]",
                             )}>
-                              {patient.name || "Unnamed"}
+                              {locationLabel} · {patient.name || "Unnamed"}
                             </span>
+                            {openTodoCount > 0 ? (
+                              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
+                                {openTodoCount}
+                              </span>
+                            ) : null}
                           </button>
                         );
                       })}
@@ -352,8 +380,13 @@ export const VirtualizedPatientList = React.memo(() => {
                 <div className="flex items-center gap-2 min-w-0">
                   <ListTodo className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
                   <h2 id="desktop-tasks-rail-heading" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">
-                    Tasks
+                    {selectedPatient ? `Tasks · ${selectedPatient.bed || selectedPatient.name || "Selected patient"}` : "Tasks"}
                   </h2>
+                  {selectedOpenTodoCount > 0 ? (
+                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
+                      {selectedOpenTodoCount}
+                    </span>
+                  ) : null}
                 </div>
                 <Button
                   type="button"

@@ -15,7 +15,6 @@ import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardTodosProvider } from "@/contexts/DashboardTodosContext";
 import { useSetCurrentPatients } from "@/contexts/CurrentPatientsContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
-import { Loader2 } from "lucide-react";
 import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
 import type { MobileTab } from "@/components/layout";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -246,20 +245,21 @@ function IndexContent(): React.ReactElement | null {
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="flex items-center justify-center py-8">
-          <div className="text-center space-y-4">
-            <div className="relative mx-auto w-12 h-12">
-              <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary relative" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-foreground text-sm font-medium">Loading workspace</p>
-              <p className="text-muted-foreground/60 text-xs">Preparing your rounds...</p>
+        <div className="border-b border-border/20 bg-card/90">
+          <div className="container mx-auto px-4 md:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="h-8 w-44 rounded-lg bg-secondary/70 animate-pulse" />
+              <div className="flex gap-2">
+                <div className="h-9 w-24 rounded-lg bg-secondary/70 animate-pulse" />
+                <div className="h-9 w-16 rounded-lg bg-secondary/70 animate-pulse" />
+              </div>
             </div>
           </div>
         </div>
-        <div className="container mx-auto px-6 pb-8">
+        <div className="container mx-auto px-4 md:px-6 lg:px-8 py-4">
+          <div className="mb-4 h-10 rounded-lg border border-border/25 bg-card/60 animate-pulse" />
           <PatientListSkeleton count={3} />
+          <p className="sr-only">Loading workspace. Preparing your rounds.</p>
         </div>
       </motion.div>
     );

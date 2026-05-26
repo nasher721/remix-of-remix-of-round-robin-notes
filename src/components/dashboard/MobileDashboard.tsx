@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { PrintExportModal } from "@/components/PrintExportModal";
@@ -85,6 +85,12 @@ export const MobileDashboard = () => {
 
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones, editorToolbarMode, setEditorToolbarMode } = useSettings();
   const changeTracking = useChangeTracking();
+
+  const outstandingTodosCount = useMemo(() => {
+    return Object.values(todosMap).reduce((total, patientTodos) => {
+      return total + patientTodos.filter((todo) => !todo.completed).length;
+    }, 0);
+  }, [todosMap]);
 
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -173,9 +179,9 @@ export const MobileDashboard = () => {
           {mobileTab === "patients" && (
             <>
               <MobileHeader
-                title="Patient Rounding"
-                subtitle={`${filteredPatients.length} of ${patients.length} patients`}
-                statusText="Synced"
+                title="Rounds"
+                subtitle={`${filteredPatients.length} of ${patients.length} patients · ${outstandingTodosCount} open tasks`}
+                statusText={`Saved ${lastSavedLabel}`}
                 statusTone="success"
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -185,19 +191,20 @@ export const MobileDashboard = () => {
                       variant="ghost"
                       size="icon"
                       onClick={handlePrint}
-                      className="h-10 w-10"
+                      className="h-11 w-11"
                       title="Print / Export"
+                      aria-label="Print / Export"
                     >
                       <Printer className="h-5 w-5" />
-                      <span className="sr-only">Print / Export</span>
                     </Button>
                     {patients.length > 0 && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={onCollapseAll}
-                        className="h-10 w-10"
+                        className="h-11 w-11"
                         title={patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
+                        aria-label={patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
                       >
                         <ChevronsUpDown className="h-5 w-5" />
                       </Button>
@@ -210,16 +217,16 @@ export const MobileDashboard = () => {
                   <span>
                     {searchQuery ? `Results for "${searchQuery}"` : `${filteredPatients.length} of ${patients.length} patients`}
                   </span>
-                  <span>Saved {lastSavedLabel}</span>
+                  <span>{filter === PatientFilterType.All ? "All patients" : filterOptions.find((option) => option.id === filter)?.label}</span>
                 </div>
-                <div className="flex items-center gap-1.5 px-4 pb-2.5 overflow-x-auto scrollbar-thin">
-                  <div className="flex items-center gap-1.5 bg-secondary/40 rounded-full px-2 py-0.5">
+                <div className="flex items-center gap-2 px-4 pb-2.5 overflow-x-auto scrollbar-thin">
+                  <div className="flex min-h-11 items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
                     <span className="text-[10px] text-muted-foreground">View</span>
                     <Select
                       value={patientListViewMode}
                       onValueChange={(value) => setPatientListViewMode(value as "rich" | "compact")}
                     >
-                      <SelectTrigger className="h-7 w-[92px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
+                      <SelectTrigger className="h-11 w-[96px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
                         <SelectValue placeholder="View" />
                       </SelectTrigger>
                       <SelectContent>
@@ -228,10 +235,10 @@ export const MobileDashboard = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-secondary/40 rounded-full px-2 py-0.5">
+                  <div className="flex min-h-11 items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
                     <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v as "number" | "room" | "name")}>
-                      <SelectTrigger className="h-7 w-[110px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
+                      <SelectTrigger className="h-11 w-[116px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
                         <SelectValue placeholder="Sort by" />
                       </SelectTrigger>
                       <SelectContent>
@@ -248,7 +255,7 @@ export const MobileDashboard = () => {
                       size="sm"
                       onClick={() => setFilter(option.id)}
                       className={cn(
-                        "h-7 rounded-full px-3 text-xs",
+                        "h-11 rounded-lg px-3 text-xs",
                         filter === option.id ? "shadow-sm" : "text-muted-foreground/70"
                       )}
                     >

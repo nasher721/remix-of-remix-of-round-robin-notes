@@ -33,7 +33,11 @@ test("Auth page renders with form and sign-in button", async () => {
   const passwordInput = div.querySelector('input[type="password"], input[id="password"]');
   assert.ok(form, "Auth page should render a form");
   assert.ok(submitBtn, "Auth page should render a submit button");
-  assert.ok(submitBtn?.textContent?.includes("Sign In") || submitBtn?.textContent?.includes("Create Account"), "Submit button should show Sign In or Create Account");
+  const submitText = submitBtn?.textContent?.toLowerCase() ?? "";
+  assert.ok(
+    submitText.includes("sign in") || submitText.includes("create account"),
+    "Submit button should show Sign in or Create account",
+  );
   assert.ok(emailInput, "Auth page should render an email input");
   assert.ok(passwordInput, "Auth page should render a password input");
   root.unmount();

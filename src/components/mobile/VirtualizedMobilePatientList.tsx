@@ -3,7 +3,7 @@ import { List, ListImperativeAPI, RowComponentProps } from "react-window";
 import { Patient } from "@/types/patient";
 import { SwipeablePatientCard } from "./SwipeablePatientCard";
 import { Button } from "@/components/ui/button";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Hospital, Lightbulb, Search } from "lucide-react";
 
 interface VirtualizedMobilePatientListProps {
   patients: Patient[];
@@ -112,7 +112,11 @@ export const VirtualizedMobilePatientList = React.memo(({
     return (
       <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
         <div className="w-14 h-14 rounded-2xl bg-secondary/60 flex items-center justify-center mb-5 border border-border/30">
-          <span className="text-2xl">{searchQuery ? "🔍" : "🏥"}</span>
+          {searchQuery ? (
+            <Search className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+          ) : (
+            <Hospital className="h-6 w-6 text-primary" aria-hidden="true" />
+          )}
         </div>
         <h3 className="text-lg font-semibold mb-1.5">
           {searchQuery ? "No patients found" : "Ready to Start Rounds"}
@@ -124,10 +128,10 @@ export const VirtualizedMobilePatientList = React.memo(({
         </p>
         {!searchQuery && (
           <div className="flex flex-col gap-2 mt-8 w-full max-w-[240px]">
-            <Button onClick={onAddPatient} className="w-full shadow-sm" disabled={!onAddPatient}>
+            <Button onClick={onAddPatient} className="min-h-11 w-full shadow-sm" disabled={!onAddPatient}>
               Add patient
             </Button>
-            <Button variant="outline" onClick={onOpenImport} className="w-full border-border/40" disabled={!onOpenImport}>
+            <Button variant="outline" onClick={onOpenImport} className="min-h-11 w-full border-border/40" disabled={!onOpenImport}>
               Import from Epic
             </Button>
           </div>
@@ -151,8 +155,9 @@ export const VirtualizedMobilePatientList = React.memo(({
 
       {/* Swipe hint for first-time users */}
       {patients.length === 1 && (
-        <div className="py-4 px-6 text-center text-xs text-muted-foreground animate-fade-in">
-          💡 Swipe left on a patient for quick actions
+        <div className="flex items-center justify-center gap-1.5 py-4 px-6 text-center text-xs text-muted-foreground animate-fade-in">
+          <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Swipe left on a patient for quick actions</span>
         </div>
       )}
 
@@ -161,7 +166,7 @@ export const VirtualizedMobilePatientList = React.memo(({
           variant="secondary"
           size="icon"
           onClick={() => listRef.current?.scrollToRow({ index: 0, align: 'start', behavior: 'smooth' })}
-          className="absolute bottom-4 right-4 h-10 w-10 rounded-full shadow-lg"
+          className="absolute bottom-4 right-4 h-11 w-11 rounded-full shadow-lg"
           aria-label="Scroll to top"
         >
           <ArrowUp className="h-4 w-4" />
