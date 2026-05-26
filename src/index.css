@@ -10,8 +10,8 @@
 
 @layer base {
   :root {
-    --background: 0 0% 99%;
-    --foreground: 240 10% 12%;
+    --background: 210 24% 98%;
+    --foreground: 222 24% 12%;
 
     --card: 0 0% 100%;
     --card-foreground: 240 10% 12%;
@@ -19,17 +19,17 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 12%;
 
-    /* Sophisticated Clinical-Luxury Palette */
-    --primary: 198 70% 30%; /* Deep Oceanic Teal */
+    /* Minimal clinical product palette */
+    --primary: 199 72% 27%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%; /* Soft Slate */
+    --secondary: 210 20% 95%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 15% 42%;
 
-    --accent: 198 50% 96%;
+    --accent: 199 55% 94%;
     --accent-foreground: 198 70% 30%;
 
     --destructive: 0 84% 60%;
@@ -41,26 +41,24 @@
     --warning: 40 85% 55%;
     --warning-foreground: 30 90% 10%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 214 22% 88%;
+    --input: 214 22% 88%;
     --ring: 198 70% 30%;
 
-    /* Radius: one base, one small for inputs/chips */
-    --radius: 0.75rem;
-    --radius-sm: 0.5rem;
+    /* Radius: compact and consistent for dense clinical UI */
+    --radius: 0.5rem;
+    --radius-sm: 0.375rem;
 
     /* Shadows: card and modal for consistent elevation */
-    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
-    --shadow-modal: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
-    --shadow-elevated: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
-    --shadow-floating: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.06);
+    --shadow-card: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+    --shadow-modal: 0 18px 50px -24px rgba(15, 23, 42, 0.35), 0 8px 20px -18px rgba(15, 23, 42, 0.2);
+    --shadow-elevated: 0 8px 28px -20px rgba(15, 23, 42, 0.32);
+    --shadow-floating: 0 20px 48px -26px rgba(15, 23, 42, 0.42);
 
-    /* Gradient meshes for atmospheric depth */
-    --gradient-header-mesh: radial-gradient(ellipse at 20% 50%, hsl(198 70% 30% / 0.06) 0%, transparent 50%),
-                           radial-gradient(ellipse at 80% 20%, hsl(198 50% 96% / 0.15) 0%, transparent 40%);
-    --gradient-empty-state: radial-gradient(ellipse at 50% 30%, hsl(198 70% 30% / 0.04) 0%, transparent 60%),
-                           radial-gradient(ellipse at 20% 80%, hsl(150 60% 40% / 0.03) 0%, transparent 50%);
-    --gradient-card-depth: linear-gradient(135deg, hsl(198 50% 96% / 0.3) 0%, transparent 50%);
+    /* Functional surfaces: keep legacy utility names, remove decorative mesh by default */
+    --gradient-header-mesh: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
+    --gradient-empty-state: linear-gradient(180deg, hsl(var(--muted) / 0.7) 0%, hsl(var(--background)) 100%);
+    --gradient-card-depth: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
 
     /* Spacing scale (4px base): use for padding/gap consistency */
     --space-1: 0.25rem;
@@ -146,7 +144,7 @@
   }
 
   html {
-    font-size: 12px;
+    font-size: 13px;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

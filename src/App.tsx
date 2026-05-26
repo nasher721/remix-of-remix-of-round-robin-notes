@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createOptimizedQueryClient } from "@/lib/cache/queryClientConfig";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { IBCCProvider } from "@/contexts/IBCCContext";
 import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
 import { SettingsProvider } from "@/contexts/SettingsContext";
@@ -73,14 +73,15 @@ function AppRoutesShell(): React.ReactElement {
 
 function AppContent(): React.ReactElement {
   const { announce } = useAnnouncerContext();
+  const { user } = useAuth();
   return (
     <>
       <LiveRegionWrapper />
       <NavigationBreadcrumbTracker />
       <CurrentPatientsProvider>
         <SkipToContent />
-        <UnifiedAIChatbot />
-        {DevAgentationOverlay ? (
+        {user ? <UnifiedAIChatbot /> : null}
+        {user && DevAgentationOverlay ? (
           <React.Suspense fallback={null}>
             <DevAgentationOverlay />
           </React.Suspense>

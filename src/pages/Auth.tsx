@@ -1,16 +1,13 @@
-import { useState, useEffect, useRef } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { z } from "zod";
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
-import { z } from "zod";
-import { useMotionPreference } from "@/hooks/useReducedMotion";
-import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
-// Removed direct supabase import to avoid potential cycles
 
 const authSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -35,29 +32,6 @@ const Auth = () => {
       navigate("/");
     }
   }, [user, navigate]);
-
-  const { prefersReducedMotion } = useMotionPreference();
-  const authCardStaggerRef = useRef<HTMLDivElement>(null);
-  const animeRunAuthCard = shouldRunAnime(prefersReducedMotion);
-
-  useAnimeTimeline(
-    ({ createTimeline, stagger }) => {
-      const root = authCardStaggerRef.current;
-      if (!root) return null;
-      const items = root.querySelectorAll<HTMLElement>("[data-anime-stagger-item]");
-      if (items.length === 0) return null;
-      const tl = createTimeline({ defaults: { ease: "outCubic" } });
-      tl.add(items, {
-        opacity: { from: 0, to: 1 },
-        y: { from: 12, to: 0 },
-        duration: 320,
-        delay: stagger(45, { from: "start" }),
-      });
-      return tl;
-    },
-    [isLogin],
-    { enabled: animeRunAuthCard, afterLayout: true },
-  );
 
   const validateForm = () => {
     try {
@@ -93,7 +67,7 @@ const Auth = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) return;
@@ -104,22 +78,16 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
-          if (error.message.includes("Invalid login credentials")) {
-            toast({
-              title: "Login Failed",
-              description: "Invalid email or password. Please try again.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Login Failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
+          toast({
+            title: "Login failed",
+            description: error.message.includes("Invalid login credentials")
+              ? "Invalid email or password. Please try again."
+              : error.message,
+            variant: "destructive",
+          });
         } else {
           toast({
-            title: "Welcome back!",
+            title: "Welcome back",
             description: "You have successfully logged in.",
           });
           navigate("/");
@@ -127,22 +95,16 @@ const Auth = () => {
       } else {
         const { error } = await signUp(email, password);
         if (error) {
-          if (error.message.includes("already registered")) {
-            toast({
-              title: "Account Exists",
-              description: "This email is already registered. Please sign in instead.",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Sign Up Failed",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
+          toast({
+            title: "Sign up failed",
+            description: error.message.includes("already registered")
+              ? "This email is already registered. Please sign in instead."
+              : error.message,
+            variant: "destructive",
+          });
         } else {
           toast({
-            title: "Account Created!",
+            title: "Account created",
             description: "You can now sign in with your credentials.",
           });
           navigate("/");
@@ -150,7 +112,7 @@ const Auth = () => {
       }
     } catch (error) {
       toast({
-        title: "Authentication Error",
+        title: "Authentication error",
         description: "Something went wrong while processing your request.",
         variant: "destructive",
       });
@@ -160,9 +122,9 @@ const Auth = () => {
   };
 
   const handleOAuthSignIn = async (provider: "google" | "apple") => {
-    const setLoading = provider === "google" ? setGoogleLoading : setAppleLoading;
+    const setProviderLoading = provider === "google" ? setGoogleLoading : setAppleLoading;
     const label = provider === "google" ? "Google" : "Apple";
-    setLoading(true);
+    setProviderLoading(true);
     try {
       const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.signInWithOAuth({
@@ -173,212 +135,183 @@ const Auth = () => {
       });
       if (error) {
         toast({
-          title: `${label} Sign In Failed`,
+          title: `${label} sign-in failed`,
           description: error.message || `Could not sign in with ${label}. Please try again.`,
           variant: "destructive",
         });
       }
     } catch (err) {
       toast({
-        title: `${label} Sign In Failed`,
+        title: `${label} sign-in failed`,
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      setProviderLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen w-full flex" aria-labelledby="auth-heading">
-      {/* Left Panel - Hero/Branding (Desktop only) */}
-      <div className="hidden lg:flex w-[45%] bg-primary/5 relative overflow-hidden items-center justify-center p-12">
-        {/* Modern Clinical Mesh Gradient */}
-        <div className="absolute inset-0 opacity-40">
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/20 blur-[100px] animate-pulse duration-[8000ms]" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-medical-blue/20 blur-[120px] animate-pulse duration-[10000ms] delay-[2000ms]" />
-          <div className="absolute top-[20%] right-[10%] w-[40%] h-[40%] rounded-full bg-medical-green/10 blur-[80px]" />
-        </div>
-
-        {/* Noise overlay for texture */}
-        <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay noise-overlay" />
-
-        <div className="relative z-10 space-y-8 max-w-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/8 rounded-2xl backdrop-blur-sm border border-white/10">
-              <img src={rollingRoundsLogo} alt="Logo" className="h-8 w-8 brightness-0 invert" />
-            </div>
-            <span className="text-xl font-semibold tracking-tight">Rolling Rounds</span>
-          </div>
-          <div className="space-y-4">
-            <h2 className="text-3xl font-bold leading-tight tracking-tight">
-              Streamline your <br />medical rounds <br />with intelligence.
-            </h2>
-            <p className="text-[hsl(160,6%,55%)] text-base leading-relaxed max-w-sm">
-              The modern platform for healthcare professionals to manage patient data, track rounds, and collaborate efficiently.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 pt-4">
-            <div className="p-4 bg-background/50 backdrop-blur-md border border-border/40 rounded-2xl shadow-sm transition-all hover:shadow-md hover:border-primary/20">
-              <h3 className="font-semibold text-sm mb-1.5 text-foreground">Smart Tracking</h3>
-              <p className="text-muted-foreground text-xs leading-relaxed">Automated patient status updates and history.</p>
-            </div>
-            <div className="p-4 bg-background/50 backdrop-blur-md border border-border/40 rounded-2xl shadow-sm transition-all hover:shadow-md hover:border-primary/20">
-              <h3 className="font-semibold text-sm mb-1.5 text-foreground">Secure & Safe</h3>
-              <p className="text-muted-foreground text-xs leading-relaxed">Enterprise-grade HIPAA compliant architecture.</p>
-            </div>
-          </div>
+    <main className="min-h-[100dvh] bg-[#f7f9fb] px-4 py-6 text-slate-950 sm:px-6 lg:px-8" aria-labelledby="auth-heading">
+      <div className="mx-auto flex max-w-7xl items-center justify-between">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back
+        </button>
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+          <img src={rollingRoundsLogo} alt="" className="h-7 w-auto" aria-hidden="true" />
+          Rolling Rounds
         </div>
       </div>
 
-      {/* Right Panel - Auth Form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 bg-background/50 relative">
-        {/* Subtle background glow behind the card */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg h-96 bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 py-16 lg:grid-cols-[0.95fr_1.05fr] lg:py-24">
+        <section className="hidden lg:block">
+          <div className="max-w-xl">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
+              <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+              Protected clinical workspace
+            </div>
+            <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+              Sign in, then get straight to the patient list.
+            </h1>
+            <p className="mt-4 max-w-lg text-base leading-7 text-slate-600">
+              Rolling Rounds keeps authentication quiet and the workspace practical: notes, tasks, handoffs, and exports stay close.
+            </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+              {["Team sync", "Field history", "Print export"].map((item) => (
+                <div key={item} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-semibold text-slate-950">{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-        <div
-          ref={authCardStaggerRef}
-          className="relative w-full max-w-[400px] bg-card text-card-foreground rounded-3xl p-8 shadow-xl ring-1 ring-border/50 border border-border/50 space-y-7 z-10 transition-all"
-        >
-          <div className="text-center lg:text-left space-y-2" data-anime-stagger-item>
-            <img src={rollingRoundsLogo} alt="Logo" className="h-10 w-auto mx-auto lg:mx-0 lg:hidden mb-4" />
-            <h2 id="auth-heading" className="text-2xl font-bold tracking-tight text-card-foreground">
-              {isLogin ? "Welcome back" : "Create an account"}
+        <section className="mx-auto w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgb(15_23_42_/_0.08)] sm:p-8">
+          <div className="mb-7">
+            <h2 id="auth-heading" className="text-2xl font-semibold tracking-tight text-slate-950">
+              {isLogin ? "Welcome back" : "Create your account"}
             </h2>
-            <p className="text-sm text-card-foreground/70">
+            <p className="mt-2 text-sm leading-6 text-slate-600">
               {isLogin
-                ? "Enter your credentials to access your account"
-                : "Enter your information to get started"}
+                ? "Use your email and password to open the workspace."
+                : "Create an account to start a workspace."}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5" data-anime-stagger-item>
-            <div className="space-y-3.5">
-              <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-xs font-medium text-card-foreground">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="doctor@hospital.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onBlur={(e) => e.target.value && validateField("email", e.target.value)}
-                  disabled={loading}
-                  startIcon={<Mail className="h-4 w-4" />}
-                  aria-invalid={Boolean(errors.email)}
-                  aria-describedby={errors.email ? "email-error" : undefined}
-                  showSuccess={!errors.email && email.length > 0}
-                  className={`h-10 ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                />
-                {errors.email && (
-                  <p id="email-error" className="text-xs text-destructive flex items-center gap-2" role="alert">
-                    {errors.email}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs font-medium text-card-foreground">Password</Label>
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onBlur={(e) => e.target.value && validateField("password", e.target.value)}
-                  disabled={loading}
-                  startIcon={<Lock className="h-4 w-4" />}
-                  aria-invalid={Boolean(errors.password)}
-                  aria-describedby={errors.password ? "password-error" : undefined}
-                  showSuccess={!errors.password && password.length > 0}
-                  endIcon={
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      aria-pressed={showPassword}
-                      className="rounded-sm text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  }
-                  className={`h-10 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                />
-                {errors.password && (
-                  <p id="password-error" className="text-xs text-destructive" role="alert">{errors.password}</p>
-                )}
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium text-slate-800">
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="doctor@hospital.org"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={(e) => e.target.value && validateField("email", e.target.value)}
+                disabled={loading}
+                startIcon={<Mail className="h-4 w-4" />}
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? "email-error" : undefined}
+                showSuccess={!errors.email && email.length > 0}
+                className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+              {errors.email && (
+                <p id="email-error" className="text-xs text-destructive" role="alert">
+                  {errors.email}
+                </p>
+              )}
             </div>
 
-            <Button type="submit" className="w-full h-10 font-medium shadow-sm" disabled={loading}>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-slate-800">
+                Password
+              </Label>
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={(e) => e.target.value && validateField("password", e.target.value)}
+                disabled={loading}
+                startIcon={<Lock className="h-4 w-4" />}
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={errors.password ? "password-error" : undefined}
+                showSuccess={!errors.password && password.length > 0}
+                endIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-pressed={showPassword}
+                    className="rounded-md text-slate-500 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                }
+                className={errors.password ? "border-destructive focus-visible:ring-destructive" : ""}
+              />
+              {errors.password && (
+                <p id="password-error" className="text-xs text-destructive" role="alert">
+                  {errors.password}
+                </p>
+              )}
+            </div>
+
+            <Button type="submit" className="h-11 w-full rounded-lg font-semibold" disabled={loading}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isLogin ? "Signing in..." : "Creating account..."}
+                  {isLogin ? "Signing in" : "Creating account"}
                 </>
+              ) : isLogin ? (
+                "Sign in"
               ) : (
-                isLogin ? "Sign In" : "Create Account"
+                "Create account"
               )}
             </Button>
           </form>
 
-          <div className="relative" data-anime-stagger-item>
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border/30" />
-            </div>
-            <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-              <span className="bg-card px-3 text-card-foreground/60">
-                Or continue with
-              </span>
-            </div>
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-medium uppercase text-slate-500">Or</span>
+            <div className="h-px flex-1 bg-slate-200" />
           </div>
 
-          <div className="space-y-2.5" data-anime-stagger-item>
+          <div className="space-y-3">
             <Button
               type="button"
               variant="outline"
-              className="w-full h-10 border-border/30 hover:bg-secondary/30"
+              className="h-11 w-full rounded-lg border-slate-300 bg-white hover:bg-slate-50"
               onClick={() => handleOAuthSignIn("google")}
               disabled={loading || googleLoading || appleLoading}
             >
-              {googleLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                </svg>
-              )}
-              <span className="text-sm text-card-foreground">Continue with Google</span>
+              {googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Continue with Google
             </Button>
 
             <Button
               type="button"
               variant="outline"
-              className="w-full h-10 border-border/30 hover:bg-secondary/30"
+              className="h-11 w-full rounded-lg border-slate-300 bg-white hover:bg-slate-50"
               onClick={() => handleOAuthSignIn("apple")}
               disabled={loading || googleLoading || appleLoading}
             >
-              {appleLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-                </svg>
-              )}
-              <span className="text-sm text-card-foreground">Continue with Apple</span>
+              {appleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Continue with Apple
             </Button>
           </div>
 
-          <div className="text-center text-sm" data-anime-stagger-item>
-            <span className="text-card-foreground/70">
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
+          <div className="mt-6 text-center text-sm">
+            <span className="text-slate-600">
+              {isLogin ? "Need an account? " : "Already have an account? "}
             </span>
             <button
               type="button"
@@ -386,12 +319,12 @@ const Auth = () => {
                 setIsLogin(!isLogin);
                 setErrors({});
               }}
-              className="text-primary font-semibold underline-offset-4 hover:underline rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {isLogin ? "Sign up" : "Sign in"}
             </button>
           </div>
-        </div>
+        </section>
       </div>
     </main>
   );

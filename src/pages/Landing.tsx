@@ -1,41 +1,23 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState, useCallback } from "react";
-import { stagger } from "animejs";
+import { ArrowRight, CheckCircle2, ClipboardList, LockKeyhole, RefreshCw, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import FeatureHighlights from "@/components/landing/FeatureHighlights";
-import { useAnimeTimeline } from "@/hooks/useAnimeTimeline";
 import { useMotionPreference } from "@/hooks/useReducedMotion";
-import { cn } from "@/lib/utils";
+import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { prefersReducedMotion } = useMotionPreference();
-  const [scrollY, setScrollY] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const heroRootRef = useRef<HTMLDivElement>(null);
-
-  const handleScroll = useCallback(() => {
-    if (containerRef.current) {
-      setScrollY(containerRef.current.scrollTop);
-    }
-  }, []);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
-  }, [handleScroll]);
 
   const handleLaunchPortal = () => {
     if (user) {
       navigate("/", { replace: true });
       window.location.reload();
-    } else {
-      navigate("/auth");
+      return;
     }
+    navigate("/auth");
   };
 
   const handleGetStarted = () => {
@@ -44,348 +26,180 @@ const Landing: React.FC = () => {
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
-    }
+    if (!el) return;
+    el.scrollIntoView({ behavior: prefersReducedMotion ? "auto" : "smooth", block: "start" });
   };
 
-  const parallaxSlow = scrollY * 0.3;
-  const parallaxMed = scrollY * 0.5;
-  const parallaxFast = scrollY * 0.7;
-  const bgOpacity = Math.min(scrollY / 600, 0.15);
-
-  useAnimeTimeline({
-    rootRef: heroRootRef,
-    enabled: true,
-    prefersReducedMotion,
-    setup: ({ timeline, root }) => {
-      const title = root.querySelector("[data-anime-hero-title]");
-      const subtitle = root.querySelector("[data-anime-hero-subtitle]");
-      const chips = root.querySelectorAll("[data-anime-hero-chip]");
-      const cta = root.querySelector("[data-anime-hero-cta]");
-      if (!title || !subtitle || chips.length === 0 || !cta) {
-        return;
-      }
-      timeline.add(title, { opacity: [0, 1], y: [24, 0], duration: 650, ease: "outCubic" }, 0);
-      timeline.add(subtitle, { opacity: [0, 1], y: [20, 0], duration: 600, ease: "outCubic" }, "+=120");
-      timeline.add(chips, { opacity: [0, 1], y: [16, 0], duration: 500, ease: "outCubic" }, stagger(80));
-      timeline.add(cta, { opacity: [0, 1], y: [16, 0], duration: 550, ease: "outCubic" }, "+=100");
-    },
-    deps: [],
-  });
+  const trustPoints: Array<[string, LucideIcon]> = [
+    ["Mobile ready", Smartphone],
+    ["Team sync", RefreshCw],
+    ["Access controls", LockKeyhole],
+  ];
 
   return (
-    <div
-      ref={containerRef}
-      className="landing-page min-h-screen relative overflow-y-auto overflow-x-hidden transition-colors duration-[1500ms] ease-in-out scroll-smooth"
-      style={{ backgroundColor: "#eef4f9" }}
-    >
-      <header className="sticky top-0 z-[90] border-b border-white/10 bg-[#1565C0]/95 backdrop-blur-md text-white shadow-sm">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-3 py-3">
-            <a
-              href="#top"
-              className="font-bold font-[Montserrat] text-lg tracking-tight shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white rounded-sm"
-              onClick={(e) => {
-                e.preventDefault();
-                containerRef.current?.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
-              }}
-            >
-              Rolling Rounds
-            </a>
-            <nav className="flex flex-wrap items-center gap-1 sm:gap-4 text-sm font-medium" aria-label="Primary">
-              <button
-                type="button"
-                onClick={() => scrollToSection("features")}
-                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              >
-                Features
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection("pricing")}
-                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              >
-                Pricing
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection("security")}
-                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              >
-                Security
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollToSection("contact")}
-                className="min-h-[44px] px-2 sm:px-3 rounded-md hover:bg-white/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-              >
-                Contact
-              </button>
-            </nav>
-            <button
-              type="button"
-              onClick={handleGetStarted}
-              className="min-h-[44px] px-4 py-2 rounded-full bg-white text-[#1565C0] text-sm font-bold shadow-md hover:bg-white/95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1565C0]"
-            >
-              Get started
-            </button>
-          </div>
-        </header>
+    <div className="landing-page min-h-[100dvh] bg-[#f7f9fb] text-slate-950">
+      <header className="sticky top-0 z-[90] border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <a
+            href="#top"
+            className="flex min-w-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
+            }}
+          >
+            <img src={rollingRoundsLogo} alt="" className="h-7 w-auto" aria-hidden="true" />
+            <span className="truncate text-sm font-semibold tracking-tight text-slate-950">Rolling Rounds</span>
+          </a>
 
-      {/* Main content area */}
+          <nav className="hidden items-center gap-1 text-sm font-medium text-slate-600 md:flex" aria-label="Primary">
+            {[
+              ["Features", "features"],
+              ["Security", "security"],
+              ["Pricing", "pricing"],
+              ["Contact", "contact"],
+            ].map(([label, id]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => scrollToSection(id)}
+                className="rounded-md px-3 py-2 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <button
+            type="button"
+            onClick={handleGetStarted}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            Get started
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+
       <main id="main-content">
-        {/* Hero section with parallax */}
-        <div
-          id="top"
-          ref={heroRootRef}
-        className="poster-container w-full min-h-screen flex flex-col justify-center items-center px-5 py-10 relative opacity-100 transition-opacity duration-[1000ms] ease-in"
-        style={{ background: "linear-gradient(135deg, #0D47A1 0%, #1976D2 50%, #42A5F5 100%)" }}
-      >
-        {/* Parallax background circles */}
-        <div
-          className="bg-circle absolute rounded-full bg-white/5 z-0"
-          style={{
-            width: "300px", height: "300px", top: "-100px", right: "-50px",
-            transform: `translateY(${parallaxSlow}px)`,
-            transition: "transform 0.1s linear",
-          }}
-        />
-        <div
-          className="bg-circle absolute rounded-full bg-white/5"
-          style={{
-            width: "200px", height: "200px", bottom: "100px", left: "-50px",
-            transform: `translateY(${-parallaxMed}px)`,
-            transition: "transform 0.1s linear",
-          }}
-        />
-        <div
-          className="bg-circle absolute rounded-full bg-white/5"
-          style={{
-            width: "150px", height: "150px", top: "50%", right: "-30px",
-            transform: `translateY(${parallaxSlow}px)`,
-            transition: "transform 0.1s linear",
-          }}
-        />
-
-        {/* Parallax floating icons */}
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ top: "15%", left: "10%", transform: `translateY(${-parallaxFast}px)`, transition: "transform 0.1s linear" }}
-        >
-          <span className="material-icons" aria-hidden>local_hospital</span>
-        </span>
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ top: "25%", right: "15%", transform: `translateY(${-parallaxMed}px)`, transition: "transform 0.1s linear" }}
-        >
-          <span className="material-icons" aria-hidden>medical_services</span>
-        </span>
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ bottom: "25%", left: "12%", transform: `translateY(${parallaxSlow}px)`, transition: "transform 0.1s linear" }}
-        >
-          <span className="material-icons" aria-hidden>health_and_safety</span>
-        </span>
-        <span
-          className="floating-icon absolute text-white/10 text-[30px] z-[1]"
-          style={{ bottom: "30%", right: "10%", transform: `translateY(${parallaxMed}px)`, transition: "transform 0.1s linear" }}
-        >
-          <span className="material-icons" aria-hidden>monitor_heart</span>
-        </span>
-
-        {/* Extra parallax glow layer */}
-        <div
-          className="absolute inset-0 pointer-events-none z-0"
-          style={{
-            background: `radial-gradient(ellipse at 50% ${30 + parallaxSlow * 0.05}%, rgba(255,255,255,${bgOpacity}), transparent 70%)`,
-          }}
-        />
-
-        {/* Logo / cart with parallax — smaller on narrow viewports */}
-        <div
-          className="logo-container relative w-[min(100%,280px)] max-[375px]:w-[min(100%,240px)] h-[min(85vw,380px)] max-[375px]:h-[300px] flex justify-center items-center mb-6 sm:mb-10 z-10 transition-transform duration-[1200ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] order-2 sm:order-1"
-          style={{
-            transform: `scale(1) translateY(${-parallaxSlow * 0.2}px)`,
-          }}
-        >
-          <div className="cart-wrapper relative w-full max-w-[320px] h-[min(75vw,380px)] max-[375px]:max-h-[300px]">
-            <div className="monitor absolute top-[10px] left-1/2 -translate-x-1/2 w-[min(56vw,180px)] h-[min(34vw,130px)] bg-[#f0f4f8] rounded-xl border-4 border-[#2c3e50] shadow-[0_10px_30px_rgba(0,0,0,0.2)] z-[5]">
-              <div className="screen w-[calc(100%-16px)] h-[min(26vw,100px)] mx-2 bg-[#1976D2] rounded-md flex justify-center items-center relative overflow-hidden border-2 border-[#2c3e50]">
-                <span className="material-icons text-[clamp(28px,8vw,40px)] text-white/90 animate-[iconFloat_3s_ease-in-out_infinite]" aria-hidden>analytics</span>
+        <section id="top" className="border-b border-slate-200/80">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-20">
+            <div className="max-w-2xl">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                Built for clinical rounding teams
+              </div>
+              <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+                A cleaner command center for rounds.
+              </h1>
+              <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">
+                Manage patient lists, notes, tasks, and team handoffs in one focused workspace.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleGetStarted}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  aria-label="Create an account or sign in to get started"
+                >
+                  Start workspace
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLaunchPortal}
+                  className="inline-flex min-h-11 items-center justify-center rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
+                >
+                  {user ? "Open dashboard" : "Returning team"}
+                </button>
+              </div>
+              <div className="mt-8 grid max-w-xl grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-3">
+                {trustPoints.map(([label, Icon]) => (
+                  <div key={label} className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
+                    <span>{label}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="stand-pole absolute left-1/2 top-[140px] max-[375px]:top-[120px] -translate-x-1/2 w-[24px] h-[min(42vw,160px)] bg-[#e0e0e0] border-l-2 border-r-2 border-[#bdc3c7] z-[1]" />
-            <div className="work-surface absolute top-[180px] max-[375px]:top-[155px] left-1/2 -translate-x-1/2 w-[min(68vw,220px)] h-[15px] bg-white rounded-lg border-3 border-[#2c3e50] z-[4] shadow-[0_5px_15px_rgba(0,0,0,0.1)]" />
-            <div className="keyboard-tray absolute top-[205px] max-[375px]:top-[175px] left-1/2 -translate-x-1/2 w-[140px] h-[10px] bg-[#90A4AE] rounded border-2 border-[#2c3e50] z-[3]" />
-            <div className="cart-base absolute bottom-[60px] left-1/2 -translate-x-1/2 w-[200px] h-[40px] bg-white rounded-[20px] border-3 border-[#2c3e50] z-[2]" />
-            <div className="wheels-container absolute bottom-0 left-1/2 -translate-x-1/2 w-[240px] h-[70px] flex justify-between z-[1]">
-              <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
+
+            <div className="relative">
+              <div className="rounded-xl border border-slate-200 bg-white shadow-[0_18px_50px_rgb(15_23_42_/_0.08)]">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-950">Today's list</p>
+                      <p className="text-xs text-slate-500">4 active patients</p>
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                    Synced
+                  </div>
+                </div>
+                <div className="grid gap-0 lg:grid-cols-[220px_1fr]">
+                  <div className="border-b border-slate-200 p-3 lg:border-b-0 lg:border-r">
+                    {[
+                      ["A. Chen", "7W-12", "2 tasks"],
+                      ["M. Patel", "7W-14", "Ready"],
+                      ["J. Rivera", "ICU-03", "Review labs"],
+                    ].map(([name, bed, status], index) => (
+                      <div
+                        key={name}
+                        className={`mb-2 rounded-lg border p-3 text-sm ${
+                          index === 0 ? "border-primary/30 bg-primary/5" : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-slate-950">{name}</span>
+                          <span className="font-mono text-xs text-slate-500">{bed}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">{status}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-4 p-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-slate-500">Interval events</p>
+                      <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+                        Overnight oxygen weaned. Net negative 800 mL. Family updated after rounds.
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {[
+                        ["Systems", "Focused ICU-style review"],
+                        ["Tasks", "Follow-ups linked to patient"],
+                        ["Export", "Print handoff-ready notes"],
+                        ["AI tools", "Drafting support with guardrails"],
+                      ].map(([title, body]) => (
+                        <div key={title} className="rounded-lg border border-slate-200 bg-white p-3">
+                          <p className="text-sm font-semibold text-slate-950">{title}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">{body}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-3 text-xs text-slate-600">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1">
+                        <Users className="h-3 w-3" aria-hidden="true" />
+                        Team view
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1">
+                        <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                        Audit-aware
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="wheel w-[60px] h-[60px] bg-white border-3 border-[#2c3e50] rounded-full relative animate-[spin_3s_linear_infinite]">
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[120deg]" />
-                <div className="spoke absolute w-1 h-[26px] bg-[#2c3e50] top-1/2 left-1/2 -translate-x-1/2 origin-top rotate-[240deg]" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[15px] h-[15px] bg-[#2c3e50] rounded-full" />
-              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Title section — headline first on small screens */}
-        <div className="title-section text-center relative z-10 -mt-2 sm:-mt-5 w-full max-w-3xl order-1 sm:order-2">
-          <h1
-            className={cn(
-              "main-title font-[Montserrat] text-[clamp(2rem,7vw,56px)] font-extrabold text-white tracking-tighter mb-2.5 drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)]",
-              prefersReducedMotion &&
-                "transition-all duration-[800ms] ease-out delay-[500ms] opacity-100 translate-y-0",
-            )}
-            style={{
-              fontFamily: "'Montserrat', sans-serif",
-              transform: `translateY(${-parallaxSlow * 0.15}px)`,
-              transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
-            }}
-          >
-            {prefersReducedMotion ? (
-              "Rolling Rounds"
-            ) : (
-              <span data-anime-hero-title className="inline-block opacity-0 will-change-transform">
-                Rolling Rounds
-              </span>
-            )}
-          </h1>
-          <p
-            className={cn(
-              "subtitle text-[clamp(1rem,3.5vw,1.2rem)] font-light text-white mb-7.5 max-w-[65ch] mx-auto leading-[1.5]",
-              prefersReducedMotion &&
-                "transition-all duration-[800ms] ease-out delay-[700ms] opacity-100 translate-y-0",
-            )}
-            style={{
-              fontFamily: "'Poppins', sans-serif",
-              transform: `translateY(${-parallaxSlow * 0.1}px)`,
-              transition: prefersReducedMotion ? undefined : "transform 0.1s linear",
-            }}
-          >
-            {prefersReducedMotion ? (
-              "Medical Rounding & Patient List Management"
-            ) : (
-              <span data-anime-hero-subtitle className="inline-block opacity-0 will-change-transform">
-                Medical Rounding & Patient List Management
-              </span>
-            )}
-          </p>
-
-          <div
-            className={cn(
-              "features flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5 mt-5",
-              prefersReducedMotion &&
-                "transition-all duration-[800ms] ease-out delay-[900ms] opacity-100 translate-y-0",
-            )}
-          >
-            <div
-              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
-              className={cn(
-                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default",
-                !prefersReducedMotion && "opacity-0",
-              )}
-              title="Works on phone, tablet, and desktop browsers"
-            >
-              <span className="material-icons text-[22px] shrink-0" aria-hidden>devices</span>
-              <span>Mobile access</span>
-            </div>
-            <div
-              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
-              className={cn(
-                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-medium flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all cursor-default",
-                !prefersReducedMotion && "opacity-0",
-              )}
-              title="Updates sync across your team"
-            >
-              <span className="material-icons text-[22px] shrink-0" aria-hidden>speed</span>
-              <span>Real-time sync</span>
-            </div>
-            <button
-              type="button"
-              {...(!prefersReducedMotion ? { "data-anime-hero-chip": "" } : {})}
-              onClick={() => scrollToSection("security")}
-              className={cn(
-                "feature-tag group bg-white/20 backdrop-blur-md px-5 py-3 rounded-full text-white text-[0.9rem] font-semibold flex items-center gap-2.5 border border-white/35 shadow-sm hover:bg-white/30 hover:-translate-y-1 hover:shadow-md motion-reduce:hover:translate-y-0 transition-all min-h-[44px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]",
-                !prefersReducedMotion && "opacity-0",
-              )}
-              aria-label="HIPAA-aligned safeguards — jump to Security section"
-            >
-              <span className="material-icons text-[22px] shrink-0" aria-hidden>cloud_done</span>
-              <span>HIPAA-aligned</span>
-            </button>
-          </div>
-        </div>
-
-        {prefersReducedMotion ? (
-          <div
-            className="cta-section order-3 mt-10 flex flex-col sm:flex-row items-center justify-center gap-4 transition-all duration-[800ms] ease-out delay-[1100ms] z-10 opacity-100 translate-y-0"
-          >
-            <button
-              type="button"
-              onClick={handleGetStarted}
-              className="cta-button min-h-[44px] min-w-[min(100%,280px)] bg-white text-[#0D47A1] px-10 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
-              aria-label="Create an account or sign in to get started"
-            >
-              <span>Get started free</span>
-              <span className="material-icons text-xl" aria-hidden>rocket_launch</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleLaunchPortal}
-              className="min-h-[44px] px-8 py-3.5 rounded-full text-base font-semibold text-white border-2 border-white/80 bg-transparent hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
-              aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
-            >
-              <span>{user ? "Open dashboard" : "Returning? Sign in"}</span>
-              <span className="material-icons text-xl" aria-hidden>login</span>
-            </button>
-          </div>
-        ) : (
-          <div className="cta-section order-3 mt-10 z-10">
-            <div
-              data-anime-hero-cta=""
-              className="flex flex-col sm:flex-row items-center justify-center gap-4 opacity-0 will-change-transform"
-            >
-              <button
-                type="button"
-                onClick={handleGetStarted}
-                className="cta-button min-h-[44px] min-w-[min(100%,280px)] bg-white text-[#0D47A1] px-10 py-4 rounded-full text-base font-bold uppercase tracking-wider inline-flex items-center justify-center gap-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] transition-all border-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2] motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:hover:translate-y-0"
-                aria-label="Create an account or sign in to get started"
-              >
-                <span>Get started free</span>
-                <span className="material-icons text-xl" aria-hidden>rocket_launch</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleLaunchPortal}
-                className="min-h-[44px] px-8 py-3.5 rounded-full text-base font-semibold text-white border-2 border-white/80 bg-transparent hover:bg-white/10 transition-colors inline-flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1976D2]"
-                aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
-              >
-                <span>{user ? "Open dashboard" : "Returning? Sign in"}</span>
-                <span className="material-icons text-xl" aria-hidden>login</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Feature highlights section */}
-      <FeatureHighlights prefersReducedMotion={prefersReducedMotion} />
-
+        <FeatureHighlights prefersReducedMotion={prefersReducedMotion} />
       </main>
-
-      <style>{`
-        @keyframes iconFloat {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
-        }
-      `}</style>
     </div>
   );
 };
