@@ -27,6 +27,25 @@ export function usePatientImport({
     const { user } = useAuth();
     const notifications = useNotifications();
 
+    const appendPatients = React.useCallback((patientsToAppend: Patient[]) => {
+        if (patientsToAppend.length === 0) return;
+
+        const mergePatients = (existingPatients: Patient[]) => {
+            const existingIds = new Set(existingPatients.map((patient) => patient.id));
+            const uniqueNewPatients = patientsToAppend.filter((patient) => !existingIds.has(patient.id));
+            return uniqueNewPatients.length === 0
+                ? existingPatients
+                : [...existingPatients, ...uniqueNewPatients];
+        };
+
+        patientsRef.current = mergePatients(patientsRef.current);
+        setPatients((prev) => {
+            const mergedPatients = mergePatients(prev);
+            patientsRef.current = mergedPatients;
+            return mergedPatients;
+        });
+    }, [patientsRef, setPatients]);
+
     const isPatientNumberConflict = React.useCallback((error: unknown): boolean => {
         if (typeof error !== "object" || error === null) return false;
         const maybeCode = "code" in error ? (error as { code?: unknown }).code : undefined;
@@ -130,7 +149,7 @@ export function usePatientImport({
                 currentCounter = insertNumber + 1;
             }
 
-            setPatients((prev) => [...prev, ...newPatients]);
+            appendPatients(newPatients);
 
             if (failedPatients.length > 0) {
                 if (newPatients.length === 0) {
@@ -158,7 +177,7 @@ export function usePatientImport({
             });
             throw error;
         }
-    }, [user, notifications, setPatients, patientsRef, getLatestPatientNumber, isPatientNumberConflict]);
+    }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, appendPatients]);
 
     const addPatientWithData = React.useCallback(async (patientData: {
         name: string;
@@ -242,7 +261,7 @@ export function usePatientImport({
 
             const newPatient = mapPatientRecord(data);
 
-            setPatients((prev) => [...prev, newPatient]);
+            appendPatients([newPatient]);
 
             notifications.success({
                 title: "Patient Imported",
@@ -256,7 +275,7 @@ export function usePatientImport({
             });
             throw error;
         }
-    }, [user, notifications, setPatients, patientsRef, getLatestPatientNumber, isPatientNumberConflict]);
+    }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, appendPatients]);
 
     return {
         importPatients,

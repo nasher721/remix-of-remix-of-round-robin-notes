@@ -1,8 +1,13 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/use-notifications";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
+import type { PatientTodosMap } from "@/hooks/useAllPatientTodos";
+import type { Database } from "@/integrations/supabase/types";
+import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
 import { prepareUpdateData } from "@/lib/mappers/patientMapper";
 import {
     buildPatientInsertPayload,
@@ -15,7 +20,33 @@ export interface PatientMutationsDeps {
     setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
     patientCounter: number;
     setPatientCounter: React.Dispatch<React.SetStateAction<number>>;
-    fetchPatients: () => Promise<void>;
+    fetchPatients: (options?: { force?: boolean }) => Promise<void>;
+}
+
+type PatientUpdateRow = Database["public"]["Tables"]["patients"]["Update"];
+
+function setPatientListCache(queryClient: QueryClient, patients: Patient[]) {
+    queryClient.setQueryData<Patient[]>(QUERY_KEYS.patients, patients);
+}
+
+function setPatientDetailCache(queryClient: QueryClient, patient: Patient) {
+    queryClient.setQueryData<Patient>(QUERY_KEYS.patient(patient.id), patient);
+}
+
+function removePatientScopedCaches(queryClient: QueryClient, patientId: string) {
+    queryClient.removeQueries({ queryKey: QUERY_KEYS.patient(patientId), exact: true });
+    queryClient.removeQueries({ queryKey: QUERY_KEYS.patientTodos(patientId), exact: true });
+    queryClient.setQueriesData<PatientTodosMap>(
+        { queryKey: QUERY_KEYS.allTodos },
+        (currentMap) => {
+            if (!currentMap || !Object.prototype.hasOwnProperty.call(currentMap, patientId)) {
+                return currentMap;
+            }
+
+            const { [patientId]: _removed, ...remainingTodos } = currentMap;
+            return remainingTodos;
+        }
+    );
 }
 
 /**
@@ -28,8 +59,15 @@ export function usePatientMutations({
     setPatientCounter,
     fetchPatients,
 }: PatientMutationsDeps) {
+    const queryClient = useQueryClient();
     const { user } = useAuth();
     const notifications = useNotifications();
+
+    const commitPatients = React.useCallback((nextPatients: Patient[]) => {
+        patientsRef.current = nextPatients;
+        setPatients(nextPatients);
+        setPatientListCache(queryClient, nextPatients);
+    }, [patientsRef, queryClient, setPatients]);
 
     const addPatient = React.useCallback(async () => {
         if (!user) {
@@ -65,7 +103,8 @@ export function usePatientMutations({
 
             const newPatient = mapPatientRecord(data);
 
-            setPatients((prev) => [...prev, newPatient]);
+            commitPatients([...patientsRef.current, newPatient]);
+            setPatientDetailCache(queryClient, newPatient);
             setPatientCounter((prev) => Math.max(prev, nextNumber));
 
             notifications.success({
@@ -79,7 +118,7 @@ export function usePatientMutations({
                 description: "Failed to add patient.",
             });
         }
-    }, [user, notifications, setPatients, setPatientCounter, patientsRef]);
+    }, [user, notifications, commitPatients, setPatientCounter, patientsRef, queryClient]);
 
     const updatePatient = React.useCallback(async (id: string, field: string, value: unknown) => {
         if (!user) return;
@@ -103,6 +142,7 @@ export function usePatientMutations({
 
         if (patientIndex === -1) return;
 
+        const previousPatients = [...currentPatients];
         const oldPatient = currentPatients[patientIndex];
         const updatedPatient = { ...oldPatient };
 
@@ -140,15 +180,14 @@ export function usePatientMutations({
 
         // Synchronously update the ref so next call sees this change immediately
         currentPatients[patientIndex] = updatedPatient;
-        patientsRef.current = currentPatients;
+        commitPatients(currentPatients);
+        setPatientDetailCache(queryClient, updatedPatient);
 
-        setPatients(currentPatients);
-
-        const updateData = prepareUpdateData(field, value, updatedPatient.systems, updatedPatient.medications);
+        const updateData = prepareUpdateData(field, value, updatedPatient.systems, updatedPatient.medications) as PatientUpdateRow;
         updateData.last_modified = now;
 
         if (shouldTrack) {
-            updateData.field_timestamps = updatedPatient.fieldTimestamps;
+            updateData.field_timestamps = updatedPatient.fieldTimestamps as PatientUpdateRow["field_timestamps"];
         }
 
         const serializeForHistory = (v: unknown): string =>
@@ -176,6 +215,10 @@ export function usePatientMutations({
                                 old_value: oldValueStr,
                                 new_value: newValueStr,
                             });
+                            await queryClient.invalidateQueries({
+                                queryKey: QUERY_KEYS.fieldHistory(id),
+                                exact: true,
+                            });
                         } catch (error) {
                             console.warn('Failed to record field history:', error);
                         }
@@ -184,13 +227,15 @@ export function usePatientMutations({
             }
         } catch (error) {
             console.error("Error updating patient:", error);
-            fetchPatients(); // Revert on error
+            commitPatients(previousPatients);
+            setPatientDetailCache(queryClient, oldPatient);
+            void fetchPatients({ force: true }); // Try to refresh, but keep the last usable local state if refresh fails.
             notifications.error({
                 title: "Update failed",
                 description: "Patient changes could not be saved. Please try again.",
             });
         }
-    }, [user, fetchPatients, notifications, patientsRef, setPatients]);
+    }, [user, fetchPatients, notifications, patientsRef, commitPatients, queryClient]);
 
     const removePatient = React.useCallback(async (id: string) => {
         if (!user) return;
@@ -210,7 +255,8 @@ export function usePatientMutations({
 
             if (error) throw error;
 
-            setPatients((prev) => prev.filter((p) => p.id !== id));
+            commitPatients(patientsRef.current.filter((p) => p.id !== id));
+            removePatientScopedCaches(queryClient, id);
 
             notifications.success({
                 title: "Patient Removed",
@@ -223,7 +269,7 @@ export function usePatientMutations({
                 description: "Failed to remove patient.",
             });
         }
-    }, [user, notifications, setPatients]);
+    }, [user, notifications, patientsRef, commitPatients, queryClient]);
 
     const duplicatePatient = React.useCallback(async (id: string) => {
         if (!user) return;
@@ -265,7 +311,8 @@ export function usePatientMutations({
 
             const newPatient = mapPatientRecord(data);
 
-            setPatients((prev) => [...prev, newPatient]);
+            commitPatients([...patientsRef.current, newPatient]);
+            setPatientDetailCache(queryClient, newPatient);
             setPatientCounter((prev) => Math.max(prev, nextNumber));
 
             notifications.success({
@@ -279,7 +326,7 @@ export function usePatientMutations({
                 description: "Failed to duplicate patient.",
             });
         }
-    }, [user, notifications, patientsRef, setPatients, setPatientCounter]);
+    }, [user, notifications, patientsRef, commitPatients, setPatientCounter, queryClient]);
 
     const toggleCollapse = React.useCallback(async (id: string) => {
         const patient = patientsRef.current.find((p) => p.id === id);
@@ -301,8 +348,11 @@ export function usePatientMutations({
 
         const allCollapsed = currentPatients.every(p => p.collapsed);
         const newCollapseState = !allCollapsed;
+        const previousPatients = currentPatients;
 
-        setPatients(prev => prev.map(p => ({ ...p, collapsed: newCollapseState })));
+        const nextPatients = currentPatients.map(p => ({ ...p, collapsed: newCollapseState }));
+        commitPatients(nextPatients);
+        nextPatients.forEach((patient) => setPatientDetailCache(queryClient, patient));
 
         try {
             const { error } = await supabase
@@ -313,9 +363,11 @@ export function usePatientMutations({
             if (error) throw error;
         } catch (error) {
             console.error("Error collapsing all patients:", error);
-            fetchPatients();
+            commitPatients(previousPatients);
+            previousPatients.forEach((patient) => setPatientDetailCache(queryClient, patient));
+            void fetchPatients({ force: true });
         }
-    }, [user, fetchPatients, notifications, patientsRef, setPatients]);
+    }, [user, fetchPatients, notifications, patientsRef, commitPatients, queryClient]);
 
     const clearAll = React.useCallback(async () => {
         if (!user) return;
@@ -335,8 +387,14 @@ export function usePatientMutations({
 
             if (error) throw error;
 
-            setPatients([]);
+            const previousPatients = patientsRef.current;
+            commitPatients([]);
             setPatientCounter(1);
+            previousPatients.forEach((patient) => removePatientScopedCaches(queryClient, patient.id));
+            queryClient.setQueriesData<PatientTodosMap>(
+                { queryKey: QUERY_KEYS.allTodos },
+                () => ({})
+            );
 
             notifications.success({
                 title: "All Data Cleared",
@@ -349,7 +407,7 @@ export function usePatientMutations({
                 description: "Failed to clear patients.",
             });
         }
-    }, [user, notifications, setPatients, setPatientCounter]);
+    }, [user, notifications, patientsRef, commitPatients, setPatientCounter, queryClient]);
 
     return {
         addPatient,

@@ -71,6 +71,7 @@ export async function load(url, context, defaultLoad) {
   const { code, map } = await transform(source, {
     loader: ext === ".tsx" ? "tsx" : "ts",
     format: "esm",
+    jsx: "automatic",
     sourcemap: "inline",
     target: "node18",
     sourcefile: parsedUrl.pathname,

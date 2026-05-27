@@ -830,84 +830,86 @@ export const DesktopDashboard = () => {
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col transition-all duration-300">
-              <ScrollArea className="flex-1 px-4 md:px-6 py-4">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {filteredPatients.length === 0 ? (
-                <motion.div
-                  className="flex flex-col items-center justify-start pt-6 pb-12 text-center gradient-mesh-empty rounded-xl"
-                  variants={shouldReduceMotion ? undefined : scaleIn}
-                  initial="hidden"
-                  animate="visible"
-                  transition={{ ...transitions.spring, delay: 0.15 }}
-                >
-                  <div className="mb-8 relative flex items-center justify-center">
-                    <div className="bg-secondary/30 rounded-3xl p-8 border border-border/40 shadow-sm depth-shadow-hover">
-                      <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto opacity-60" />
-                    </div>
-                  </div>
-                  <h3 className="text-3xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-                    {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
-                  </h3>
-                  <p className="text-muted-foreground text-base mb-6 max-w-sm leading-relaxed">
-                    {patients.length === 0
-                      ? "Add your first patient to begin documenting rounds with your team."
-                      : "Try adjusting your search or filter criteria."}
-                  </p>
-                  {patients.length === 0 && (
-                    <div className="w-full max-w-xl rounded-xl border border-border/40 bg-card/70 p-5 text-left shadow-sm">
-                      <p className="text-sm font-semibold text-foreground mb-3">Quick start checklist</p>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-start gap-2 text-foreground/90">
-                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
-                          <span>Add your first patient to build today&apos;s roster</span>
-                        </div>
-                        <div className="flex items-start gap-2 text-foreground/90">
-                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
-                          <span>Share rounds with your team using synced notes</span>
-                        </div>
-                        <div className="flex items-start gap-2 text-foreground/90">
-                          <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
-                          <span>Try the AI assistant for drafts and interval updates</span>
-                        </div>
+                <ScrollArea className="flex-1 px-4 md:px-6 py-4">
+                  <motion.div
+                    className="flex flex-col items-center justify-start pt-6 pb-12 text-center gradient-mesh-empty rounded-xl"
+                    variants={shouldReduceMotion ? undefined : scaleIn}
+                    initial="hidden"
+                    animate="visible"
+                    transition={{ ...transitions.spring, delay: 0.15 }}
+                  >
+                    <div className="mb-8 relative flex items-center justify-center">
+                      <div className="bg-secondary/30 rounded-3xl p-8 border border-border/40 shadow-sm depth-shadow-hover">
+                        <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto opacity-60" />
                       </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button onClick={onAddPatient} size="sm" className="gap-2">
-                          <Plus className="h-4 w-4" />
-                          Add First Patient
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          onClick={() => setOpenToolsRequestToken((prev) => prev + 1)}
-                        >
-                          <Upload className="h-4 w-4" />
-                          Import from CSV/EHR
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowSamplePreview((prev) => !prev)}
-                        >
-                          {showSamplePreview ? "Hide sample preview" : "Preview example structure"}
-                        </Button>
-                      </div>
-                      {showSamplePreview ? (
-                        <div className="mt-4 rounded-lg border border-border/50 bg-background p-3 text-xs text-left">
-                          <p className="font-semibold text-foreground">Example structure</p>
-                          <p className="mt-1 text-muted-foreground">Bed 12A · De-identified ICU admission · Shock improving</p>
-                          <p className="mt-2 text-foreground/90">CV: pressor dose decreasing, MAP goal met. Resp: low-flow oxygen, wean as tolerated.</p>
-                        </div>
-                      ) : null}
                     </div>
-                  )}
-                </motion.div>
+                    <h3 className="text-3xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+                      {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
+                    </h3>
+                    <p className="text-muted-foreground text-base mb-6 max-w-sm leading-relaxed">
+                      {patients.length === 0
+                        ? "Add your first patient to begin documenting rounds with your team."
+                        : "Try adjusting your search or filter criteria."}
+                    </p>
+                    {patients.length === 0 && (
+                      <div className="w-full max-w-xl rounded-xl border border-border/40 bg-card/70 p-5 text-left shadow-sm">
+                        <p className="text-sm font-semibold text-foreground mb-3">Quick start checklist</p>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-start gap-2 text-foreground/90">
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+                            <span>Add your first patient to build today&apos;s roster</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-foreground/90">
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+                            <span>Share rounds with your team using synced notes</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-foreground/90">
+                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+                            <span>Try the AI assistant for drafts and interval updates</span>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Button onClick={onAddPatient} size="sm" className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Add First Patient
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => setOpenToolsRequestToken((prev) => prev + 1)}
+                          >
+                            <Upload className="h-4 w-4" />
+                            Import from CSV/EHR
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowSamplePreview((prev) => !prev)}
+                          >
+                            {showSamplePreview ? "Hide sample preview" : "Preview example structure"}
+                          </Button>
+                        </div>
+                        {showSamplePreview ? (
+                          <div className="mt-4 rounded-lg border border-border/50 bg-background p-3 text-xs text-left">
+                            <p className="font-semibold text-foreground">Example structure</p>
+                            <p className="mt-1 text-muted-foreground">Bed 12A · De-identified ICU admission · Shock improving</p>
+                            <p className="mt-2 text-foreground/90">CV: pressor dose decreasing, MAP goal met. Resp: low-flow oxygen, wean as tolerated.</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </motion.div>
+                </ScrollArea>
               ) : (
-                <VirtualizedPatientList />
+                <div className="flex-1 min-h-0 px-4 md:px-6 py-4">
+                  <VirtualizedPatientList />
+                </div>
               )}
-            </ScrollArea>
             </div>
           </div>
         </div>

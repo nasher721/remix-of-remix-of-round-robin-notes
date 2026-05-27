@@ -23,7 +23,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={cn(
-            "flex h-10 w-full rounded-lg border border-border bg-card text-card-foreground py-2 text-sm transition-all duration-200 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary focus-visible:shadow-[0_0_0_4px_hsl(var(--primary)/0.15)] disabled:cursor-not-allowed disabled:opacity-50 md:text-xs hover:border-border/80 aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive/40 aria-[invalid=true]:animate-shake",
+            "flex h-10 w-full rounded-lg border border-border bg-card text-card-foreground py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 md:text-xs hover:border-border/80 aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive/40",
             startIcon ? "pl-10" : "pl-3",
             rightPadding,
             className,
@@ -34,7 +34,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {shouldShowSuccess && (
           <div
             className={cn(
-              "absolute top-1/2 -translate-y-1/2 text-success animate-scale-in",
+              "absolute top-1/2 -translate-y-1/2 text-success",
               endIcon ? "right-10" : "right-3",
             )}
             aria-hidden="true"

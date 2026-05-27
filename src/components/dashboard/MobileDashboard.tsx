@@ -219,14 +219,20 @@ export const MobileDashboard = () => {
                   </span>
                   <span>{filter === PatientFilterType.All ? "All patients" : filterOptions.find((option) => option.id === filter)?.label}</span>
                 </div>
-                <div className="flex items-center gap-2 px-4 pb-2.5 overflow-x-auto scrollbar-thin">
-                  <div className="flex min-h-11 items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
+                <div
+                  data-testid="mobile-patient-controls"
+                  className="flex flex-wrap items-center gap-2 px-3 pb-2.5 overflow-x-hidden"
+                >
+                  <div className="flex min-h-11 min-w-0 items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
                     <span className="text-[10px] text-muted-foreground">View</span>
                     <Select
                       value={patientListViewMode}
                       onValueChange={(value) => setPatientListViewMode(value as "rich" | "compact")}
                     >
-                      <SelectTrigger className="h-11 w-[96px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
+                      <SelectTrigger
+                        aria-label="Patient list view"
+                        className="h-11 w-[88px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0"
+                      >
                         <SelectValue placeholder="View" />
                       </SelectTrigger>
                       <SelectContent>
@@ -235,10 +241,13 @@ export const MobileDashboard = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex min-h-11 items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
+                  <div className="flex min-h-11 min-w-0 items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
                     <ArrowUpDown className="h-3 w-3 text-muted-foreground/60" />
                     <Select value={sortBy} onValueChange={(v) => setSortBy(v as "number" | "room" | "name")}>
-                      <SelectTrigger className="h-11 w-[116px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0">
+                      <SelectTrigger
+                        aria-label="Sort patients"
+                        className="h-11 w-[104px] border-0 bg-transparent px-0 text-xs shadow-none focus:ring-0"
+                      >
                         <SelectValue placeholder="Sort by" />
                       </SelectTrigger>
                       <SelectContent>
@@ -255,7 +264,7 @@ export const MobileDashboard = () => {
                       size="sm"
                       onClick={() => setFilter(option.id)}
                       className={cn(
-                        "h-11 rounded-lg px-3 text-xs",
+                        "h-11 rounded-lg px-2.5 text-xs",
                         filter === option.id ? "shadow-sm" : "text-muted-foreground/70"
                       )}
                     >
@@ -267,10 +276,6 @@ export const MobileDashboard = () => {
               <div className="pb-mobile-nav">
                 <VirtualizedMobilePatientList
                   patients={filteredPatients}
-                  // Pass these for now as VirtualizedMobilePatientList still expects them, 
-                  // but we should eventually refactor that too if consistent.
-                  // Wait, VirtualizedMobilePatientList hasn't been context-ified yet.
-                  // So we must pass props.
                   onPatientSelect={onPatientSelect}
                   onPatientDelete={handleRemovePatient}
                   onPatientDuplicate={onDuplicatePatient}

@@ -1,0 +1,16 @@
+Scratchpad notes for SDD Phase 2b
+- Task: improve patient roster visibility + remove microanimations + optimize speed/backend flow.
+- Sources inspected:
+  - VirtualizedPatientList: non-virtualized list + fixed-height container + anime timeline list-item transitions.
+  - DesktopDashboard/Index: filter/search + global context fan-out and render churn.
+  - Input/Textarea: shared component base transitions, shadow/ring/invalid shake microinteractions.
+  - useAllPatientTodos/usePatientTodos/usePatientFetch: primary backend touchpoints for todos/patients.
+  - Cache config + invalidation/warming may create refetch noise.
+- Root-cause candidates for single visible patient:
+  - container sizing (`max-h` + row/container flex constraints)
+  - mount animations temporarily hiding rows
+  - rerender timing from patient-filter + todo map updates
+  - unstable patient ID arrays causing repeated data fetch/state churn.
+- Proposed risk areas by confidence:
+  - High: all listed above; Medium: animation side effect visibility
+  - Low: cache invalidation edge cases.

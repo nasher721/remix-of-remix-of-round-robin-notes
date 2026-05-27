@@ -24,7 +24,10 @@ interface RowProps {
   viewMode: "rich" | "compact";
 }
 
-const ROW_HEIGHT = 88; // Fixed height for mobile cards
+const RICH_ROW_HEIGHT = 88;
+const COMPACT_ROW_HEIGHT = 72;
+const MOBILE_NAV_RESERVE = 96;
+const MIN_LIST_HEIGHT = COMPACT_ROW_HEIGHT * 4;
 
 // Row component for the virtualized list
 const PatientRowComponent = ({
@@ -42,7 +45,11 @@ const PatientRowComponent = ({
   if (!patient) return null;
 
   return (
-    <div style={style} {...ariaAttributes} className="border-b border-border/30">
+    <div
+      style={style}
+      {...ariaAttributes}
+      className="border-b border-border/30 overflow-hidden"
+    >
       <SwipeablePatientCard
         patient={patient}
         onSelect={onSelect}
@@ -69,22 +76,31 @@ export const VirtualizedMobilePatientList = React.memo(({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [containerHeight, setContainerHeight] = React.useState(400);
   const [showScrollTop, setShowScrollTop] = React.useState(false);
+  const rowHeight = viewMode === "compact" ? COMPACT_ROW_HEIGHT : RICH_ROW_HEIGHT;
+  const prefersReducedMotion = React.useCallback(() => {
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  }, []);
 
   // Calculate container height based on viewport
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const updateHeight = () => {
       if (containerRef.current) {
         const rect = containerRef.current.getBoundingClientRect();
-        // Account for mobile nav bar (64px) + safe area (~34px) + padding buffer
-        const availableHeight = window.innerHeight - rect.top - 120;
-        setContainerHeight(Math.max(300, availableHeight));
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+        const visibleRowsHeight = Math.min(rowHeight * patients.length, rowHeight * 8);
+        const availableHeight = viewportHeight - rect.top - MOBILE_NAV_RESERVE;
+        setContainerHeight(Math.max(MIN_LIST_HEIGHT, Math.min(availableHeight, visibleRowsHeight)));
       }
     };
 
     updateHeight();
     window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
+    window.visualViewport?.addEventListener("resize", updateHeight);
+    return () => {
+      window.removeEventListener("resize", updateHeight);
+      window.visualViewport?.removeEventListener("resize", updateHeight);
+    };
+  }, [patients.length, rowHeight]);
 
   // Memoize row props to prevent re-renders
   const rowProps = React.useMemo<RowProps>(() => ({
@@ -101,12 +117,12 @@ export const VirtualizedMobilePatientList = React.memo(({
     if (!element) return;
     
     const handleScroll = () => {
-      setShowScrollTop(element.scrollTop > ROW_HEIGHT * 3);
+      setShowScrollTop(element.scrollTop > rowHeight * 3);
     };
     
     element.addEventListener('scroll', handleScroll);
     return () => element.removeEventListener('scroll', handleScroll);
-  }, [patients.length]); // Re-attach when patient count changes
+  }, [patients.length, rowHeight]); // Re-attach when patient count or row height changes
 
   if (patients.length === 0) {
     return (
@@ -141,21 +157,22 @@ export const VirtualizedMobilePatientList = React.memo(({
   }
 
   return (
-    <div ref={containerRef} className="relative w-full">
+    <div ref={containerRef} className="relative w-full max-w-full overflow-x-hidden">
       <List
         listRef={listRef}
         rowCount={patients.length}
-        rowHeight={viewMode === "compact" ? 72 : ROW_HEIGHT}
+        rowHeight={rowHeight}
         rowComponent={PatientRowComponent}
         rowProps={rowProps}
         overscanCount={3}
         className="scrollbar-thin"
+        data-testid="virtualized-mobile-patient-list"
         style={{ height: containerHeight, width: '100%' }}
       />
 
       {/* Swipe hint for first-time users */}
       {patients.length === 1 && (
-        <div className="flex items-center justify-center gap-1.5 py-4 px-6 text-center text-xs text-muted-foreground animate-fade-in">
+        <div className="flex items-center justify-center gap-1.5 py-4 px-6 text-center text-xs text-muted-foreground motion-safe:animate-fade-in">
           <Lightbulb className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Swipe left on a patient for quick actions</span>
         </div>
@@ -165,7 +182,13 @@ export const VirtualizedMobilePatientList = React.memo(({
         <Button
           variant="secondary"
           size="icon"
-          onClick={() => listRef.current?.scrollToRow({ index: 0, align: 'start', behavior: 'smooth' })}
+          onClick={() => {
+            listRef.current?.scrollToRow({
+              index: 0,
+              align: 'start',
+              behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+            });
+          }}
           className="absolute bottom-4 right-4 h-11 w-11 rounded-full shadow-lg"
           aria-label="Scroll to top"
         >

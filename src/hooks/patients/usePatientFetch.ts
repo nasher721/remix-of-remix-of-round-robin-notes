@@ -20,7 +20,7 @@ export interface PatientFetchState {
     patientsRef: React.MutableRefObject<Patient[]>;
     setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
     setPatientCounter: React.Dispatch<React.SetStateAction<number>>;
-    fetchPatients: () => Promise<void>;
+    fetchPatients: (options?: { force?: boolean }) => Promise<void>;
 }
 
 async function fetchPatientsFromSupabase(): Promise<Patient[]> {
@@ -73,8 +73,9 @@ export function usePatientFetch(): PatientFetchState {
         retry: 2,
     });
 
-    const patients: Patient[] = query.data ?? [];
+    const patients: Patient[] = React.useMemo(() => query.data ?? [], [query.data]);
     const loading = query.isPending;
+    const refetchPatientsQuery = query.refetch;
     const patientCounter = React.useMemo(
         () => getNextPatientCounter(patients),
         [patients]
@@ -85,7 +86,7 @@ export function usePatientFetch(): PatientFetchState {
         patientsRef.current = patients;
     }, [patients]);
 
-    const fetchPatients = React.useCallback(async () => {
+    const fetchPatients = React.useCallback(async (options?: { force?: boolean }) => {
         if (!user) return;
         if (!hasSupabaseConfig) {
             notifications.error({
@@ -94,8 +95,17 @@ export function usePatientFetch(): PatientFetchState {
             });
             return;
         }
+        const cachedPatients = queryClient.getQueryData<Patient[]>(QUERY_KEYS.patients);
+        const patientsQueryState = queryClient.getQueryState(QUERY_KEYS.patients);
+        const hasFreshPatientCache =
+            cachedPatients !== undefined &&
+            patientsQueryState?.dataUpdatedAt !== undefined &&
+            Date.now() - patientsQueryState.dataUpdatedAt < CACHE_CONFIG.staleTime.patients;
+
+        if (!options?.force && hasFreshPatientCache) return;
+
         try {
-            await query.refetch();
+            await refetchPatientsQuery();
         } catch (error) {
             console.error("Error fetching patients:", error);
             logMetric("patients.fetch.error", 1, "count", {
@@ -107,11 +117,13 @@ export function usePatientFetch(): PatientFetchState {
                 description: "Failed to load patients.",
             });
         }
-    }, [user, notifications, query]);
+    }, [user, notifications, refetchPatientsQuery, queryClient]);
 
     React.useEffect(() => {
         if (!user) {
-            queryClient.setQueryData(QUERY_KEYS.patients, []);
+            queryClient.setQueryData<Patient[]>(QUERY_KEYS.patients, [], {
+                updatedAt: 0,
+            });
         }
     }, [user, queryClient]);
 

@@ -1,9 +1,13 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import type { QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
+import { QUERY_KEYS } from '@/lib/cache/cacheConfig';
+import type { PatientTodosMap } from '@/hooks/useAllPatientTodos';
 import { useSettings } from '@/contexts/SettingsContext';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
@@ -14,14 +18,88 @@ export interface UsePatientTodosOptions {
   initialTodos?: PatientTodo[];
 }
 
+type TodoListUpdater = (todos: PatientTodo[]) => PatientTodo[];
+
+function mapTodoRecord(
+  todo: Record<string, unknown>,
+  fallback: {
+    patientId: string;
+    userId: string;
+    section: string | null;
+    content: string;
+    completed?: boolean;
+  },
+): PatientTodo {
+  const createdAt = String(todo.created_at ?? new Date().toISOString());
+  return {
+    id: String(todo.id),
+    patientId: String(todo.patient_id ?? fallback.patientId),
+    userId: String(todo.user_id ?? fallback.userId),
+    section: (todo.section as string | null | undefined) ?? fallback.section,
+    content: String(todo.content ?? fallback.content),
+    completed: Boolean(todo.completed ?? fallback.completed ?? false),
+    createdAt,
+    updatedAt: String(todo.updated_at ?? createdAt),
+  };
+}
+
+export function updateTodosMapForPatient(
+  currentMap: PatientTodosMap | undefined,
+  patientId: string,
+  updater: TodoListUpdater,
+): PatientTodosMap | undefined {
+  if (!currentMap || !Object.prototype.hasOwnProperty.call(currentMap, patientId)) {
+    return currentMap;
+  }
+
+  return {
+    ...currentMap,
+    [patientId]: updater(currentMap[patientId] ?? []),
+  };
+}
+
+function writePatientTodosCache(
+  queryClient: QueryClient,
+  patientId: string,
+  updater: TodoListUpdater,
+) {
+  queryClient.setQueryData<PatientTodo[]>(QUERY_KEYS.patientTodos(patientId), (currentTodos) =>
+    updater(currentTodos ?? []),
+  );
+  queryClient.setQueriesData<PatientTodosMap>(
+    { queryKey: QUERY_KEYS.allTodos },
+    (currentMap) => updateTodosMapForPatient(currentMap, patientId, updater),
+  );
+}
+
+function prependTodos(newTodos: PatientTodo[]): TodoListUpdater {
+  return (currentTodos) => {
+    const newTodoIds = new Set(newTodos.map((todo) => todo.id));
+    return [...newTodos, ...currentTodos.filter((todo) => !newTodoIds.has(todo.id))];
+  };
+}
+
 export function usePatientTodos(patientId: string | null, options?: UsePatientTodosOptions) {
   const initialTodos = options?.initialTodos;
   const [todos, setTodos] = useState<PatientTodo[]>(() => initialTodos ?? []);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();
   const { getModelForFeature } = useSettings();
+  const latestInitialTodos = useRef(initialTodos);
+  const initialTodosKey = useMemo(() => {
+    if (initialTodos === undefined) return null;
+    const todoKey = initialTodos
+      .map((todo) => `${todo.id}:${todo.updatedAt}:${todo.completed}:${todo.content}`)
+      .join('|');
+    return `${patientId ?? ''}:${todoKey}`;
+  }, [initialTodos, patientId]);
+
+  useEffect(() => {
+    latestInitialTodos.current = initialTodos;
+  }, [initialTodos]);
 
   const fetchTodos = useCallback(async () => {
     if (!patientId || !user) return;
@@ -36,27 +114,31 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
 
       if (error) throw error;
 
-      setTodos(data?.map(todo => ({
-        id: todo.id,
-        patientId: todo.patient_id,
-        userId: todo.user_id,
-        section: todo.section,
-        content: todo.content,
-        completed: todo.completed,
-        createdAt: todo.created_at,
-        updatedAt: todo.updated_at,
-      })) || []);
+      const nextTodos = data?.map(todo => mapTodoRecord(todo, {
+        patientId,
+        userId: user.id,
+        section: null,
+        content: '',
+      })) || [];
+      setTodos(nextTodos);
+      writePatientTodosCache(queryClient, patientId, () => nextTodos);
     } catch (error) {
       console.error('Error fetching todos:', error);
     } finally {
       setLoading(false);
     }
-  }, [patientId, user]);
+  }, [patientId, queryClient, user]);
 
   useEffect(() => {
     if (initialTodos !== undefined) return;
     fetchTodos();
   }, [fetchTodos, initialTodos]);
+
+  useEffect(() => {
+    if (initialTodosKey === null) return;
+    setTodos(latestInitialTodos.current ?? []);
+    setLoading(false);
+  }, [initialTodosKey]);
 
   const addTodo = useCallback(async (content: string, section: string | null = null) => {
     if (!patientId || !user) return;
@@ -80,18 +162,16 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         return;
       }
 
-      const newTodo: PatientTodo = {
-        id: data.id,
-        patientId: data.patient_id,
-        userId: data.user_id,
-        section: data.section,
-        content: data.content,
-        completed: data.completed,
-        createdAt: data.created_at,
-        updatedAt: data.updated_at,
-      };
+      const newTodo = mapTodoRecord(data, {
+        patientId,
+        userId: user.id,
+        section,
+        content,
+      });
 
-      setTodos(prev => [newTodo, ...prev]);
+      const applyAddedTodo = prependTodos([newTodo]);
+      setTodos(applyAddedTodo);
+      writePatientTodosCache(queryClient, patientId, applyAddedTodo);
       return newTodo;
     } catch (error) {
       console.error('Error adding todo:', error);
@@ -101,23 +181,27 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         variant: "destructive",
       });
     }
-  }, [patientId, user, toast]);
+  }, [patientId, queryClient, user, toast]);
 
   const toggleTodo = useCallback(async (todoId: string) => {
     const todo = todos.find(t => t.id === todoId);
     if (!todo) return;
+    const nextCompleted = !todo.completed;
 
     try {
       const { error } = await supabase
         .from('patient_todos')
-        .update({ completed: !todo.completed })
+        .update({ completed: nextCompleted })
         .eq('id', todoId);
 
       if (error) throw error;
 
-      setTodos(prev => prev.map(t => 
-        t.id === todoId ? { ...t, completed: !t.completed } : t
-      ));
+      const applyToggle = (currentTodos: PatientTodo[]) => currentTodos.map(t =>
+        t.id === todoId ? { ...t, completed: nextCompleted } : t
+      );
+
+      setTodos(applyToggle);
+      writePatientTodosCache(queryClient, todo.patientId, applyToggle);
     } catch (error) {
       console.error('Error toggling todo:', error);
       toast({
@@ -126,9 +210,12 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         variant: "destructive",
       });
     }
-  }, [todos, toast]);
+  }, [queryClient, todos, toast]);
 
   const deleteTodo = useCallback(async (todoId: string) => {
+    const todo = todos.find(t => t.id === todoId);
+    const targetPatientId = todo?.patientId ?? patientId;
+
     try {
       const { error } = await supabase
         .from('patient_todos')
@@ -137,7 +224,11 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
 
       if (error) throw error;
 
-      setTodos(prev => prev.filter(t => t.id !== todoId));
+      const applyDelete = (currentTodos: PatientTodo[]) => currentTodos.filter(t => t.id !== todoId);
+      setTodos(applyDelete);
+      if (targetPatientId) {
+        writePatientTodosCache(queryClient, targetPatientId, applyDelete);
+      }
     } catch (error) {
       console.error('Error deleting todo:', error);
       toast({
@@ -146,7 +237,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         variant: "destructive",
       });
     }
-  }, [toast]);
+  }, [patientId, queryClient, todos, toast]);
 
   const generateTodos = useCallback(async (patient: Patient, section: TodoSection) => {
     if (!patientId || !user) return;
@@ -226,18 +317,17 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       if (insertError) throw insertError;
 
       // Map inserted data to PatientTodo format and add to state
-      const newTodos: PatientTodo[] = (insertedData || []).map(todo => ({
-        id: todo.id,
-        patientId: todo.patient_id,
-        userId: todo.user_id,
-        section: todo.section,
-        content: todo.content,
-        completed: todo.completed,
-        createdAt: todo.created_at,
-        updatedAt: todo.updated_at,
+      const newTodos: PatientTodo[] = (insertedData || []).map((todo, index) => mapTodoRecord(todo, {
+        patientId,
+        userId: user.id,
+        section: sectionValue,
+        content: generatedTodos[index] ?? '',
       }));
+      const orderedNewTodos = [...newTodos].reverse();
+      const applyGeneratedTodos = prependTodos(orderedNewTodos);
 
-      setTodos(prev => [...newTodos.reverse(), ...prev]);
+      setTodos(applyGeneratedTodos);
+      writePatientTodosCache(queryClient, patientId, applyGeneratedTodos);
 
       toast({
         title: "Todos generated",
@@ -271,7 +361,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
     } finally {
       setGenerating(false);
     }
-  }, [patientId, user, toast, getModelForFeature]);
+  }, [patientId, queryClient, user, toast, getModelForFeature]);
 
   const getTodosBySection = useCallback((section: string | null) => {
     return todos.filter(t => t.section === section);

@@ -11,6 +11,7 @@ const dom = new JSDOM("<!DOCTYPE html><html><body><div id=\"root\"></div></body>
 
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
+globalThis.self = dom.window;
 globalThis.HTMLElement = dom.window.HTMLElement;
 globalThis.localStorage = dom.window.localStorage;
 globalThis.DOMParser = dom.window.DOMParser;
@@ -22,6 +23,9 @@ globalThis.HTMLCollection = dom.window.HTMLCollection;
 globalThis.Element = dom.window.Element;
 globalThis.Node = dom.window.Node;
 globalThis.SVGElement = dom.window.SVGElement;
+globalThis.DocumentFragment = dom.window.DocumentFragment;
+globalThis.Event = dom.window.Event;
+globalThis.CustomEvent = dom.window.CustomEvent;
 
 // Anime.js and other browser APIs read global requestAnimationFrame at module load.
 if (typeof globalThis.requestAnimationFrame !== "function") {

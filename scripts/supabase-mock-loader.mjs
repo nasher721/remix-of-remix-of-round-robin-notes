@@ -10,6 +10,7 @@ export function logError() {}
 export function logWarn() {}
 export function logInfo() {}
 export function logMetric() {}
+export function generateRequestId() { return "test-request-id"; }
 `;
 const ASSET_PNG_MOCK_SOURCE = "export default '/test.png';";
 const PATIENT_FIXTURE = {
@@ -37,6 +38,59 @@ const insertCapture = (globalThis.__supabaseInsertCapture = globalThis.__supabas
 const updateCapture = (globalThis.__supabaseUpdateCapture = globalThis.__supabaseUpdateCapture || []);
 const fixture = ${JSON.stringify(PATIENT_FIXTURE)};
 
+function resolveSelect(query) {
+  const handler = globalThis.__SUPABASE_SELECT_MOCK__;
+  if (typeof handler === "function") {
+    return Promise.resolve(handler(query));
+  }
+  if (query.table === "patients") {
+    return Promise.resolve({ data: [fixture], error: null });
+  }
+  if (query.table === "patient_todos") {
+    return Promise.resolve({ data: [], error: null });
+  }
+  return Promise.resolve({ data: [], error: null });
+}
+
+function createSelectQuery(table, columns) {
+  const query = { table, columns, filters: [], orders: [], limitCount: null, singleResult: false };
+  const builder = {
+    in(column, values) {
+      query.filters.push({ op: "in", column, values });
+      return builder;
+    },
+    eq(column, value) {
+      query.filters.push({ op: "eq", column, value });
+      return builder;
+    },
+    order(column, options) {
+      query.orders.push({ column, options });
+      return builder;
+    },
+    limit(count) {
+      query.limitCount = count;
+      return builder;
+    },
+    single() {
+      query.singleResult = true;
+      return resolveSelect(query).then((result) => {
+        const data = Array.isArray(result?.data) ? (result.data[0] ?? null) : result?.data ?? null;
+        return { data, error: result?.error ?? null };
+      });
+    },
+    then(resolve, reject) {
+      return resolveSelect(query).then(resolve, reject);
+    },
+    catch(reject) {
+      return resolveSelect(query).catch(reject);
+    },
+    finally(onFinally) {
+      return resolveSelect(query).finally(onFinally);
+    },
+  };
+  return builder;
+}
+
 export const supabase = {
   functions: {
     invoke: async (name, payload) => (
@@ -46,13 +100,24 @@ export const supabase = {
   },
   from(table) {
     return {
+      select(columns = "*") {
+        return createSelectQuery(table, columns);
+      },
       insert(rows) {
         insertCapture.push({ table, rows });
         return { select: () => ({ single: () => Promise.resolve({ data: fixture, error: null }) }) };
       },
       update(data) {
         updateCapture.push({ table, data });
-        return { eq: () => Promise.resolve({ error: null }) };
+        return {
+          eq(column, value) {
+            const handler = globalThis.__SUPABASE_UPDATE_MOCK__;
+            if (typeof handler === "function") {
+              return Promise.resolve(handler({ table, data, column, value }));
+            }
+            return Promise.resolve({ error: null });
+          },
+        };
       },
       delete() {
         return { eq: () => Promise.resolve({ error: null }) };
@@ -61,6 +126,8 @@ export const supabase = {
   },
   auth: {
     getSession: async () => (globalThis.__SUPABASE_AUTH_MOCK__?.getSession?.() ?? { data: { session: null }, error: null }),
+    getUser: async () => (globalThis.__SUPABASE_AUTH_MOCK__?.getUser?.() ?? { data: { user: null }, error: null }),
+    refreshSession: async () => (globalThis.__SUPABASE_AUTH_MOCK__?.refreshSession?.() ?? { data: { session: null }, error: null }),
     onAuthStateChange: (cb) => {
       (async () => {
         const res = await (globalThis.__SUPABASE_AUTH_MOCK__?.getSession?.() ?? Promise.resolve({ data: { session: null } }));
