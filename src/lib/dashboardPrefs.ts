@@ -1,6 +1,7 @@
 export type SystemsReviewMode = "split" | "combine_all" | "combine_custom";
 
 export type PatientRosterLayoutMode = "sidebar" | "topbar";
+export type PatientListViewMode = "rich" | "compact";
 
 export type DashboardFocusTarget =
   | "clinicalSummary"
@@ -17,6 +18,7 @@ export interface DashboardPrefs {
   systemsReviewMode: SystemsReviewMode;
   systemsCustomCombineKeys: string[];
   patientRosterLayoutMode: PatientRosterLayoutMode;
+  patientListViewMode: PatientListViewMode;
 }
 
 export const DASHBOARD_PREFS_STORAGE_KEY = "rr-dashboard-prefs";
@@ -30,6 +32,7 @@ export const DEFAULT_DASHBOARD_PREFS: DashboardPrefs = {
   systemsReviewMode: "split",
   systemsCustomCombineKeys: [],
   patientRosterLayoutMode: "sidebar",
+  patientListViewMode: "rich",
 };
 
 const SYSTEMS_MODE_SET = new Set<SystemsReviewMode>(["split", "combine_all", "combine_custom"]);
@@ -84,6 +87,10 @@ export const sanitizeDashboardPrefs = (value: unknown): DashboardPrefs => {
       value.patientRosterLayoutMode === "topbar" || value.patientRosterLayoutMode === "sidebar"
         ? value.patientRosterLayoutMode
         : DEFAULT_DASHBOARD_PREFS.patientRosterLayoutMode,
+    patientListViewMode:
+      value.patientListViewMode === "rich" || value.patientListViewMode === "compact"
+        ? value.patientListViewMode
+        : DEFAULT_DASHBOARD_PREFS.patientListViewMode,
   };
 
   return migrated;

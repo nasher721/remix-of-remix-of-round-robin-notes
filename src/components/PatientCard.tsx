@@ -105,6 +105,11 @@ const PatientCardComponent = ({
   const [pendingClearField, setPendingClearField] = React.useState<string | null>(null);
   const [showClearSystemsDialog, setShowClearSystemsDialog] = React.useState(false);
   const [showAdvancedSections, setShowAdvancedSections] = React.useState(false);
+  React.useEffect(() => {
+    const revealAdvanced = () => setShowAdvancedSections(true);
+    window.addEventListener("rr:reveal-advanced-documentation", revealAdvanced);
+    return () => window.removeEventListener("rr:reveal-advanced-documentation", revealAdvanced);
+  }, []);
   const internalTodos = usePatientTodos(sharedPatientTodos ? null : patient.id, {
     initialTodos: sharedPatientTodos ? undefined : initialTodos,
   });
@@ -561,7 +566,7 @@ const PatientCardComponent = ({
 
               {/* Clinical Summary */}
               {sectionVisibility.clinicalSummary && (
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 scroll-mt-28" data-documentation-section="summary">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
@@ -628,7 +633,7 @@ const PatientCardComponent = ({
 
               {/* Interval Events */}
               {sectionVisibility.intervalEvents && (
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 scroll-mt-28" data-documentation-section="events">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
@@ -734,7 +739,7 @@ const PatientCardComponent = ({
 
               {/* Imaging & Labs Row */}
               {(sectionVisibility.imaging || sectionVisibility.labs) && (
-                <div className="space-y-2">
+                <div className="space-y-2 scroll-mt-28" data-documentation-section="results">
                   <div className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 px-3 py-2">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Advanced sections
@@ -893,7 +898,7 @@ const PatientCardComponent = ({
 
               {/* Medications */}
               {sectionVisibility.medications && showAdvancedSections && (
-                <div className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60">
+                <div className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60 scroll-mt-28" data-documentation-section="medications">
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                     onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
@@ -908,6 +913,8 @@ const PatientCardComponent = ({
                   ref={bindFocusContainer("systemsReview")}
                   onFocusCapture={() => handleEditorFocusIntent("systemsReview")}
                   data-editor-type="systems-review"
+                  data-documentation-section="systems"
+                  className="scroll-mt-28"
                 >
                   <PatientSystemsReview
                     patient={patient}

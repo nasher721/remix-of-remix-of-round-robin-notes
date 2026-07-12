@@ -75,6 +75,8 @@ function buildDashboardValue({
   setFilter = () => {},
   onAddPatient = () => {},
   onRefetchPatients = () => {},
+  patientListViewMode = "compact",
+  setPatientListViewMode = () => {},
 }: {
   patients: Patient[];
   filteredPatients?: Patient[];
@@ -88,6 +90,8 @@ function buildDashboardValue({
   setFilter?: (filter: PatientFilterType) => void;
   onAddPatient?: () => void;
   onRefetchPatients?: () => void | Promise<void>;
+  patientListViewMode?: "rich" | "compact";
+  setPatientListViewMode?: (mode: "rich" | "compact") => void;
 }) {
   return {
     user: { email: "clinician@example.test" },
@@ -104,8 +108,8 @@ function buildDashboardValue({
     mobileTab,
     setMobileTab: () => {},
     lastSaved: new Date("2026-05-27T12:00:00.000Z"),
-    patientListViewMode: "compact" as const,
-    setPatientListViewMode: () => {},
+    patientListViewMode,
+    setPatientListViewMode,
     onAddPatient,
     onAddPatientWithData: async () => {},
     onUpdatePatient: async () => {},
@@ -141,6 +145,8 @@ function AppProviders({
   setFilter = () => {},
   onAddPatient = () => {},
   onRefetchPatients = () => {},
+  patientListViewMode = "compact",
+  setPatientListViewMode = () => {},
   children,
 }: {
   patients: Patient[];
@@ -155,6 +161,8 @@ function AppProviders({
   setFilter?: (filter: PatientFilterType) => void;
   onAddPatient?: () => void;
   onRefetchPatients?: () => void | Promise<void>;
+  patientListViewMode?: "rich" | "compact";
+  setPatientListViewMode?: (mode: "rich" | "compact") => void;
   children: React.ReactNode;
 }) {
   const queryClient = React.useMemo(() => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }), []);
@@ -183,6 +191,8 @@ function AppProviders({
                           setFilter,
                           onAddPatient,
                           onRefetchPatients,
+                          patientListViewMode,
+                          setPatientListViewMode,
                         })}
                       >
                         <DashboardTodosProvider todosMap={makeDashboardTodosMap(patients)}>
@@ -270,6 +280,26 @@ describe("production dashboard roster regression harness", () => {
     assert.equal(screen.getByRole("button", { name: /Select Alex Morgan, A01/ }).getAttribute("aria-current"), "true");
   });
 
+  it("shows documentation progress in roster rows and exposes an accessible section navigator", async () => {
+    setViewport(1440, 900);
+    render(
+      <AppProviders patients={dashboardPatients8}>
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    const alexRow = await screen.findByRole("button", { name: /Select Alex Morgan, A01/ });
+    assert.match(alexRow.textContent ?? "", /In progress/);
+    assert.match(alexRow.textContent ?? "", /3\/5 sections/);
+
+    const sectionNavigator = screen.getByRole("navigation", { name: "Documentation sections" });
+    for (const sectionName of ["Summary", "Events", "Systems", "Results", "Medications"]) {
+      const sectionButton = screen.getByRole("button", { name: sectionName });
+      assert.equal(sectionNavigator.contains(sectionButton), true);
+    }
+    assert.match(sectionNavigator.textContent ?? "", /60% complete/);
+  });
+
   it("renders real DesktopDashboard controls and production roster rows for a 20-patient desktop census", async () => {
     setViewport(1440, 900);
     render(
@@ -312,6 +342,76 @@ describe("production dashboard roster regression harness", () => {
 
     assert.ok(await screen.findByText("Draft note for Devon Rivera"));
     assert.ok(screen.getByText("Summarize Devon Rivera's overnight events"));
+  });
+
+  it("keeps the active roster row and patient workspace on the same patient", async () => {
+    setViewport(1440, 900);
+
+    function SelectionConsistencyHarness() {
+      const [selectedId, setSelectedId] = React.useState<string | null>(dashboardPatients8[0].id);
+      return (
+        <AppProviders
+          patients={dashboardPatients8}
+          desktopSelectedPatientId={selectedId}
+          setDesktopSelectedPatientId={setSelectedId}
+        >
+          <VirtualizedPatientList />
+        </AppProviders>
+      );
+    }
+
+    render(<SelectionConsistencyHarness />);
+
+    const devonRow = await screen.findByRole("button", { name: /Select Devon Rivera, A04/ });
+    fireEvent.click(devonRow);
+
+    await waitFor(() => {
+      assert.equal(devonRow.getAttribute("aria-current"), "true");
+      assert.ok(screen.getByRole("article", { name: "Patient: Devon Rivera" }));
+      assert.equal(screen.getByRole("textbox", { name: "Patient name" }).getAttribute("value"), "Devon Rivera");
+      assert.equal(screen.getByRole("textbox", { name: "Bed or room number" }).getAttribute("value"), "A04");
+    });
+
+    assert.equal(
+      screen.getByRole("button", { name: /Select Alex Morgan, A01/ }).hasAttribute("aria-current"),
+      false,
+    );
+  });
+
+  it("applies a desktop patient-list view change and preserves it across dashboard rerenders", async () => {
+    setViewport(1440, 900);
+
+    function ViewModeHarness() {
+      const [viewMode, setViewMode] = React.useState<"rich" | "compact">("compact");
+      const [revision, setRevision] = React.useState(0);
+      return (
+        <AppProviders
+          patients={dashboardPatients8}
+          patientListViewMode={viewMode}
+          setPatientListViewMode={setViewMode}
+        >
+          <button type="button" onClick={() => setRevision((value) => value + 1)}>
+            Rerender dashboard {revision}
+          </button>
+          <DesktopDashboard />
+        </AppProviders>
+      );
+    }
+
+    render(
+      <MemoryRouter>
+        <ViewModeHarness />
+      </MemoryRouter>,
+    );
+
+    const viewModeSelect = await screen.findByRole("combobox", { name: "Patient list view" });
+    assert.equal(viewModeSelect.textContent?.trim(), "Compact");
+    fireEvent.click(viewModeSelect);
+    fireEvent.click(await screen.findByRole("option", { name: "Rich" }));
+    await waitFor(() => assert.equal(screen.getByRole("combobox", { name: "Patient list view" }).textContent?.trim(), "Rich"));
+
+    fireEvent.click(screen.getByRole("button", { name: /Rerender dashboard/ }));
+    assert.equal(screen.getByRole("combobox", { name: "Patient list view" }).textContent?.trim(), "Rich");
   });
 
   it("keeps desktop roster rows visible and active-row accessibility stable after add/import/selection", async () => {

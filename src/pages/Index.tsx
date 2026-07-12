@@ -24,6 +24,7 @@ import { EdgeHealthProvider } from "@/contexts/EdgeHealthContext";
 import { BackendStatusBanner } from "@/components/BackendStatusBanner";
 import { NewPatientSheet, type NewPatientSubmitPayload } from "@/components/dashboard/NewPatientSheet";
 import { syncEngine } from "@/lib/offline/syncEngine";
+import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
@@ -44,10 +45,12 @@ function IndexContent(): React.ReactElement | null {
     clearAll,
     importPatients,
     refetch: refetchPatients,
+    patientSaveStates,
   } = usePatients();
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
   const { customDictionary, importDictionary } = useCloudDictionary();
   const setCurrentPatients = useSetCurrentPatients();
+  const { patientListViewMode, setPatientListViewMode } = useDashboardLayout();
 
   // Sync dashboard patients to shared context so UnifiedAIChatbot (and others) use the same source
   React.useEffect(() => {
@@ -69,7 +72,6 @@ function IndexContent(): React.ReactElement | null {
   const [lastSaved, setLastSaved] = React.useState<Date>(new Date());
   const [newPatientSheetOpen, setNewPatientSheetOpen] = React.useState(false);
   const [desktopSelectedPatientId, setDesktopSelectedPatientId] = React.useState<string | null>(null);
-  const [patientListViewMode, setPatientListViewMode] = React.useState<"rich" | "compact">("rich");
 
   // Mobile-specific state
   const [mobileTab, setMobileTab] = React.useState<MobileTab>("patients");
@@ -212,6 +214,7 @@ function IndexContent(): React.ReactElement | null {
     lastSaved,
     patientListViewMode,
     setPatientListViewMode,
+    patientSaveStates,
   }), [
     user,
     patients,
@@ -248,6 +251,7 @@ function IndexContent(): React.ReactElement | null {
     lastSaved,
     patientListViewMode,
     setPatientListViewMode,
+    patientSaveStates,
   ]);
 
   if (authLoading || patientsLoading) {

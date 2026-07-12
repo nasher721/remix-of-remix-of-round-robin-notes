@@ -23,6 +23,7 @@ describe("sanitizeDashboardPrefs", () => {
       systemsReviewMode: "combine_custom",
       systemsCustomCombineKeys: ["neuro", "cv", "neuro", "", "  ", 1],
       patientRosterLayoutMode: "topbar",
+      patientListViewMode: "compact",
     });
 
     assert.equal(prefs.leftPatientListOpen, false);
@@ -31,6 +32,7 @@ describe("sanitizeDashboardPrefs", () => {
     assert.equal(prefs.systemsReviewMode, "combine_custom");
     assert.deepEqual(prefs.systemsCustomCombineKeys, ["neuro", "cv"]);
     assert.equal(prefs.patientRosterLayoutMode, "topbar");
+    assert.equal(prefs.patientListViewMode, "compact");
   });
 
   it("migrates legacy tasksRailOpen key", () => {
@@ -46,6 +48,11 @@ describe("sanitizeDashboardPrefs", () => {
   it("falls back to sidebar for invalid roster layout mode", () => {
     const prefs = sanitizeDashboardPrefs({ patientRosterLayoutMode: "unknown_mode" });
     assert.equal(prefs.patientRosterLayoutMode, "sidebar");
+  });
+
+  it("falls back to rich for invalid patient list view mode", () => {
+    const prefs = sanitizeDashboardPrefs({ patientListViewMode: "unknown_mode" });
+    assert.equal(prefs.patientListViewMode, "rich");
   });
 });
 

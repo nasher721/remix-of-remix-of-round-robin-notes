@@ -65,6 +65,7 @@ describe("DashboardLayoutContext", () => {
           leftPatientListOpen: false,
           rightTasksPanelOpen: false,
           patientRosterLayoutMode: "topbar",
+          patientListViewMode: "compact",
           systemsReviewMode: "combine_all",
         }),
       );
@@ -77,6 +78,7 @@ describe("DashboardLayoutContext", () => {
         assert.equal(result.current.panelLeftCollapsed, true);
         assert.equal(result.current.panelRightCollapsed, true);
         assert.equal(result.current.patientRosterLayoutMode, "topbar");
+        assert.equal(result.current.patientListViewMode, "compact");
         assert.equal(result.current.systemsLayoutMode, "combine_all");
       });
     });
@@ -94,12 +96,14 @@ describe("DashboardLayoutContext", () => {
       act(() => {
         result.current.toggleLeftPanel();
         result.current.setPatientRosterLayoutMode("topbar");
+        result.current.setPatientListViewMode("compact");
       });
 
       await waitFor(() => {
         const stored = JSON.parse(localStorageMock.getItem(DASHBOARD_PREFS_STORAGE_KEY) ?? "{}");
         assert.equal(stored.leftPatientListOpen, false);
         assert.equal(stored.patientRosterLayoutMode, "topbar");
+        assert.equal(stored.patientListViewMode, "compact");
       });
     });
 

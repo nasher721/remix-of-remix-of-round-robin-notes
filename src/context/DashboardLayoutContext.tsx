@@ -36,6 +36,7 @@ interface DashboardLayoutState {
   customSystemsGroupIds: string[]
   // Patient roster layout
   patientRosterLayoutMode: DashboardPrefs["patientRosterLayoutMode"]
+  patientListViewMode: DashboardPrefs["patientListViewMode"]
 }
 
 interface DashboardLayoutActions {
@@ -48,6 +49,7 @@ interface DashboardLayoutActions {
   setSystemsLayoutMode: (mode: SystemsLayoutMode) => void
   setCustomSystemsGroup: (ids: string[]) => void
   setPatientRosterLayoutMode: (mode: DashboardPrefs["patientRosterLayoutMode"]) => void
+  setPatientListViewMode: (mode: DashboardPrefs["patientListViewMode"]) => void
 }
 
 type DashboardLayoutContextValue = DashboardLayoutState & DashboardLayoutActions
@@ -165,6 +167,13 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const setPatientListViewMode = useCallback(
+    (mode: DashboardPrefs["patientListViewMode"]) => {
+      setPrefs((p) => ({ ...p, patientListViewMode: mode }))
+    },
+    [],
+  )
+
    // Keyboard handler for Esc to exit focus mode
    useEffect(() => {
      const handleKeyDown = (e: KeyboardEvent) => {
@@ -187,6 +196,7 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     systemsLayoutMode,
     customSystemsGroupIds,
     patientRosterLayoutMode: prefs.patientRosterLayoutMode,
+    patientListViewMode: prefs.patientListViewMode,
     toggleLeftPanel,
     toggleRightPanel,
     setLeftPanelCollapsed,
@@ -196,10 +206,12 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     setSystemsLayoutMode,
     setCustomSystemsGroup,
     setPatientRosterLayoutMode,
+    setPatientListViewMode,
   }), [
     prefs.leftPatientListOpen,
     prefs.rightTasksPanelOpen,
     prefs.patientRosterLayoutMode,
+    prefs.patientListViewMode,
     focusModeActive,
     focusModeEditorId,
     systemsLayoutMode,
@@ -213,6 +225,7 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
     setSystemsLayoutMode,
     setCustomSystemsGroup,
     setPatientRosterLayoutMode,
+    setPatientListViewMode,
   ])
 
   return (

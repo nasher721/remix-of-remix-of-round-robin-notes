@@ -31,6 +31,8 @@ export interface PatientMutationsDeps {
 
 type PatientUpdateRow = Database["public"]["Tables"]["patients"]["Update"];
 
+export type PatientSaveState = "idle" | "saving" | "saved" | "queued" | "error";
+
 function collectReferencedPatientImageKeys(
     patients: ReadonlyArray<Pick<Patient, "imaging">>,
     ownerId: string,
@@ -127,6 +129,13 @@ export function usePatientMutations({
     activeOwnerIdRef.current = user?.id ?? null;
     const fieldUpdateVersionRef = React.useRef(new Map<string, number>());
     const patientUpdateVersionRef = React.useRef(new Map<string, number>());
+    const [patientSaveStates, setPatientSaveStates] = React.useState<Record<string, PatientSaveState>>({});
+
+    const setPatientSaveState = React.useCallback((patientId: string, state: PatientSaveState) => {
+        setPatientSaveStates((current) => current[patientId] === state
+            ? current
+            : { ...current, [patientId]: state });
+    }, []);
 
     const isCurrentOwner = React.useCallback(
         (requestOwnerId: string) => activeOwnerIdRef.current === requestOwnerId,
@@ -241,6 +250,7 @@ export function usePatientMutations({
         }
 
         const now = new Date().toISOString();
+        setPatientSaveState(id, "saving");
 
         const isSystemField = field.startsWith('systems.');
         const isMedicationsField = field === 'medications';
@@ -377,6 +387,9 @@ export function usePatientMutations({
                     })();
                 }
             }
+            if (patientUpdateVersionRef.current.get(patientUpdateKey) === patientUpdateVersion) {
+                setPatientSaveState(id, "saved");
+            }
         } catch {
             if (!isCurrentOwner(requestOwnerId)) return;
             logError("patient.update.failed");
@@ -406,6 +419,7 @@ export function usePatientMutations({
                 void fetchPatients({ force: true });
             }
             if (isLatestFieldUpdate) {
+                setPatientSaveState(id, "error");
                 notifications.error({
                     title: "Update failed",
                     description: "Patient changes could not be saved. Please try again.",
@@ -421,6 +435,7 @@ export function usePatientMutations({
         commitPatients,
         queryClient,
         deleteImagesIfUnreferenced,
+        setPatientSaveState,
     ]);
 
     const removePatient = React.useCallback(async (id: string) => {
@@ -669,5 +684,6 @@ export function usePatientMutations({
         toggleCollapse,
         collapseAll,
         clearAll,
+        patientSaveStates,
     };
 }

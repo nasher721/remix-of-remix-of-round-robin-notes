@@ -20,7 +20,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { toLayoutMode, toPrefsMode } from "@/lib/dashboardLayoutModes";
-import { Hospital, ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { getPatientDocumentationSummary, DOCUMENTATION_STATUS_LABELS } from "@/lib/patientDocumentation";
+import { Hospital, ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronLeft, ChevronRight, CheckCircle2, Circle, CloudOff, Loader2, AlertCircle, Cloud } from "lucide-react";
 
 /**
  * Desktop workspace: left = selectable list, right = full card for the selected patient.
@@ -38,6 +39,7 @@ export const VirtualizedPatientList = React.memo(() => {
     desktopSelectedPatientId,
     setDesktopSelectedPatientId,
     patientListViewMode,
+    patientSaveStates = {},
   } = useDashboard();
   const todosMap = useDashboardTodos();
 
@@ -98,6 +100,31 @@ export const VirtualizedPatientList = React.memo(() => {
   );
 
   const selectedOpenTodoCount = selectedPatient ? getOpenTodoCount(selectedPatient.id) : 0;
+  const selectedDocumentation = React.useMemo(
+    () => selectedPatient ? getPatientDocumentationSummary(selectedPatient) : null,
+    [selectedPatient],
+  );
+  const selectedIndex = selectedPatient ? patients.findIndex((patient) => patient.id === selectedPatient.id) : -1;
+  const saveState = selectedPatient ? (patientSaveStates[selectedPatient.id] ?? "idle") : "idle";
+
+  const selectRelativePatient = React.useCallback((direction: -1 | 1) => {
+    if (selectedIndex < 0) return;
+    const nextIndex = selectedIndex + direction;
+    if (nextIndex < 0 || nextIndex >= patients.length) return;
+    setDesktopSelectedPatientId(patients[nextIndex].id);
+  }, [patients, selectedIndex, setDesktopSelectedPatientId]);
+
+  const jumpToSection = React.useCallback((sectionId: string) => {
+    if (sectionId === "results" || sectionId === "medications") {
+      window.dispatchEvent(new Event("rr:reveal-advanced-documentation"));
+    }
+    window.setTimeout(() => {
+      const section = document.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`);
+      if (!section) return;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      section.querySelector<HTMLElement>("[contenteditable='true'], textarea, input, button")?.focus();
+    }, sectionId === "results" || sectionId === "medications" ? 50 : 0);
+  }, []);
 
   const sharedPatientTodos = usePatientTodos(selectedPatient?.id ?? null, {
     initialTodos: selectedPatient ? (todosMap[selectedPatient.id] ?? []) : undefined,
@@ -153,6 +180,7 @@ export const VirtualizedPatientList = React.memo(() => {
                     const openTodoCount = getOpenTodoCount(patient.id);
                     const locationLabel = patient.bed?.trim() || "Unassigned";
                     const secondaryLabel = patient.mrn?.trim() ? `MRN ${patient.mrn.trim()}` : "No MRN";
+                    const documentation = getPatientDocumentationSummary(patient);
                     return (
                       <li key={patient.id}>
                         <button
@@ -190,6 +218,11 @@ export const VirtualizedPatientList = React.memo(() => {
                             )}>
                               {secondaryLabel}
                             </p>
+                            <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                              <span>{DOCUMENTATION_STATUS_LABELS[documentation.status]}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{documentation.completed}/{documentation.total} sections</span>
+                            </div>
                           </div>
                           {openTodoCount > 0 ? (
                             <span className="mt-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
@@ -307,6 +340,40 @@ export const VirtualizedPatientList = React.memo(() => {
           {selectedPatient ? (
             <ScrollArea className="flex-1 min-h-0">
               <div className={cn("w-full pb-2", focusModeActive && "mx-auto max-w-[980px]")}>
+                {!focusModeActive && selectedDocumentation && (
+                  <div className="sticky top-0 z-20 mb-3 rounded-lg border border-border/40 bg-background/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85" aria-label="Patient documentation workspace header">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">{selectedPatient.bed || "Unassigned"}</p>
+                        <h2 className="truncate text-base font-semibold text-foreground">{selectedPatient.name || "Unnamed patient"}</h2>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="mr-2 flex items-center gap-1.5 text-xs text-muted-foreground" role="status" aria-live="polite">
+                          {saveState === "saving" && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />}
+                          {saveState === "saved" && <Cloud className="h-3.5 w-3.5 text-primary" aria-hidden="true" />}
+                          {saveState === "queued" && <CloudOff className="h-3.5 w-3.5 text-warning" aria-hidden="true" />}
+                          {saveState === "error" && <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />}
+                          <span>{saveState === "idle" ? "Ready" : saveState === "queued" ? "Offline queued" : saveState === "error" ? "Save failed" : saveState === "saving" ? "Saving" : "Saved"}</span>
+                        </div>
+                        <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => selectRelativePatient(-1)} disabled={selectedIndex <= 0} aria-label="Previous patient">
+                          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                        <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => selectRelativePatient(1)} disabled={selectedIndex < 0 || selectedIndex >= patients.length - 1} aria-label="Next patient">
+                          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                    </div>
+                    <nav className="mt-3 flex gap-1 overflow-x-auto border-t border-border/30 pt-2" aria-label="Documentation sections">
+                      {selectedDocumentation.sections.map((section) => (
+                        <button key={section.id} type="button" onClick={() => jumpToSection(section.id)} className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          {section.complete ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> : <Circle className="h-3.5 w-3.5" aria-hidden="true" />}
+                          {section.label}
+                        </button>
+                      ))}
+                      <span className="ml-auto self-center whitespace-nowrap px-2 text-xs font-medium text-muted-foreground">{selectedDocumentation.percentage}% complete</span>
+                    </nav>
+                  </div>
+                )}
                 <PatientCard
                   key={selectedPatient.id}
                   patient={selectedPatient}

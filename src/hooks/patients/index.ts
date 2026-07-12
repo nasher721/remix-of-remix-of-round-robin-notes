@@ -28,6 +28,7 @@ export const usePatients = () => {
         toggleCollapse,
         collapseAll,
         clearAll,
+        patientSaveStates,
     } = usePatientMutations({
         patientsRef,
         setPatients,
@@ -55,6 +56,7 @@ export const usePatients = () => {
         toggleCollapse,
         collapseAll,
         clearAll,
+        patientSaveStates,
         importPatients,
         refetch: fetchPatients,
     };

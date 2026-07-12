@@ -4,6 +4,7 @@ import { AutoText, Template } from "@/types/autotext";
 import { MobileTab } from "@/components/layout";
 import { PatientFilterType } from "@/constants/config";
 import { type usePatients } from "@/hooks/usePatients";
+import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
 
 type PatientActions = ReturnType<typeof usePatients>;
 
@@ -28,6 +29,7 @@ interface DashboardContextType {
     lastSaved: Date;
     patientListViewMode: "rich" | "compact";
     setPatientListViewMode: (mode: "rich" | "compact") => void;
+    patientSaveStates?: Record<string, PatientSaveState>;
 
     // Actions
     onAddPatient: () => void;

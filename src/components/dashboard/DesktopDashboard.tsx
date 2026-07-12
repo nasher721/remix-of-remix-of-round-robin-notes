@@ -691,7 +691,7 @@ export const DesktopDashboard = () => {
                     value={patientListViewMode}
                     onValueChange={(value) => setPatientListViewMode(value as "rich" | "compact")}
                   >
-                    <SelectTrigger className="h-10 md:h-9 w-[120px] rounded-lg border-border/60">
+                    <SelectTrigger aria-label="Patient list view" className="h-10 md:h-9 w-[120px] rounded-lg border-border/60">
                       <SelectValue placeholder="View mode" />
                     </SelectTrigger>
                     <SelectContent>

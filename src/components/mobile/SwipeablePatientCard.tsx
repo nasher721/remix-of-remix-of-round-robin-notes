@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { Patient } from "@/types/patient";
 import { ChevronRight, User, MapPin, Trash2, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DOCUMENTATION_STATUS_LABELS, getPatientDocumentationSummary } from "@/lib/patientDocumentation";
 
 interface SwipeablePatientCardProps {
   patient: Patient;
@@ -100,6 +101,7 @@ export const SwipeablePatientCard = ({
     hour: "2-digit",
     minute: "2-digit",
   });
+  const documentation = getPatientDocumentationSummary(patient);
 
   return (
     <div 
@@ -174,18 +176,12 @@ export const SwipeablePatientCard = ({
               <span className="italic">No summary</span>
             )}
           </div>
-          {/* Content indicators */}
-          <div className={cn("flex items-center gap-1", compact ? "mt-1" : "mt-1.5")}>
-            {patient.clinicalSummary && (
-              <span className="h-1 w-1 rounded-full bg-primary/50" />
-            )}
-            {patient.intervalEvents && (
-              <span className="h-1 w-1 rounded-full bg-success/50" />
-            )}
-            {Object.values(patient.systems).some(v => v) && (
-              <span className="h-1 w-1 rounded-full bg-warning/50" />
-            )}
-            <span className="text-[9px] text-muted-foreground/40 ml-1">{lastUpdatedLabel}</span>
+          <div className={cn("flex items-center gap-1.5 text-[10px] text-muted-foreground/60", compact ? "mt-1" : "mt-1.5")}>
+            <span>{DOCUMENTATION_STATUS_LABELS[documentation.status]}</span>
+            <span aria-hidden="true">·</span>
+            <span>{documentation.completed}/{documentation.total}</span>
+            <span aria-hidden="true">·</span>
+            <span>{lastUpdatedLabel}</span>
           </div>
         </div>
 
