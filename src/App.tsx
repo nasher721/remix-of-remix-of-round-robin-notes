@@ -27,6 +27,7 @@ import { preloadClinicalData } from "@/lib/lazyData";
 import { NavigationBreadcrumbTracker } from "@/components/observability/NavigationBreadcrumbTracker";
 import { LazyPanelErrorBoundary } from "@/components/LazyPanelErrorBoundary";
 import { AnnouncerProvider, useAnnouncerContext, LiveRegion } from "@/hooks/useAnnouncer";
+import { MotionConfig } from "framer-motion";
 
 // Auth, FHIR callback, and print test are static imports so route modules always load
 // with the app graph. Lazy route chunks can fail to resolve (e.g. stale SW caches in prod,
@@ -122,9 +123,11 @@ function App(): React.ReactElement {
                   <Toaster />
                   <Sonner position="top-right" />
                   <AnnouncerProvider>
-                    <BrowserRouter>
-                      <AppContent />
-                    </BrowserRouter>
+                    <MotionConfig reducedMotion="always">
+                      <BrowserRouter>
+                        <AppContent />
+                      </BrowserRouter>
+                    </MotionConfig>
                   </AnnouncerProvider>
                 </TooltipProvider>
               </ClinicalGuidelinesProvider>

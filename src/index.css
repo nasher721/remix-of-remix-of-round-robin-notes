@@ -353,6 +353,25 @@
   }
 }
 
+/*
+ * Focus-first motion policy
+ *
+ * Workspace state changes should be immediate rather than animated. Loading
+ * spinners remain animated because they communicate active progress; other
+ * pulses, entrances, transforms, and hover transitions are decorative and can
+ * make a dense clinical workspace harder to scan.
+ */
+#root *:not(.animate-spin),
+#root *:not(.animate-spin)::before,
+#root *:not(.animate-spin)::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+}
+
 /* Reduced motion overrides - disable all atmospheric animations */
 @media (prefers-reduced-motion: reduce) {
   .gradient-mesh-subtle,
