@@ -104,4 +104,6 @@ export interface PrintDataProps {
     patients: Patient[];
     patientTodos?: Record<string, PatientTodo[]>;
     patientNotes?: Record<string, string>;
+    patientImageOwnerId?: string;
+    patientImageSignedUrls?: ReadonlyMap<string, string>;
 }

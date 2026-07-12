@@ -58,7 +58,7 @@ export const mapPatientRecord = (record: {
   fieldTimestamps: parseFieldTimestampsJson(record.field_timestamps),
   collapsed: record.collapsed,
   createdAt: record.created_at,
-  lastModified: record.last_modified,
+  lastModified: record.last_modified ?? record.created_at,
 });
 
 export const buildPatientInsertPayload = (input: {

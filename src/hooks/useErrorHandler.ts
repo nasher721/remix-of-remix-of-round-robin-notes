@@ -1,22 +1,11 @@
 import { toast } from "@/hooks/use-toast";
+import { recordTelemetryEvent } from "@/lib/observability/telemetry";
+import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 interface ErrorHandlerOptions {
   title?: string;
   description?: string;
   duration?: number;
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'string') {
-    return error;
-  }
-  if (error && typeof error === 'object' && 'message' in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return 'An unexpected error occurred';
 }
 
 /**
@@ -25,11 +14,11 @@ function getErrorMessage(error: unknown): string {
 export function handleError(error: unknown, options: ErrorHandlerOptions = {}) {
   const {
     title = 'Something went wrong',
-    description = options.description || getErrorMessage(error),
     duration = 5000,
   } = options;
+  const description = options.description ?? getUserFacingErrorMessage(error);
 
-  console.error('[ErrorHandler]', error);
+  recordTelemetryEvent('handled_error', error, { operation: 'handleError' });
 
   toast({
     title,

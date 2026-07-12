@@ -35,12 +35,21 @@ export interface SyncResult {
   duration: number;
 }
 
-type SyncEventType = 'status-change' | 'progress' | 'conflict' | 'complete' | 'error';
-type SyncEventListener = (data: unknown) => void;
+type SyncEventDataMap = {
+  'status-change': SyncStatus;
+  progress: { processed: number; total: number };
+  conflict: ConflictData;
+  complete: SyncResult;
+  error: Error;
+};
 
-// Default conflict resolver - server wins
+type SyncEventType = keyof SyncEventDataMap;
+type SyncEventListener<T extends SyncEventType> = (data: SyncEventDataMap[T]) => void;
+type StoredSyncEventListener = (data: unknown) => void;
+
+// Preserve conflicting local work until the user explicitly resolves it.
 const defaultConflictResolver = async (_conflict: ConflictData): Promise<ConflictResolution> => {
-  return 'server-wins';
+  return 'manual';
 };
 
 // Default sync configuration
@@ -58,8 +67,10 @@ const defaultConfig: SyncConfig = {
 class SyncEngine {
   private config: SyncConfig;
   private status: SyncStatus = 'idle';
-  private syncInProgress = false;
-  private listeners: Map<SyncEventType, Set<SyncEventListener>> = new Map();
+  private activeSync: Promise<SyncResult> | null = null;
+  private activeAuxiliaryOperations = new Set<Promise<unknown>>();
+  private authTransitionPauses = 0;
+  private listeners: Map<SyncEventType, Set<StoredSyncEventListener>> = new Map();
   private abortController: AbortController | null = null;
 
   constructor(config: Partial<SyncConfig> = {}) {
@@ -69,15 +80,20 @@ class SyncEngine {
   }
 
   // Event handling
-  on(event: SyncEventType, listener: SyncEventListener): () => void {
+  on<T extends SyncEventType>(event: T, listener: SyncEventListener<T>): () => void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    this.listeners.get(event)!.add(listener);
-    return () => this.listeners.get(event)?.delete(listener);
+    const storedListener: StoredSyncEventListener = (data) => {
+      listener(data as SyncEventDataMap[T]);
+    };
+    this.listeners.get(event)!.add(storedListener);
+    return () => {
+      this.listeners.get(event)?.delete(storedListener);
+    };
   }
 
-  private emit(event: SyncEventType, data: unknown): void {
+  private emit<T extends SyncEventType>(event: T, data: SyncEventDataMap[T]): void {
     this.listeners.get(event)?.forEach(listener => {
       try {
         listener(data);
@@ -131,19 +147,35 @@ class SyncEngine {
   }
 
   // Main sync method
-  async sync(): Promise<SyncResult> {
-    if (this.syncInProgress) {
-      logInfo('[SyncEngine] Sync already in progress');
-      return { success: 0, failed: 0, conflicts: [], duration: 0 };
+  sync(): Promise<SyncResult> {
+    if (this.authTransitionPauses > 0) {
+      logInfo('[SyncEngine] Auth transition in progress, skipping sync');
+      return Promise.resolve({ success: 0, failed: 0, conflicts: [], duration: 0 });
     }
 
+    if (this.activeSync) {
+      logInfo('[SyncEngine] Sync already in progress');
+      return this.activeSync;
+    }
+
+    const operation = this.runSync();
+    this.activeSync = operation;
+    const clearActiveSync = () => {
+      if (this.activeSync === operation) {
+        this.activeSync = null;
+      }
+    };
+    void operation.then(clearActiveSync, clearActiveSync);
+    return operation;
+  }
+
+  private async runSync(): Promise<SyncResult> {
     if (!navigator.onLine) {
       logInfo('[SyncEngine] Offline, skipping sync');
       this.setStatus('offline');
       return { success: 0, failed: 0, conflicts: [], duration: 0 };
     }
 
-    this.syncInProgress = true;
     this.abortController = new AbortController();
     this.setStatus('syncing');
 
@@ -151,7 +183,7 @@ class SyncEngine {
     const result: SyncResult = { success: 0, failed: 0, conflicts: [], duration: 0 };
 
     try {
-      const queueSize = await indexedDBQueue.getQueueSize();
+      const queueSize = await indexedDBQueue.getPendingCount();
       if (queueSize === 0) {
         logInfo('[SyncEngine] Queue empty');
         this.setStatus('idle');
@@ -174,34 +206,51 @@ class SyncEngine {
         for (const mutation of batch) {
           if (this.abortController.signal.aborted) break;
 
+          let mutationCompleted = false;
           try {
             const conflict = await this.processMutation(mutation);
+            if (this.abortController.signal.aborted) break;
+            let shouldRemoveMutation = true;
             
             if (conflict) {
               result.conflicts.push(conflict);
               const resolution = await this.config.onConflict!(conflict);
+              if (this.abortController.signal.aborted) break;
               await this.resolveConflict(mutation, conflict, resolution);
+              shouldRemoveMutation = resolution !== 'manual';
+              if (resolution === 'manual') {
+                this.emit('conflict', conflict);
+              }
             }
-            
-            await indexedDBQueue.remove(mutation.id);
-            result.success++;
+
+            if (shouldRemoveMutation) {
+              await indexedDBQueue.remove(mutation.id);
+              result.success++;
+            }
+            mutationCompleted = true;
           } catch (error) {
+            if (this.abortController.signal.aborted) break;
             console.error(`[SyncEngine] Mutation ${mutation.id} failed:`, error);
             
-            if (mutation.retryCount >= this.config.maxRetries) {
-              await indexedDBQueue.updateStatus(mutation.id, 'failed');
+            const shouldRetry = await indexedDBQueue.markFailed(
+              mutation.id,
+              this.config.maxRetries,
+            );
+            if (!shouldRetry) {
               result.failed++;
+              mutationCompleted = true;
             } else {
               const delay = this.getBackoffDelay(mutation.retryCount);
-              await indexedDBQueue.incrementRetry(mutation.id);
               // Re-queue for later processing
               await new Promise(resolve => setTimeout(resolve, Math.min(delay, 100)));
             }
           }
 
-          processed++;
-          this.emit('progress', { processed, total: queueSize });
-          this.config.onProgress?.(processed, queueSize);
+          if (mutationCompleted) {
+            processed++;
+            this.emit('progress', { processed, total: queueSize });
+            this.config.onProgress?.(processed, queueSize);
+          }
         }
       }
 
@@ -219,12 +268,23 @@ class SyncEngine {
     } catch (error) {
       console.error('[SyncEngine] Sync error:', error);
       this.setStatus('error');
-      this.emit('error', error);
+      this.emit('error', error instanceof Error ? error : new Error(String(error)));
       return { ...result, duration: Date.now() - startTime };
     } finally {
-      this.syncInProgress = false;
       this.abortController = null;
     }
+  }
+
+  private runAuxiliaryOperation<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.authTransitionPauses > 0) {
+      return Promise.reject(new Error('Offline sync is paused for an auth transition'));
+    }
+
+    const trackedOperation = Promise.resolve().then(operation);
+    this.activeAuxiliaryOperations.add(trackedOperation);
+    return trackedOperation.finally(() => {
+      this.activeAuxiliaryOperations.delete(trackedOperation);
+    });
   }
 
   // Process single mutation
@@ -253,14 +313,19 @@ class SyncEngine {
         throw error;
       }
 
-      if (mutation.conflictData && this.hasConflict(mutation.conflictData, serverData)) {
+      if (this.abortController?.signal.aborted) {
+        throw new DOMException('Offline sync aborted', 'AbortError');
+      }
+
+      const originalData = mutation.conflictData ?? mutation.payload;
+      if (this.hasConflict(originalData, serverData, mutation.timestamp)) {
         return {
           id: entityId,
           table,
           operation,
           clientData: payload,
           serverData,
-          originalData: mutation.conflictData,
+          originalData,
         };
       }
     }
@@ -272,9 +337,11 @@ class SyncEngine {
         ({ error } = await supabase.from(table as 'patients').insert(payload as never));
         break;
       case 'update':
+        if (!entityId) throw new Error('Missing entityId for update');
         ({ error } = await supabase.from(table as 'patients').update(payload as never).eq('id', entityId));
         break;
       case 'delete':
+        if (!entityId) throw new Error('Missing entityId for delete');
         ({ error } = await supabase.from(table as 'patients').delete().eq('id', entityId));
         break;
     }
@@ -287,16 +354,30 @@ class SyncEngine {
   }
 
   // Detect if data has changed on server
-  private hasConflict(original: Record<string, unknown>, server: Record<string, unknown>): boolean {
-    const originalUpdate = (original as { updated_at?: string }).updated_at;
-    const serverUpdate = (server as { updated_at?: string }).updated_at;
-    
-    if (originalUpdate && serverUpdate) {
-      return new Date(originalUpdate) < new Date(serverUpdate);
+  private hasConflict(
+    original: Record<string, unknown>,
+    server: Record<string, unknown>,
+    queuedAt: number,
+  ): boolean {
+    const originalUpdate = this.getRecordTimestamp(original);
+    const serverUpdate = this.getRecordTimestamp(server);
+
+    if (serverUpdate !== null) {
+      return serverUpdate > (originalUpdate ?? queuedAt);
     }
-    
-    // Fallback: compare all fields
-    return JSON.stringify(original) !== JSON.stringify(server);
+
+    // Without version timestamps, retain the mutation when any field captured
+    // in the original snapshot changed. Extra server fields are irrelevant.
+    return Object.entries(original).some(([key, value]) => (
+      JSON.stringify(server[key]) !== JSON.stringify(value)
+    ));
+  }
+
+  private getRecordTimestamp(record: Record<string, unknown>): number | null {
+    const value = record.last_modified ?? record.updated_at;
+    if (typeof value !== 'string') return null;
+    const timestamp = Date.parse(value);
+    return Number.isNaN(timestamp) ? null : timestamp;
   }
 
   // Resolve conflict based on strategy
@@ -311,20 +392,23 @@ class SyncEngine {
         logInfo(`[SyncEngine] Conflict ${conflict.id}: server wins`);
         break;
 
-      case 'client-wins':
-        await supabase
+      case 'client-wins': {
+        const { error } = await supabase
           .from(conflict.table as 'patients')
           .update(conflict.clientData as never)
           .eq('id', conflict.id);
+        if (error) throw new Error(error.message);
         logInfo(`[SyncEngine] Conflict ${conflict.id}: client wins`);
         break;
+      }
 
       case 'merge': {
         const merged = { ...conflict.serverData, ...conflict.clientData };
-        await supabase
+        const { error } = await supabase
           .from(conflict.table as 'patients')
           .update(merged as never)
           .eq('id', conflict.id);
+        if (error) throw new Error(error.message);
         logInfo(`[SyncEngine] Conflict ${conflict.id}: merged`);
         break;
       }
@@ -341,9 +425,30 @@ class SyncEngine {
   abort(): void {
     if (this.abortController) {
       this.abortController.abort();
-      this.syncInProgress = false;
       this.setStatus('idle');
     }
+  }
+
+  /**
+   * Stop accepting sync requests and wait until the active request chain has
+   * observed cancellation. The returned release function is idempotent.
+   */
+  async pauseForAuthTransition(): Promise<() => void> {
+    this.authTransitionPauses += 1;
+    this.abort();
+
+    const activeSync = this.activeSync;
+    await Promise.allSettled([
+      ...(activeSync ? [activeSync] : []),
+      ...this.activeAuxiliaryOperations,
+    ]);
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.authTransitionPauses = Math.max(0, this.authTransitionPauses - 1);
+    };
   }
 
   // Get current status
@@ -351,12 +456,43 @@ class SyncEngine {
     return this.status;
   }
 
+  resolvePendingConflict(
+    conflict: ConflictData,
+    resolution: 'server-wins' | 'client-wins'
+  ): Promise<boolean> {
+    return this.runAuxiliaryOperation(() => this.runResolvePendingConflict(conflict, resolution));
+  }
+
+  private async runResolvePendingConflict(
+    conflict: ConflictData,
+    resolution: 'server-wins' | 'client-wins'
+  ): Promise<boolean> {
+    const queue = await indexedDBQueue.getQueue();
+    if (this.authTransitionPauses > 0) return false;
+    const mutation = queue.find((item) => (
+      item.table === conflict.table
+      && item.operation === conflict.operation
+      && item.entityId === conflict.id
+    ));
+    if (!mutation) return false;
+
+    await this.resolveConflict(mutation, conflict, resolution);
+    await indexedDBQueue.remove(mutation.id);
+    return true;
+  }
+
   // Force retry failed mutations
-  async retryFailed(): Promise<void> {
+  retryFailed(): Promise<void> {
+    return this.runAuxiliaryOperation(() => this.runRetryFailed());
+  }
+
+  private async runRetryFailed(): Promise<void> {
     const failed = await indexedDBQueue.getByStatus('failed');
     for (const mutation of failed) {
+      if (this.authTransitionPauses > 0) return;
       await indexedDBQueue.updateStatus(mutation.id, 'pending');
     }
+    if (this.authTransitionPauses > 0) return;
     await this.sync();
   }
 

@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import type { ClinicalPhrase, PhraseFolder } from '@/types/phrases';
 import { useAuth } from '@/hooks/useAuth';
-import { recallMemories } from '@/lib/hindsightClient';
+import { recallMemories, type HindsightFilters } from '@/lib/hindsightClient';
 
 interface PhrasePickerProps {
   phrases: ClinicalPhrase[];
@@ -73,7 +73,7 @@ export const PhrasePicker: React.FC<PhrasePickerProps> = ({
       if (!open || !user) return;
 
       const bankId = `clinician:${user.id}`;
-      const filters: Record<string, unknown> = { feature: 'phrases' };
+      const filters: HindsightFilters = { feature: 'phrases' };
       if (context?.noteType) {
         filters.noteType = context.noteType;
       }

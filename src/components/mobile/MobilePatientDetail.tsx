@@ -55,6 +55,7 @@ import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { AutoText } from "@/types/autotext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 import type { PatientTodo } from "@/types/todo";
+import { extractPatientImageObjectKeyList } from "@/lib/patientImages";
 
 interface MobilePatientDetailProps {
   patient: Patient;
@@ -102,7 +103,7 @@ export const MobilePatientDetail = ({
   const { enabledSystems } = useSystemsConfig();
   const imagingImageCount = useMemo(() => {
     if (!patient.imaging) return 0;
-    return (patient.imaging.match(/<img[^>]+src=["'][^"']+["'][^>]*>/gi) || []).length;
+    return extractPatientImageObjectKeyList(patient.imaging).length;
   }, [patient.imaging]);
   const imagingTextCount = useMemo(() => {
     if (!patient.imaging) return 0;

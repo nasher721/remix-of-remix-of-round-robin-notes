@@ -1,34 +1,82 @@
 import * as React from "react";
+import { flushSync } from "react-dom";
 import type { User, Session } from "@supabase/supabase-js";
 import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
+import { prepareSensitiveClientState } from "@/lib/auth/clearSensitiveClientState";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }): React.ReactElement {
+interface AuthProviderProps {
+  children: React.ReactNode;
+  onAuthBoundary?: () => void;
+}
+
+export function AuthProvider({ children, onAuthBoundary }: AuthProviderProps): React.ReactElement {
   const [user, setUser] = React.useState<User | null>(null);
   const [session, setSession] = React.useState<Session | null>(null);
   const [loading, setLoading] = React.useState(true);
   const initialized = React.useRef(false);
+  const activeUserId = React.useRef<string | null | undefined>(undefined);
+  const transitionChain = React.useRef<Promise<void>>(Promise.resolve());
+
+  const applySession = React.useCallback((nextSession: Session | null): Promise<void> => {
+    const transition = transitionChain.current.catch(() => undefined).then(async () => {
+      const nextUser = nextSession?.user ?? null;
+      const nextUserId = nextUser?.id ?? null;
+
+      if (activeUserId.current !== nextUserId) {
+        if (activeUserId.current !== undefined) {
+          // Quarantine the old UI synchronously so open patient-data stores
+          // (notably y-indexeddb) close before deletion. Null is safe to expose;
+          // the new identity is still withheld until cleanup completes.
+          flushSync(() => {
+            setLoading(true);
+            setSession(null);
+            setUser(null);
+            onAuthBoundary?.();
+          });
+          // Give passive-effect cleanup a turn to close y-indexeddb handles.
+          await new Promise<void>(resolve => setTimeout(resolve, 0));
+        } else {
+          onAuthBoundary?.();
+        }
+        await prepareSensitiveClientState(nextUserId);
+        activeUserId.current = nextUserId;
+      }
+
+      // Publish only after persistent and in-memory state belongs to this user.
+      setSession(nextSession);
+      setUser(nextUser);
+      setLoading(false);
+    });
+    transitionChain.current = transition;
+    return transition;
+  }, [onAuthBoundary]);
 
   React.useEffect(() => {
     initialized.current = false;
 
     if (!hasSupabaseConfig) {
-      if (!initialized.current) {
-        initialized.current = true;
-        setLoading(false);
-      }
+      void applySession(null)
+        .catch(() => console.error("Failed to clear local data without an auth session"))
+        .finally(() => {
+          if (!initialized.current) {
+            initialized.current = true;
+            setLoading(false);
+          }
+        });
       return;
     }
+
+    let authEventSeen = false;
 
     const finishLoading = () => {
       if (!initialized.current) {
@@ -39,23 +87,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        finishLoading();
+      (_event, nextSession) => {
+        authEventSeen = true;
+        void applySession(nextSession)
+          .catch(() => console.error("Failed to prepare local data for the auth session"))
+          .finally(finishLoading);
       }
     );
 
     // THEN check for existing session
     const initializeSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        setUser(session?.user ?? null);
+        const { data: { session: restoredSession }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!authEventSeen) {
+          await applySession(restoredSession);
+        }
       } catch (error) {
         console.error("Failed to restore auth session:", error);
-        setSession(null);
-        setUser(null);
       } finally {
         finishLoading();
       }
@@ -67,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
       initialized.current = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [applySession]);
 
   const signIn = async (email: string, password: string) => {
     if (!hasSupabaseConfig) {
@@ -81,36 +130,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }): React
     }
   };
 
-  const signUp = async (email: string, password: string) => {
-    if (!hasSupabaseConfig) {
-      return { error: new Error("Authentication is not configured.") };
-    }
-    try {
-      const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: redirectUrl }
-      });
-      return { error: error as Error | null };
-    } catch (error) {
-      return { error: error instanceof Error ? error : new Error(String(error)) };
-    }
-  };
-
   const signOut = async () => {
     if (!hasSupabaseConfig) {
+      await applySession(null);
       return;
     }
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      console.error("Failed to sign out:", error);
-    }
+
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+
+    // Supabase normally emits SIGNED_OUT. Explicitly await the same transition
+    // so callers navigate only after local state is actually isolated.
+    await applySession(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

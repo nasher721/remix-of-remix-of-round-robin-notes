@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +58,7 @@ export function ActivityFeed({
   className,
 }: ActivityFeedProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const { activities, loading, fetchActivities } = usePatientActivity(patientId);
+  const { activities, loading, error, fetchActivities, retry } = usePatientActivity(patientId);
 
   React.useEffect(() => {
     if (isOpen && patientId) {
@@ -93,15 +94,30 @@ export function ActivityFeed({
 
       <CollapsibleContent>
         <div className="mt-2">
-          {loading ? (
-            <div className="flex items-center justify-center py-4">
+          {error && (
+            <div role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">Could not load {patientName ? `${patientName}'s ` : ""}activity</p>
+                  <p className="mt-0.5 text-muted-foreground">{error}</p>
+                </div>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => void retry()}>
+                  Retry
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {loading && activities.length === 0 ? (
+            <div role="status" aria-label="Loading patient activity" className="flex items-center justify-center py-4">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
-          ) : activities.length === 0 ? (
+          ) : activities.length === 0 && !error ? (
             <div className="text-center py-4 text-muted-foreground text-xs">
               No activity yet
             </div>
-          ) : (
+          ) : activities.length > 0 ? (
             <ScrollArea className="h-[200px] pr-2">
               <div className="space-y-2">
                 {displayedActivities.map((activity, index) => {
@@ -159,7 +175,7 @@ export function ActivityFeed({
                 )}
               </div>
             </ScrollArea>
-          )}
+          ) : null}
         </div>
       </CollapsibleContent>
     </Collapsible>

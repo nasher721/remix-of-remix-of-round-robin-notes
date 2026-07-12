@@ -1,57 +1,94 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, safeLog, RATE_LIMITS, MissingAPIKeyError, parseAndValidateBody, requireString, requireEnum, safeErrorMessage, ALLOWED_TRANSFORM_TYPES, handleOptions } from '../_shared/mod.ts';
-import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
+import {
+  ALLOWED_TRANSFORM_TYPES,
+  authenticateRequest,
+  checkRateLimit,
+  corsHeaders,
+  createErrorResponse,
+  handleOptions,
+  MissingAPIKeyError,
+  parseAndValidateBody,
+  RATE_LIMITS,
+  requireEnum,
+  requireString,
+  safeErrorMessage,
+  safeLog,
+} from "../_shared/mod.ts";
+import { callLLM } from "../_shared/llm-client.ts";
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
     return handleOptions(req);
   }
 
   try {
     // Authenticate the request
     const authResult = await authenticateRequest(req);
-    if ('error' in authResult) {
+    if ("error" in authResult) {
       return authResult.error;
     }
-    safeLog('info', `Authenticated request from user: ${authResult.userId}`);
+    safeLog("info", "Transform text request authenticated");
     // Rate limiting check
-    const rateLimit = checkRateLimit(req, RATE_LIMITS.standard, authResult.userId);
+    const rateLimit = await checkRateLimit(
+      req,
+      RATE_LIMITS.standard,
+      authResult.userId,
+    );
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+      return rateLimit.response ??
+        new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        });
     }
 
     // Parse and validate input
-    const bodyResult = await parseAndValidateBody<{ text?: string; transformType?: string; customPrompt?: string; model?: string }>(req);
+    const bodyResult = await parseAndValidateBody<
+      {
+        text?: string;
+        transformType?: string;
+        customPrompt?: string;
+        model?: string;
+      }
+    >(req);
     if (!bodyResult.valid) {
       return bodyResult.response;
     }
-    const { text, transformType, customPrompt, model: requestedModel } = bodyResult.data;
+    const { text, transformType, customPrompt, model: requestedModel } =
+      bodyResult.data;
 
-    const textCheck = requireString(text, 'text');
-    if (typeof textCheck === 'object' && 'error' in textCheck) {
+    const textCheck = requireString(text, "text");
+    if (typeof textCheck === "object" && "error" in textCheck) {
       return createErrorResponse(req, textCheck.error, 400);
     }
-    const typeCheck = requireEnum(transformType, 'transformType', ALLOWED_TRANSFORM_TYPES);
-    if (typeof typeCheck === 'object' && 'error' in typeCheck) {
+    const typeCheck = requireEnum(
+      transformType,
+      "transformType",
+      ALLOWED_TRANSFORM_TYPES,
+    );
+    if (typeof typeCheck === "object" && "error" in typeCheck) {
       return createErrorResponse(req, typeCheck.error, 400);
     }
+    const validText = textCheck;
+    const validTransformType = typeCheck;
 
-    let systemPrompt = '';
-    let userPrompt = '';
+    let systemPrompt = "";
+    let userPrompt = "";
 
-    switch (transformType) {
-      case 'comma-list':
-        systemPrompt = `You are a text formatting assistant. Convert the given text into a comma-delimited list. 
+    switch (validTransformType) {
+      case "comma-list":
+        systemPrompt =
+          `You are a text formatting assistant. Convert the given text into a comma-delimited list.
 - Extract distinct items, concepts, or elements from the text
 - Format them as a clean comma-separated list
 - Remove redundant words and keep each item concise
 - Do not add any explanation, just output the comma-separated list`;
-        userPrompt = `Convert this text to a comma-delimited list:\n\n${text}`;
+        userPrompt =
+          `Convert this text to a comma-delimited list:\n\n${validText}`;
         break;
 
-      case 'medical-shorthand':
-        systemPrompt = `You are a medical documentation expert. Rewrite the given text using standard medical abbreviations and shorthand.
+      case "medical-shorthand":
+        systemPrompt =
+          `You are a medical documentation expert. Rewrite the given text using standard medical abbreviations and shorthand.
 Common abbreviations to use:
 - patient → pt, patients → pts
 - with → w/, without → w/o
@@ -74,56 +111,81 @@ Common abbreviations to use:
 - year old → y/o (e.g., "65 year old" → "65 y/o")
 
 Output ONLY the rewritten text in medical shorthand. No explanations.`;
-        userPrompt = `Rewrite in medical shorthand:\n\n${text}`;
+        userPrompt = `Rewrite in medical shorthand:\n\n${validText}`;
         break;
 
-      case 'custom':
+      case "custom":
         if (!customPrompt) {
           return new Response(
-            JSON.stringify({ error: 'Custom prompt required for custom transformation' }),
-            { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+            JSON.stringify({
+              error: "Custom prompt required for custom transformation",
+            }),
+            {
+              status: 400,
+              headers: {
+                ...corsHeaders(req),
+                "Content-Type": "application/json",
+              },
+            },
           );
         }
-        systemPrompt = `You are a helpful text transformation assistant. Apply the user's requested transformation to the given text. Output ONLY the transformed text without any explanations or commentary.`;
-        userPrompt = `${customPrompt}\n\nText to transform:\n${text}`;
+        systemPrompt =
+          `You are a helpful text transformation assistant. Apply the user's requested transformation to the given text. Output ONLY the transformed text without any explanations or commentary.`;
+        userPrompt = `${customPrompt}\n\nText to transform:\n${validText}`;
         break;
 
       default:
         return new Response(
-          JSON.stringify({ error: 'Invalid transformType' }),
-          { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: "Invalid transformType" }),
+          {
+            status: 400,
+            headers: {
+              ...corsHeaders(req),
+              "Content-Type": "application/json",
+            },
+          },
         );
     }
 
-    safeLog('info', `Processing ${transformType} transformation for ${text.length} characters`);
+    safeLog("info", "Transform text processing started", {
+      feature: validTransformType,
+      inputChars: validText.length,
+    });
 
     const transformedText = await callLLM(
       systemPrompt,
       userPrompt,
-      { model: requestedModel }
+      { model: requestedModel },
     );
 
     if (!transformedText) {
-      throw new Error('No response from AI');
+      throw new Error("No response from AI");
     }
 
-    safeLog('info', `Successfully transformed text: ${transformedText.length} characters`);
+    safeLog("info", "Transform text processing completed", {
+      feature: validTransformType,
+      outputChars: transformedText.length,
+    });
 
     return new Response(
       JSON.stringify({ transformedText }),
-      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } },
     );
-
   } catch (error) {
-    safeLog('error', `Transform text error: ${error}`);
+    safeLog("error", "Transform text request failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     // Handle missing API key configuration
     if (error instanceof MissingAPIKeyError) {
       return new Response(
-        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
-        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: error.message, code: "MISSING_API_KEY" }),
+        {
+          status: 503,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        },
       );
     }
-    const errorMessage = safeErrorMessage(error, 'Failed to transform text');
+    const errorMessage = safeErrorMessage(error, "Failed to transform text");
     return createErrorResponse(req, errorMessage, 500);
   }
 });

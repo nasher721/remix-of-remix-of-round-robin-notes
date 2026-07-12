@@ -47,6 +47,8 @@ export {
   getLLMRouter,
   createRouter,
   resetRouter,
+  setRuntimeCredentials,
+  clearRuntimeCredentials,
   buildConfigFromEnv,
   AVAILABLE_MODELS,
   type ModelOption,

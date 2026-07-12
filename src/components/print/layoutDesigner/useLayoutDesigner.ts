@@ -19,6 +19,11 @@ import type {
   SavedLayout,
 } from '@/types/layoutDesigner';
 import { LAYOUT_TEMPLATES, getDefaultLayout, createCustomLayout } from './defaultLayouts';
+import {
+  createScopedPrintStorage,
+  quarantineLegacyPrintPreferences,
+} from '@/lib/print/preferences';
+import type { StorageLike } from '@/utils/safeStorage';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -35,55 +40,68 @@ interface UseLayoutDesignerOptions {
   initialLayoutId?: string;
   autoSave?: boolean;
   autoSaveDelay?: number;
+  storageOwnerId?: string | null;
 }
+
+const loadSavedLayouts = (storage: StorageLike): SavedLayout[] => {
+  try {
+    const parsed = JSON.parse(storage.getItem(STORAGE_KEYS.SAVED_LAYOUTS) ?? '[]') as unknown;
+    return Array.isArray(parsed) ? parsed as SavedLayout[] : [];
+  } catch {
+    return [];
+  }
+};
+
+const loadRecentLayoutIds = (storage: StorageLike): string[] => {
+  try {
+    const parsed = JSON.parse(storage.getItem(STORAGE_KEYS.RECENT_LAYOUTS) ?? '[]') as unknown;
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const loadCurrentLayout = (
+  storage: StorageLike,
+  savedLayouts: SavedLayout[],
+  initialLayoutId?: string,
+): LayoutConfig => {
+  const savedId = initialLayoutId || storage.getItem(STORAGE_KEYS.CURRENT_LAYOUT_ID);
+  const builtIn = LAYOUT_TEMPLATES.find(layout => layout.id === savedId);
+  if (builtIn) return builtIn;
+  return savedLayouts.find(layout => layout.id === savedId)?.config ?? getDefaultLayout();
+};
 
 export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
   const { toast } = useToast();
-  const { initialLayoutId, autoSave = true, autoSaveDelay = 1000 } = options;
+  const {
+    initialLayoutId,
+    autoSave = true,
+    autoSaveDelay = 1000,
+    storageOwnerId = null,
+  } = options;
+  const layoutStorage = React.useMemo(
+    () => createScopedPrintStorage(storageOwnerId),
+    [storageOwnerId],
+  );
+  const initiallySavedLayouts = React.useMemo(
+    () => loadSavedLayouts(layoutStorage),
+    [layoutStorage],
+  );
+  const [loadedStorageOwnerId, setLoadedStorageOwnerId] = React.useState(storageOwnerId);
 
-  // Load saved layouts from localStorage
-  const [savedLayouts, setSavedLayouts] = React.useState<SavedLayout[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SAVED_LAYOUTS);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Load saved layouts from the current owner's isolated namespace.
+  const [savedLayouts, setSavedLayouts] = React.useState<SavedLayout[]>(initiallySavedLayouts);
 
   // Load recent layout IDs
-  const [recentLayoutIds, setRecentLayoutIds] = React.useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.RECENT_LAYOUTS);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [recentLayoutIds, setRecentLayoutIds] = React.useState<string[]>(() =>
+    loadRecentLayoutIds(layoutStorage)
+  );
 
   // Initialize current layout
-  const [currentLayout, setCurrentLayout] = React.useState<LayoutConfig>(() => {
-    // Try to load from localStorage first
-    try {
-      const savedId = initialLayoutId || localStorage.getItem(STORAGE_KEYS.CURRENT_LAYOUT_ID);
-      if (savedId) {
-        // Check built-in layouts first
-        const builtIn = LAYOUT_TEMPLATES.find(l => l.id === savedId);
-        if (builtIn) return builtIn;
-
-        // Check saved custom layouts
-        const savedLayoutsStr = localStorage.getItem(STORAGE_KEYS.SAVED_LAYOUTS);
-        if (savedLayoutsStr) {
-          const savedLayouts: SavedLayout[] = JSON.parse(savedLayoutsStr);
-          const customLayout = savedLayouts.find(l => l.id === savedId);
-          if (customLayout) return customLayout.config;
-        }
-      }
-    } catch {
-      // Fall through to default
-    }
-    return getDefaultLayout();
-  });
+  const [currentLayout, setCurrentLayout] = React.useState<LayoutConfig>(() =>
+    loadCurrentLayout(layoutStorage, initiallySavedLayouts, initialLayoutId)
+  );
 
   // Undo/Redo stacks
   const [undoStack, setUndoStack] = React.useState<LayoutConfig[]>([]);
@@ -102,20 +120,38 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
   // Auto-save timer ref
   const autoSaveTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Persist saved layouts to localStorage
+  // Persist only when state has been loaded for the active owner. This guard
+  // prevents an A-to-B render from writing A's layouts into B's namespace.
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SAVED_LAYOUTS, JSON.stringify(savedLayouts));
-  }, [savedLayouts]);
+    if (loadedStorageOwnerId !== storageOwnerId) return;
+    layoutStorage.setItem(STORAGE_KEYS.SAVED_LAYOUTS, JSON.stringify(savedLayouts));
+  }, [layoutStorage, loadedStorageOwnerId, savedLayouts, storageOwnerId]);
 
   // Persist recent layouts to localStorage
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.RECENT_LAYOUTS, JSON.stringify(recentLayoutIds));
-  }, [recentLayoutIds]);
+    if (loadedStorageOwnerId !== storageOwnerId) return;
+    layoutStorage.setItem(STORAGE_KEYS.RECENT_LAYOUTS, JSON.stringify(recentLayoutIds));
+  }, [layoutStorage, loadedStorageOwnerId, recentLayoutIds, storageOwnerId]);
 
   // Persist current layout ID
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.CURRENT_LAYOUT_ID, currentLayout.id);
-  }, [currentLayout.id]);
+    if (loadedStorageOwnerId !== storageOwnerId) return;
+    layoutStorage.setItem(STORAGE_KEYS.CURRENT_LAYOUT_ID, currentLayout.id);
+  }, [currentLayout.id, layoutStorage, loadedStorageOwnerId, storageOwnerId]);
+
+  React.useEffect(() => {
+    quarantineLegacyPrintPreferences();
+    if (loadedStorageOwnerId === storageOwnerId) return;
+
+    const nextSavedLayouts = loadSavedLayouts(layoutStorage);
+    setSavedLayouts(nextSavedLayouts);
+    setRecentLayoutIds(loadRecentLayoutIds(layoutStorage));
+    setCurrentLayout(loadCurrentLayout(layoutStorage, nextSavedLayouts, initialLayoutId));
+    setUndoStack([]);
+    setRedoStack([]);
+    setSelectedSectionId(null);
+    setLoadedStorageOwnerId(storageOwnerId);
+  }, [initialLayoutId, layoutStorage, loadedStorageOwnerId, storageOwnerId]);
 
   // Push to history for undo
   const pushToHistory = React.useCallback((layout: LayoutConfig) => {
@@ -423,36 +459,56 @@ export const useLayoutDesigner = (options: UseLayoutDesignerOptions = {}) => {
 
   // Update card config
   const updateCardConfig = React.useCallback((updates: Partial<CardLayoutConfig>) => {
+    const cardConfig = currentLayout.cardConfig ??
+      LAYOUT_TEMPLATES.find(layout => layout.cardConfig)?.cardConfig;
+    if (!cardConfig) return;
+
     updateLayout({
-      cardConfig: { ...currentLayout.cardConfig, ...updates },
+      cardConfig: { ...cardConfig, ...updates },
     });
   }, [currentLayout.cardConfig, updateLayout]);
 
   // Update grid config
   const updateGridConfig = React.useCallback((updates: Partial<GridLayoutConfig>) => {
+    const gridConfig = currentLayout.gridConfig ??
+      LAYOUT_TEMPLATES.find(layout => layout.gridConfig)?.gridConfig;
+    if (!gridConfig) return;
+
     updateLayout({
-      gridConfig: { ...currentLayout.gridConfig, ...updates },
+      gridConfig: { ...gridConfig, ...updates },
     });
   }, [currentLayout.gridConfig, updateLayout]);
 
   // Update newspaper config
   const updateNewspaperConfig = React.useCallback((updates: Partial<NewspaperLayoutConfig>) => {
+    const newspaperConfig = currentLayout.newspaperConfig ??
+      LAYOUT_TEMPLATES.find(layout => layout.newspaperConfig)?.newspaperConfig;
+    if (!newspaperConfig) return;
+
     updateLayout({
-      newspaperConfig: { ...currentLayout.newspaperConfig, ...updates },
+      newspaperConfig: { ...newspaperConfig, ...updates },
     });
   }, [currentLayout.newspaperConfig, updateLayout]);
 
   // Update timeline config
   const updateTimelineConfig = React.useCallback((updates: Partial<TimelineLayoutConfig>) => {
+    const timelineConfig = currentLayout.timelineConfig ??
+      LAYOUT_TEMPLATES.find(layout => layout.timelineConfig)?.timelineConfig;
+    if (!timelineConfig) return;
+
     updateLayout({
-      timelineConfig: { ...currentLayout.timelineConfig, ...updates },
+      timelineConfig: { ...timelineConfig, ...updates },
     });
   }, [currentLayout.timelineConfig, updateLayout]);
 
   // Update magazine config
   const updateMagazineConfig = React.useCallback((updates: Partial<MagazineLayoutConfig>) => {
+    const magazineConfig = currentLayout.magazineConfig ??
+      LAYOUT_TEMPLATES.find(layout => layout.magazineConfig)?.magazineConfig;
+    if (!magazineConfig) return;
+
     updateLayout({
-      magazineConfig: { ...currentLayout.magazineConfig, ...updates },
+      magazineConfig: { ...magazineConfig, ...updates },
     });
   }, [currentLayout.magazineConfig, updateLayout]);
 

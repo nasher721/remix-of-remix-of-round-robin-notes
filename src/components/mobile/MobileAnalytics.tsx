@@ -24,8 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { DashboardData, AcuityDistribution } from "@/types/analytics";
-import { generateSampleDashboardData } from "@/components/AnalyticsDashboard";
+import type { DashboardData } from "@/types/analytics";
 
 interface MobileAnalyticsProps {
   data?: DashboardData;
@@ -42,11 +41,35 @@ const ACUITY_COLORS = {
 };
 
 export function MobileAnalytics({
-  data: providedData,
+  data,
   onRefresh,
   className,
 }: MobileAnalyticsProps) {
-  const data = providedData || generateSampleDashboardData();
+  if (!data) {
+    return (
+      <ScrollArea className={cn("h-full", className)}>
+        <div className="space-y-4 p-4 pb-24">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Unit Analytics</h2>
+            {onRefresh && (
+              <Button variant="outline" size="icon" onClick={onRefresh} aria-label="Refresh analytics">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center p-10 text-center">
+              <BarChart3 className="mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="font-medium">No analytics data available</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Connect or refresh actual unit metrics to populate this dashboard.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </ScrollArea>
+    );
+  }
 
   return (
     <ScrollArea className={cn("h-full", className)}>
@@ -91,7 +114,9 @@ export function MobileAnalytics({
             icon={Activity}
             label="Ventilated"
             value={data.unitMetrics.ventilatedPatients}
-            sublabel={`${Math.round((data.unitMetrics.ventilatedPatients / data.unitMetrics.totalPatients) * 100)}%`}
+            sublabel={`${data.unitMetrics.totalPatients > 0
+              ? Math.round((data.unitMetrics.ventilatedPatients / data.unitMetrics.totalPatients) * 100)
+              : 0}%`}
             color="#f59e0b"
           />
         </div>

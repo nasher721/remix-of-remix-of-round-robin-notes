@@ -30,6 +30,7 @@ import { compilePrompt } from './PromptCompiler';
 import { validateClinicalOutput } from './OutputValidator';
 import { verifyClinicalOutput } from './ClinicalGuardrails';
 import { logLLMEvent, createLogEntry, hashPrompt } from './LLMLogger';
+import { sanitizeClinicalContext, sanitizeText } from '@/lib/piiSanitizer';
 
 // ---------------------------------------------------------------------------
 // Default routing rules
@@ -165,7 +166,8 @@ export class LLMRouter {
     } = {},
   ): Promise<LLMResponse> {
     const task = options.task || 'general';
-    const promptHash = hashPrompt(request.systemPrompt + request.userPrompt);
+    const outboundRequest = sanitizeOutboundRequest(request);
+    const promptHash = hashPrompt(outboundRequest.systemPrompt + outboundRequest.userPrompt);
 
     // Build the list of provider/model pairs to try
     const candidates = this.buildCandidateList(task, options.provider, options.model, request.model);
@@ -177,9 +179,9 @@ export class LLMRouter {
       if (!provider) continue;
 
       // Compile the prompt for this specific provider
-      const compiled = compilePrompt(request, candidate.provider);
+      const compiled = compilePrompt(outboundRequest, candidate.provider);
       const compiledRequest: LLMRequest = {
-        ...request,
+        ...outboundRequest,
         model: candidate.model,
         systemPrompt: compiled.systemPrompt,
         userPrompt: compiled.userPrompt,
@@ -219,12 +221,11 @@ export class LLMRouter {
           const validation = validateClinicalOutput(response.content, options.feature);
           if (!validation.valid) {
             lastError = `Validation failed: ${validation.errors.join('; ')}`;
-            // Use repaired content if available
-            if (validation.repairedContent) {
-              response.content = validation.repairedContent;
-            } else {
-              continue; // Try next attempt or fallback
-            }
+            continue; // Try next attempt or fallback
+          }
+
+          if (validation.repairedContent) {
+            response.content = validation.repairedContent;
           }
         }
 
@@ -232,13 +233,10 @@ export class LLMRouter {
         if (!options.skipSafety && this.clinicalSafety && request.patientContext) {
           const safety = verifyClinicalOutput(response.content, request.patientContext);
           if (!safety.safe) {
-            const criticalIssues = safety.issues.filter(i => i.severity === 'critical');
-            console.warn(
-              `[LLMRouter] Clinical safety issues detected:`,
-              criticalIssues.map(i => i.description),
-            );
-            // Don't block — log the warning but still return the response
-            // The UI should display safety warnings to the clinician
+            lastError = 'Clinical safety verification failed';
+            // Never log issue descriptions: they can contain patient-derived text.
+            console.warn('[LLMRouter] Clinical safety verification rejected provider output');
+            continue; // Try next attempt or fallback without exposing unsafe content
           }
         }
 
@@ -272,15 +270,16 @@ export class LLMRouter {
     } = {},
   ): Promise<LLMResponse> {
     const task = options.task || 'general';
+    const outboundRequest = sanitizeOutboundRequest(request);
     const candidates = this.buildCandidateList(task, options.provider, options.model, request.model);
 
     for (const candidate of candidates) {
       const provider = this.providers.get(candidate.provider);
       if (!provider) continue;
 
-      const compiled = compilePrompt(request, candidate.provider);
+      const compiled = compilePrompt(outboundRequest, candidate.provider);
       const compiledRequest: LLMRequest = {
-        ...request,
+        ...outboundRequest,
         model: candidate.model,
         systemPrompt: compiled.systemPrompt,
         userPrompt: compiled.userPrompt,
@@ -307,8 +306,8 @@ export class LLMRouter {
     return {
       success: false,
       content: '',
-      provider: this.config.defaultProvider,
-      model: this.config.defaultModel,
+      provider: candidates[0]?.provider || this.config.defaultProvider,
+      model: candidates[0]?.model || this.config.defaultModel,
       error: 'All providers failed for streaming request',
     };
   }
@@ -320,6 +319,7 @@ export class LLMRouter {
     request: LLMRequest,
     providers: Array<{ provider: LLMProviderName; model: string }>,
   ): Promise<LLMResponse[]> {
+    const outboundRequest = sanitizeOutboundRequest(request);
     const promises = providers.map(async ({ provider: providerName, model }) => {
       const provider = this.providers.get(providerName);
       if (!provider) {
@@ -332,9 +332,9 @@ export class LLMRouter {
         } as LLMResponse;
       }
 
-      const compiled = compilePrompt(request, providerName);
+      const compiled = compilePrompt(outboundRequest, providerName);
       return provider.sendMessage({
-        ...request,
+        ...outboundRequest,
         model,
         systemPrompt: compiled.systemPrompt,
         userPrompt: compiled.userPrompt,
@@ -372,16 +372,27 @@ export class LLMRouter {
   ): Array<{ provider: LLMProviderName; model: string }> {
     const candidates: Array<{ provider: LLMProviderName; model: string }> = [];
 
-    // If an explicit override is given, try it first
-    if (overrideProvider && overrideModel) {
-      candidates.push({ provider: overrideProvider, model: overrideModel });
-    } else if (overrideProvider) {
-      // Use the provider's default from the routing rules
-      const rule = this.config.rules.find(r => r.task === task);
-      candidates.push({
+    // A user-selected provider is a data-routing boundary. Never send the
+    // request to another vendor if that provider is unavailable or fails.
+    if (overrideProvider) {
+      const requestedModel = overrideModel || requestModel;
+      return [{
         provider: overrideProvider,
-        model: requestModel || rule?.preferredModel || this.config.defaultModel,
-      });
+        model: requestedModel || this.defaultModelForProvider(task, overrideProvider),
+      }];
+    }
+
+    const modelSelectedProvider = providerForBrowserModel(overrideModel || requestModel);
+    if (modelSelectedProvider) {
+      return [{
+        provider: modelSelectedProvider,
+        model: (overrideModel || requestModel)!,
+      }];
+    }
+    if (overrideModel) {
+      // An explicit model whose vendor cannot be established must not be sent
+      // to a guessed provider.
+      return [];
     }
 
     // Add task-specific routing
@@ -417,6 +428,26 @@ export class LLMRouter {
     });
   }
 
+  private defaultModelForProvider(task: TaskCategory, provider: LLMProviderName): string {
+    const taskRule = this.config.rules.find(rule => rule.task === task);
+    if (taskRule?.preferredProvider === provider) return taskRule.preferredModel;
+
+    const taskFallback = taskRule?.fallbacks.find(candidate => candidate.provider === provider);
+    if (taskFallback) return taskFallback.model;
+    if (this.config.defaultProvider === provider) return this.config.defaultModel;
+    if (this.config.fallbackProvider === provider) return this.config.fallbackModel;
+
+    for (const rule of this.config.rules) {
+      if (rule.preferredProvider === provider) return rule.preferredModel;
+      const fallback = rule.fallbacks.find(candidate => candidate.provider === provider);
+      if (fallback) return fallback.model;
+    }
+
+    // Custom provider configurations may use a model identifier unknown to the
+    // built-in rules. Keep routing pinned to the selected vendor either way.
+    return this.config.defaultModel;
+  }
+
   private async executeWithTimeout(
     provider: LLMProvider,
     request: LLMRequest,
@@ -438,14 +469,14 @@ export class LLMRouter {
       provider.sendMessage(request).then((response) => {
         clearTimeout(timer);
         resolve(response);
-      }).catch((err) => {
+      }).catch(() => {
         clearTimeout(timer);
         resolve({
           success: false,
           content: '',
           provider: provider.name,
           model: request.model,
-          error: err instanceof Error ? err.message : 'Unknown error',
+          error: `${provider.name} request failed.`,
         });
       });
     });
@@ -458,4 +489,51 @@ export class LLMRouter {
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function sanitizeOutboundRequest(request: LLMRequest): LLMRequest {
+  const patientName = typeof request.patientContext?.patientName === 'string'
+    ? request.patientContext.patientName.trim()
+    : '';
+  const knownNames = patientName ? [patientName] : [];
+  const sanitizationOptions = { knownNames };
+  let patientContext: Record<string, unknown> | undefined;
+  if (request.patientContext) {
+    const contextWithoutName = { ...request.patientContext };
+    delete contextWithoutName.patientName;
+    patientContext = sanitizeClinicalContext(contextWithoutName, sanitizationOptions).sanitized;
+    if (patientName) patientContext.patientName = '[Patient]';
+  }
+
+  return {
+    ...request,
+    systemPrompt: sanitizePromptText(request.systemPrompt, sanitizationOptions),
+    userPrompt: sanitizePromptText(request.userPrompt, sanitizationOptions),
+    patientContext,
+  };
+}
+
+function providerForBrowserModel(model?: string): LLMProviderName | undefined {
+  if (!model) return undefined;
+  const normalized = model.trim().toLowerCase();
+  if (!normalized) return undefined;
+  if (/^(?:gpt|o[1345](?:-|$)|whisper)/.test(normalized)) return 'openai';
+  if (normalized.startsWith('claude')) return 'anthropic';
+  if (normalized.startsWith('gemini')) return 'gemini';
+  if (normalized.startsWith('glm')) return 'glm';
+  if (normalized.startsWith('meta-llama/') || normalized.startsWith('huggingface/')) {
+    return 'huggingface';
+  }
+  if (normalized.startsWith('grok') || normalized.startsWith('llama3-')) return 'grok';
+  return undefined;
+}
+
+function sanitizePromptText(
+  value: string,
+  options: { knownNames: string[] },
+): string {
+  return sanitizeText(value, options).text.replace(
+    /\b(?:MRN|Medical Record(?:\s+Number)?)\s*[:#=]?\s*[A-Z0-9][A-Z0-9-]{3,31}\b/gi,
+    '[MRN REDACTED]',
+  );
 }

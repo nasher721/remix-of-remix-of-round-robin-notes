@@ -1,49 +1,85 @@
-export {
-  authenticateRequest,
-  logAuthEvent,
-  verifyUserRole,
-  type AuthResult,
-} from './auth.ts';
+export { authenticateRequest, type AuthResult, logAuthEvent } from "./auth.ts";
 
 export {
+  errorResponse,
   getCorsHeaders,
   handleOptions,
   jsonResponse,
-  errorResponse,
   STANDARD_HEADERS,
-} from './cors.ts';
+} from "./cors.ts";
 
-export { getCorsHeaders as corsHeaders } from './cors.ts';
-export { errorResponse as createErrorResponse } from './cors.ts';
-export { handleOptions as createCorsResponse } from './cors.ts';
+export { getCorsHeaders as corsHeaders } from "./cors.ts";
+export { errorResponse as createErrorResponse } from "./cors.ts";
+export { handleOptions as createCorsResponse } from "./cors.ts";
 
-export {
-  MissingAPIKeyError,
-  LLMProviderError,
-} from './llm-client.ts';
+export { LLMProviderError, MissingAPIKeyError } from "./llm-client.ts";
 
-export function safeLog(level: 'info' | 'warn' | 'error', message: string, data?: Record<string, unknown>): void {
+/**
+ * Emit a structured operational event without clinical or user content.
+ *
+ * Event names must be static labels. Metadata is allowlisted so a future caller
+ * cannot accidentally persist request text, model output, identifiers, or PHI.
+ */
+export function safeLog(
+  level: "info" | "warn" | "error",
+  event: string,
+  data?: Record<string, unknown>,
+): void {
   const sanitizedData = data ? sanitizeForLogging(data) : undefined;
   console.log(JSON.stringify({
     level,
-    message,
+    event,
     timestamp: new Date().toISOString(),
-    ...(sanitizedData && { data: sanitizedData }),
+    ...(sanitizedData && Object.keys(sanitizedData).length > 0 &&
+      { data: sanitizedData }),
   }));
 }
 
-function sanitizeForLogging(data: Record<string, unknown>): Record<string, unknown> {
-  const redactedKeys = ['password', 'token', 'secret', 'ssn', 'dob', 'mrn', 'patient_name', 'diagnosis', 'transcript'];
+function sanitizeForLogging(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  const allowedKeys = new Set([
+    "audioBytes",
+    "durationMs",
+    "enhancementRequested",
+    "errorType",
+    "feature",
+    "function",
+    "hasContext",
+    "hasText",
+    "imageCount",
+    "inputChars",
+    "interactionCount",
+    "medicationCount",
+    "mimeCategory",
+    "model",
+    "outputChars",
+    "parsedWith",
+    "patientCount",
+    "provider",
+    "requestId",
+    "sectionCount",
+    "stage",
+    "status",
+    "statusCode",
+    "streaming",
+    "todoCount",
+    "uniquePatientCount",
+  ]);
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(data)) {
-    const lowerKey = key.toLowerCase();
-    if (redactedKeys.some(k => lowerKey.includes(k))) {
-      sanitized[key] = '[REDACTED]';
-    } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeForLogging(value as Record<string, unknown>);
-    } else {
+    if (!allowedKeys.has(key)) {
+      sanitized[key] = "[REDACTED]";
+    } else if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean" ||
+      value === null
+    ) {
       sanitized[key] = value;
+    } else {
+      sanitized[key] = "[REDACTED]";
     }
   }
 
@@ -52,24 +88,29 @@ function sanitizeForLogging(data: Record<string, unknown>): Record<string, unkno
 
 export {
   checkRateLimit,
-  withRateLimit,
   RATE_LIMITS,
   type RateLimitConfig,
+  type RateLimitConsumer,
+  type RateLimitDecision,
   type RateLimitResult,
-} from './rate-limit.ts';
+  withRateLimit,
+} from "./rate-limit.ts";
 
 export {
-  parseAndValidateBody,
-  requireString,
-  optionalString,
-  requireEnum,
-  validateStringArray,
-  validateImageArray,
-  safeErrorMessage,
-  requireMethod,
-  ALLOWED_TRANSFORM_TYPES,
   ALLOWED_TODO_SECTIONS,
+  ALLOWED_TRANSFORM_TYPES,
   MAX_JSON_PAYLOAD_BYTES,
   MAX_MEDIA_PAYLOAD_BYTES,
+  MAX_NAME_BYTES,
+  MAX_STRING_FIELD_BYTES,
+  optionalString,
+  parseAndValidateBody,
+  requireEnum,
+  requireMethod,
+  requireString,
+  safeErrorMessage,
+  utf8ByteLength,
+  validateImageArray,
+  validateStringArray,
   type ValidationResult,
-} from './input-validation.ts';
+} from "./input-validation.ts";

@@ -3,7 +3,7 @@
  * Convert HTML to formatted text for various export formats
  */
 
-import { stripHtml } from '@/lib/sanitize';
+import { sanitizeHtml, stripHtml } from '@/lib/sanitize';
 
 // Re-export stripHtml for backward compatibility
 export { stripHtml };
@@ -67,7 +67,7 @@ export const htmlToFormattedText = (html: string): string => {
     if (!html) return '';
 
     const temp = document.createElement('div');
-    temp.innerHTML = html;
+    temp.innerHTML = sanitizeHtml(html);
 
     let result = '';
 
@@ -170,7 +170,7 @@ export const htmlToRTF = (html: string): string => {
     if (!html) return '';
 
     const temp = document.createElement('div');
-    temp.innerHTML = html;
+    temp.innerHTML = sanitizeHtml(html);
 
     const processNode = (node: Node): string => {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -276,7 +276,7 @@ export const htmlToExcelRichText = (html: string): ExcelTextRun[] => {
     if (!html) return [{ text: '' }];
 
     const temp = document.createElement('div');
-    temp.innerHTML = html;
+    temp.innerHTML = sanitizeHtml(html);
 
     const runs: ExcelTextRun[] = [];
 
@@ -347,7 +347,7 @@ export const htmlToPDFSegments = (html: string): PDFTextSegment[] => {
     if (!html) return [{ text: '' }];
 
     const temp = document.createElement('div');
-    temp.innerHTML = html;
+    temp.innerHTML = sanitizeHtml(html);
 
     const segments: PDFTextSegment[] = [];
 

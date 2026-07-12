@@ -1,6 +1,7 @@
 import * as React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { logError } from "@/lib/observability/logger";
 export interface FieldHistoryEntry {
   id: string;
   patientId: string;
@@ -24,6 +25,7 @@ export const useFieldHistory = (patientId: string) => {
         .from("patient_field_history")
         .select("*")
         .eq("patient_id", patientId)
+        .eq("user_id", user.id)
         .order("changed_at", { ascending: false })
         .limit(50);
 
@@ -45,8 +47,8 @@ export const useFieldHistory = (patientId: string) => {
           changedAt: entry.changed_at,
         }))
       );
-    } catch (error) {
-      console.error("Error fetching field history:", error);
+    } catch {
+      logError("patient.field_history.fetch_failed");
     } finally {
       setLoading(false);
     }
@@ -57,41 +59,51 @@ export const useFieldHistory = (patientId: string) => {
     oldValue: string | null,
     newValue: string | null
   ) => {
-    if (!user || !patientId) return;
+    if (!user || !patientId) return false;
 
     // Don't record if values are the same
-    if (oldValue === newValue) return;
+    if (oldValue === newValue) return true;
 
     try {
-      await supabase.from("patient_field_history").insert({
+      const { error } = await supabase.from("patient_field_history").insert({
         patient_id: patientId,
         user_id: user.id,
         field_name: fieldName,
         old_value: oldValue,
         new_value: newValue,
       });
-    } catch (error) {
-      console.error("Error adding history entry:", error);
+      if (error) throw error;
+      return true;
+    } catch {
+      logError("patient.field_history.insert_failed");
+      return false;
     }
   }, [user, patientId]);
 
   const clearHistory = React.useCallback(async (fieldName?: string) => {
-    if (!user || !patientId) return;
+    if (!user || !patientId) return false;
 
     try {
       let query = supabase
         .from("patient_field_history")
         .delete()
-        .eq("patient_id", patientId);
+        .eq("patient_id", patientId)
+        .eq("user_id", user.id);
 
       if (fieldName) {
         query = query.eq("field_name", fieldName);
       }
 
-      await query;
-      setHistory([]);
-    } catch (error) {
-      console.error("Error clearing history:", error);
+      const { error } = await query;
+      if (error) throw error;
+      setHistory((current) => fieldName
+        ? current.filter((entry) => entry.fieldName !== fieldName)
+        : []
+      );
+      return true;
+    } catch {
+      logError("patient.field_history.delete_failed");
+      return false;
     }
   }, [user, patientId]);
 

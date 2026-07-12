@@ -34,6 +34,11 @@ export interface CircuitBreakerOptions {
   onStateChange?: (name: string, from: CircuitState, to: CircuitState) => void;
 }
 
+export interface CircuitExecutionOptions {
+  /** Ignore failures caused by caller behavior rather than service health. */
+  shouldCountFailure?: (error: unknown) => boolean;
+}
+
 interface CircuitBreakerState {
   state: CircuitState;
   failures: number[];
@@ -70,7 +75,10 @@ export class CircuitBreaker {
    * Execute an async function through the circuit breaker.
    * Throws CircuitOpenError if the circuit is open.
    */
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
+  async execute<T>(
+    fn: () => Promise<T>,
+    options: CircuitExecutionOptions = {},
+  ): Promise<T> {
     if (!this.canExecute()) {
       throw new CircuitOpenError(this.name, this.remainingCooldownMs());
     }
@@ -80,7 +88,9 @@ export class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
-      this.onFailure();
+      if (options.shouldCountFailure?.(error) ?? true) {
+        this.onFailure();
+      }
       throw error;
     }
   }

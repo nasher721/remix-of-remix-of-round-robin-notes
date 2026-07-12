@@ -2,6 +2,8 @@ import { QueryClient, QueryCache, MutationCache } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { CACHE_CONFIG } from './cacheConfig';
 import { cacheMetrics } from './performanceMonitor';
+import { safeLocalStorage } from '../../utils/safeStorage';
+import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 // Create optimized query client with caching strategies
 export function createOptimizedQueryClient(): QueryClient {
@@ -10,7 +12,7 @@ export function createOptimizedQueryClient(): QueryClient {
       onError: (error, query) => {
         // Only show error toast for user-initiated queries
         if (query.state.data !== undefined) {
-          toast.error(`Error: ${error instanceof Error ? error.message : 'Something went wrong'}`);
+          toast.error(getUserFacingErrorMessage(error));
         }
         cacheMetrics.recordError(query.queryKey.toString());
       },
@@ -20,7 +22,7 @@ export function createOptimizedQueryClient(): QueryClient {
     }),
     mutationCache: new MutationCache({
       onError: (error) => {
-        toast.error(`Error: ${error instanceof Error ? error.message : 'Failed to save'}`);
+        toast.error(getUserFacingErrorMessage(error, 'Failed to save. Please try again.'));
       },
     }),
     defaultOptions: {
@@ -53,65 +55,23 @@ export function createOptimizedQueryClient(): QueryClient {
   });
 }
 
-// Hydration utilities for persisting cache
+function clearLegacyPersistedCache(): void {
+  safeLocalStorage.removeItem(CACHE_CONFIG.storageKeys.queryCache);
+  safeLocalStorage.removeItem(CACHE_CONFIG.storageKeys.lastSync);
+}
+
+// Clinical query results must remain in memory. Persisting arbitrary successful
+// queries can expose one user's patient data to the next user of the browser.
 export const cacheHydration = {
-  // Save cache to localStorage
   persist: (queryClient: QueryClient) => {
-    try {
-      const cache = queryClient.getQueryCache().getAll();
-      const serializable = cache
-        .filter(query => query.state.status === 'success')
-        .map(query => ({
-          queryKey: query.queryKey,
-          data: query.state.data,
-          dataUpdatedAt: query.state.dataUpdatedAt,
-        }))
-        .slice(0, CACHE_CONFIG.memory.maxEntries);
-      
-      localStorage.setItem(
-        CACHE_CONFIG.storageKeys.queryCache,
-        JSON.stringify(serializable)
-      );
-      localStorage.setItem(
-        CACHE_CONFIG.storageKeys.lastSync,
-        Date.now().toString()
-      );
-    } catch (error) {
-      console.warn('Failed to persist cache:', error);
-    }
+    void queryClient;
+    clearLegacyPersistedCache();
   },
-  
-  // Restore cache from localStorage
+
   hydrate: (queryClient: QueryClient) => {
-    try {
-      const cached = localStorage.getItem(CACHE_CONFIG.storageKeys.queryCache);
-      const lastSync = localStorage.getItem(CACHE_CONFIG.storageKeys.lastSync);
-      
-      if (!cached || !lastSync) return;
-      
-      const age = Date.now() - parseInt(lastSync, 10);
-      if (age > CACHE_CONFIG.memory.maxAge) {
-        // Cache too old, clear it
-        localStorage.removeItem(CACHE_CONFIG.storageKeys.queryCache);
-        return;
-      }
-      
-      const entries = JSON.parse(cached);
-      entries.forEach((entry: { queryKey: unknown[]; data: unknown; dataUpdatedAt: number }) => {
-        queryClient.setQueryData(entry.queryKey, entry.data, {
-          updatedAt: entry.dataUpdatedAt,
-        });
-      });
-      
-      console.log(`[Cache] Hydrated ${entries.length} queries from storage`);
-    } catch (error) {
-      console.warn('Failed to hydrate cache:', error);
-    }
+    void queryClient;
+    clearLegacyPersistedCache();
   },
-  
-  // Clear persisted cache
-  clear: () => {
-    localStorage.removeItem(CACHE_CONFIG.storageKeys.queryCache);
-    localStorage.removeItem(CACHE_CONFIG.storageKeys.lastSync);
-  },
+
+  clear: clearLegacyPersistedCache,
 };

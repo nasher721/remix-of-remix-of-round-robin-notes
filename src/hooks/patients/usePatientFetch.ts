@@ -55,16 +55,27 @@ async function fetchPatientsFromSupabase(): Promise<Patient[]> {
 
 /**
  * Handles fetching patients from Supabase via React Query and exposes core list state.
- * Single source of truth: QUERY_KEYS.patients cache (Patient[]).
+ * Single source of truth: the authenticated owner's patient-list cache (Patient[]).
  */
 export function usePatientFetch(): PatientFetchState {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const notifications = useNotifications();
+    const ownerId = user?.id ?? null;
+    const activeOwnerIdRef = React.useRef<string | null>(ownerId);
+    activeOwnerIdRef.current = ownerId;
+    const patientListQueryKey = React.useMemo(
+        () => QUERY_KEYS.patientList(ownerId),
+        [ownerId]
+    );
 
     const query = useQuery({
-        queryKey: QUERY_KEYS.patients,
-        queryFn: fetchPatientsFromSupabase,
+        queryKey: patientListQueryKey,
+        queryFn: async () => {
+            if (!ownerId) return [];
+            const patients = await fetchPatientsFromSupabase();
+            return activeOwnerIdRef.current === ownerId ? patients : [];
+        },
         enabled: hasSupabaseConfig && !!user,
         staleTime: CACHE_CONFIG.staleTime.patients,
         gcTime: CACHE_CONFIG.queries.patients,
@@ -74,7 +85,7 @@ export function usePatientFetch(): PatientFetchState {
     });
 
     const patients: Patient[] = React.useMemo(() => query.data ?? [], [query.data]);
-    const loading = query.isPending;
+    const loading = !!user && query.isPending;
     const refetchPatientsQuery = query.refetch;
     const patientCounter = React.useMemo(
         () => getNextPatientCounter(patients),
@@ -82,12 +93,18 @@ export function usePatientFetch(): PatientFetchState {
     );
 
     const patientsRef = React.useRef<Patient[]>([]);
+    const patientsOwnerIdRef = React.useRef<string | null>(ownerId);
+    if (patientsOwnerIdRef.current !== ownerId) {
+        patientsOwnerIdRef.current = ownerId;
+        patientsRef.current = [];
+    }
     React.useEffect(() => {
         patientsRef.current = patients;
     }, [patients]);
 
     const fetchPatients = React.useCallback(async (options?: { force?: boolean }) => {
-        if (!user) return;
+        if (!ownerId) return;
+        const requestOwnerId = ownerId;
         if (!hasSupabaseConfig) {
             notifications.error({
                 title: "Configuration Error",
@@ -95,8 +112,8 @@ export function usePatientFetch(): PatientFetchState {
             });
             return;
         }
-        const cachedPatients = queryClient.getQueryData<Patient[]>(QUERY_KEYS.patients);
-        const patientsQueryState = queryClient.getQueryState(QUERY_KEYS.patients);
+        const cachedPatients = queryClient.getQueryData<Patient[]>(patientListQueryKey);
+        const patientsQueryState = queryClient.getQueryState(patientListQueryKey);
         const hasFreshPatientCache =
             cachedPatients !== undefined &&
             patientsQueryState?.dataUpdatedAt !== undefined &&
@@ -105,11 +122,14 @@ export function usePatientFetch(): PatientFetchState {
         if (!options?.force && hasFreshPatientCache) return;
 
         try {
-            await refetchPatientsQuery();
-        } catch (error) {
-            console.error("Error fetching patients:", error);
+            const result = await refetchPatientsQuery();
+            if (activeOwnerIdRef.current !== requestOwnerId) return;
+            if (result.error) throw result.error;
+        } catch {
+            if (activeOwnerIdRef.current !== requestOwnerId) return;
+            console.error("Patient fetch failed");
             logMetric("patients.fetch.error", 1, "count", {
-                userId: user.id,
+                userId: requestOwnerId,
                 requestId: generateRequestId(),
             });
             notifications.error({
@@ -117,15 +137,15 @@ export function usePatientFetch(): PatientFetchState {
                 description: "Failed to load patients.",
             });
         }
-    }, [user, notifications, refetchPatientsQuery, queryClient]);
+    }, [ownerId, notifications, refetchPatientsQuery, queryClient, patientListQueryKey]);
 
     React.useEffect(() => {
-        if (!user) {
-            queryClient.setQueryData<Patient[]>(QUERY_KEYS.patients, [], {
+        if (!ownerId) {
+            queryClient.setQueryData<Patient[]>(patientListQueryKey, [], {
                 updatedAt: 0,
             });
         }
-    }, [user, queryClient]);
+    }, [ownerId, patientListQueryKey, queryClient]);
 
     React.useEffect(() => {
         if (query.isError && user) {
@@ -142,13 +162,14 @@ export function usePatientFetch(): PatientFetchState {
 
     const setPatients = React.useCallback(
         (action: React.SetStateAction<Patient[]>) => {
-            queryClient.setQueryData<Patient[]>(QUERY_KEYS.patients, (old) => {
+            if (!ownerId || activeOwnerIdRef.current !== ownerId) return;
+            queryClient.setQueryData<Patient[]>(patientListQueryKey, (old) => {
                 const prev = old ?? [];
                 const next = typeof action === "function" ? action(prev) : action;
                 return next;
             });
         },
-        [queryClient]
+        [ownerId, patientListQueryKey, queryClient]
     );
 
     const setPatientCounter = React.useCallback(() => {

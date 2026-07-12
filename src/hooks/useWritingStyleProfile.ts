@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 interface WritingStyleProfile {
   samples: number;
@@ -21,8 +22,6 @@ interface WritingStyleSummary {
   lastUpdated: string;
 }
 
-const STYLE_PROFILE_KEY = 'writing-style-profile';
-
 const DEFAULT_PROFILE: WritingStyleProfile = {
   samples: 0,
   totalWords: 0,
@@ -33,6 +32,10 @@ const DEFAULT_PROFILE: WritingStyleProfile = {
   headingCounts: {},
   lastUpdated: new Date().toISOString(),
 };
+
+// Older profiles could include headings copied from clinical text. Keep the
+// aggregate profile in memory and remove the unscoped browser copy.
+safeLocalStorage.removeItem('writing-style-profile');
 
 const extractWords = (text: string) => text.match(/\b[\w/]+\b/g) ?? [];
 
@@ -120,21 +123,13 @@ const buildStylePrompt = (summary: WritingStyleSummary) => {
 };
 
 export const useWritingStyleProfile = () => {
-  const [profile, setProfile] = React.useState<WritingStyleProfile>(() => {
-    try {
-      const stored = localStorage.getItem(STYLE_PROFILE_KEY);
-      return stored ? (JSON.parse(stored) as WritingStyleProfile) : DEFAULT_PROFILE;
-    } catch {
-      return DEFAULT_PROFILE;
-    }
-  });
+  const [profile, setProfile] = React.useState<WritingStyleProfile>(DEFAULT_PROFILE);
 
   const summary = React.useMemo(() => buildSummary(profile), [profile]);
   const stylePrompt = React.useMemo(() => buildStylePrompt(summary), [summary]);
 
   const saveProfile = React.useCallback((nextProfile: WritingStyleProfile) => {
     setProfile(nextProfile);
-    localStorage.setItem(STYLE_PROFILE_KEY, JSON.stringify(nextProfile));
   }, []);
 
   const updateFromSample = React.useCallback((text: string) => {

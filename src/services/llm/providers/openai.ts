@@ -6,6 +6,7 @@
  */
 
 import type { LLMProvider, LLMRequest, LLMResponse, ProviderConfig } from '../types';
+import { safeProviderHttpError, safeProviderRuntimeError } from './errors';
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 
@@ -69,14 +70,13 @@ export class OpenAIProvider implements LLMProvider {
       const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'openai',
           model: request.model,
           latencyMs,
-          error: `OpenAI API error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('OpenAI', 'request', response.status),
         };
       }
 
@@ -102,7 +102,7 @@ export class OpenAIProvider implements LLMProvider {
         provider: 'openai',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown OpenAI error',
+        error: safeProviderRuntimeError('OpenAI', 'request', err),
       };
     }
   }
@@ -131,14 +131,13 @@ export class OpenAIProvider implements LLMProvider {
       const response = await fetch(`${this.baseUrl}/chat/completions`, fetchOptions);
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'openai',
           model: request.model,
           latencyMs: Date.now() - startTime,
-          error: `OpenAI stream error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('OpenAI', 'stream', response.status),
         };
       }
 
@@ -186,7 +185,7 @@ export class OpenAIProvider implements LLMProvider {
         provider: 'openai',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown OpenAI streaming error',
+        error: safeProviderRuntimeError('OpenAI', 'stream', err),
       };
     }
   }

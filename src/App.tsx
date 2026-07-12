@@ -46,6 +46,7 @@ preloadClinicalData();
 
 // Use optimized QueryClient (cache metrics, CACHE_CONFIG, structural sharing)
 const queryClient = createOptimizedQueryClient();
+const clearQueryClientAtAuthBoundary = () => queryClient.clear();
 
 function AppRoutesShell(): React.ReactElement {
   const location = useLocation();
@@ -111,7 +112,7 @@ function App(): React.ReactElement {
     <GlobalErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
-        <AuthProvider>
+        <AuthProvider onAuthBoundary={clearQueryClientAtAuthBoundary}>
           <TeamProvider>
             <SettingsProvider>
               <DashboardLayoutProvider>

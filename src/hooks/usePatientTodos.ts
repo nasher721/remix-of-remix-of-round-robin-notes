@@ -20,6 +20,18 @@ export interface UsePatientTodosOptions {
 
 type TodoListUpdater = (todos: PatientTodo[]) => PatientTodo[];
 
+interface OwnedTodoState {
+  ownerId: string | null;
+  patientId: string | null;
+  todos: PatientTodo[];
+}
+
+interface OwnedBusyState {
+  ownerId: string | null;
+  patientId: string | null;
+  active: boolean;
+}
+
 function mapTodoRecord(
   todo: Record<string, unknown>,
   fallback: {
@@ -60,15 +72,19 @@ export function updateTodosMapForPatient(
 
 function writePatientTodosCache(
   queryClient: QueryClient,
+  ownerId: string,
   patientId: string,
   updater: TodoListUpdater,
 ) {
-  queryClient.setQueryData<PatientTodo[]>(QUERY_KEYS.patientTodos(patientId), (currentTodos) =>
-    updater(currentTodos ?? []),
+  const updateOwnedTodos = (currentTodos: PatientTodo[]) => (
+    updater(currentTodos.filter((todo) => todo.userId === ownerId && todo.patientId === patientId))
+  );
+  queryClient.setQueryData<PatientTodo[]>(QUERY_KEYS.patientTodosForOwner(ownerId, patientId), (currentTodos) =>
+    updateOwnedTodos(currentTodos ?? []),
   );
   queryClient.setQueriesData<PatientTodosMap>(
-    { queryKey: QUERY_KEYS.allTodos },
-    (currentMap) => updateTodosMapForPatient(currentMap, patientId, updater),
+    { queryKey: [...QUERY_KEYS.allTodos, ownerId] },
+    (currentMap) => updateTodosMapForPatient(currentMap, patientId, updateOwnedTodos),
   );
 }
 
@@ -81,53 +97,138 @@ function prependTodos(newTodos: PatientTodo[]): TodoListUpdater {
 
 export function usePatientTodos(patientId: string | null, options?: UsePatientTodosOptions) {
   const initialTodos = options?.initialTodos;
-  const [todos, setTodos] = useState<PatientTodo[]>(() => initialTodos ?? []);
-  const [loading, setLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const queryClient = useQueryClient();
   const { user } = useAuth();
+  const ownerId = user?.id ?? null;
+  const [todoState, setTodoState] = useState<OwnedTodoState>(() => ({
+    ownerId,
+    patientId,
+    todos: ownerId && patientId
+      ? (initialTodos ?? []).filter((todo) => todo.userId === ownerId && todo.patientId === patientId)
+      : [],
+  }));
+  const [loadingState, setLoadingState] = useState<OwnedBusyState>({
+    ownerId: null,
+    patientId: null,
+    active: false,
+  });
+  const [generatingState, setGeneratingState] = useState<OwnedBusyState>({
+    ownerId: null,
+    patientId: null,
+    active: false,
+  });
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { getModelForFeature } = useSettings();
+  const mountedRef = useRef(true);
+  const activeIdentityRef = useRef({ ownerId, patientId });
+  activeIdentityRef.current = { ownerId, patientId };
   const latestInitialTodos = useRef(initialTodos);
   const initialTodosKey = useMemo(() => {
     if (initialTodos === undefined) return null;
     const todoKey = initialTodos
       .map((todo) => `${todo.id}:${todo.updatedAt}:${todo.completed}:${todo.content}`)
       .join('|');
-    return `${patientId ?? ''}:${todoKey}`;
-  }, [initialTodos, patientId]);
+    return `${ownerId ?? ''}:${patientId ?? ''}:${todoKey}`;
+  }, [initialTodos, ownerId, patientId]);
+
+  const isActiveRequest = useCallback((requestOwnerId: string, requestPatientId: string) => {
+    const activeIdentity = activeIdentityRef.current;
+    return mountedRef.current
+      && activeIdentity.ownerId === requestOwnerId
+      && activeIdentity.patientId === requestPatientId;
+  }, []);
+
+  const commitTodos = useCallback((
+    requestOwnerId: string,
+    requestPatientId: string,
+    updater: TodoListUpdater,
+  ) => {
+    if (!isActiveRequest(requestOwnerId, requestPatientId)) return false;
+
+    setTodoState((currentState) => {
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return currentState;
+      const currentTodos = currentState.ownerId === requestOwnerId
+        && currentState.patientId === requestPatientId
+        ? currentState.todos
+        : [];
+      return {
+        ownerId: requestOwnerId,
+        patientId: requestPatientId,
+        todos: updater(currentTodos),
+      };
+    });
+    return true;
+  }, [isActiveRequest]);
+
+  const todos = useMemo(
+    () => todoState.ownerId === ownerId && todoState.patientId === patientId
+      ? todoState.todos
+      : [],
+    [ownerId, patientId, todoState],
+  );
+  const loading = loadingState.ownerId === ownerId
+    && loadingState.patientId === patientId
+    && loadingState.active;
+  const generating = generatingState.ownerId === ownerId
+    && generatingState.patientId === patientId
+    && generatingState.active;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     latestInitialTodos.current = initialTodos;
   }, [initialTodos]);
 
   const fetchTodos = useCallback(async () => {
-    if (!patientId || !user) return;
-    
-    setLoading(true);
+    if (!patientId || !ownerId) return;
+    const requestOwnerId = ownerId;
+    const requestPatientId = patientId;
+    if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+
+    setLoadingState({
+      ownerId: requestOwnerId,
+      patientId: requestPatientId,
+      active: true,
+    });
     try {
       const { data, error } = await supabase
         .from('patient_todos')
         .select('*')
-        .eq('patient_id', patientId)
+        .eq('patient_id', requestPatientId)
+        .eq('user_id', requestOwnerId)
         .order('created_at', { ascending: false });
 
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       if (error) throw error;
 
       const nextTodos = data?.map(todo => mapTodoRecord(todo, {
-        patientId,
-        userId: user.id,
+        patientId: requestPatientId,
+        userId: requestOwnerId,
         section: null,
         content: '',
-      })) || [];
-      setTodos(nextTodos);
-      writePatientTodosCache(queryClient, patientId, () => nextTodos);
-    } catch (error) {
-      console.error('Error fetching todos:', error);
+      })).filter((todo) => (
+        todo.userId === requestOwnerId && todo.patientId === requestPatientId
+      )) || [];
+      if (!commitTodos(requestOwnerId, requestPatientId, () => nextTodos)) return;
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, () => nextTodos);
+    } catch {
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      console.error('Error fetching patient todos');
     } finally {
-      setLoading(false);
+      if (isActiveRequest(requestOwnerId, requestPatientId)) {
+        setLoadingState({
+          ownerId: requestOwnerId,
+          patientId: requestPatientId,
+          active: false,
+        });
+      }
     }
-  }, [patientId, queryClient, user]);
+  }, [commitTodos, isActiveRequest, ownerId, patientId, queryClient]);
 
   useEffect(() => {
     if (initialTodos !== undefined) return;
@@ -136,19 +237,26 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
 
   useEffect(() => {
     if (initialTodosKey === null) return;
-    setTodos(latestInitialTodos.current ?? []);
-    setLoading(false);
-  }, [initialTodosKey]);
+    if (!ownerId || !patientId || !isActiveRequest(ownerId, patientId)) return;
+    const safeInitialTodos = (latestInitialTodos.current ?? []).filter((todo) => (
+      todo.userId === ownerId && todo.patientId === patientId
+    ));
+    commitTodos(ownerId, patientId, () => safeInitialTodos);
+    setLoadingState({ ownerId, patientId, active: false });
+  }, [commitTodos, initialTodosKey, isActiveRequest, ownerId, patientId]);
 
   const addTodo = useCallback(async (content: string, section: string | null = null) => {
-    if (!patientId || !user) return;
+    if (!patientId || !ownerId) return;
+    const requestOwnerId = ownerId;
+    const requestPatientId = patientId;
+    if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
 
     try {
       const { data, error } = await supabase
         .from('patient_todos')
         .insert({
-          patient_id: patientId,
-          user_id: user.id,
+          patient_id: requestPatientId,
+          user_id: requestOwnerId,
           section,
           content,
           completed: false,
@@ -156,6 +264,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         .select()
         .single();
 
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       if (error) throw error;
       if (data == null) {
         toast({ title: "Error", description: "No data returned from insert", variant: "destructive" });
@@ -163,29 +272,37 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       }
 
       const newTodo = mapTodoRecord(data, {
-        patientId,
-        userId: user.id,
+        patientId: requestPatientId,
+        userId: requestOwnerId,
         section,
         content,
       });
+      if (newTodo.userId !== requestOwnerId || newTodo.patientId !== requestPatientId) {
+        throw new Error('Todo insert returned data for a different owner');
+      }
 
       const applyAddedTodo = prependTodos([newTodo]);
-      setTodos(applyAddedTodo);
-      writePatientTodosCache(queryClient, patientId, applyAddedTodo);
+      if (!commitTodos(requestOwnerId, requestPatientId, applyAddedTodo)) return;
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyAddedTodo);
       return newTodo;
-    } catch (error) {
-      console.error('Error adding todo:', error);
+    } catch {
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      console.error('Error adding patient todo');
       toast({
         title: "Error",
         description: "Failed to add todo",
         variant: "destructive",
       });
     }
-  }, [patientId, queryClient, user, toast]);
+  }, [commitTodos, isActiveRequest, ownerId, patientId, queryClient, toast]);
 
   const toggleTodo = useCallback(async (todoId: string) => {
+    if (!ownerId || !patientId) return;
+    const requestOwnerId = ownerId;
+    const requestPatientId = patientId;
+    if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
     const todo = todos.find(t => t.id === todoId);
-    if (!todo) return;
+    if (!todo || todo.userId !== requestOwnerId || todo.patientId !== requestPatientId) return;
     const nextCompleted = !todo.completed;
 
     try {
@@ -194,27 +311,33 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         .update({ completed: nextCompleted })
         .eq('id', todoId);
 
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       if (error) throw error;
 
       const applyToggle = (currentTodos: PatientTodo[]) => currentTodos.map(t =>
         t.id === todoId ? { ...t, completed: nextCompleted } : t
       );
 
-      setTodos(applyToggle);
-      writePatientTodosCache(queryClient, todo.patientId, applyToggle);
-    } catch (error) {
-      console.error('Error toggling todo:', error);
+      if (!commitTodos(requestOwnerId, requestPatientId, applyToggle)) return;
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyToggle);
+    } catch {
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      console.error('Error toggling patient todo');
       toast({
         title: "Error",
         description: "Failed to update todo",
         variant: "destructive",
       });
     }
-  }, [queryClient, todos, toast]);
+  }, [commitTodos, isActiveRequest, ownerId, patientId, queryClient, todos, toast]);
 
   const deleteTodo = useCallback(async (todoId: string) => {
+    if (!ownerId || !patientId) return;
+    const requestOwnerId = ownerId;
+    const requestPatientId = patientId;
+    if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
     const todo = todos.find(t => t.id === todoId);
-    const targetPatientId = todo?.patientId ?? patientId;
+    if (todo && (todo.userId !== requestOwnerId || todo.patientId !== requestPatientId)) return;
 
     try {
       const { error } = await supabase
@@ -222,29 +345,36 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         .delete()
         .eq('id', todoId);
 
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       if (error) throw error;
 
       const applyDelete = (currentTodos: PatientTodo[]) => currentTodos.filter(t => t.id !== todoId);
-      setTodos(applyDelete);
-      if (targetPatientId) {
-        writePatientTodosCache(queryClient, targetPatientId, applyDelete);
-      }
-    } catch (error) {
-      console.error('Error deleting todo:', error);
+      if (!commitTodos(requestOwnerId, requestPatientId, applyDelete)) return;
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyDelete);
+    } catch {
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      console.error('Error deleting patient todo');
       toast({
         title: "Error",
         description: "Failed to delete todo",
         variant: "destructive",
       });
     }
-  }, [patientId, queryClient, todos, toast]);
+  }, [commitTodos, isActiveRequest, ownerId, patientId, queryClient, todos, toast]);
 
   const generateTodos = useCallback(async (patient: Patient, section: TodoSection) => {
-    if (!patientId || !user) return;
+    if (!patientId || !ownerId) return;
+    const requestOwnerId = ownerId;
+    const requestPatientId = patientId;
+    if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
 
-    setGenerating(true);
+    setGeneratingState({
+      ownerId: requestOwnerId,
+      patientId: requestPatientId,
+      active: true,
+    });
     try {
-      const bankId = `clinician:${user.id}`;
+      const bankId = `clinician:${requestOwnerId}`;
 
       const recalled = await recallMemories({
         bankId,
@@ -255,6 +385,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         },
         limit: 6,
       });
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
 
       const styleSummary = recalled?.memories
         ?.map((memory) => memory.content)
@@ -282,6 +413,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         'generate-todos',
       );
 
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       if (error) throw error;
 
       if (data.error) {
@@ -302,32 +434,36 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       const sectionValue = section === 'all' ? null : section;
 
       const todosToInsert = generatedTodos.map(content => ({
-        patient_id: patientId,
-        user_id: user.id,
+        patient_id: requestPatientId,
+        user_id: requestOwnerId,
         section: sectionValue,
         content,
         completed: false,
       }));
 
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       const { data: insertedData, error: insertError } = await supabase
         .from('patient_todos')
         .insert(todosToInsert)
         .select();
 
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       if (insertError) throw insertError;
 
       // Map inserted data to PatientTodo format and add to state
       const newTodos: PatientTodo[] = (insertedData || []).map((todo, index) => mapTodoRecord(todo, {
-        patientId,
-        userId: user.id,
+        patientId: requestPatientId,
+        userId: requestOwnerId,
         section: sectionValue,
         content: generatedTodos[index] ?? '',
-      }));
+      })).filter((todo) => (
+        todo.userId === requestOwnerId && todo.patientId === requestPatientId
+      ));
       const orderedNewTodos = [...newTodos].reverse();
       const applyGeneratedTodos = prependTodos(orderedNewTodos);
 
-      setTodos(applyGeneratedTodos);
-      writePatientTodosCache(queryClient, patientId, applyGeneratedTodos);
+      if (!commitTodos(requestOwnerId, requestPatientId, applyGeneratedTodos)) return;
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyGeneratedTodos);
 
       toast({
         title: "Todos generated",
@@ -352,16 +488,23 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         });
       }
     } catch (error) {
-      console.error('Error generating todos:', error);
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      console.error('Error generating patient todos');
       toast({
         title: "Error",
         description: getUserFacingErrorMessage(error, 'Failed to generate todos'),
         variant: "destructive",
       });
     } finally {
-      setGenerating(false);
+      if (isActiveRequest(requestOwnerId, requestPatientId)) {
+        setGeneratingState({
+          ownerId: requestOwnerId,
+          patientId: requestPatientId,
+          active: false,
+        });
+      }
     }
-  }, [patientId, queryClient, user, toast, getModelForFeature]);
+  }, [commitTodos, getModelForFeature, isActiveRequest, ownerId, patientId, queryClient, toast]);
 
   const getTodosBySection = useCallback((section: string | null) => {
     return todos.filter(t => t.section === section);

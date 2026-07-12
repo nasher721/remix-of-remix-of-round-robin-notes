@@ -5,7 +5,7 @@
  */
 
 import * as React from 'react';
-import { AlertTriangle, RefreshCw, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
@@ -27,9 +27,6 @@ interface AIErrorBoundaryProps {
 
 interface AIErrorBoundaryState {
   hasError: boolean;
-  error: Error | null;
-  errorInfo: React.ErrorInfo | null;
-  showDetails: boolean;
 }
 
 export class AIErrorBoundary extends React.Component<AIErrorBoundaryProps, AIErrorBoundaryState> {
@@ -37,23 +34,14 @@ export class AIErrorBoundary extends React.Component<AIErrorBoundaryProps, AIErr
     super(props);
     this.state = {
       hasError: false,
-      error: null,
-      errorInfo: null,
-      showDetails: false,
     };
   }
 
-  static getDerivedStateFromError(error: Error): Partial<AIErrorBoundaryState> {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): Partial<AIErrorBoundaryState> {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    this.setState({ errorInfo });
-
-    // Log error for debugging
-    console.error('[AIErrorBoundary] Caught error:', error);
-    console.error('[AIErrorBoundary] Component stack:', errorInfo.componentStack);
-
     recordTelemetryEvent('render_error', error, {
       boundary: 'AIErrorBoundary',
       featureLabel: this.props.featureLabel,
@@ -67,24 +55,11 @@ export class AIErrorBoundary extends React.Component<AIErrorBoundaryProps, AIErr
   handleReset = (): void => {
     this.setState({
       hasError: false,
-      error: null,
-      errorInfo: null,
-      showDetails: false,
     });
   };
 
-  handleCopyError = (): void => {
-    const { error, errorInfo } = this.state;
-    const errorText = `Error: ${error?.message || 'Unknown error'}\n\nStack: ${error?.stack || 'No stack trace'}\n\nComponent Stack: ${errorInfo?.componentStack || 'No component stack'}`;
-    navigator.clipboard.writeText(errorText);
-  };
-
-  toggleDetails = (): void => {
-    this.setState(prev => ({ showDetails: !prev.showDetails }));
-  };
-
   render(): React.ReactNode {
-    const { hasError, error, showDetails } = this.state;
+    const { hasError } = this.state;
     const { children, fallback, featureLabel, compact, className } = this.props;
 
     if (hasError) {
@@ -140,45 +115,7 @@ export class AIErrorBoundary extends React.Component<AIErrorBoundaryProps, AIErr
                 <RefreshCw className="h-3 w-3" />
                 Try Again
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={this.toggleDetails}
-                className="gap-1"
-              >
-                {showDetails ? (
-                  <>
-                    <ChevronUp className="h-3 w-3" />
-                    Hide Details
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3" />
-                    Show Details
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={this.handleCopyError}
-                className="gap-1"
-              >
-                <Copy className="h-3 w-3" />
-                Copy Error
-              </Button>
             </div>
-
-            {showDetails && error && (
-              <div className="mt-3 p-2 bg-muted rounded text-xs font-mono overflow-auto max-h-32">
-                <div className="text-destructive font-medium">{error.name}: {error.message}</div>
-                {error.stack && (
-                  <pre className="mt-2 text-muted-foreground whitespace-pre-wrap">
-                    {error.stack.split('\n').slice(1, 5).join('\n')}
-                  </pre>
-                )}
-              </div>
-            )}
           </AlertDescription>
         </Alert>
       );

@@ -624,6 +624,28 @@ export type Database = {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
+      record_owned_phrase_usage: {
+        Args: {
+          p_patient_id?: string | null
+          p_phrase_id: string
+          p_target_field?: string | null
+        }
+        Returns: {
+          last_used_at: string
+          usage_count: number
+        }[]
+      }
+      update_owned_patient_json_field: {
+        Args: {
+          p_child_field: string
+          p_field_timestamp?: string | null
+          p_last_modified: string
+          p_parent_field: string
+          p_patient_id: string
+          p_value: Json
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       phrase_field_type:

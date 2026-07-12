@@ -27,44 +27,38 @@ interface AnnouncerOptions {
   deduplicate?: boolean;
 }
 
+interface AnnouncerApi {
+  announce: (message: string, type?: AnnouncementType) => void;
+  announcePatientSaved: (patientName: string) => void;
+  announcePatientDeleted: (patientName: string) => void;
+  announcePatientAdded: (patientName: string) => void;
+  announceError: (message: string) => void;
+  announceFilterApplied: (filterName: string, count?: number) => void;
+  announceSorted: (field: string, direction: "asc" | "desc") => void;
+  announceSyncStarted: () => void;
+  announceSyncComplete: (patientCount?: number) => void;
+  announceSyncError: (message?: string) => void;
+  announceLoading: (message: string) => void;
+  announceSuccess: (message: string) => void;
+  /** Current live-region content. Intended for AnnouncerRoot. */
+  _message: string;
+  /** Current live-region priority. Intended for AnnouncerRoot. */
+  _priority: "polite" | "assertive";
+}
+
 /**
  * Custom hook for screen reader announcements via aria-live regions.
- * 
+ *
  * @example
  * const { announce, announcePatientSaved, announceError } = useAnnouncer();
- * 
+ *
  * // Using preset
  * announcePatientSaved("Patient John Doe");
- * 
+ *
  * // Using custom message
  * announce("Custom announcement", "info");
  */
-export function useAnnouncer(options: AnnouncerOptions = {}): {
-  /** Announce a message with optional type */
-  announce: (message: string, type?: AnnouncementType) => void;
-  /** Announce patient saved */
-  announcePatientSaved: (patientName: string) => void;
-  /** Announce patient deleted */
-  announcePatientDeleted: (patientName: string) => void;
-  /** Announce patient added */
-  announcePatientAdded: (patientName: string) => void;
-  /** Announce an error */
-  announceError: (message: string) => void;
-  /** Announce filter applied */
-  announceFilterApplied: (filterName: string, count?: number) => void;
-  /** Announce sort change */
-  announceSorted: (field: string, direction: "asc" | "desc") => void;
-  /** Announce sync started */
-  announceSyncStarted: () => void;
-  /** Announce sync complete */
-  announceSyncComplete: (patientCount?: number) => void;
-  /** Announce sync error */
-  announceSyncError: (message?: string) => void;
-  /** Announce loading state */
-  announceLoading: (message: string) => void;
-  /** Announce success */
-  announceSuccess: (message: string) => void;
-} {
+export function useAnnouncer(options: AnnouncerOptions = {}): AnnouncerApi {
   const { cooldown = 1000, deduplicate = true } = options;
   const [message, setMessage] = React.useState("");
   const [priority, setPriority] = React.useState<"polite" | "assertive">("polite");
@@ -282,11 +276,11 @@ export function AnnouncerRoot({
   children: React.ReactNode;
   options?: AnnouncerOptions;
 }): React.ReactElement {
-  const { announce, _message, _priority } = useAnnouncer(options);
+  const announcer = useAnnouncer(options);
 
   return (
-    <AnnouncerContext.Provider value={{ announce }}>
-      <LiveRegion message={_message} priority={_priority} />
+    <AnnouncerContext.Provider value={announcer}>
+      <LiveRegion message={announcer._message} priority={announcer._priority} />
       {children}
     </AnnouncerContext.Provider>
   );

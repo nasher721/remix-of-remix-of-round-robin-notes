@@ -7,7 +7,7 @@
 export { default as CriticalValueAlerts, AlertBadge, AlertPanel } from '../CriticalValueAlerts';
 
 // Lab Trending
-export { default as LabTrendingChart, LabSparkline, generateSampleLabData } from '../labs/LabTrendingChart';
+export { default as LabTrendingChart, LabSparkline } from '../labs/LabTrendingChart';
 
 // Shift Handoff
 export { default as ShiftHandoff } from '../ShiftHandoff';
@@ -32,11 +32,10 @@ export {
 export { default as VoiceCommandPanel, FloatingVoiceButton } from '../VoiceCommandPanel';
 
 // Analytics Dashboard
-export { default as AnalyticsDashboard, generateSampleDashboardData } from '../AnalyticsDashboard';
+export { default as AnalyticsDashboard } from '../AnalyticsDashboard';
 
 // Print Templates
 export {
   default as PrintTemplateSelector,
   PrintTemplateSelectorCompact,
-  TemplatePreview,
 } from '../print/PrintTemplateSelector';

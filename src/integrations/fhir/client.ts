@@ -1,4 +1,6 @@
 import FHIR from 'fhirclient';
+import { supabase } from '@/integrations/supabase/client';
+import { safeSessionStorage } from '@/utils/safeStorage';
 
 export type FHIRClient = ReturnType<typeof FHIR.client>;
 
@@ -68,22 +70,37 @@ export const FHIR_SCOPES = [
 ].join(' ');
 
 const FHIR_STATE_KEY = 'fhir_state';
+const FHIR_LAUNCH_STATE_KEY = 'fhir_launch_state';
+const FHIRCLIENT_SMART_KEY = 'SMART_KEY';
+const FHIR_OWNER_ERROR = 'This EHR import no longer belongs to the current user. Please start it again.';
 
 export interface FHIRState {
   isLaunching: boolean;
+  ownerId: string;
   clientId?: string;
   iss?: string;
 }
 
 export function saveFHIRState(state: FHIRState): void {
-  sessionStorage.setItem(FHIR_STATE_KEY, JSON.stringify(state));
+  safeSessionStorage.setItem(FHIR_STATE_KEY, JSON.stringify(state));
 }
 
 export function loadFHIRState(): FHIRState | null {
-  const stored = sessionStorage.getItem(FHIR_STATE_KEY);
+  const stored = safeSessionStorage.getItem(FHIR_STATE_KEY);
   if (stored) {
     try {
-      return JSON.parse(stored);
+      const parsed: unknown = JSON.parse(stored);
+      if (
+        typeof parsed === 'object'
+        && parsed !== null
+        && 'isLaunching' in parsed
+        && typeof parsed.isLaunching === 'boolean'
+        && 'ownerId' in parsed
+        && typeof parsed.ownerId === 'string'
+        && parsed.ownerId.length > 0
+      ) {
+        return parsed as FHIRState;
+      }
     } catch {
       return null;
     }
@@ -91,8 +108,45 @@ export function loadFHIRState(): FHIRState | null {
   return null;
 }
 
+function getSMARTStateStorageKey(): string | null {
+  const stored = safeSessionStorage.getItem(FHIRCLIENT_SMART_KEY);
+  if (!stored) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    return typeof parsed === 'string' && parsed.length > 0 ? parsed : null;
+  } catch {
+    // Support an older/custom adapter that stored the pointer without JSON encoding.
+    return stored;
+  }
+}
+
+/** Purge app launch metadata and fhirclient's token-bearing SMART state. */
 export function clearFHIRState(): void {
-  sessionStorage.removeItem(FHIR_STATE_KEY);
+  const smartStateStorageKey = getSMARTStateStorageKey();
+  if (smartStateStorageKey) {
+    safeSessionStorage.removeItem(smartStateStorageKey);
+  }
+  safeSessionStorage.removeItem(FHIRCLIENT_SMART_KEY);
+  safeSessionStorage.removeItem(FHIR_STATE_KEY);
+  safeSessionStorage.removeItem(FHIR_LAUNCH_STATE_KEY);
+}
+
+/**
+ * Keep a redirect in progress only when it was launched by the restored user.
+ * Legacy or cross-user state is unbound and therefore unsafe to reuse.
+ */
+export function reconcileFHIRStateForAuthOwner(ownerId: string | null): void {
+  const state = loadFHIRState();
+  if (ownerId && state?.isLaunching && state.ownerId === ownerId) return;
+  clearFHIRState();
+}
+
+export function assertFHIRLaunchOwner(ownerId: string): void {
+  const state = loadFHIRState();
+  if (!state?.isLaunching || state.ownerId !== ownerId) {
+    throw new Error(FHIR_OWNER_ERROR);
+  }
 }
 
 export async function launchSMART(config?: {
@@ -101,21 +155,45 @@ export async function launchSMART(config?: {
   redirectUri?: string;
 }): Promise<void> {
   const redirectUri = config?.redirectUri || `${window.location.origin}/fhir/callback`;
-  
-  saveFHIRState({ isLaunching: true, clientId: config?.clientId, iss: config?.iss });
 
-  await FHIR.oauth2.authorize({
-    clientId: config?.clientId || import.meta.env.VITE_FHIR_CLIENT_ID || '',
-    scope: FHIR_SCOPES,
-    redirectUri,
+  const { data, error } = await supabase.auth.getSession();
+  const ownerId = data.session?.user.id;
+  if (error || !ownerId) {
+    clearFHIRState();
+    throw new Error('You must be signed in before importing from an EHR.');
+  }
+
+  clearFHIRState();
+  saveFHIRState({
+    isLaunching: true,
+    ownerId,
+    clientId: config?.clientId,
     iss: config?.iss,
   });
+
+  try {
+    await FHIR.oauth2.authorize({
+      clientId: config?.clientId || import.meta.env.VITE_FHIR_CLIENT_ID || '',
+      scope: FHIR_SCOPES,
+      redirectUri,
+      iss: config?.iss,
+    });
+  } catch (error) {
+    clearFHIRState();
+    throw error;
+  }
 }
 
-export async function handleCallback(): Promise<FHIRClient> {
-  const client = await FHIR.oauth2.ready();
-  clearFHIRState();
-  return client;
+export async function handleCallback(ownerId: string): Promise<FHIRClient> {
+  try {
+    assertFHIRLaunchOwner(ownerId);
+    const client = await FHIR.oauth2.ready();
+    assertFHIRLaunchOwner(ownerId);
+    return client;
+  } catch (error) {
+    clearFHIRState();
+    throw error;
+  }
 }
 
 export async function fetchPatientDemographics(client: FHIRClient): Promise<FHIRPatientResource> {
@@ -158,7 +236,7 @@ export function getFHIRContext(): { client: FHIRClient | null; isLaunching: bool
 }
 
 export function getPatientId(client: FHIRClient): string | undefined {
-  return client.patient.id;
+  return client.patient.id ?? undefined;
 }
 
 export function getServerUrl(client: FHIRClient): string {

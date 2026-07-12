@@ -120,7 +120,7 @@ function ConflictResolver({
         <div>
           <h4 className="font-semibold">{conflict.table}</h4>
           <p className="text-sm text-muted-foreground">
-            Modified at {new Date(conflict.timestamp).toLocaleString()}
+            Pending {conflict.operation} conflict
           </p>
         </div>
         <div className="flex gap-2">
@@ -166,13 +166,13 @@ function ConflictResolver({
 
       <div className="bg-muted rounded p-3 font-mono text-sm overflow-auto">
         {viewMode === 'local' && (
-          <pre>{JSON.stringify(conflict.localData, null, 2)}</pre>
+          <pre>{JSON.stringify(conflict.clientData, null, 2)}</pre>
         )}
         {viewMode === 'server' && (
           <pre>{JSON.stringify(conflict.serverData, null, 2)}</pre>
         )}
         {viewMode === 'diff' && (
-          <ConflictDiff local={conflict.localData} server={conflict.serverData} />
+          <ConflictDiff local={conflict.clientData} server={conflict.serverData} />
         )}
       </div>
     </div>
@@ -187,15 +187,16 @@ function ConflictDiff({
   server,
 }: {
   local: Record<string, unknown>;
-  server: Record<string, unknown>;
+  server: Record<string, unknown> | null;
 }): React.ReactElement {
-  const allKeys = new Set([...Object.keys(local), ...Object.keys(server)]);
+  const serverValues = server ?? {};
+  const allKeys = new Set([...Object.keys(local), ...Object.keys(serverValues)]);
   
   return (
     <div className="space-y-1">
       {Array.from(allKeys).map((key) => {
         const localVal = local[key];
-        const serverVal = server[key];
+        const serverVal = serverValues[key];
         const isDifferent = JSON.stringify(localVal) !== JSON.stringify(serverVal);
         
         return (

@@ -51,7 +51,7 @@ export const useDailySummaryGenerator = () => {
           .from('patient_todos')
           .select('content, completed, section, created_at')
           .eq('patient_id', patient.id);
-        if (todosError) console.error('Error fetching todos:', todosError);
+        if (todosError) console.error('Todo lookup for daily summary failed');
         todos = data;
       }
 
@@ -107,7 +107,7 @@ export const useDailySummaryGenerator = () => {
       }
 
       if (error) {
-        console.error('Generate daily summary error:', error);
+        console.error('Daily summary generation request failed');
         toast.error(getUserFacingErrorMessage(error, 'Failed to generate daily summary'));
         return null;
       }
@@ -152,7 +152,7 @@ export const useDailySummaryGenerator = () => {
       if (err instanceof Error && err.name === 'AbortError') {
         return null;
       }
-      console.error('Generate daily summary error:', err);
+      console.error('Daily summary generation request failed');
       toast.error(getUserFacingErrorMessage(err, 'Failed to generate daily summary'));
       return null;
     } finally {

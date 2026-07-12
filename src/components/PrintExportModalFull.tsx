@@ -30,6 +30,15 @@ import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import type { PatientTodo } from "@/types/todo";
 import {
+  createScopedPrintStorage,
+  getAuthenticatedPrintPayload,
+  quarantineLegacyPrintPreferences,
+} from "@/lib/print/preferences";
+import {
+  extractPatientImageObjectKeys,
+  loadPatientImageSignedUrls,
+} from "@/lib/patientImages";
+import {
   handleExportExcel,
   handleExportPDF,
   handleExportTXT,
@@ -42,9 +51,20 @@ import type { PrintExportModalProps, PatientTodosMap } from "./print/types";
 
 export type { PrintExportModalProps, PatientTodosMap };
 
-export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = {}, onUpdatePatient, totalPatientCount, isFiltered = false }: PrintExportModalProps) => {
+const EMPTY_PATIENT_IMAGE_URLS = new Map<string, string>();
+
+interface PatientImagePrintState {
+  ownerId: string | null;
+  keySignature: string;
+  signedUrls: Map<string, string>;
+  loading: boolean;
+}
+
+const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos = {}, onUpdatePatient, totalPatientCount, isFiltered = false }: PrintExportModalProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const ownerId = user?.id ?? null;
+  const printStorage = React.useMemo(() => createScopedPrintStorage(ownerId), [ownerId]);
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [customCombinations, setCustomCombinations] = React.useState<CustomCombination[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = React.useState<PrintTemplateType>('standard');
@@ -54,7 +74,83 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   const [appliedLayout, setAppliedLayout] = React.useState<LayoutConfig | null>(null);
   const exportRef = React.useRef<HTMLDivElement | null>(null);
   const syncTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const initialSyncDone = React.useRef(false);
+  const initialSyncOwnerId = React.useRef<string | null | undefined>(undefined);
+  const patientImageLoadGeneration = React.useRef(0);
+  const [patientImagePrintState, setPatientImagePrintState] =
+    React.useState<PatientImagePrintState>({
+      ownerId: null,
+      keySignature: "",
+      signedUrls: EMPTY_PATIENT_IMAGE_URLS,
+      loading: false,
+    });
+
+  const patientImageKeySignature = React.useMemo(() => {
+    if (!user?.id) return "";
+    const keys = new Set<string>();
+    patients.forEach((patient) => {
+      extractPatientImageObjectKeys(patient.imaging, user.id).forEach((key) => keys.add(key));
+    });
+    return Array.from(keys).sort().join("\n");
+  }, [patients, user?.id]);
+
+  React.useEffect(() => {
+    const generation = ++patientImageLoadGeneration.current;
+    const ownerId = user?.id;
+    if (!open || !ownerId || !patientImageKeySignature) {
+      setPatientImagePrintState({
+        ownerId: open ? ownerId ?? null : null,
+        keySignature: patientImageKeySignature,
+        signedUrls: EMPTY_PATIENT_IMAGE_URLS,
+        loading: false,
+      });
+      return;
+    }
+
+    setPatientImagePrintState({
+      ownerId,
+      keySignature: patientImageKeySignature,
+      signedUrls: EMPTY_PATIENT_IMAGE_URLS,
+      loading: true,
+    });
+
+    void loadPatientImageSignedUrls(patients, ownerId)
+      .then((result) => {
+        if (patientImageLoadGeneration.current !== generation) return;
+        setPatientImagePrintState({
+          ownerId,
+          keySignature: patientImageKeySignature,
+          signedUrls: result.signedUrls,
+          loading: false,
+        });
+      })
+      .catch(() => {
+        if (patientImageLoadGeneration.current !== generation) return;
+        setPatientImagePrintState({
+          ownerId,
+          keySignature: patientImageKeySignature,
+          signedUrls: EMPTY_PATIENT_IMAGE_URLS,
+          loading: false,
+        });
+      });
+
+    return () => {
+      if (patientImageLoadGeneration.current === generation) {
+        patientImageLoadGeneration.current += 1;
+      }
+    };
+  }, [open, patientImageKeySignature, patients, user?.id]);
+
+  const patientImageStateMatchesView =
+    patientImagePrintState.ownerId === (user?.id ?? null) &&
+    patientImagePrintState.keySignature === patientImageKeySignature;
+  const patientImageSignedUrls = patientImageStateMatchesView
+    ? patientImagePrintState.signedUrls
+    : EMPTY_PATIENT_IMAGE_URLS;
+  const patientImagesLoading = Boolean(
+    open &&
+      patientImageKeySignature &&
+      (!patientImageStateMatchesView || patientImagePrintState.loading),
+  );
 
   // Settings State
   const defaultSettings = React.useMemo<PrintSettingsType>(() => ({
@@ -91,23 +187,23 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   }), [defaultSettings]);
 
   const syncSettingsToLocalStorage = React.useCallback((nextSettings: PrintSettingsType) => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(nextSettings.columns));
-    localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(nextSettings.columnWidths));
-    localStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS, JSON.stringify(nextSettings.combinedColumns));
-    localStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS, JSON.stringify(nextSettings.combinedColumnWidths));
-    localStorage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, nextSettings.printOrientation);
-    localStorage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, nextSettings.printFontSize.toString());
-    localStorage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, nextSettings.printFontFamily);
-    localStorage.setItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE, nextSettings.onePatientPerPage.toString());
-    localStorage.setItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE, nextSettings.autoFitFontSize.toString());
-    localStorage.setItem('printMargins', nextSettings.margins);
-    localStorage.setItem('printHeaderStyle', nextSettings.headerStyle);
-    localStorage.setItem('printBorderStyle', nextSettings.borderStyle);
-    localStorage.setItem('printShowPageNumbers', nextSettings.showPageNumbers.toString());
-    localStorage.setItem('printShowTimestamp', nextSettings.showTimestamp.toString());
-    localStorage.setItem('printAlternateRowColors', nextSettings.alternateRowColors.toString());
-    localStorage.setItem('printCompactMode', nextSettings.compactMode.toString());
-  }, []);
+    printStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(nextSettings.columns));
+    printStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(nextSettings.columnWidths));
+    printStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS, JSON.stringify(nextSettings.combinedColumns));
+    printStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS, JSON.stringify(nextSettings.combinedColumnWidths));
+    printStorage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, nextSettings.printOrientation);
+    printStorage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, nextSettings.printFontSize.toString());
+    printStorage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, nextSettings.printFontFamily);
+    printStorage.setItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE, nextSettings.onePatientPerPage.toString());
+    printStorage.setItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE, nextSettings.autoFitFontSize.toString());
+    printStorage.setItem('printMargins', nextSettings.margins);
+    printStorage.setItem('printHeaderStyle', nextSettings.headerStyle);
+    printStorage.setItem('printBorderStyle', nextSettings.borderStyle);
+    printStorage.setItem('printShowPageNumbers', nextSettings.showPageNumbers.toString());
+    printStorage.setItem('printShowTimestamp', nextSettings.showTimestamp.toString());
+    printStorage.setItem('printAlternateRowColors', nextSettings.alternateRowColors.toString());
+    printStorage.setItem('printCompactMode', nextSettings.compactMode.toString());
+  }, [printStorage]);
 
   const buildPrintPayload = React.useCallback(() => ({
     settings,
@@ -121,7 +217,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
     try {
       const payloadJson = JSON.parse(JSON.stringify(payload)) as Json;
-      await supabase
+      const { error } = await supabase
         .from('user_settings')
         .upsert(
           {
@@ -130,141 +226,153 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
           },
           { onConflict: 'user_id' }
         );
-    } catch (err) {
-      console.error('Failed to sync print settings:', err);
+      if (error) throw error;
+    } catch {
+      console.error('Failed to sync print settings');
     }
   }, [user]);
 
   const [patientNotes] = React.useState<Record<string, string>>({});
 
-  // Initialize from LocalStorage + sync with DB
+  // Authenticated settings are DB-authoritative. Local storage is only an
+  // owner-scoped cache and is never used to initialize a newly signed-in user.
   React.useEffect(() => {
-    const loadFromLocalStorage = () => {
-      const savedCols = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_PREFS);
-      const savedWidths = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS);
-      const savedCombined = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS);
-      const savedCombinedWidths = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
-      const savedCustomCombinations = localStorage.getItem(STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS);
-      const savedTemplatePresets = localStorage.getItem(STORAGE_KEYS.PRINT_TEMPLATE_PRESETS);
+    if (!open || initialSyncOwnerId.current === ownerId) return;
 
-      const mergedSettings = mergeStoredSettings({
-        columns: savedCols ? JSON.parse(savedCols) : undefined,
-        columnWidths: savedWidths ? JSON.parse(savedWidths) : undefined,
-        combinedColumns: savedCombined ? JSON.parse(savedCombined) : undefined,
-        combinedColumnWidths: savedCombinedWidths ? JSON.parse(savedCombinedWidths) : undefined,
-        printOrientation: (localStorage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as 'portrait' | 'landscape') || defaultSettings.printOrientation,
-        printFontSize: parseInt(localStorage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE) || `${defaultSettings.printFontSize}`, 10),
-        printFontFamily: localStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || defaultSettings.printFontFamily,
-        onePatientPerPage: localStorage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true',
-        autoFitFontSize: localStorage.getItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE) === 'true',
-        margins: (localStorage.getItem('printMargins') as 'narrow' | 'normal' | 'wide') || defaultSettings.margins,
-        headerStyle: (localStorage.getItem('printHeaderStyle') as 'minimal' | 'standard' | 'detailed') || defaultSettings.headerStyle,
-        borderStyle: (localStorage.getItem('printBorderStyle') as 'none' | 'light' | 'medium' | 'heavy') || defaultSettings.borderStyle,
-        showPageNumbers: localStorage.getItem('printShowPageNumbers') !== 'false',
-        showTimestamp: localStorage.getItem('printShowTimestamp') !== 'false',
-        alternateRowColors: localStorage.getItem('printAlternateRowColors') !== 'false',
-        compactMode: localStorage.getItem('printCompactMode') === 'true',
-      });
+    let cancelled = false;
+    const defaultPayload = {
+      settings: defaultSettings,
+      customCombinations: [] as CustomCombination[],
+      templatePresets: [] as PrintTemplatePreset[],
+      selectedTemplateId: 'standard' as PrintTemplateType,
+    };
 
-      setSettings(mergedSettings);
-
-      if (savedCustomCombinations) {
-        setCustomCombinations(JSON.parse(savedCustomCombinations));
+    const parseStoredJson = <T,>(raw: string | null, fallback: T): T => {
+      if (!raw) return fallback;
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return fallback;
       }
+    };
 
-      if (savedTemplatePresets) {
-        setTemplatePresets(JSON.parse(savedTemplatePresets));
-      }
-
-      const savedTemplateId = localStorage.getItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID);
-      if (savedTemplateId) {
-        setSelectedTemplateId(savedTemplateId as PrintTemplateType);
-      }
+    const loadAnonymousPayload = () => {
+      const savedCols = printStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_PREFS);
+      const savedWidths = printStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS);
+      const savedCombined = printStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS);
+      const savedCombinedWidths = printStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
 
       return {
-        settings: mergedSettings,
-        customCombinations: savedCustomCombinations ? JSON.parse(savedCustomCombinations) : [],
-        templatePresets: savedTemplatePresets ? JSON.parse(savedTemplatePresets) : [],
-        selectedTemplateId: savedTemplateId as PrintTemplateType | null,
+        settings: mergeStoredSettings({
+          columns: parseStoredJson(savedCols, defaultSettings.columns),
+          columnWidths: parseStoredJson(savedWidths, defaultSettings.columnWidths),
+          combinedColumns: parseStoredJson(savedCombined, defaultSettings.combinedColumns),
+          combinedColumnWidths: parseStoredJson(savedCombinedWidths, defaultSettings.combinedColumnWidths),
+          printOrientation: (printStorage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as 'portrait' | 'landscape') || defaultSettings.printOrientation,
+          printFontSize: parseInt(printStorage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE) || `${defaultSettings.printFontSize}`, 10),
+          printFontFamily: printStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || defaultSettings.printFontFamily,
+          onePatientPerPage: printStorage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true',
+          autoFitFontSize: printStorage.getItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE) === 'true',
+          margins: (printStorage.getItem('printMargins') as 'narrow' | 'normal' | 'wide') || defaultSettings.margins,
+          headerStyle: (printStorage.getItem('printHeaderStyle') as 'minimal' | 'standard' | 'detailed') || defaultSettings.headerStyle,
+          borderStyle: (printStorage.getItem('printBorderStyle') as 'none' | 'light' | 'medium' | 'heavy') || defaultSettings.borderStyle,
+          showPageNumbers: printStorage.getItem('printShowPageNumbers') !== 'false',
+          showTimestamp: printStorage.getItem('printShowTimestamp') !== 'false',
+          alternateRowColors: printStorage.getItem('printAlternateRowColors') !== 'false',
+          compactMode: printStorage.getItem('printCompactMode') === 'true',
+        }),
+        customCombinations: parseStoredJson<CustomCombination[]>(
+          printStorage.getItem(STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS),
+          [],
+        ),
+        templatePresets: parseStoredJson<PrintTemplatePreset[]>(
+          printStorage.getItem(STORAGE_KEYS.PRINT_TEMPLATE_PRESETS),
+          [],
+        ),
+        selectedTemplateId:
+          (printStorage.getItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID) as PrintTemplateType | null) ??
+          defaultPayload.selectedTemplateId,
       };
     };
 
+    const applyPayload = (payload: typeof defaultPayload) => {
+      const nextSettings = mergeStoredSettings(payload.settings);
+      const nextCombinations = Array.isArray(payload.customCombinations) ? payload.customCombinations : [];
+      const nextPresets = Array.isArray(payload.templatePresets) ? payload.templatePresets : [];
+      const nextTemplateId = payload.selectedTemplateId || defaultPayload.selectedTemplateId;
+
+      setSettings(nextSettings);
+      setCustomCombinations(nextCombinations);
+      setTemplatePresets(nextPresets);
+      setSelectedTemplateId(nextTemplateId);
+    };
+
     const loadSettings = async () => {
-      const localData = loadFromLocalStorage();
-      if (!user || !open || initialSyncDone.current) return;
+      quarantineLegacyPrintPreferences();
+
+      if (!user) {
+        applyPayload(loadAnonymousPayload());
+        initialSyncOwnerId.current = null;
+        return;
+      }
+
+      // Hide any previous in-memory customization while this owner's row loads.
+      applyPayload(defaultPayload);
 
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('user_settings')
           .select('print_settings')
           .eq('user_id', user.id)
           .maybeSingle();
+        if (error) throw error;
+        if (cancelled) return;
 
-        if (data?.print_settings) {
-          const dbSettings = data.print_settings as {
-            settings?: Partial<PrintSettingsType>;
-            customCombinations?: CustomCombination[];
-            templatePresets?: PrintTemplatePreset[];
-            selectedTemplateId?: PrintTemplateType;
-          };
-          const mergedSettings = mergeStoredSettings(dbSettings.settings);
-          setSettings(mergedSettings);
-          syncSettingsToLocalStorage(mergedSettings);
+        const databasePayload = data?.print_settings
+          ? data.print_settings as unknown as typeof defaultPayload
+          : undefined;
+        const decision = getAuthenticatedPrintPayload(databasePayload, defaultPayload);
+        applyPayload(decision.payload);
+        initialSyncOwnerId.current = user.id;
 
-          if (dbSettings.customCombinations) {
-            setCustomCombinations(dbSettings.customCombinations);
-            localStorage.setItem(
-              STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS,
-              JSON.stringify(dbSettings.customCombinations)
-            );
-          }
-
-          if (dbSettings.templatePresets) {
-            setTemplatePresets(dbSettings.templatePresets);
-            localStorage.setItem(
-              STORAGE_KEYS.PRINT_TEMPLATE_PRESETS,
-              JSON.stringify(dbSettings.templatePresets)
-            );
-          }
-
-          if (dbSettings.selectedTemplateId) {
-            setSelectedTemplateId(dbSettings.selectedTemplateId);
-            localStorage.setItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID, dbSettings.selectedTemplateId);
-          }
-        } else if (localData) {
-          await syncPrintSettingsToDb({
-            settings: localData.settings,
-            customCombinations: localData.customCombinations,
-            templatePresets: localData.templatePresets,
-            selectedTemplateId: localData.selectedTemplateId ?? selectedTemplateId,
-          });
+        if (decision.shouldInitializeDatabase) {
+          await syncPrintSettingsToDb(defaultPayload);
         }
-        initialSyncDone.current = true;
-      } catch (err) {
-        console.error('Failed to load print settings from DB:', err);
+      } catch {
+        // Defaults remain visible, but no local value is promoted into the DB.
+        console.error('Failed to load print settings from DB');
       }
     };
 
-    if (open) {
-      loadSettings();
-    }
-  }, [open, user, mergeStoredSettings, syncSettingsToLocalStorage, syncPrintSettingsToDb, defaultSettings, selectedTemplateId]);
+    void loadSettings();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    defaultSettings,
+    mergeStoredSettings,
+    open,
+    ownerId,
+    printStorage,
+    syncPrintSettingsToDb,
+    user,
+  ]);
 
   React.useEffect(() => {
-    if (!user || !initialSyncDone.current) return;
-    if (syncTimeoutRef.current) {
-      clearTimeout(syncTimeoutRef.current);
-    }
+    if (!user || initialSyncOwnerId.current !== user.id) return;
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+
     syncTimeoutRef.current = setTimeout(() => {
-      syncPrintSettingsToDb(buildPrintPayload());
+      void syncPrintSettingsToDb(buildPrintPayload());
     }, 1000);
-  }, [user, buildPrintPayload, syncPrintSettingsToDb]);
 
-  React.useEffect(() => {
-    if (!user) {
-      initialSyncDone.current = false;
-    }
-  }, [user]);
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
+      }
+    };
+  }, [user, buildPrintPayload, syncPrintSettingsToDb]);
 
   // Debounce the @page CSS update — orientation + margins rarely change rapidly,
   // and forcing a style recalc on every settings mutation causes layout jitter.
@@ -292,36 +400,26 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
   }, [settings, syncSettingsToLocalStorage]);
 
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID, selectedTemplateId);
-  }, [selectedTemplateId]);
+    printStorage.setItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID, selectedTemplateId);
+  }, [printStorage, selectedTemplateId]);
+
+  React.useEffect(() => {
+    printStorage.setItem(
+      STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS,
+      JSON.stringify(customCombinations),
+    );
+  }, [customCombinations, printStorage]);
+
+  React.useEffect(() => {
+    printStorage.setItem(STORAGE_KEYS.PRINT_TEMPLATE_PRESETS, JSON.stringify(templatePresets));
+  }, [printStorage, templatePresets]);
 
   const handleUpdateSettings = React.useCallback((newSettings: Partial<PrintSettingsType>) => {
-    setSettings(prev => {
-      const updated = { ...prev, ...newSettings };
-      // Save changes to localStorage
-      if (newSettings.printOrientation !== undefined) localStorage.setItem('printOrientation', newSettings.printOrientation);
-      if (newSettings.printFontSize !== undefined) localStorage.setItem('printFontSize', newSettings.printFontSize.toString());
-      if (newSettings.printFontFamily !== undefined) localStorage.setItem('printFontFamily', newSettings.printFontFamily);
-      if (newSettings.onePatientPerPage !== undefined) localStorage.setItem('printOnePatientPerPage', newSettings.onePatientPerPage.toString());
-      if (newSettings.autoFitFontSize !== undefined) localStorage.setItem('printAutoFitFontSize', newSettings.autoFitFontSize.toString());
-      if (newSettings.margins !== undefined) localStorage.setItem('printMargins', newSettings.margins);
-      if (newSettings.headerStyle !== undefined) localStorage.setItem('printHeaderStyle', newSettings.headerStyle);
-      if (newSettings.borderStyle !== undefined) localStorage.setItem('printBorderStyle', newSettings.borderStyle);
-      if (newSettings.showPageNumbers !== undefined) localStorage.setItem('printShowPageNumbers', newSettings.showPageNumbers.toString());
-      if (newSettings.showTimestamp !== undefined) localStorage.setItem('printShowTimestamp', newSettings.showTimestamp.toString());
-      if (newSettings.alternateRowColors !== undefined) localStorage.setItem('printAlternateRowColors', newSettings.alternateRowColors.toString());
-      if (newSettings.compactMode !== undefined) localStorage.setItem('printCompactMode', newSettings.compactMode.toString());
-      if (newSettings.combinedColumnWidths !== undefined) {
-        localStorage.setItem('printCombinedColumnWidths', JSON.stringify(newSettings.combinedColumnWidths));
-      }
-
-      return updated;
-    });
+    setSettings(prev => ({ ...prev, ...newSettings }));
   }, []);
 
   const handleUpdateColumns = React.useCallback((newColumns: ColumnConfig[]) => {
     setSettings(prev => ({ ...prev, columns: newColumns }));
-    localStorage.setItem('printColumnPrefs', JSON.stringify(newColumns));
   }, []);
 
   // Single atomic setState — avoids the previous 2-render cascade
@@ -355,9 +453,6 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
         compactMode: template.styling.compactMode,
       };
 
-      // Persist the columns immediately inside the updater so localStorage
-      // is always in sync with the new state in the same tick.
-      localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(newColumns));
       return updated;
     });
   }, []);
@@ -394,7 +489,6 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       const updated = current.includes(combinationKey)
         ? current.filter(k => k !== combinationKey)
         : [...current, combinationKey];
-      localStorage.setItem('printCombinedColumns', JSON.stringify(updated));
       return { ...prev, combinedColumns: updated };
     });
   };
@@ -438,9 +532,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     };
 
     setTemplatePresets(prev => {
-      const updated = [...prev, preset];
-      localStorage.setItem(STORAGE_KEYS.PRINT_TEMPLATE_PRESETS, JSON.stringify(updated));
-      return updated;
+      return [...prev, preset];
     });
 
     setTemplatePresetName("");
@@ -458,41 +550,32 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
 
   const handleDeleteTemplatePreset = (presetId: string) => {
     setTemplatePresets(prev => {
-      const updated = prev.filter(p => p.id !== presetId);
-      localStorage.setItem(STORAGE_KEYS.PRINT_TEMPLATE_PRESETS, JSON.stringify(updated));
-      return updated;
+      return prev.filter(p => p.id !== presetId);
     });
     toast({ title: "Template preset removed" });
   };
 
   const handleAddCustomCombination = (combination: CustomCombination) => {
     setCustomCombinations(prev => {
-      const updated = [...prev, combination];
-      localStorage.setItem(STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS, JSON.stringify(updated));
-      return updated;
+      return [...prev, combination];
     });
     toast({ title: "Custom combination created" });
   };
 
   const handleUpdateCustomCombination = (combination: CustomCombination) => {
     setCustomCombinations(prev => {
-      const updated = prev.map(c => c.key === combination.key ? combination : c);
-      localStorage.setItem(STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS, JSON.stringify(updated));
-      return updated;
+      return prev.map(c => c.key === combination.key ? combination : c);
     });
     toast({ title: "Custom combination updated" });
   };
 
   const handleDeleteCustomCombination = (combinationKey: string) => {
     setCustomCombinations(prev => {
-      const updated = prev.filter(c => c.key !== combinationKey);
-      localStorage.setItem(STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS, JSON.stringify(updated));
-      return updated;
+      return prev.filter(c => c.key !== combinationKey);
     });
     // Also remove from active combinations if it was active
     setSettings(prev => {
       const updatedCombined = (prev.combinedColumns || []).filter(k => k !== combinationKey);
-      localStorage.setItem('printCombinedColumns', JSON.stringify(updatedCombined));
       return { ...prev, combinedColumns: updatedCombined };
     });
     toast({ title: "Custom combination deleted" });
@@ -525,7 +608,9 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     patientNotes,
     isFiltered,
     totalPatientCount,
-  }), [patients, patientTodos, settings, isColumnEnabled, getPatientTodos, patientNotes, isFiltered, totalPatientCount]);
+    patientImageOwnerId: user?.id,
+    patientImageSignedUrls,
+  }), [patients, patientTodos, settings, isColumnEnabled, getPatientTodos, patientNotes, isFiltered, totalPatientCount, user?.id, patientImageSignedUrls]);
 
   const handlePrint = () => {
     window.print();
@@ -593,13 +678,16 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
     }
   };
 
-  const onExportWord = () => {
+  const onExportWord = async () => {
+    setIsGenerating(true);
     try {
-      const fileName = handleExportDOC(getExportContext());
+      const fileName = await handleExportDOC(getExportContext());
       toast({ title: "Word Export Complete", description: fileName });
     } catch (e) {
       console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -645,6 +733,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
             </DialogDescription>
           </DialogHeader>
           <LayoutDesigner
+            storageOwnerId={ownerId}
             onApplyLayout={handleApplyLayout}
             onClose={() => setShowLayoutDesigner(false)}
           />
@@ -688,7 +777,7 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
                 onExportTXT={onExportTXT}
                 onExportRTF={onExportRTF}
                 onExportMarkdown={onExportMarkdown}
-                isGenerating={isGenerating}
+                isGenerating={isGenerating || patientImagesLoading}
               />
             </div>
           </div>
@@ -780,17 +869,31 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
               patients={patients}
               patientTodos={patientTodos}
               patientNotes={patientNotes}
+              patientImageOwnerId={user?.id}
+              patientImageSignedUrls={patientImageSignedUrls}
               settings={settings}
               onViewModeChange={(mode) => handleUpdateSettings({ activeTab: mode })}
             />
           </div>
         </div>
-        <div className="print-export-sandbox" aria-hidden="true" style={{ display: 'none' }}>
+        <div
+          className="print-export-sandbox"
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            left: "-100000px",
+            top: 0,
+            width: "210mm",
+            pointerEvents: "none",
+          }}
+        >
           <PrintDocument
             ref={exportRef}
             patients={patients}
             patientTodos={patientTodos}
             patientNotes={patientNotes}
+            patientImageOwnerId={user?.id}
+            patientImageSignedUrls={patientImageSignedUrls}
             settings={settings}
             documentId="export"
           />
@@ -798,4 +901,10 @@ export const PrintExportModal = ({ open, onOpenChange, patients, patientTodos = 
       </DialogContent>
     </Dialog>
   );
+};
+
+/** Remount all in-memory print state when the authenticated owner changes. */
+export const PrintExportModal = (props: PrintExportModalProps) => {
+  const { user } = useAuth();
+  return <PrintExportModalForOwner key={user?.id ?? 'anonymous'} {...props} />;
 };

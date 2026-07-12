@@ -16,7 +16,7 @@ import {
 
 declare global {
   var __SUPABASE_AUTH_MOCK__: unknown;
-  var __SUPABASE_SELECT_MOCK__: undefined | ((query: SupabaseSelectQuery) => Promise<{ data: unknown[]; error: null }>);
+  var __SUPABASE_SELECT_MOCK__: unknown;
 }
 
 interface SupabaseSelectQuery {
@@ -67,10 +67,12 @@ function setupSelectMock() {
     todoMap: 0,
     patientTodo: 0,
   };
-  const patientRows = makeDashboardPatientRows(dashboardPatients8);
-  const todoRows = makeDashboardTodoRows(dashboardPatients8);
+  const patientRows = makeDashboardPatientRows(dashboardPatients8)
+    .map((patient) => ({ ...patient, user_id: "test-user-id" }));
+  const todoRows = makeDashboardTodoRows(dashboardPatients8)
+    .map((todo) => ({ ...todo, user_id: "test-user-id" }));
 
-  globalThis.__SUPABASE_SELECT_MOCK__ = async (query) => {
+  const selectMock = async (query: SupabaseSelectQuery): Promise<{ data: unknown[]; error: null }> => {
     if (query.table === "patients") {
       counts.patientList += 1;
       return { data: patientRows, error: null };
@@ -94,6 +96,7 @@ function setupSelectMock() {
 
     return { data: [], error: null };
   };
+  globalThis.__SUPABASE_SELECT_MOCK__ = selectMock;
 
   return counts;
 }

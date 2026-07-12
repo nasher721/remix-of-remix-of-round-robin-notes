@@ -104,13 +104,13 @@ export function ColumnWidthsSection({
           label="System Columns"
           value={columnWidths['systems.neuro']}
           onChange={(v) => {
-            const updatedSystems = Object.keys(columnWidths).reduce((acc, key) => {
+            const updatedColumnWidths: ColumnWidthsType = { ...columnWidths };
+            Object.keys(updatedColumnWidths).forEach((key) => {
               if (key.startsWith('systems.')) {
-                acc[key as keyof typeof columnWidths] = v;
+                updatedColumnWidths[key] = v;
               }
-              return acc;
-            }, {} as Partial<typeof columnWidths>);
-            onUpdateSettings({ columnWidths: { ...columnWidths, ...updatedSystems } });
+            });
+            onUpdateSettings({ columnWidths: updatedColumnWidths });
           }}
           max={200}
         />

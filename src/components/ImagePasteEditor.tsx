@@ -5,7 +5,7 @@ import {
   Indent, Outdent, Palette, Undo2, Redo2, FileText, ImagePlus, ClipboardList,
   Pencil, Eraser, Square, Circle, ArrowUpRight, Type, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
-  Superscript, Subscript, Search, Table as TableIcon, ListOrdered
+  Superscript, Subscript, Search, Table as TableIcon, ListOrdered, X
 } from "lucide-react";
 import {
   Popover,
@@ -20,7 +20,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import type { AutoText } from "@/types/autotext";
@@ -37,6 +36,24 @@ import { EditorFindReplace } from "./EditorFindReplace";
 import { EditorStatusBar } from "./EditorStatusBar";
 import type { Patient } from "@/types/patient";
 import { Slider } from "@/components/ui/slider";
+import { createSafeLinkHtml, sanitizeHtml, sanitizePastedHtml } from "@/lib/sanitize";
+import { getUserFacingErrorMessage, UserFacingError } from "@/lib/userFacingErrors";
+import {
+  PATIENT_IMAGE_KEY_ATTRIBUTE,
+  PATIENT_IMAGE_SIGNED_URL_TTL_SECONDS,
+  capturePatientImageReplacementTarget,
+  canonicalizePatientImageHtml,
+  createPatientImageSignedUrl,
+  deletePatientImageObjects,
+  extractLegacyPatientImageDataUrls,
+  extractPatientImageObjectKeyList,
+  isOwnedPatientImageObjectKey,
+  prepareStoredPatientImageReplacement,
+  removePatientImageAtIndex,
+  replacePatientImageAtIndex,
+  resolvePatientImageReplacementIndex,
+  uploadPatientImage,
+} from "@/lib/patientImages";
 
 // Text color options using HSL CSS variables from design system
 const textColors = [
@@ -88,17 +105,6 @@ interface ImagePasteEditorProps {
   section?: string;
 }
 
-// Extract image URLs from HTML content
-const extractImageUrls = (html: string): string[] => {
-  const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-  const urls: string[] = [];
-  let match;
-  while ((match = imgRegex.exec(html)) !== null) {
-    urls.push(match[1]);
-  }
-  return urls;
-};
-
 // Apply underline formatting to text between # and :
 const applyUnderlineFormatting = (html: string): string => {
   // Match #text: pattern but not inside HTML tags
@@ -106,21 +112,12 @@ const applyUnderlineFormatting = (html: string): string => {
   return html.replace(regex, '<u>#$1:</u>');
 };
 
-const updateImageAtIndex = (html: string, index: number, newUrl: string): string => {
-  const container = document.createElement("div");
-  container.innerHTML = html;
-  const images = container.querySelectorAll("img");
-  const target = images[index];
-  if (!target) return html;
-  target.setAttribute("src", newUrl);
-  return container.innerHTML;
-};
-
 export const ImagePasteEditor = ({
   value,
   onChange,
   placeholder = "Enter text or paste images...",
   className,
+  minHeight = "120px",
   autotexts = defaultAutotexts,
   fontSize = 11,
   changeTracking = null,
@@ -136,10 +133,12 @@ export const ImagePasteEditor = ({
   const [lightboxIndex, setLightboxIndex] = React.useState(0);
   const { user } = useAuth();
   const { toast } = useToast();
+  const mountedRef = React.useRef(false);
+  const activeOwnerIdRef = React.useRef<string | undefined>(user?.id);
+  activeOwnerIdRef.current = user?.id;
   // Per-editor toggle: when true, marking is disabled for this editor
   const [localMarkingDisabled, setLocalMarkingDisabled] = React.useState(false);
   const [annotationOpen, setAnnotationOpen] = React.useState(false);
-  const [annotationIndex, setAnnotationIndex] = React.useState<number | null>(null);
   const [annotationUrl, setAnnotationUrl] = React.useState<string | null>(null);
   const [annotationTool, setAnnotationTool] = React.useState<"pen" | "highlighter" | "arrow" | "rect" | "ellipse" | "text" | "eraser">("pen");
   const [annotationColor, setAnnotationColor] = React.useState("hsl(0 72% 51%)");
@@ -153,6 +152,33 @@ export const ImagePasteEditor = ({
   const redoRef = React.useRef<ImageData[]>([]);
   const [historySize, setHistorySize] = React.useState(0);
   const [redoSize, setRedoSize] = React.useState(0);
+  const annotationOpenRef = React.useRef(annotationOpen);
+  annotationOpenRef.current = annotationOpen;
+  const annotationSessionRef = React.useRef(0);
+  const annotationTargetRef = React.useRef<ReturnType<
+    typeof capturePatientImageReplacementTarget
+  >>(null);
+  const annotationUploadSessionRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const isActiveImageOwner = React.useCallback(
+    (ownerId: string) => mountedRef.current && activeOwnerIdRef.current === ownerId,
+    [],
+  );
+
+  const discardUncommittedImage = React.useCallback(async (objectKey: string, ownerId: string) => {
+    try {
+      await deletePatientImageObjects([objectKey], ownerId);
+    } catch {
+      console.warn("Uncommitted patient image cleanup was deferred");
+    }
+  }, []);
 
   // Find & replace state
   const [findReplaceMode, setFindReplaceMode] = React.useState<"find" | "replace" | null>(null);
@@ -163,6 +189,19 @@ export const ImagePasteEditor = ({
 
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
+
+  const emitCanonicalChange = React.useCallback((html: string): string => {
+    const ownerId = user?.id;
+    const canonicalHtml = canonicalizePatientImageHtml(html, ownerId, {
+      // Existing versions stored canvas annotations inline. Preserve those
+      // legacy values until they can be uploaded; all new annotations use keys.
+      preserveLegacyDataImages: extractLegacyPatientImageDataUrls(html).length > 0,
+    });
+
+    isInternalUpdate.current = true;
+    onChange(canonicalHtml);
+    return canonicalHtml;
+  }, [onChange, user?.id]);
 
   // Clinical phrase system
   const { folders } = useClinicalPhrases();
@@ -180,6 +219,7 @@ export const ImagePasteEditor = ({
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(content);
     }
+    contentHtml = sanitizeHtml(contentHtml);
 
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
@@ -197,10 +237,9 @@ export const ImagePasteEditor = ({
       editorRef.current.innerHTML += contentHtml;
     }
 
-    isInternalUpdate.current = true;
-    onChange(editorRef.current.innerHTML);
+    emitCanonicalChange(editorRef.current.innerHTML);
     editorRef.current.focus();
-  }, [onChange, effectiveChangeTracking]);
+  }, [effectiveChangeTracking, emitCanonicalChange]);
 
   // Use phrase expansion hook
   const {
@@ -218,9 +257,64 @@ export const ImagePasteEditor = ({
     onInsert: insertPhraseContent,
   });
 
-  // Extract images from current value
-  const imageUrls = React.useMemo(() => extractImageUrls(value), [value]);
-  const hasImages = imageUrls.length > 0;
+  const legacyInlineImageCount = React.useMemo(
+    () => extractLegacyPatientImageDataUrls(value).length,
+    [value],
+  );
+  const canonicalValue = React.useMemo(
+    () => canonicalizePatientImageHtml(value, user?.id, {
+      preserveLegacyDataImages: legacyInlineImageCount > 0,
+    }),
+    [legacyInlineImageCount, user?.id, value],
+  );
+  const imageObjectKeys = React.useMemo(
+    () => extractPatientImageObjectKeyList(canonicalValue, user?.id),
+    [canonicalValue, user?.id],
+  );
+  const imageKeySignature = imageObjectKeys.join("\n");
+  const [signedImageUrls, setSignedImageUrls] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    if (!user || imageObjectKeys.length === 0) {
+      setSignedImageUrls({});
+      return;
+    }
+
+    let cancelled = false;
+    const refreshSignedUrls = async () => {
+      const uniqueKeys = Array.from(new Set(imageObjectKeys));
+      const resolvedEntries = await Promise.all(
+        uniqueKeys.map(async (objectKey) => {
+          try {
+            return [objectKey, await createPatientImageSignedUrl(objectKey, user.id)] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (!cancelled) {
+        setSignedImageUrls(Object.fromEntries(resolvedEntries.filter((entry) => entry !== null)));
+      }
+    };
+
+    void refreshSignedUrls();
+    const refreshTimer = window.setInterval(
+      () => void refreshSignedUrls(),
+      Math.floor(PATIENT_IMAGE_SIGNED_URL_TTL_SECONDS * 1000 * 0.75),
+    );
+    return () => {
+      cancelled = true;
+      window.clearInterval(refreshTimer);
+    };
+    // imageKeySignature is the stable content identity for imageObjectKeys.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageKeySignature, user?.id]);
+
+  const imageUrls = React.useMemo(
+    () => imageObjectKeys.map((objectKey) => signedImageUrls[objectKey] ?? ""),
+    [imageObjectKeys, signedImageUrls],
+  );
+  const hasImages = imageObjectKeys.length > 0;
 
   // Handle dictation transcript insertion
   const handleDictationTranscript = React.useCallback((text: string) => {
@@ -236,6 +330,7 @@ export const ImagePasteEditor = ({
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
     }
+    contentHtml = sanitizeHtml(contentHtml);
 
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
@@ -254,10 +349,9 @@ export const ImagePasteEditor = ({
       editorRef.current.innerHTML += ' ' + contentHtml + ' ';
     }
 
-    isInternalUpdate.current = true;
-    onChange(editorRef.current.innerHTML);
+    emitCanonicalChange(editorRef.current.innerHTML);
     editorRef.current.focus();
-  }, [effectiveChangeTracking, onChange]);
+  }, [effectiveChangeTracking, emitCanonicalChange]);
 
   const handleInsertPatientInfo = React.useCallback((text: string) => {
     if (!editorRef.current) return;
@@ -271,6 +365,7 @@ export const ImagePasteEditor = ({
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
     }
+    contentHtml = sanitizeHtml(contentHtml);
 
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
@@ -288,19 +383,21 @@ export const ImagePasteEditor = ({
       editorRef.current.innerHTML += contentHtml + ' ';
     }
 
-    isInternalUpdate.current = true;
-    onChange(editorRef.current.innerHTML);
+    emitCanonicalChange(editorRef.current.innerHTML);
     editorRef.current.focus();
-  }, [effectiveChangeTracking, onChange]);
+  }, [effectiveChangeTracking, emitCanonicalChange]);
 
   const execCommand = React.useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
     if (editorRef.current) {
-      isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
+      const sanitizedValue = sanitizeHtml(editorRef.current.innerHTML);
+      if (sanitizedValue !== editorRef.current.innerHTML) {
+        editorRef.current.innerHTML = sanitizedValue;
+      }
+      emitCanonicalChange(sanitizedValue);
     }
-  }, [onChange]);
+  }, [emitCanonicalChange]);
 
   // Insert link helper
   const handleInsertLink = React.useCallback(() => {
@@ -308,11 +405,9 @@ export const ImagePasteEditor = ({
     const selectedText = selection && !selection.isCollapsed ? selection.toString() : "";
     const url = window.prompt("Enter URL:", "https://");
     if (url) {
-      if (selectedText) {
-        execCommand("createLink", url);
-      } else {
-        const linkText = window.prompt("Link text:", url) || url;
-        const link = `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+      const linkText = selectedText || window.prompt("Link text:", url) || url;
+      const link = createSafeLinkHtml(url, linkText);
+      if (link) {
         execCommand("insertHTML", link);
       }
     }
@@ -357,7 +452,7 @@ export const ImagePasteEditor = ({
       if (e.inputType === 'insertText') {
         e.preventDefault();
 
-        const markedHtml = effectiveChangeTracking.wrapWithMarkup(e.data);
+        const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(e.data));
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
 
@@ -377,22 +472,23 @@ export const ImagePasteEditor = ({
         selection.removeAllRanges();
         selection.addRange(range);
 
-        isInternalUpdate.current = true;
-        onChange(editor.innerHTML);
+        emitCanonicalChange(editor.innerHTML);
       }
     };
 
     editor.addEventListener('beforeinput', handleBeforeInput);
     return () => editor.removeEventListener('beforeinput', handleBeforeInput);
-  }, [effectiveChangeTracking, onChange]);
+  }, [effectiveChangeTracking, emitCanonicalChange]);
 
   const handleInput = React.useCallback(() => {
     if (editorRef.current) {
-      isInternalUpdate.current = true;
-      let html = editorRef.current.innerHTML;
+      let html = sanitizeHtml(editorRef.current.innerHTML);
+      if (html !== editorRef.current.innerHTML) {
+        editorRef.current.innerHTML = html;
+      }
 
       // Apply underline formatting for #text: pattern
-      const formattedHtml = applyUnderlineFormatting(html);
+      const formattedHtml = sanitizeHtml(applyUnderlineFormatting(html));
       if (formattedHtml !== html) {
         const selection = window.getSelection();
 
@@ -408,12 +504,13 @@ export const ImagePasteEditor = ({
         }
       }
 
-      onChange(html);
+      emitCanonicalChange(html);
     }
-  }, [onChange]);
+  }, [emitCanonicalChange]);
 
   const uploadImage = async (file: File): Promise<string | null> => {
-    if (!user) {
+    const requestOwnerId = user?.id;
+    if (!requestOwnerId) {
       toast({
         title: "Not authenticated",
         description: "Please sign in to upload images.",
@@ -421,65 +518,35 @@ export const ImagePasteEditor = ({
       });
       return null;
     }
+    if (!isActiveImageOwner(requestOwnerId)) return null;
 
     try {
       setIsUploading(true);
-
-      // Create unique filename
-      const fileExt = file.type.split('/')[1] || 'png';
-      const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
-
-      const { data, error } = await supabase.storage
-        .from('patient-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (error) {
-        console.error('Upload error:', error);
-        toast({
-          title: "Upload failed",
-          description: error.message,
-          variant: "destructive",
-        });
+      const objectKey = await uploadPatientImage(file, requestOwnerId);
+      if (!isActiveImageOwner(requestOwnerId)) {
+        await discardUncommittedImage(objectKey, requestOwnerId);
         return null;
       }
-
-      // Get signed URL for private bucket
-      const { data: urlData, error: urlError } = await supabase.storage
-        .from('patient-images')
-        .createSignedUrl(data.path, 3600); // 1 hour expiry
-
-      if (urlError || !urlData) {
-        console.error('Signed URL error:', urlError);
-        toast({
-          title: "Upload failed",
-          description: "Failed to generate image URL",
-          variant: "destructive",
-        });
-        return null;
-      }
-
-      return urlData.signedUrl;
+      return objectKey;
     } catch (error) {
-      console.error('Upload error:', error);
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload image",
-        variant: "destructive",
-      });
+      if (isActiveImageOwner(requestOwnerId)) {
+        toast({
+          title: "Upload failed",
+          description: getUserFacingErrorMessage(error, "Failed to upload image. Please try again."),
+          variant: "destructive",
+        });
+      }
       return null;
     } finally {
-      setIsUploading(false);
+      if (isActiveImageOwner(requestOwnerId)) setIsUploading(false);
     }
   };
 
-  const insertImage = (url: string) => {
-    if (!editorRef.current) return;
+  const insertImage = (objectKey: string): boolean => {
+    if (!editorRef.current || !user || !isOwnedPatientImageObjectKey(objectKey, user.id)) return false;
 
     const img = document.createElement('img');
-    img.src = url;
+    img.setAttribute(PATIENT_IMAGE_KEY_ATTRIBUTE, objectKey);
     img.style.maxWidth = '100%';
     img.style.maxHeight = '200px';
     img.style.borderRadius = '4px';
@@ -500,17 +567,22 @@ export const ImagePasteEditor = ({
       editorRef.current.appendChild(img);
     }
 
-    isInternalUpdate.current = true;
-    onChange(editorRef.current.innerHTML);
+    const canonicalHtml = emitCanonicalChange(editorRef.current.innerHTML);
+    const inserted = extractPatientImageObjectKeyList(canonicalHtml, user.id).includes(objectKey);
+    if (!inserted) img.remove();
+    return inserted;
   };
 
   const handleUploadFiles = async (files: FileList | null) => {
     if (!files) return;
     for (const file of Array.from(files)) {
       if (file.type.startsWith('image/')) {
-        const url = await uploadImage(file);
-        if (url) {
-          insertImage(url);
+        const objectKey = await uploadImage(file);
+        if (objectKey) {
+          if (!insertImage(objectKey)) {
+            await discardUncommittedImage(objectKey, objectKey.split("/", 1)[0]);
+            continue;
+          }
           toast({
             title: "Image uploaded",
             description: "Image has been added to the imaging field.",
@@ -521,8 +593,7 @@ export const ImagePasteEditor = ({
   };
 
   const handlePaste = async (e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+    const items = e.clipboardData?.items || [];
 
     // Check for images first
     for (const item of Array.from(items)) {
@@ -530,9 +601,12 @@ export const ImagePasteEditor = ({
         e.preventDefault();
         const file = item.getAsFile();
         if (file) {
-          const url = await uploadImage(file);
-          if (url) {
-            insertImage(url);
+          const objectKey = await uploadImage(file);
+          if (objectKey) {
+            if (!insertImage(objectKey)) {
+              await discardUncommittedImage(objectKey, objectKey.split("/", 1)[0]);
+              return;
+            }
             toast({
               title: "Image uploaded",
               description: "Image has been added to the imaging field.",
@@ -543,36 +617,36 @@ export const ImagePasteEditor = ({
       }
     }
 
-    // Handle text paste with change tracking
-    if (effectiveChangeTracking?.enabled) {
-      const text = e.clipboardData?.getData('text/plain');
-      if (text) {
-        e.preventDefault();
+    // Intercept all text paste so rich clipboard markup is sanitized before it
+    // reaches the contenteditable DOM.
+    const html = e.clipboardData?.getData('text/html') || '';
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (!html && !text) return;
+    e.preventDefault();
 
-        const markedHtml = effectiveChangeTracking.wrapWithMarkup(text);
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) return;
+    const contentHtml = effectiveChangeTracking?.enabled
+      ? sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(text))
+      : sanitizePastedHtml(html, text);
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
 
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
 
-        const temp = document.createElement('div');
-        temp.innerHTML = markedHtml;
-        const fragment = document.createDocumentFragment();
-        while (temp.firstChild) {
-          fragment.appendChild(temp.firstChild);
-        }
-        range.insertNode(fragment);
+    const temp = document.createElement('div');
+    temp.innerHTML = contentHtml;
+    const fragment = document.createDocumentFragment();
+    while (temp.firstChild) {
+      fragment.appendChild(temp.firstChild);
+    }
+    range.insertNode(fragment);
 
-        range.collapse(false);
-        selection.removeAllRanges();
-        selection.addRange(range);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
 
-        if (editorRef.current) {
-          isInternalUpdate.current = true;
-          onChange(editorRef.current.innerHTML);
-        }
-      }
+    if (editorRef.current) {
+      emitCanonicalChange(sanitizeHtml(editorRef.current.innerHTML));
     }
   };
 
@@ -634,7 +708,7 @@ export const ImagePasteEditor = ({
     // Apply change tracking markup if enabled
     let content: Node;
     if (effectiveChangeTracking?.enabled) {
-      const markedHtml = effectiveChangeTracking.wrapWithMarkup(replacement);
+      const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(replacement));
       const temp = document.createElement('div');
       temp.innerHTML = markedHtml + " ";
       content = document.createDocumentFragment();
@@ -657,8 +731,7 @@ export const ImagePasteEditor = ({
     }
 
     if (editorRef.current) {
-      isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
+      emitCanonicalChange(editorRef.current.innerHTML);
     }
   };
 
@@ -692,14 +765,42 @@ export const ImagePasteEditor = ({
   }, [autotexts, handleShortcut]);
 
   const openLightbox = (index: number) => {
+    if (!imageUrls[index]) return;
     setLightboxIndex(index);
     setLightboxOpen(true);
   };
 
   const openAnnotator = (index: number) => {
-    setAnnotationIndex(index);
-    setAnnotationUrl(imageUrls[index] ?? null);
+    const currentHtml = editorRef.current?.innerHTML ?? canonicalValue;
+    const target = user
+      ? capturePatientImageReplacementTarget(currentHtml, index, user.id)
+      : null;
+    const targetUrl = target ? signedImageUrls[target.objectKey] : undefined;
+    if (!target || !targetUrl) return;
+    annotationSessionRef.current += 1;
+    annotationTargetRef.current = target;
+    annotationOpenRef.current = true;
+    setAnnotationUrl(targetUrl);
     setAnnotationOpen(true);
+  };
+
+  const closeAnnotator = React.useCallback(() => {
+    annotationSessionRef.current += 1;
+    annotationTargetRef.current = null;
+    annotationOpenRef.current = false;
+    setAnnotationOpen(false);
+  }, []);
+
+  const handleRemoveImage = (index: number) => {
+    const currentHtml = editorRef.current?.innerHTML ?? canonicalValue;
+    const updated = removePatientImageAtIndex(currentHtml, index, user?.id);
+    if (editorRef.current) editorRef.current.innerHTML = updated;
+    emitCanonicalChange(updated);
+    setLightboxOpen(false);
+    toast({
+      title: "Image removed",
+      description: "The image was removed from the note.",
+    });
   };
 
   const drawArrow = React.useCallback((context: CanvasRenderingContext2D, from: { x: number; y: number }, to: { x: number; y: number }) => {
@@ -943,29 +1044,123 @@ export const ImagePasteEditor = ({
     setRedoSize(0);
   };
 
-  const handleAnnotationSave = () => {
+  const handleAnnotationSave = async () => {
     const canvas = canvasRef.current;
-    if (!canvas || annotationIndex === null) return;
+    const requestTarget = annotationTargetRef.current;
+    if (!canvas || !requestTarget || !user || !editorRef.current) return;
+    const requestOwnerId = user.id;
+    const requestEditor = editorRef.current;
+    const requestSession = annotationSessionRef.current;
+    let uncommittedReplacementKey: string | null = null;
+    const requestIsCurrent = () =>
+      isActiveImageOwner(requestOwnerId) &&
+      editorRef.current === requestEditor &&
+      annotationOpenRef.current &&
+      annotationSessionRef.current === requestSession;
+    const discardReplacement = async () => {
+      if (!uncommittedReplacementKey) return;
+      const objectKey = uncommittedReplacementKey;
+      uncommittedReplacementKey = null;
+      await discardUncommittedImage(objectKey, requestOwnerId);
+    };
     try {
-      const dataUrl = canvas.toDataURL("image/png");
-      const updated = updateImageAtIndex(value, annotationIndex, dataUrl);
-      if (editorRef.current) {
-        editorRef.current.innerHTML = updated;
+      annotationUploadSessionRef.current = requestSession;
+      setIsUploading(true);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => {
+          if (result) resolve(result);
+          else reject(new Error("The annotation canvas could not be encoded."));
+        }, "image/png");
+      });
+      if (!requestIsCurrent()) return;
+      const currentHtml = canonicalizePatientImageHtml(
+        requestEditor.innerHTML,
+        requestOwnerId,
+        {
+          preserveLegacyDataImages:
+            extractLegacyPatientImageDataUrls(requestEditor.innerHTML).length > 0,
+        },
+      );
+      const currentIndex = resolvePatientImageReplacementIndex(
+        currentHtml,
+        requestTarget,
+        requestOwnerId,
+      );
+      if (currentIndex === null) {
+        throw new UserFacingError("The image changed before the annotation could be saved.");
       }
-      isInternalUpdate.current = true;
-      onChange(updated);
-      setAnnotationOpen(false);
+      const annotatedFile = new File([blob], "annotation.png", { type: "image/png" });
+      const replacement = await prepareStoredPatientImageReplacement(
+        currentHtml,
+        currentIndex,
+        annotatedFile,
+        requestOwnerId,
+      );
+      uncommittedReplacementKey = replacement.replacementKey;
+      if (!requestIsCurrent()) {
+        await discardReplacement();
+        return;
+      }
+
+      // Re-read editor content after upload. Text edits and remote updates made
+      // while storage was pending must survive, and moved targets are resolved
+      // by object identity instead of the stale thumbnail index.
+      const latestHtml = canonicalizePatientImageHtml(
+        requestEditor.innerHTML,
+        requestOwnerId,
+        {
+          preserveLegacyDataImages:
+            extractLegacyPatientImageDataUrls(requestEditor.innerHTML).length > 0,
+        },
+      );
+      const latestIndex = resolvePatientImageReplacementIndex(
+        latestHtml,
+        requestTarget,
+        requestOwnerId,
+      );
+      if (latestIndex === null) {
+        await discardReplacement();
+        throw new UserFacingError("The image changed before the annotation could be saved.");
+      }
+      const updatedHtml = replacePatientImageAtIndex(
+        latestHtml,
+        latestIndex,
+        replacement.replacementKey,
+        requestOwnerId,
+      );
+      if (
+        extractPatientImageObjectKeyList(updatedHtml, requestOwnerId)[latestIndex] !==
+          replacement.replacementKey
+      ) {
+        await discardReplacement();
+        throw new UserFacingError("The annotated image could not be placed in the note.");
+      }
+
+      emitCanonicalChange(updatedHtml);
+      requestEditor.innerHTML = updatedHtml;
+      uncommittedReplacementKey = null;
+      closeAnnotator();
       toast({
         title: "Annotation saved",
         description: "Image has been updated in the imaging section.",
       });
     } catch (error) {
-      console.error("Annotation save failed:", error);
-      toast({
-        title: "Annotation failed",
-        description: "Unable to save this annotation.",
-        variant: "destructive",
-      });
+      await discardReplacement();
+      if (isActiveImageOwner(requestOwnerId)) {
+        toast({
+          title: "Annotation failed",
+          description: getUserFacingErrorMessage(error, "Unable to save this annotation."),
+          variant: "destructive",
+        });
+      }
+    } finally {
+      if (
+        isActiveImageOwner(requestOwnerId) &&
+        annotationUploadSessionRef.current === requestSession
+      ) {
+        annotationUploadSessionRef.current = null;
+        setIsUploading(false);
+      }
     }
   };
 
@@ -975,18 +1170,19 @@ export const ImagePasteEditor = ({
     }
   }, [annotationOpen, annotationUrl, loadAnnotationImage]);
 
-  // Sync external value changes
+  // Sync external value changes. The patient mutation layer owns object
+  // deletion so storage cleanup happens only after the database update commits.
   React.useEffect(() => {
     if (isInternalUpdate.current) {
       isInternalUpdate.current = false;
       return;
     }
 
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
+    if (editorRef.current && editorRef.current.innerHTML !== canonicalValue) {
       const selection = window.getSelection();
       const hadFocus = document.activeElement === editorRef.current;
 
-      editorRef.current.innerHTML = value;
+      editorRef.current.innerHTML = canonicalValue;
 
       if (hadFocus && selection && editorRef.current.childNodes.length > 0) {
         const range = document.createRange();
@@ -996,7 +1192,33 @@ export const ImagePasteEditor = ({
         selection.addRange(range);
       }
     }
-  }, [value]);
+
+    // Transparently migrate legacy signed-URL references. The signed token is
+    // removed before the next patient update reaches local or remote storage.
+    const containsUnownedObjectKey = user
+      ? extractPatientImageObjectKeyList(value).some(
+        (objectKey) => !isOwnedPatientImageObjectKey(objectKey, user.id),
+      )
+      : true;
+    if (!containsUnownedObjectKey && canonicalValue !== sanitizeHtml(value)) {
+      isInternalUpdate.current = true;
+      onChange(canonicalValue);
+    }
+  }, [canonicalValue, onChange, user, value]);
+
+  // Refreshing a signed URL must not replace the contenteditable subtree or
+  // disturb the user's selection. Mutate only the transient src attributes.
+  React.useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current
+      .querySelectorAll<HTMLImageElement>(`img[${PATIENT_IMAGE_KEY_ATTRIBUTE}]`)
+      .forEach((image) => {
+        const objectKey = image.getAttribute(PATIENT_IMAGE_KEY_ATTRIBUTE);
+        const signedUrl = objectKey ? signedImageUrls[objectKey] : undefined;
+        if (signedUrl) image.setAttribute("src", signedUrl);
+        else image.removeAttribute("src");
+      });
+  }, [canonicalValue, imageKeySignature, signedImageUrls]);
 
   return (
     <div
@@ -1021,8 +1243,7 @@ export const ImagePasteEditor = ({
           onClose={() => setFindReplaceMode(null)}
           onChange={() => {
             if (editorRef.current) {
-              isInternalUpdate.current = true;
-              onChange(editorRef.current.innerHTML);
+              emitCanonicalChange(editorRef.current.innerHTML);
             }
           }}
         />
@@ -1428,7 +1649,7 @@ export const ImagePasteEditor = ({
 
               let content: Node;
               if (effectiveChangeTracking?.enabled) {
-                const markedHtml = effectiveChangeTracking.wrapWithMarkup(newText);
+                const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(newText));
                 const temp = document.createElement('div');
                 temp.innerHTML = markedHtml;
                 content = document.createDocumentFragment();
@@ -1444,18 +1665,19 @@ export const ImagePasteEditor = ({
               selection.removeAllRanges();
               selection.addRange(range);
 
-              isInternalUpdate.current = true;
-              onChange(editorRef.current!.innerHTML);
+              emitCanonicalChange(editorRef.current!.innerHTML);
             }}
             getDocumentText={() => editorRef.current?.innerText ?? null}
             onDraftNoteGenerated={(draft) => {
               if (!editorRef.current) return;
               const isEmpty = editorRef.current.innerText.trim() === "";
               const separator = isEmpty ? "" : "<br/><br/>";
-              const newContent = isEmpty ? draft : `${editorRef.current.innerHTML}${separator}${draft}`;
+              const sanitizedDraft = sanitizeHtml(draft);
+              const newContent = sanitizeHtml(isEmpty
+                ? sanitizedDraft
+                : `${editorRef.current.innerHTML}${separator}${sanitizedDraft}`);
               editorRef.current.innerHTML = newContent;
-              isInternalUpdate.current = true;
-              onChange(newContent);
+              emitCanonicalChange(newContent);
             }}
             patient={patient}
             triggerClassName="h-7 w-7 p-0"
@@ -1538,17 +1760,32 @@ export const ImagePasteEditor = ({
           </div>
           <div className="flex flex-wrap gap-2">
             {imageUrls.map((url, index) => (
-              <button
+              <div
                 key={`${url}-${index}`}
-                type="button"
-                onClick={() => openLightbox(index)}
                 className="relative group rounded-lg overflow-hidden border border-border/50 hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
-                <img
-                  src={url}
-                  alt={`Thumbnail ${index + 1}`}
-                  className="w-16 h-16 object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => openLightbox(index)}
+                  disabled={!url}
+                  className="block w-16 h-16 disabled:cursor-wait"
+                  aria-label={url ? `Open image ${index + 1}` : `Loading image ${index + 1}`}
+                >
+                  {url ? (
+                    <img
+                      src={url}
+                      alt={`Thumbnail ${index + 1}`}
+                      className="w-16 h-16 object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center bg-muted">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </span>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center pointer-events-none">
+                    <Maximize2 className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </button>
                 {section === "imaging" && (
                   <button
                     type="button"
@@ -1562,13 +1799,22 @@ export const ImagePasteEditor = ({
                     <Pencil className="h-3 w-3" />
                   </button>
                 )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                  <Maximize2 className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleRemoveImage(index);
+                  }}
+                  className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-destructive shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+                  title="Remove image"
+                  aria-label={`Remove image ${index + 1}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
                 <span className="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] px-1 rounded-tl">
                   {index + 1}
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </div>
@@ -1592,7 +1838,7 @@ export const ImagePasteEditor = ({
           aria-label={section ? `${section} notes` : placeholder}
           contentEditable
           className="p-3 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 transition-all prose prose-sm max-w-none min-h-[120px] relative text-foreground"
-          style={{ fontSize: `${fontSize}px` }}
+          style={{ fontSize: `${fontSize}px`, minHeight }}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
@@ -1613,7 +1859,12 @@ export const ImagePasteEditor = ({
         onOpenChange={setLightboxOpen}
       />
 
-      <Dialog open={annotationOpen} onOpenChange={setAnnotationOpen}>
+      <Dialog
+        open={annotationOpen}
+        onOpenChange={(open) => {
+          if (!open) closeAnnotator();
+        }}
+      >
         <DialogContent className="max-w-4xl w-[95vw]">
           <DialogHeader>
             <DialogTitle>Annotate imaging</DialogTitle>
@@ -1701,7 +1952,7 @@ export const ImagePasteEditor = ({
             </div>
           </div>
           <DialogFooter className="mt-2">
-            <Button type="button" variant="outline" onClick={() => setAnnotationOpen(false)}>
+            <Button type="button" variant="outline" onClick={closeAnnotator}>
               Cancel
             </Button>
             <Button type="button" onClick={handleAnnotationSave}>

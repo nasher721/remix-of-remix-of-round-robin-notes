@@ -11,7 +11,7 @@ interface FeatureHighlightsProps {
 const stats = [
   { value: "10", label: "body systems", detail: "Structured review without hunting through tabs" },
   { value: "1", label: "shared list", detail: "Patient notes, tasks, and handoff context together" },
-  { value: "24/7", label: "browser access", detail: "Phone, tablet, and desktop friendly" },
+  { value: "3", label: "responsive layouts", detail: "Designed for phone, tablet, and desktop screens" },
 ];
 
 const features = [
@@ -48,17 +48,16 @@ const features = [
 ];
 
 const safeguards = [
-  "Role-based access through the configured auth provider",
-  "HTTPS in transit and protected application sessions",
-  "Field history and audit-friendly workflows where enabled",
-  "No patient data sales. Privacy policy stays visible before sign-in",
+  "Access requires authentication; authorization depends on deployment roles and policies",
+  "HTTPS encrypts transport when deployed with a valid TLS endpoint",
+  "Some field changes retain history; this is not a comprehensive access audit log",
+  "Browser caching may store clinical content locally; use managed devices and sign out on shared devices",
 ];
 
 const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const goAuth = () => navigate("/auth");
   const goApp = () => {
     if (user) {
       navigate("/", { replace: true });
@@ -121,13 +120,13 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
               Security language your review team can read.
             </h2>
             <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
-              Rolling Rounds is designed for approved clinical environments. HIPAA compliance still depends on your configuration, agreements, and use.
+              Security and HIPAA readiness depend on the deployment configuration, provider agreements or BAAs, administrative controls, device protections, and actual use. The product does not itself establish compliance.
             </p>
             <Link
-              to="/privacy"
+              to="/security"
               className="mt-6 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              Review privacy policy
+              Review deployment guidance
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
@@ -197,24 +196,17 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
             <p className="text-sm font-semibold text-white/70">Rolling Rounds</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight">Open the workspace when rounds start.</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-              New teams can create an account. Returning teams can sign in and get back to the list.
+              Access is provisioned by the deployment administrator. Authorized users can sign in and return to the patient list.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={goAuth}
+              onClick={goApp}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
-              Create account
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={goApp}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/25 px-5 text-sm font-semibold text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            >
               {user ? "Open dashboard" : "Sign in"}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -229,9 +221,9 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
             <Link to="/privacy" className="font-medium text-slate-700 hover:text-slate-950 hover:underline">
               Privacy
             </Link>
-            <a href="#security" className="font-medium text-slate-700 hover:text-slate-950 hover:underline">
+            <Link to="/security" className="font-medium text-slate-700 hover:text-slate-950 hover:underline">
               Security
-            </a>
+            </Link>
           </div>
         </div>
       </footer>

@@ -20,7 +20,7 @@ export function useNetworkStatus() {
       if (!isOnline) {
         hasBeenOffline.current = true;
         toast.warning("You are offline", {
-          description: "Changes will be saved locally and synced when you reconnect.",
+          description: "New changes are not queued while offline and may fail to save. Reconnect before editing.",
           duration: Infinity,
           id: "network-status",
         });
@@ -31,14 +31,14 @@ export function useNetworkStatus() {
     if (!isOnline) {
       hasBeenOffline.current = true;
       toast.warning("You are offline", {
-        description: "Changes will be saved locally and synced when you reconnect.",
+        description: "New changes are not queued while offline and may fail to save. Reconnect before editing.",
         duration: Infinity,
         id: "network-status",
       });
     } else if (hasBeenOffline.current) {
       hasBeenOffline.current = false;
       toast.success("Back online", {
-        description: "Your connection has been restored. Syncing changes...",
+        description: "Your connection has been restored.",
         duration: 4000,
         id: "network-status",
       });

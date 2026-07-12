@@ -490,7 +490,7 @@ export const UnifiedAIChatbot: React.FC = () => {
         opacity: { from: 0, to: 1 },
         y: { from: 6, to: 0 },
         duration: 280,
-        delay: stagger(28, { from: 'start' }),
+        delay: stagger(28, { from: 'first' }),
       });
       return tl;
     },

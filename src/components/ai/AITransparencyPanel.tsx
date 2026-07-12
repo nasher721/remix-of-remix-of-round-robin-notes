@@ -13,7 +13,6 @@ import {
   Info,
   CheckCircle2,
   XCircle,
-  ExternalLink,
   Sparkles,
   FileText,
   ListChecks,
@@ -62,7 +61,7 @@ const AI_LIMITATIONS = [
   { id: 'no-db', text: 'Access external medical databases or references in real-time' },
   { id: 'no-replace', text: 'Replace clinical judgment or physician expertise' },
   { id: 'no-guarantee', text: 'Guarantee 100% accuracy in medical terminology' },
-  { id: 'no-store', text: 'Store or retain patient data between sessions' },
+  { id: 'no-verify-provider', text: 'Verify that provider retention settings or agreements meet your organization\'s requirements' },
   { id: 'no-internet', text: 'Access the internet for current medical guidelines' },
   { id: 'no-tx', text: 'Make treatment recommendations without physician review' },
 ];
@@ -120,11 +119,7 @@ export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
                 <div>
                   <p className="font-medium">{MODEL_DISPLAY_NAMES[currentModel] || currentModel}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Powered by {currentModel.includes('glm') ? 'Zhipu AI' : 
-                                   currentModel.includes('gpt') ? 'OpenAI' : 
-                                   currentModel.includes('claude') ? 'Anthropic' :
-                                   currentModel.includes('gemini') ? 'Google' : 
-                                   currentModel.includes('grok') ? 'xAI' : 'AI Provider'}
+                    Powered by {getProviderName(currentModel)}
                   </p>
                 </div>
                 <div className="text-right">
@@ -146,27 +141,36 @@ export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
                 <div className="flex items-start gap-3">
                   <Lock className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium text-sm">End-to-End Encryption</p>
+                    <p className="font-medium text-sm">HTTPS Transport</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      All data is encrypted in transit using TLS 1.3
+                      When the app is served over HTTPS, data is encrypted in transit between the browser and configured services. This is not end-to-end encryption.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <XCircle className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium text-sm">No Persistent Storage</p>
+                    <p className="font-medium text-sm">Provider Data Handling</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      PHI is never stored on AI provider servers
+                      Prompts and clinical text may be processed or retained by the selected provider. Retention and data handling depend on provider settings, terms, and your organization&apos;s agreement or BAA.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <Shield className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium text-sm">HIPAA Aware</p>
+                    <p className="font-medium text-sm">Deployment Review Required</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Designed to support healthcare compliance workflows
+                      AI features do not establish HIPAA compliance. Use with sensitive data only after your deployment operator approves the configuration, providers, agreements, and workflow.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Info className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-medium text-sm">Browser Storage</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Clinical content may be cached in browser storage for application and offline features. Device protections, browser access, and sign-out practices remain important.
                     </p>
                   </div>
                 </div>
@@ -238,12 +242,10 @@ export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
             </h3>
             <div className="bg-muted/30 rounded-lg p-4 border text-sm space-y-2">
               <p>
-                <strong>Rate Limits:</strong> AI requests are rate-limited to ensure 
-                fair access for all users. Limits vary by subscription tier.
+                <strong>Request Limits:</strong> Limits and availability depend on the configured service and selected provider.
               </p>
               <p>
-                <strong>Context Window:</strong> AI responses are optimized for the 
-                current patient context. Very long documents may be summarized.
+                <strong>Context Window:</strong> Input limits depend on the selected model. Very long documents may be truncated or summarized.
               </p>
               <p>
                 <strong>Output Review:</strong> All AI-generated content should be 
@@ -252,16 +254,14 @@ export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
             </div>
           </section>
 
-          {/* Privacy Policy Link */}
+          {/* Deployment privacy-notice guidance */}
           <section className="pt-4 border-t">
             <a
-              href="https://roundrobinnotes.app/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/privacy"
               className="flex items-center justify-center gap-2 text-sm text-primary hover:underline w-full py-2"
             >
-              <ExternalLink className="h-4 w-4" />
-              View Full Privacy Policy
+              <FileText className="h-4 w-4" />
+              Review Deployment Privacy Notice Requirements
             </a>
           </section>
 
@@ -277,14 +277,4 @@ export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
       </SheetContent>
     </Sheet>
   );
-};
-
-export const useAITransparencyPanel = () => {
-  const [isOpen, setIsOpen] = React.useState(false);
-
-  const open = React.useCallback(() => setIsOpen(true), []);
-  const close = React.useCallback(() => setIsOpen(false), []);
-  const toggle = React.useCallback(() => setIsOpen((prev) => !prev), []);
-
-  return { isOpen, setIsOpen, open, close, toggle };
 };

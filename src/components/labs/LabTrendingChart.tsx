@@ -38,7 +38,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LAB_NORMAL_RANGES } from "@/types/labs";
 
 interface TooltipPayloadEntry {
   dataKey: string;
@@ -75,19 +74,6 @@ interface LabTrendingChartProps {
   onTimeRangeChange?: (range: string) => void;
   className?: string;
 }
-
-const LAB_COLORS: Record<string, string> = {
-  na: '#3b82f6',
-  k: '#ef4444',
-  cr: '#8b5cf6',
-  bun: '#06b6d4',
-  glu: '#f59e0b',
-  hgb: '#ec4899',
-  wbc: '#22c55e',
-  plt: '#f97316',
-  lactate: '#dc2626',
-  ph: '#6366f1',
-};
 
 const TIME_RANGES = [
   { value: '24h', label: '24 Hours' },
@@ -412,25 +398,5 @@ export function LabSparkline({
     </svg>
   );
 }
-
-// Helper to generate sample lab trend data
-export const generateSampleLabData = (): LabTrendData[] => {
-  const now = Date.now();
-  const hour = 60 * 60 * 1000;
-
-  return Object.entries(LAB_NORMAL_RANGES).slice(0, 6).map(([key, range]) => ({
-    labKey: key,
-    labName: key.toUpperCase(),
-    unit: range.unit,
-    normalLow: range.low,
-    normalHigh: range.high,
-    color: LAB_COLORS[key] || '#6b7280',
-    dataPoints: Array.from({ length: 8 }, (_, i) => ({
-      timestamp: new Date(now - (7 - i) * 6 * hour).toISOString(),
-      value: range.low + Math.random() * (range.high - range.low) * 1.3,
-      labKey: key,
-    })),
-  }));
-};
 
 export default LabTrendingChart;

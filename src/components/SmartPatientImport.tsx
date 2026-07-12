@@ -113,7 +113,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
         throw new Error("No patient data returned");
       }
     } catch (error) {
-      console.error("Parse error:", error);
+      console.error("Patient note parsing failed");
       toast({
         title: "Failed to parse notes",
         description: getUserFacingErrorMessage(error, "Unable to parse notes right now. Please try again."),
@@ -133,7 +133,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
       toast({ title: "Patient imported successfully" });
       handleClose();
     } catch (error) {
-      console.error("Import error:", error);
+      console.error("Patient import failed");
       toast({
         title: "Failed to import patient",
         description: getUserFacingErrorMessage(error, "Unable to import patient right now. Please try again."),

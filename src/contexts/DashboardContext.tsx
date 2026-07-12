@@ -3,6 +3,9 @@ import { Patient } from "@/types/patient";
 import { AutoText, Template } from "@/types/autotext";
 import { MobileTab } from "@/components/layout";
 import { PatientFilterType } from "@/constants/config";
+import { type usePatients } from "@/hooks/usePatients";
+
+type PatientActions = ReturnType<typeof usePatients>;
 
 /** Todos are provided via DashboardTodosContext (useDashboardTodos) to limit re-renders when only todos change. */
 interface DashboardContextType {
@@ -28,14 +31,14 @@ interface DashboardContextType {
 
     // Actions
     onAddPatient: () => void;
-    onAddPatientWithData: (data: Partial<Patient>) => Promise<void>;
-    onUpdatePatient: (id: string, field: string, value: unknown) => void;
-    onRemovePatient: (id: string) => void;
-    onDuplicatePatient: (id: string) => void;
-    onToggleCollapse: (id: string) => void;
-    onCollapseAll: () => void;
-    onClearAll: () => void;
-    onImportPatients: (patients: Partial<Patient>[]) => Promise<void>;
+    onAddPatientWithData: PatientActions["addPatientWithData"];
+    onUpdatePatient: PatientActions["updatePatient"];
+    onRemovePatient: PatientActions["removePatient"];
+    onDuplicatePatient: PatientActions["duplicatePatient"];
+    onToggleCollapse: PatientActions["toggleCollapse"];
+    onCollapseAll: PatientActions["collapseAll"];
+    onClearAll: PatientActions["clearAll"];
+    onImportPatients: PatientActions["importPatients"];
     /** Refresh patient list from the server (e.g. manual sync) */
     onRefetchPatients: () => void | Promise<void>;
 

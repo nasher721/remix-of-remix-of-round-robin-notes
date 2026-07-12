@@ -125,13 +125,16 @@ export type AIFeatureCategory = typeof AI_FEATURE_CATEGORIES[number]['key'];
 
 export type AIFeatureModels = Partial<Record<AIFeatureCategory, string>>;
 
-// Supported models that can be used in edge functions via OpenAI API
+// Completion models accepted by the Edge gateway allowlist.
 export const GATEWAY_MODELS = [
   { value: '__default__', label: 'Use default' },
   { value: 'gpt-4o', label: 'GPT-4o (Max Capability)' },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini (Fast/Balanced)' },
-  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo (Legacy High-Res)' },
-  { value: 'o1-preview', label: 'o1-preview (Advanced Reasoning)' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+  { value: 'grok-2', label: 'Grok 2' },
+  { value: 'grok-2-mini', label: 'Grok 2 Mini' },
 ] as const;
 
 export const DEFAULT_GATEWAY_MODEL = 'gpt-4o-mini';

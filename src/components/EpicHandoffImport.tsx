@@ -17,7 +17,7 @@ import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
-import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
+import { getUserFacingErrorMessage, UserFacingError } from "@/lib/userFacingErrors";
 import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
 
 interface PatientSystems {
@@ -89,6 +89,12 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
 
   const getSafePageLimit = () => Math.max(1, Math.min(settings.pageLimit, OCR_HARD_PAGE_LIMIT));
 
+  const activateWithKeyboard = (event: React.KeyboardEvent, action: () => void) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    action();
+  };
+
   const tryInvokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }, retries = 1) => {
     let attempt = 0;
 
@@ -113,10 +119,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.pdf') && !file.name.endsWith('.txt') && !file.type.includes('text')) {
+    if (!file.name.endsWith('.txt') && !file.type.includes('text')) {
       toast({
         title: "Invalid file type",
-        description: "Please upload a PDF or text file from Epic.",
+        description: "Please upload a text file from Epic. PDF import is disabled until its processor is bundled securely.",
         variant: "destructive",
       });
       return;
@@ -154,15 +160,15 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                 description: "PDF appears scanned. Switching to OCR mode.",
               });
             }
-          } catch (e) {
-            console.error("PDF text extraction failed:", e);
+          } catch {
+            console.error("PDF text extraction failed");
             useOcr = true;
           }
         }
 
         if (useOcr) {
           if (!settings.ocrEnabled) {
-            throw new Error("Text extraction failed and OCR is disabled. Enable OCR in settings to process this document.");
+            throw new UserFacingError("Text extraction failed and OCR is disabled. Enable OCR in settings to process this document.");
           }
 
           const safePageLimit = getSafePageLimit();
@@ -177,18 +183,17 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
           const images = await extractPdfAsImages(file, settings.imageScale, safePageLimit);
 
           if (images.length === 0) {
-            throw new Error("Could not extract any content from the PDF.");
+            throw new UserFacingError("Could not extract any content from the PDF.");
           }
 
           setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
           const { data, error } = await tryInvokeParseHandoff({ images, model: getModelForFeature('parsing') });
 
-          // Enhanced error logging
           if (error) {
-            console.error("Edge Function invocation error (OCR path):", error.message);
-            throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
+            console.error("Edge Function invocation failed (OCR path)");
+            throw error;
           }
-          if (!data.success) throw new Error(data.error || "Failed to parse handoff");
+          if (!data.success) throw new Error("Failed to parse handoff");
 
           finalizeImport(data.data?.patients || []);
           return;
@@ -205,23 +210,22 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       }
 
       if (!useOcr && content.length < 50) {
-        throw new Error("Could not extract text from the file. Try copying and pasting the handoff text directly or enabling 'Force OCR'.");
+        throw new UserFacingError("Could not extract text from the file. Try copying and pasting the handoff text directly or enabling 'Force OCR'.");
       }
 
       setStatusMessage("Parsing extracted text...");
       const { data, error } = await tryInvokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') });
 
-      // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error:", error.message);
-        throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
+        console.error("Edge Function invocation failed");
+        throw error;
       }
-      if (!data.success) throw new Error(data.error || "Failed to parse handoff");
+      if (!data.success) throw new Error("Failed to parse handoff");
 
       finalizeImport(data.data?.patients || []);
 
     } catch (error) {
-      console.error("Error parsing handoff:", error);
+      console.error("Error parsing handoff");
       toast({
         title: "Parsing failed",
         description: getUserFacingErrorMessage(error, "Unable to parse the handoff document right now."),
@@ -294,16 +298,15 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
 
       const { data, error } = await tryInvokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') });
 
-      // Enhanced error logging
       if (error) {
-        console.error("Edge Function invocation error (paste path):", error.message);
-        throw new Error(`Failed to send a request to the Edge Function: ${error.message}`);
+        console.error("Edge Function invocation failed (paste path)");
+        throw error;
       }
-      if (!data.success) throw new Error(data.error || "Failed to parse handoff");
+      if (!data.success) throw new Error("Failed to parse handoff");
 
       finalizeImport(data.data?.patients || []);
     } catch (error) {
-      console.error("Error parsing pasted content:", error);
+      console.error("Error parsing pasted content");
       toast({
         title: "Parsing failed",
         description: getUserFacingErrorMessage(error, "Unable to parse the pasted content right now."),
@@ -368,8 +371,8 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
         description: `Imported ${patientsToImport.length} patient(s).`,
       });
       handleClose();
-    } catch (error) {
-      console.error("Error importing patients:", error);
+    } catch {
+      console.error("Patient import failed");
       toast({
         title: "Import failed",
         description: "Failed to import patients.",
@@ -483,27 +486,35 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
               <div className="rounded-md bg-muted/50 p-4 text-sm text-muted-foreground flex gap-3">
                 <Info className="h-5 w-5 flex-shrink-0 text-blue-500" />
                 <p>
-                  Upload a PDF handoff from Epic or paste the handoff text.
+                  Upload a text handoff from Epic or paste the handoff text.
                   The AI will automatically identify patients, beds, and clinical details.
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <Card className="p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors border-dashed border-2 flex flex-col justify-center items-center h-48"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Upload handoff text file"
+                  onKeyDown={(event) => activateWithKeyboard(event, () => fileInputRef.current?.click())}
                   onClick={() => fileInputRef.current?.click()}>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,.txt,text/*"
+                    accept=".txt,text/plain"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
                   <FileUp className="h-10 w-10 mb-4 text-primary/60" />
                   <p className="font-medium text-lg">Upload File</p>
-                  <p className="text-sm text-muted-foreground mt-1">PDF or Text File</p>
+                  <p className="text-sm text-muted-foreground mt-1">Text File</p>
                 </Card>
 
                 <Card className="p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors border-dashed border-2 flex flex-col justify-center items-center h-48"
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Paste handoff content from clipboard"
+                  onKeyDown={(event) => activateWithKeyboard(event, handleTextPaste)}
                   onClick={handleTextPaste}>
                   <FileText className="h-10 w-10 mb-4 text-primary/60" />
                   <p className="font-medium text-lg">Paste Content</p>

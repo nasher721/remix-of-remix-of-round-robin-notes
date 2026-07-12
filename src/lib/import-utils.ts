@@ -1,6 +1,4 @@
-/**
- * Load PDF.js from CDN and extract text/images
- */
+/** PDF extraction interfaces retained for a future reviewed same-origin build. */
 
 type PdfJsTextItem = { str?: string };
 
@@ -24,26 +22,12 @@ type PdfJsLib = {
     getDocument: (options: { data: ArrayBuffer }) => { promise: Promise<PdfJsDocument> };
 };
 
-declare global {
-    interface Window {
-        pdfjsLib: PdfJsLib;
-    }
-}
-
-// Load PDF.js from CDN
-export const loadPdfJs = async () => {
-    if (!window.pdfjsLib) {
-        await new Promise<void>((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Failed to load PDF.js'));
-            document.head.appendChild(script);
-        });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-    return window.pdfjsLib;
+// Clinical documents must never be handed to third-party executable CDN code.
+// Re-enable only after a reviewed PDF.js build and worker are bundled same-origin.
+export const loadPdfJs = async (): Promise<PdfJsLib> => {
+    throw new Error(
+        'PDF import is unavailable until the PDF processor is bundled securely. Use a text or Word document instead.'
+    );
 };
 
 export const extractPdfText = async (file: File): Promise<string> => {

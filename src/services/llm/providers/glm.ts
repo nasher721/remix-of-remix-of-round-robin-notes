@@ -9,6 +9,7 @@
  */
 
 import type { LLMProvider, LLMRequest, LLMResponse, ProviderConfig } from '../types';
+import { safeProviderHttpError, safeProviderRuntimeError } from './errors';
 
 const DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
 
@@ -84,14 +85,13 @@ export class GLMProvider implements LLMProvider {
       const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'glm',
           model: request.model,
           latencyMs,
-          error: `GLM API error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('GLM', 'request', response.status),
         };
       }
 
@@ -117,7 +117,7 @@ export class GLMProvider implements LLMProvider {
         provider: 'glm',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown GLM error',
+        error: safeProviderRuntimeError('GLM', 'request', err),
       };
     }
   }
@@ -153,14 +153,13 @@ export class GLMProvider implements LLMProvider {
       const response = await fetch(`${this.baseUrl}/chat/completions`, fetchOptions);
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'glm',
           model: request.model,
           latencyMs: Date.now() - startTime,
-          error: `GLM stream error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('GLM', 'stream', response.status),
         };
       }
 
@@ -208,7 +207,7 @@ export class GLMProvider implements LLMProvider {
         provider: 'glm',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown GLM streaming error',
+        error: safeProviderRuntimeError('GLM', 'stream', err),
       };
     }
   }

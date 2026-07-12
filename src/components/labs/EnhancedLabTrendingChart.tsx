@@ -179,8 +179,12 @@ export function EnhancedLabTrendingChart({
     const points = lab.dataPoints.filter(p => !p.predicted);
     if (points.length < 2) return null;
 
-    const latest = points[points.length - 1].value;
-    const previous = points[points.length - 2].value;
+    const latestPoint = points.at(-1);
+    const previousPoint = points.at(-2);
+    if (!latestPoint || !previousPoint) return null;
+
+    const latest = latestPoint.value;
+    const previous = previousPoint.value;
     const diff = latest - previous;
     const percentChange = ((diff / previous) * 100).toFixed(1);
 
@@ -210,8 +214,9 @@ export function EnhancedLabTrendingChart({
         </p>
         {payload.map((entry) => {
           const lab = labData.find(l => l.labKey === entry.dataKey);
-          const prediction = getPrediction(lab.labName);
-          const isPredicted = entry[`${lab.labKey}_predicted`];
+          if (!lab) return null;
+
+          const isPredicted = entry[`${lab.labKey}_predicted`] === true;
 
           return (
             <div key={entry.dataKey} className="flex items-center justify-between gap-4">
@@ -220,7 +225,7 @@ export function EnhancedLabTrendingChart({
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="font-medium">{lab?.labName || entry.dataKey}</span>
+                <span className="font-medium">{lab.labName}</span>
                 {isPredicted && (
                   <Badge variant="outline" className="ml-2 text-xs">
                     <BrainCircuit className="h-3 w-3" />
@@ -229,7 +234,7 @@ export function EnhancedLabTrendingChart({
                 )}
               </div>
               <span className="font-mono">
-                {entry.value} {lab?.unit}
+                {entry.value} {lab.unit}
               </span>
             </div>
           );
@@ -283,8 +288,8 @@ export function EnhancedLabTrendingChart({
         <div className="flex flex-wrap gap-2 mt-2">
           {labData.map(lab => {
             const trend = getTrend(lab);
-            const isAbnormal =
-              trend?.latest < lab.normalLow || trend?.latest > lab.normalHigh;
+            const isAbnormal = trend !== null &&
+              (trend.latest < lab.normalLow || trend.latest > lab.normalHigh);
 
             return (
               <Badge
@@ -372,9 +377,11 @@ export function EnhancedLabTrendingChart({
                 {showPredictions &&
                   selectedLabs.map(labKey => {
                     const lab = labData.find(l => l.labKey === labKey);
+                    if (!lab) return null;
+
                     const prediction = getPrediction(lab.labName);
 
-                    if (!lab || !prediction) return null;
+                    if (!prediction) return null;
 
                     const predictedTime = new Date(prediction.predictedTime).getTime();
                     const hasDataPoint = chartData.some(
@@ -443,10 +450,12 @@ export function EnhancedLabTrendingChart({
               <div className="mt-4 space-y-2">
                 {selectedLabs.map(labKey => {
                   const lab = labData.find(l => l.labKey === labKey);
+                  if (!lab) return null;
+
                   const prediction = getPrediction(lab.labName);
                   const isPredicting = labBeingPredicted === labKey;
 
-                  if (!lab || !prediction) return null;
+                  if (!prediction) return null;
 
                   return (
                     <div key={labKey} className="p-3 border rounded-lg bg-muted/50">

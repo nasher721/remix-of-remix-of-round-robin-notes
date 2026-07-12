@@ -29,14 +29,14 @@ test("patient insert and read-back round trip preserves key fields", () => {
   const dbRecord = {
     id: "patient-rt-1",
     patient_number: insert.patient_number,
-    name: insert.name,
-    bed: insert.bed,
-    clinical_summary: insert.clinical_summary,
-    interval_events: insert.interval_events,
-    imaging: insert.imaging,
-    labs: insert.labs,
-    systems: insert.systems,
-    medications: insert.medications,
+    name: insert.name ?? "",
+    bed: insert.bed ?? "",
+    clinical_summary: insert.clinical_summary ?? "",
+    interval_events: insert.interval_events ?? "",
+    imaging: insert.imaging ?? "",
+    labs: insert.labs ?? "",
+    systems: insert.systems ?? null,
+    medications: insert.medications ?? null,
     field_timestamps: null,
     collapsed: false,
     created_at: "2024-01-01T00:00:00Z",
@@ -56,6 +56,5 @@ test("patient insert and read-back round trip preserves key fields", () => {
   assert.deepEqual(patient.systems, defaultSystemsValue);
   assert.deepEqual(patient.medications, defaultMedicationsValue);
   assert.equal(patient.collapsed, false);
-  assert.equal(patient.lastModified, null);
+  assert.equal(patient.lastModified, "2024-01-01T00:00:00Z");
 });
-

@@ -11,6 +11,7 @@ import type {
 import { stripHtml } from '@/lib/openai-config';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { getEdgeFunctionAuthHeaders } from '@/lib/edgeFunctionHeaders';
+import { getUserFacingErrorMessage, UserFacingError } from '@/lib/userFacingErrors';
 
 export interface StreamingChunk {
   chunk: string;
@@ -24,24 +25,14 @@ interface UseStreamingAIOptions {
   onError?: (error: string) => void;
 }
 
-const parseEdgeErrorMessage = async (response: Response): Promise<string> => {
-  const text = await response.text();
-  const trimmed = text?.trim() ?? '';
-  if (!trimmed) {
-    return `AI processing failed: ${response.status} ${response.statusText}`;
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as { error?: string; msg?: string; message?: string };
-    return (
-      parsed.error ||
-      parsed.msg ||
-      parsed.message ||
-      trimmed.slice(0, 500)
-    );
-  } catch {
-    return trimmed.slice(0, 500);
-  }
-};
+export function createStreamingResponseError(response: Response): UserFacingError {
+  return new UserFacingError(
+    getUserFacingErrorMessage(
+      { context: response },
+      'AI processing failed. Please try again.',
+    ),
+  );
+}
 
 interface UseStreamingAIReturn {
   isStreaming: boolean;
@@ -130,7 +121,7 @@ export const useStreamingAI = (
       const finalContext = patient ? patientToContext(patient) : context;
 
       if (!text && !finalContext) {
-        throw new Error('No text or patient data provided');
+        throw new UserFacingError('No text or patient data provided.');
       }
 
       if (finalContext && !text) {
@@ -142,7 +133,7 @@ export const useStreamingAI = (
           Object.values(finalContext.systems || {}).some((v) => v && stripHtml(v).trim());
 
         if (!hasContent) {
-          throw new Error('No clinical data available. Please add patient information first.');
+          throw new UserFacingError('No clinical data available. Please add patient information first.');
         }
       }
 
@@ -191,7 +182,7 @@ export const useStreamingAI = (
       });
 
       if (!response.ok) {
-        throw new Error(await parseEdgeErrorMessage(response));
+        throw createStreamingResponseError(response);
       }
 
       // Check if response is SSE stream or JSON
@@ -199,7 +190,7 @@ export const useStreamingAI = (
 
       if (contentType.includes('text/event-stream')) {
         if (!response.body) {
-          throw new Error('No response body');
+          throw new UserFacingError('AI service returned no response. Please try again.');
         }
 
         const reader = response.body.getReader();
@@ -243,13 +234,11 @@ export const useStreamingAI = (
             try {
               parsed = JSON.parse(payload) as { chunk?: unknown; error?: string };
             } catch {
-              throw new Error(
-                `AI stream returned invalid JSON (connection may be unstable). First bytes: ${payload.slice(0, 120)}`,
-              );
+              throw new Error('AI stream returned invalid JSON');
             }
 
             if (parsed.error) {
-              throw new Error(parsed.error);
+              throw new Error('AI provider rejected the stream');
             }
             if (typeof parsed.chunk === 'string') {
               accumulated += parsed.chunk;
@@ -266,18 +255,18 @@ export const useStreamingAI = (
             const payload = line.slice(6).trimEnd();
             if (payload === '[DONE]') {
               sawDoneEvent = true;
-              void reader.cancel().catch((err) => { console.error('[streamingAI] Failed to cancel reader:', err) });
+              void reader.cancel().catch(() => {
+                console.error('[streamingAI] Failed to cancel reader');
+              });
             } else if (payload) {
               let parsed: { chunk?: unknown; error?: string };
               try {
                 parsed = JSON.parse(payload) as { chunk?: unknown; error?: string };
               } catch {
-                throw new Error(
-                  `AI stream ended with invalid JSON. First bytes: ${payload.slice(0, 120)}`,
-                );
+                throw new Error('AI stream ended with invalid JSON');
               }
               if (parsed.error) {
-                throw new Error(parsed.error);
+                throw new Error('AI provider rejected the stream');
               }
               if (typeof parsed.chunk === 'string') {
                 accumulated += parsed.chunk;
@@ -314,7 +303,7 @@ export const useStreamingAI = (
       // Handle non-streaming JSON response
       const jsonData = await response.json();
       if (!jsonData.success) {
-        throw new Error(jsonData.error || 'AI processing failed');
+        throw new Error('AI processing failed');
       }
 
       const result = jsonData.result as string;
@@ -346,7 +335,10 @@ export const useStreamingAI = (
         return null;
       }
 
-      const message = err instanceof Error ? err.message : 'AI streaming failed';
+      const message = getUserFacingErrorMessage(
+        err,
+        'AI streaming failed. Please try again.',
+      );
       setError(message);
       onError?.(message);
 

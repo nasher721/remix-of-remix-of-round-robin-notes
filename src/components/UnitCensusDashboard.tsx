@@ -1,146 +1,54 @@
 import * as React from "react";
-import {
-  LayoutDashboard,
-  Users,
-  AlertTriangle,
-  Activity,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  BedDouble,
-  Heart,
-  Thermometer,
-  Wind,
-  Droplets,
-  ChevronRight,
-  RefreshCcw,
-  Filter,
-  Grid3X3,
-} from "lucide-react";
+import { Activity, AlertTriangle, BedDouble, ChevronRight, Clock, Filter, LayoutDashboard, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { AcuitySummary, AcuityIndicator } from "./PatientAcuityBadge";
-import { LabTrendBadge } from "./LabTrendingPanel";
-import { ProtocolBadge } from "./SmartProtocolSuggestions";
-import { calculatePatientAcuity } from "@/types/riskScores";
-import type { Patient } from "@/types/patient";
+import type { AcuityLevel, Patient } from "@/types/patient";
 
 interface UnitMetrics {
   totalPatients: number;
-  criticalPatients: number;
-  onVentilator: number;
-  onPressors: number;
-  abnormalLabs: number;
-  pendingDischarge: number;
   newAdmissions: number;
+  recordedAcuity: number;
+  recordedCritical: number;
 }
 
-interface PatientSummaryCard {
-  patient: Patient;
-  acuityLevel: number;
-  hasAbnormalLabs: boolean;
-  hasActiveProtocols: boolean;
-  isOnVentilator: boolean;
-  isOnPressors: boolean;
-}
+const ACUITY_ORDER: Record<AcuityLevel, number> = {
+  low: 1,
+  moderate: 2,
+  high: 3,
+  critical: 4,
+};
 
-// Calculate unit metrics from patient list
+const ACUITY_STYLES: Record<AcuityLevel, string> = {
+  low: 'border-green-200 bg-green-50 text-green-800',
+  moderate: 'border-amber-200 bg-amber-50 text-amber-800',
+  high: 'border-orange-200 bg-orange-50 text-orange-800',
+  critical: 'border-red-200 bg-red-50 text-red-800',
+};
+
 const calculateUnitMetrics = (patients: Patient[]): UnitMetrics => {
-  let criticalPatients = 0;
-  let onVentilator = 0;
-  let onPressors = 0;
-  let abnormalLabs = 0;
-  let pendingDischarge = 0;
+  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
   let newAdmissions = 0;
+  let recordedAcuity = 0;
+  let recordedCritical = 0;
 
-  const now = new Date();
-  const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-
-  patients.forEach(patient => {
-    const allText = `${patient.clinicalSummary} ${patient.intervalEvents} ${Object.values(patient.systems).join(' ')}`.toLowerCase();
-
-    // Check acuity
-    const acuity = calculatePatientAcuity(patient.labs, patient.systems, patient.clinicalSummary);
-    if (acuity.level >= 4) criticalPatients++;
-
-    // Check ventilator status
-    if (allText.includes('intubated') || allText.includes('ventilator') || allText.includes('on vent')) {
-      onVentilator++;
-    }
-
-    // Check pressor status
-    if (allText.includes('pressor') || allText.includes('vasopressor') || allText.includes('levophed') || allText.includes('norepinephrine')) {
-      onPressors++;
-    }
-
-    // Check labs (simplified)
-    if (patient.labs) {
-      const labText = patient.labs.toLowerCase();
-      // Look for critical lab patterns
-      if (labText.match(/k[:\s]*(2\.\d|6\.[5-9]|[7-9])/i) ||
-          labText.match(/na[:\s]*(1[0-2]\d|1[6-9]\d)/i) ||
-          labText.match(/cr[:\s]*[5-9]/i)) {
-        abnormalLabs++;
-      }
-    }
-
-    // Check disposition
-    if (patient.systems.dispo?.toLowerCase().includes('discharge') ||
-        patient.systems.dispo?.toLowerCase().includes('home')) {
-      pendingDischarge++;
-    }
-
-    // Check for new admissions (within 24h)
-    const createdAt = new Date(patient.createdAt);
-    if (createdAt > twentyFourHoursAgo) {
-      newAdmissions++;
-    }
-  });
+  for (const patient of patients) {
+    const createdAt = new Date(patient.createdAt).getTime();
+    if (Number.isFinite(createdAt) && createdAt > twentyFourHoursAgo) newAdmissions += 1;
+    if (patient.acuity) recordedAcuity += 1;
+    if (patient.acuity === 'critical') recordedCritical += 1;
+  }
 
   return {
     totalPatients: patients.length,
-    criticalPatients,
-    onVentilator,
-    onPressors,
-    abnormalLabs,
-    pendingDischarge,
     newAdmissions,
+    recordedAcuity,
+    recordedCritical,
   };
-};
-
-// Create patient summary cards
-const createPatientSummaries = (patients: Patient[]): PatientSummaryCard[] => {
-  return patients.map(patient => {
-    const allText = `${patient.clinicalSummary} ${patient.intervalEvents} ${Object.values(patient.systems).join(' ')}`.toLowerCase();
-    const acuity = calculatePatientAcuity(patient.labs, patient.systems, patient.clinicalSummary);
-
-    return {
-      patient,
-      acuityLevel: acuity.level,
-      hasAbnormalLabs: patient.labs?.length > 0,
-      hasActiveProtocols: allText.includes('sepsis') || allText.includes('intubated') || allText.includes('aki'),
-      isOnVentilator: allText.includes('intubated') || allText.includes('ventilator') || allText.includes('on vent'),
-      isOnPressors: allText.includes('pressor') || allText.includes('vasopressor') || allText.includes('levophed'),
-    };
-  }).sort((a, b) => b.acuityLevel - a.acuityLevel); // Sort by acuity (highest first)
 };
 
 interface UnitCensusDashboardProps {
@@ -149,261 +57,203 @@ interface UnitCensusDashboardProps {
   className?: string;
 }
 
-export function UnitCensusDashboard({
-  patients,
-  onPatientSelect,
-  className,
-}: UnitCensusDashboardProps) {
-  const [sortBy, setSortBy] = React.useState<'acuity' | 'room' | 'name'>('acuity');
+type SortBy = 'room' | 'name' | 'recorded-acuity';
+
+export function UnitCensusDashboard({ patients, onPatientSelect, className }: UnitCensusDashboardProps) {
+  const [sortBy, setSortBy] = React.useState<SortBy>('room');
   const [filterCritical, setFilterCritical] = React.useState(false);
-
   const metrics = React.useMemo(() => calculateUnitMetrics(patients), [patients]);
-  const patientSummaries = React.useMemo(() => {
-    let summaries = createPatientSummaries(patients);
 
-    if (filterCritical) {
-      summaries = summaries.filter(s => s.acuityLevel >= 4);
-    }
+  const displayedPatients = React.useMemo(() => {
+    const filtered = filterCritical
+      ? patients.filter((patient) => patient.acuity === 'critical')
+      : [...patients];
 
-    // Sort
-    switch (sortBy) {
-      case 'room':
-        summaries.sort((a, b) => a.patient.bed.localeCompare(b.patient.bed));
-        break;
-      case 'name':
-        summaries.sort((a, b) => a.patient.name.localeCompare(b.patient.name));
-        break;
-      default: // acuity
-        summaries.sort((a, b) => b.acuityLevel - a.acuityLevel);
-    }
+    return filtered.sort((left, right) => {
+      if (sortBy === 'name') return (left.name || '').localeCompare(right.name || '');
+      if (sortBy === 'recorded-acuity') {
+        const leftRank = left.acuity ? ACUITY_ORDER[left.acuity] : 0;
+        const rightRank = right.acuity ? ACUITY_ORDER[right.acuity] : 0;
+        return rightRank - leftRank || (left.bed || '').localeCompare(right.bed || '');
+      }
+      return (left.bed || '').localeCompare(right.bed || '', undefined, { numeric: true });
+    });
+  }, [filterCritical, patients, sortBy]);
 
-    return summaries;
-  }, [patients, sortBy, filterCritical]);
-
-  const acuityColors = {
-    1: 'bg-green-500',
-    2: 'bg-blue-500',
-    3: 'bg-amber-500',
-    4: 'bg-orange-500',
-    5: 'bg-red-500',
-  };
+  const distribution = React.useMemo(() => {
+    const counts: Record<AcuityLevel | 'not-recorded', number> = {
+      low: 0,
+      moderate: 0,
+      high: 0,
+      critical: 0,
+      'not-recorded': 0,
+    };
+    for (const patient of patients) counts[patient.acuity ?? 'not-recorded'] += 1;
+    return counts;
+  }, [patients]);
 
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn("gap-2 h-8 relative", className)}
-        >
+        <Button variant="outline" size="sm" className={cn("relative h-8 gap-2", className)}>
           <LayoutDashboard className="h-4 w-4" />
           <span className="hidden sm:inline">Census</span>
-          {metrics.criticalPatients > 0 && (
+          {metrics.recordedCritical > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-2 -right-2 h-5 w-5 p-0 flex items-center justify-center text-[10px]"
+              aria-label={`${metrics.recordedCritical} patients with recorded critical acuity`}
+              className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center p-0 text-[10px]"
             >
-              {metrics.criticalPatients}
+              {metrics.recordedCritical}
             </Badge>
           )}
         </Button>
       </SheetTrigger>
+
       <SheetContent className="w-[500px] sm:w-[640px]">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <LayoutDashboard className="h-5 w-5" />
             Unit Census Dashboard
-            <Badge variant="outline" className="ml-2">
-              {metrics.totalPatients} patients
-            </Badge>
+            <Badge variant="outline" className="ml-2">{metrics.totalPatients} patients</Badge>
           </SheetTitle>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-100px)] mt-4">
+        <ScrollArea className="mt-4 h-[calc(100vh-100px)]">
           <div className="space-y-6 pr-4">
-            {/* Quick Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <Card className={cn(
-                "transition-all",
-                metrics.criticalPatients > 0 && "border-red-200 bg-red-50/50"
-              )}>
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className={cn(
-                      "h-4 w-4",
-                      metrics.criticalPatients > 0 ? "text-red-600" : "text-muted-foreground"
-                    )} />
-                    <span className="text-xs text-muted-foreground">Critical</span>
-                  </div>
-                  <p className="text-2xl font-bold mt-1">{metrics.criticalPatients}</p>
-                </CardContent>
-              </Card>
-
-              <Card className={cn(
-                "transition-all",
-                metrics.onVentilator > 0 && "border-blue-200 bg-blue-50/50"
-              )}>
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Wind className="h-4 w-4 text-blue-600" />
-                    <span className="text-xs text-muted-foreground">On Vent</span>
-                  </div>
-                  <p className="text-2xl font-bold mt-1">{metrics.onVentilator}</p>
-                </CardContent>
-              </Card>
-
-              <Card className={cn(
-                "transition-all",
-                metrics.onPressors > 0 && "border-purple-200 bg-purple-50/50"
-              )}>
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Heart className="h-4 w-4 text-purple-600" />
-                    <span className="text-xs text-muted-foreground">Pressors</span>
-                  </div>
-                  <p className="text-2xl font-bold mt-1">{metrics.onPressors}</p>
-                </CardContent>
-              </Card>
-
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Card>
                 <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                    <span className="text-xs text-muted-foreground">Discharge</span>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <BedDouble className="h-4 w-4" />
+                    <span className="text-xs">Total</span>
                   </div>
-                  <p className="text-2xl font-bold mt-1">{metrics.pendingDischarge}</p>
+                  <p className="mt-1 text-2xl font-bold">{metrics.totalPatients}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-xs">New (24h)</span>
+                  </div>
+                  <p className="mt-1 text-2xl font-bold">{metrics.newAdmissions}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Activity className="h-4 w-4" />
+                    <span className="text-xs">Acuity recorded</span>
+                  </div>
+                  <p className="mt-1 text-2xl font-bold">{metrics.recordedAcuity}</p>
+                </CardContent>
+              </Card>
+              <Card className={cn(metrics.recordedCritical > 0 && "border-red-200 bg-red-50/50")}>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <AlertTriangle className={cn("h-4 w-4", metrics.recordedCritical > 0 && "text-red-600")} />
+                    <span className="text-xs">Recorded critical</span>
+                  </div>
+                  <p className="mt-1 text-2xl font-bold">{metrics.recordedCritical}</p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Acuity Distribution */}
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-sm">
                   <Activity className="h-4 w-4" />
-                  Acuity Distribution
+                  Recorded acuity distribution
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <AcuitySummary patients={patients} />
+              <CardContent className="grid grid-cols-5 gap-2">
+                {([
+                  ['critical', 'Critical'],
+                  ['high', 'High'],
+                  ['moderate', 'Moderate'],
+                  ['low', 'Low'],
+                  ['not-recorded', 'Not recorded'],
+                ] as const).map(([level, label]) => (
+                  <div key={level} className="rounded-md bg-secondary/30 p-2 text-center">
+                    <p className="text-lg font-bold">{distribution[level]}</p>
+                    <p className="text-[10px] text-muted-foreground">{label}</p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 
-            {/* Unit Summary Stats */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="p-3 bg-secondary/30 rounded-lg text-center">
-                <Clock className="h-4 w-4 mx-auto text-muted-foreground" />
-                <p className="text-lg font-bold mt-1">{metrics.newAdmissions}</p>
-                <p className="text-[10px] text-muted-foreground">New (24h)</p>
-              </div>
-              <div className="p-3 bg-secondary/30 rounded-lg text-center">
-                <Droplets className="h-4 w-4 mx-auto text-muted-foreground" />
-                <p className="text-lg font-bold mt-1">{metrics.abnormalLabs}</p>
-                <p className="text-[10px] text-muted-foreground">Abnl Labs</p>
-              </div>
-              <div className="p-3 bg-secondary/30 rounded-lg text-center">
-                <BedDouble className="h-4 w-4 mx-auto text-muted-foreground" />
-                <p className="text-lg font-bold mt-1">{metrics.totalPatients}</p>
-                <p className="text-[10px] text-muted-foreground">Total</p>
-              </div>
-            </div>
-
-            {/* Patient List Header */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Patient Overview</h3>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold">Patient overview</h3>
               <div className="flex items-center gap-2">
                 <Button
-                  variant={filterCritical ? "default" : "outline"}
+                  variant={filterCritical ? 'default' : 'outline'}
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => setFilterCritical(!filterCritical)}
+                  onClick={() => setFilterCritical((current) => !current)}
                 >
-                  <Filter className="h-3 w-3 mr-1" />
-                  Critical Only
+                  <Filter className="mr-1 h-3 w-3" />
+                  Recorded critical only
                 </Button>
-                <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-                  <SelectTrigger className="w-24 h-7 text-xs">
+                <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortBy)}>
+                  <SelectTrigger className="h-7 w-32 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="acuity">Acuity</SelectItem>
                     <SelectItem value="room">Room</SelectItem>
                     <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="recorded-acuity">Recorded acuity</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Patient Grid */}
             <div className="grid grid-cols-1 gap-2">
-              {patientSummaries.map(({ patient, acuityLevel, isOnVentilator, isOnPressors }) => (
+              {displayedPatients.map((patient) => (
                 <Card
                   key={patient.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:shadow-md",
-                    acuityLevel >= 4 && "border-l-4 border-l-red-500",
-                    acuityLevel === 3 && "border-l-4 border-l-amber-500"
+                    "cursor-pointer transition-shadow hover:shadow-md",
+                    patient.acuity === 'critical' && "border-l-4 border-l-red-500",
+                    patient.acuity === 'high' && "border-l-4 border-l-orange-500",
                   )}
                   onClick={() => onPatientSelect?.(patient)}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-center gap-3">
-                      {/* Acuity indicator */}
-                      <div className={cn(
-                        "w-3 h-3 rounded-full flex-shrink-0",
-                        acuityColors[acuityLevel as keyof typeof acuityColors],
-                        acuityLevel >= 4 && "animate-pulse"
-                      )} />
-
-                      {/* Patient info */}
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">
-                            {patient.name || 'Unnamed'}
-                          </span>
-                          <Badge variant="outline" className="text-[10px] flex-shrink-0">
-                            {patient.bed || 'No bed'}
-                          </Badge>
+                          <span className="truncate text-sm font-medium">{patient.name || 'Unnamed'}</span>
+                          <Badge variant="outline" className="shrink-0 text-[10px]">{patient.bed || 'No bed'}</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {patient.clinicalSummary?.slice(0, 60) || 'No summary'}...
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {patient.clinicalSummary || 'No summary'}
                         </p>
                       </div>
-
-                      {/* Status indicators */}
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {isOnVentilator && (
-                          <Badge variant="outline" className="text-[10px] bg-blue-50 border-blue-200 text-blue-700">
-                            <Wind className="h-3 w-3" />
-                          </Badge>
-                        )}
-                        {isOnPressors && (
-                          <Badge variant="outline" className="text-[10px] bg-purple-50 border-purple-200 text-purple-700">
-                            <Heart className="h-3 w-3" />
-                          </Badge>
-                        )}
-                        <LabTrendBadge labText={patient.labs} />
-                        <ProtocolBadge patient={patient} />
-                      </div>
-
-                      <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      {patient.acuity ? (
+                        <Badge variant="outline" className={cn("capitalize", ACUITY_STYLES[patient.acuity])}>
+                          {patient.acuity}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground">Acuity not recorded</Badge>
+                      )}
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </div>
                   </CardContent>
                 </Card>
               ))}
 
-              {patientSummaries.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                  <p>{filterCritical ? 'No critical patients' : 'No patients on unit'}</p>
+              {displayedPatients.length === 0 && (
+                <div className="py-12 text-center text-muted-foreground">
+                  <Users className="mx-auto mb-4 h-12 w-12 opacity-20" />
+                  <p>{filterCritical ? 'No patients have recorded critical acuity' : 'No patients on unit'}</p>
                 </div>
               )}
             </div>
 
-            {/* Footer */}
-            <div className="p-3 bg-secondary/30 rounded-lg text-center">
+            <div className="rounded-lg bg-secondary/30 p-3 text-center">
               <p className="text-xs text-muted-foreground">
-                Last updated: {new Date().toLocaleTimeString()}
+                Acuity is manually recorded patient data. This dashboard does not infer clinical state from notes or labs.
               </p>
             </div>
           </div>
@@ -413,7 +263,6 @@ export function UnitCensusDashboard({
   );
 }
 
-// Compact census badge for header
 interface CensusBadgeProps {
   patients: Patient[];
   className?: string;
@@ -421,23 +270,16 @@ interface CensusBadgeProps {
 
 export function CensusBadge({ patients, className }: CensusBadgeProps) {
   const metrics = React.useMemo(() => calculateUnitMetrics(patients), [patients]);
-
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <Badge variant="outline" className="gap-1">
         <Users className="h-3 w-3" />
         {metrics.totalPatients}
       </Badge>
-      {metrics.criticalPatients > 0 && (
+      {metrics.recordedCritical > 0 && (
         <Badge variant="destructive" className="gap-1">
           <AlertTriangle className="h-3 w-3" />
-          {metrics.criticalPatients}
-        </Badge>
-      )}
-      {metrics.onVentilator > 0 && (
-        <Badge variant="outline" className="text-blue-600 border-blue-300 gap-1">
-          <Wind className="h-3 w-3" />
-          {metrics.onVentilator}
+          {metrics.recordedCritical} recorded critical
         </Badge>
       )}
     </div>

@@ -15,8 +15,8 @@ const localStorageMock = (() => {
   };
 })();
 
-Object.defineProperty(global, "localStorage", { value: localStorageMock });
-Object.defineProperty(window, "localStorage", { value: localStorageMock });
+Object.defineProperty(global, "localStorage", { configurable: true, value: localStorageMock });
+Object.defineProperty(window, "localStorage", { configurable: true, value: localStorageMock });
 
 describe("DashboardLayoutContext", () => {
   beforeEach(() => {
@@ -102,6 +102,68 @@ describe("DashboardLayoutContext", () => {
         assert.equal(stored.patientRosterLayoutMode, "topbar");
       });
     });
+
+    it("keeps default layout state when dashboard preference reads throw", async () => {
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: {
+          getItem: () => {
+            throw new Error("Access to storage is not allowed from this context");
+          },
+          setItem: () => {},
+          removeItem: () => {},
+          clear: () => {},
+        },
+      });
+
+      try {
+        const { result } = renderHook(() => useDashboardLayout(), {
+          wrapper: DashboardLayoutProvider,
+        });
+
+        await waitFor(() => {
+          assert.equal(result.current.panelLeftCollapsed, false);
+          assert.equal(result.current.panelRightCollapsed, false);
+          assert.equal(result.current.patientRosterLayoutMode, DEFAULT_DASHBOARD_PREFS.patientRosterLayoutMode);
+        });
+      } finally {
+        Object.defineProperty(window, "localStorage", { configurable: true, value: localStorageMock });
+      }
+    });
+
+    it("keeps layout interactions usable when dashboard preference writes throw", async () => {
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: {
+          getItem: () => null,
+          setItem: () => {
+            throw new Error("Quota exceeded");
+          },
+          removeItem: () => {},
+          clear: () => {},
+        },
+      });
+
+      try {
+        const { result } = renderHook(() => useDashboardLayout(), {
+          wrapper: DashboardLayoutProvider,
+        });
+
+        await waitFor(() => {
+          assert.equal(result.current.panelLeftCollapsed, false);
+        });
+
+        act(() => {
+          result.current.toggleLeftPanel();
+        });
+
+        await waitFor(() => {
+          assert.equal(result.current.panelLeftCollapsed, true);
+        });
+      } finally {
+        Object.defineProperty(window, "localStorage", { configurable: true, value: localStorageMock });
+      }
+    });
   });
 
   describe("focus mode", () => {
@@ -111,11 +173,11 @@ describe("DashboardLayoutContext", () => {
       });
       
       act(() => {
-        result.current.enterFocusMode("clinical-summary");
+        result.current.enterFocusMode("clinicalSummary");
       });
       
       assert.equal(result.current.focusModeActive, true);
-      assert.equal(result.current.focusModeEditorId, "clinical-summary");
+      assert.equal(result.current.focusModeEditorId, "clinicalSummary");
     });
 
     it("exits focus mode", () => {
@@ -124,7 +186,7 @@ describe("DashboardLayoutContext", () => {
       });
       
       act(() => {
-        result.current.enterFocusMode("clinical-summary");
+        result.current.enterFocusMode("clinicalSummary");
       });
       
       act(() => {

@@ -88,36 +88,13 @@ function getSessionId(): string {
  * Turn thrown values, API errors, and rejection reasons into a useful telemetry string.
  * Avoids `[object Object]` from String(plainObject) and handles circular structures.
  */
-function stringifyUnknownForTelemetry(value: unknown): string {
-  if (value == null) return String(value);
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
-    return String(value);
+function classifyTelemetryError(error: unknown): string {
+  if (error instanceof Error && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(error.name)) {
+    return error.name;
   }
-  if (typeof value === 'symbol') return value.toString();
-  if (value instanceof Error) return value.message;
-  if (typeof value === 'object') {
-    try {
-      const maybeMsg = (value as { message?: unknown }).message;
-      if (typeof maybeMsg === 'string' && maybeMsg.trim()) return maybeMsg;
-      const s = JSON.stringify(value);
-      if (s !== undefined) return s.length > 1000 ? `${s.slice(0, 1000)}…` : s;
-    } catch {
-      // Circular reference or non-serializable
-    }
-    return Object.prototype.toString.call(value);
-  }
-  return String(value);
-}
-
-function extractTelemetryErrorParts(error: unknown): { message: string; stack?: string } {
-  if (error instanceof Error) {
-    return { message: error.message, stack: error.stack };
-  }
-  if (typeof error === 'string') {
-    return { message: error };
-  }
-  return { message: stringifyUnknownForTelemetry(error) };
+  if (typeof error === 'string') return 'StringError';
+  if (error === null) return 'NullError';
+  return `${typeof error}Error`;
 }
 
 function fingerprint(message: string, stack?: string): string {
@@ -232,12 +209,8 @@ export function recordTelemetryEvent(
   error: Error | string | unknown,
   context: Record<string, unknown> = {},
 ): TelemetryEvent {
-  const { message, stack } = extractTelemetryErrorParts(error);
-
-  const contextWithTrail = {
-    ...context,
-    recentBreadcrumbs: getBreadcrumbTrail(15),
-  };
+  const errorType = classifyTelemetryError(error);
+  const message = `${category}:${errorType}`;
 
   const event: TelemetryEvent = {
     id: globalThis.crypto?.randomUUID?.() ?? `evt_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -245,12 +218,11 @@ export function recordTelemetryEvent(
     level: category.includes('error') || category === 'render_error' ? 'error' : 'warning',
     category,
     message: message.slice(0, 1000),
-    stack: stack?.slice(0, 3000),
-    context: sanitizeContext(contextWithTrail),
+    context: sanitizeContext({ ...context, errorType }),
     sessionId: getSessionId(),
-    url: typeof window !== 'undefined' ? window.location.pathname : '',
+    url: '',
     userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
-    fingerprint: fingerprint(message, stack),
+    fingerprint: fingerprint(message),
   };
 
   trackFrequency(event);
@@ -258,9 +230,9 @@ export function recordTelemetryEvent(
 
   // Also log through the structured logger
   if (event.level === 'error') {
-    logError(`[Telemetry] ${category}: ${message}`, event.context as LogContext);
+    logError(`[Telemetry] ${category}: ${errorType}`, event.context as LogContext);
   } else {
-    logWarn(`[Telemetry] ${category}: ${message}`, event.context as LogContext);
+    logWarn(`[Telemetry] ${category}: ${errorType}`, event.context as LogContext);
   }
 
   return event;
@@ -448,16 +420,34 @@ export function initGlobalErrorCapture(): void {
 /** Remove any potentially sensitive data from context before storing. */
 function sanitizeContext(context: Record<string, unknown>): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
-  const sensitiveKeys = ['password', 'token', 'secret', 'key', 'authorization', 'cookie', 'ssn', 'mrn', 'dob', 'patient_name', 'patientName'];
+  const allowedKeys = new Set([
+    'attempt',
+    'attempts',
+    'boundary',
+    'category',
+    'durationMs',
+    'errorType',
+    'failureCount',
+    'feature',
+    'function',
+    'handled',
+    'lineno',
+    'colno',
+    'operation',
+    'outcome',
+    'panelTitle',
+    'sectionName',
+    'status',
+    'statusCode',
+    'timeoutMs',
+  ]);
+  const safeToken = /^[a-zA-Z0-9_.:/ -]{1,128}$/;
 
   for (const [key, value] of Object.entries(context)) {
-    if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
-      sanitized[key] = '[REDACTED]';
-    } else if (typeof value === 'string' && value.length > 500) {
-      sanitized[key] = value.slice(0, 500) + '...[truncated]';
-    } else {
-      sanitized[key] = value;
-    }
+    if (!allowedKeys.has(key)) continue;
+    if (typeof value === 'number' && Number.isFinite(value)) sanitized[key] = value;
+    else if (typeof value === 'boolean' || value === null) sanitized[key] = value;
+    else if (typeof value === 'string' && safeToken.test(value)) sanitized[key] = value;
   }
 
   return sanitized;

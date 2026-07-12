@@ -3,6 +3,12 @@ import type { ColumnConfig, ColumnWidthsType, PrintPreset } from './types';
 import { defaultColumns, defaultColumnWidths, defaultCombinedColumnWidths, fontFamilies } from './constants';
 import { useToast } from '@/hooks/use-toast';
 import { STORAGE_KEYS, DEFAULT_CONFIG } from '@/constants/config';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  createScopedPrintStorage,
+  quarantineLegacyPrintPreferences,
+} from '@/lib/print/preferences';
+import type { StorageLike } from '@/utils/safeStorage';
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -36,6 +42,7 @@ interface PrintState {
 
 type PrintAction =
   | { type: 'SET_FIELD'; field: keyof PrintState; value: PrintState[keyof PrintState] }
+  | { type: 'HYDRATE_OWNER'; state: PrintState }
   | { type: 'LOAD_PRESET'; preset: PrintPreset }
   | { type: 'RESET_COLUMNS' }
   | { type: 'TOGGLE_COLUMN'; key: string }
@@ -44,21 +51,30 @@ type PrintAction =
   | { type: 'TOGGLE_COMBINATION'; key: string };
 
 // ---------------------------------------------------------------------------
-// Initial state (reads from localStorage once)
+// Initial state (reads from one owner's isolated storage once)
 // ---------------------------------------------------------------------------
 
-function buildInitialState(): PrintState {
-  const savedColumnWidths = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS);
+const parseStoredJson = <T,>(raw: string | null, fallback: T): T => {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+function buildInitialState(storage: StorageLike): PrintState {
+  const savedColumnWidths = storage.getItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS);
   const columnWidths: ColumnWidthsType = savedColumnWidths
-    ? { ...defaultColumnWidths, ...JSON.parse(savedColumnWidths) }
+    ? { ...defaultColumnWidths, ...parseStoredJson(savedColumnWidths, {}) }
     : defaultColumnWidths;
 
-  const savedCombinedWidths = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
+  const savedCombinedWidths = storage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
   const combinedColumnWidths: Record<string, number> = savedCombinedWidths
-    ? { ...defaultCombinedColumnWidths, ...JSON.parse(savedCombinedWidths) }
+    ? { ...defaultCombinedColumnWidths, ...parseStoredJson(savedCombinedWidths, {}) }
     : defaultCombinedColumnWidths;
 
-  const savedColumnPrefs = localStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_PREFS);
+  const savedColumnPrefs = storage.getItem(STORAGE_KEYS.PRINT_COLUMN_PREFS);
   const columns: ColumnConfig[] = savedColumnPrefs
     ? (() => {
       try {
@@ -73,63 +89,63 @@ function buildInitialState(): PrintState {
     })()
     : defaultColumns;
 
-  const savedFontSize = localStorage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE);
+  const savedFontSize = storage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE);
   const printFontSize = savedFontSize ? parseInt(savedFontSize, 10) : DEFAULT_CONFIG.PRINT_FONT_SIZE;
 
   const printFontFamily =
-    localStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || DEFAULT_CONFIG.PRINT_FONT_FAMILY;
+    storage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || DEFAULT_CONFIG.PRINT_FONT_FAMILY;
 
   const margins =
-    (localStorage.getItem('printMargins') as PrintState['margins']) || DEFAULT_CONFIG.PRINT_MARGINS;
+    (storage.getItem('printMargins') as PrintState['margins']) || DEFAULT_CONFIG.PRINT_MARGINS;
 
   const headerStyle =
-    (localStorage.getItem('printHeaderStyle') as PrintState['headerStyle']) || DEFAULT_CONFIG.PRINT_HEADER_STYLE;
+    (storage.getItem('printHeaderStyle') as PrintState['headerStyle']) || DEFAULT_CONFIG.PRINT_HEADER_STYLE;
 
   const borderStyle =
-    (localStorage.getItem('printBorderStyle') as PrintState['borderStyle']) || DEFAULT_CONFIG.PRINT_BORDER_STYLE;
+    (storage.getItem('printBorderStyle') as PrintState['borderStyle']) || DEFAULT_CONFIG.PRINT_BORDER_STYLE;
 
-  const savedShowPageNumbers = localStorage.getItem('printShowPageNumbers');
+  const savedShowPageNumbers = storage.getItem('printShowPageNumbers');
   const showPageNumbers = savedShowPageNumbers
     ? savedShowPageNumbers === 'true'
     : DEFAULT_CONFIG.PRINT_SHOW_PAGE_NUMBERS;
 
-  const savedShowTimestamp = localStorage.getItem('printShowTimestamp');
+  const savedShowTimestamp = storage.getItem('printShowTimestamp');
   const showTimestamp = savedShowTimestamp
     ? savedShowTimestamp === 'true'
     : DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP;
 
-  const savedAlternateRowColors = localStorage.getItem('printAlternateRowColors');
+  const savedAlternateRowColors = storage.getItem('printAlternateRowColors');
   const alternateRowColors = savedAlternateRowColors
     ? savedAlternateRowColors === 'true'
     : DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS;
 
-  const savedCompactMode = localStorage.getItem('printCompactMode');
+  const savedCompactMode = storage.getItem('printCompactMode');
   const compactMode = savedCompactMode
     ? savedCompactMode === 'true'
     : DEFAULT_CONFIG.PRINT_COMPACT_MODE;
 
   const onePatientPerPage =
-    localStorage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true';
+    storage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true';
 
   const autoFitFontSize =
-    localStorage.getItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE) === 'true';
+    storage.getItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE) === 'true';
 
-  const savedCombinedColumns = localStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS);
-  const combinedColumns: string[] = savedCombinedColumns ? JSON.parse(savedCombinedColumns) : [];
+  const savedCombinedColumns = storage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS);
+  const combinedColumns = parseStoredJson<string[]>(savedCombinedColumns, []);
 
-  const savedSystemsCount = localStorage.getItem(STORAGE_KEYS.PRINT_SYSTEMS_REVIEW_COLUMN_COUNT);
+  const savedSystemsCount = storage.getItem(STORAGE_KEYS.PRINT_SYSTEMS_REVIEW_COLUMN_COUNT);
   const systemsReviewColumnCount = savedSystemsCount
     ? parseInt(savedSystemsCount, 10)
     : DEFAULT_CONFIG.SYSTEMS_REVIEW_COLUMN_COUNT;
 
   const printOrientation =
-    (localStorage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as PrintState['printOrientation']) ||
+    (storage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as PrintState['printOrientation']) ||
     DEFAULT_CONFIG.PRINT_ORIENTATION;
 
-  const savedCustomPresets = localStorage.getItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS);
-  const customPresets: PrintPreset[] = savedCustomPresets ? JSON.parse(savedCustomPresets) : [];
+  const savedCustomPresets = storage.getItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS);
+  const customPresets = parseStoredJson<PrintPreset[]>(savedCustomPresets, []);
 
-  const physicianName = localStorage.getItem('printPhysicianName') || '';
+  const physicianName = storage.getItem('printPhysicianName') || '';
 
   return {
     columnWidths,
@@ -160,6 +176,9 @@ function buildInitialState(): PrintState {
 
 function reducer(state: PrintState, action: PrintAction): PrintState {
   switch (action.type) {
+    case 'HYDRATE_OWNER':
+      return action.state;
+
     case 'SET_FIELD':
       return { ...state, [action.field]: action.value };
 
@@ -226,63 +245,77 @@ function reducer(state: PrintState, action: PrintAction): PrintState {
 }
 
 // ---------------------------------------------------------------------------
-// Persist state to localStorage after each change
+// Persist state to the active owner's namespace after each change
 // ---------------------------------------------------------------------------
 
-function persistState(state: PrintState) {
-  localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(state.columnWidths));
-  localStorage.setItem(
+function persistState(storage: StorageLike, state: PrintState) {
+  storage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(state.columnWidths));
+  storage.setItem(
     STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS,
     JSON.stringify(state.combinedColumnWidths)
   );
-  localStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(state.columns));
-  localStorage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, state.printFontSize.toString());
-  localStorage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, state.printFontFamily);
-  localStorage.setItem('printMargins', state.margins);
-  localStorage.setItem('printHeaderStyle', state.headerStyle);
-  localStorage.setItem('printBorderStyle', state.borderStyle);
-  localStorage.setItem('printShowPageNumbers', state.showPageNumbers.toString());
-  localStorage.setItem('printShowTimestamp', state.showTimestamp.toString());
-  localStorage.setItem('printAlternateRowColors', state.alternateRowColors.toString());
-  localStorage.setItem('printCompactMode', state.compactMode.toString());
-  localStorage.setItem(
+  storage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(state.columns));
+  storage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, state.printFontSize.toString());
+  storage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, state.printFontFamily);
+  storage.setItem('printMargins', state.margins);
+  storage.setItem('printHeaderStyle', state.headerStyle);
+  storage.setItem('printBorderStyle', state.borderStyle);
+  storage.setItem('printShowPageNumbers', state.showPageNumbers.toString());
+  storage.setItem('printShowTimestamp', state.showTimestamp.toString());
+  storage.setItem('printAlternateRowColors', state.alternateRowColors.toString());
+  storage.setItem('printCompactMode', state.compactMode.toString());
+  storage.setItem(
     STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE,
     state.onePatientPerPage.toString()
   );
-  localStorage.setItem(
+  storage.setItem(
     STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE,
     state.autoFitFontSize.toString()
   );
-  localStorage.setItem(
+  storage.setItem(
     STORAGE_KEYS.PRINT_COMBINED_COLUMNS,
     JSON.stringify(state.combinedColumns)
   );
-  localStorage.setItem(
+  storage.setItem(
     STORAGE_KEYS.PRINT_SYSTEMS_REVIEW_COLUMN_COUNT,
     state.systemsReviewColumnCount.toString()
   );
-  localStorage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, state.printOrientation);
-  localStorage.setItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS, JSON.stringify(state.customPresets));
-  localStorage.setItem('printPhysicianName', state.physicianName);
+  storage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, state.printOrientation);
+  storage.setItem(STORAGE_KEYS.PRINT_CUSTOM_PRESETS, JSON.stringify(state.customPresets));
+  storage.setItem('printPhysicianName', state.physicianName);
 }
 
 // ---------------------------------------------------------------------------
 // Hook
 // ---------------------------------------------------------------------------
 
-export const usePrintState = () => {
+export const usePrintStateForOwner = (storageOwnerId: string | null) => {
   const { toast } = useToast();
+  const printStorage = React.useMemo(
+    () => createScopedPrintStorage(storageOwnerId),
+    [storageOwnerId],
+  );
+  const [loadedStorageOwnerId, setLoadedStorageOwnerId] = React.useState(storageOwnerId);
 
   const [state, dispatch] = React.useReducer(
     reducer,
-    undefined,
+    printStorage,
     buildInitialState
   );
 
   // Persist on every state change (batched — runs once per dispatch)
   React.useEffect(() => {
-    persistState(state);
-  }, [state]);
+    if (loadedStorageOwnerId !== storageOwnerId) return;
+    persistState(printStorage, state);
+  }, [loadedStorageOwnerId, printStorage, state, storageOwnerId]);
+
+  React.useEffect(() => {
+    quarantineLegacyPrintPreferences();
+    if (loadedStorageOwnerId === storageOwnerId) return;
+
+    dispatch({ type: 'HYDRATE_OWNER', state: buildInitialState(printStorage) });
+    setLoadedStorageOwnerId(storageOwnerId);
+  }, [loadedStorageOwnerId, printStorage, storageOwnerId]);
 
   // ------------------------------------------------------------------
   // Public setter wrappers (API-compatible with the old useState shape)
@@ -621,4 +654,10 @@ export const usePrintState = () => {
     exportPreset,
     importPreset,
   };
+};
+
+/** Public hook keeps its existing API while deriving the storage owner from auth. */
+export const usePrintState = () => {
+  const { user } = useAuth();
+  return usePrintStateForOwner(user?.id ?? null);
 };

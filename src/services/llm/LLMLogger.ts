@@ -31,6 +31,16 @@ const metricsStore: Record<string, ProviderMetrics> = {};
 const recentLogs: LLMLogEntry[] = [];
 const MAX_LOG_ENTRIES = 100;
 
+function classifyErrorForLog(error: string | undefined): string | undefined {
+  if (!error) return undefined;
+  const httpStatus = error.match(/\bHTTP\s+(\d{3})\b/i)?.[1];
+  if (httpStatus) return `provider_http_${httpStatus}`;
+  if (/timed out|timeout/i.test(error)) return 'provider_timeout';
+  if (/cancelled|aborted/i.test(error)) return 'provider_cancelled';
+  if (/validation failed/i.test(error)) return 'output_validation_failed';
+  return 'provider_request_failed';
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -39,14 +49,19 @@ const MAX_LOG_ENTRIES = 100;
  * Log an LLM request/response event.
  */
 export function logLLMEvent(entry: LLMLogEntry): void {
+  const safeEntry: LLMLogEntry = {
+    ...entry,
+    error: classifyErrorForLog(entry.error),
+  };
+
   // Store in recent logs (circular buffer)
-  recentLogs.push(entry);
+  recentLogs.push(safeEntry);
   if (recentLogs.length > MAX_LOG_ENTRIES) {
     recentLogs.shift();
   }
 
   // Update provider metrics
-  const key = `${entry.provider}:${entry.model}`;
+  const key = `${safeEntry.provider}:${safeEntry.model}`;
   if (!metricsStore[key]) {
     metricsStore[key] = {
       totalRequests: 0,
@@ -59,28 +74,28 @@ export function logLLMEvent(entry: LLMLogEntry): void {
 
   const m = metricsStore[key];
   m.totalRequests++;
-  m.totalLatencyMs += entry.latencyMs;
+  m.totalLatencyMs += safeEntry.latencyMs;
 
-  if (entry.success) {
+  if (safeEntry.success) {
     m.successCount++;
   } else {
     m.failureCount++;
-    m.lastError = entry.error;
-    m.lastErrorTime = entry.timestamp;
+    m.lastError = safeEntry.error;
+    m.lastErrorTime = safeEntry.timestamp;
   }
 
-  if (entry.tokenUsage) {
-    m.totalTokens += entry.tokenUsage.totalTokens;
+  if (safeEntry.tokenUsage) {
+    m.totalTokens += safeEntry.tokenUsage.totalTokens;
   }
 
   // Console output (structured)
-  const level = entry.success ? 'info' : 'error';
-  const msg = `[LLM] ${entry.provider}/${entry.model} ${entry.task} ${entry.latencyMs}ms ${entry.success ? 'OK' : 'FAIL'}`;
+  const level = safeEntry.success ? 'info' : 'error';
+  const msg = `[LLM] ${safeEntry.provider}/${safeEntry.model} ${safeEntry.task} ${safeEntry.latencyMs}ms ${safeEntry.success ? 'OK' : 'FAIL'}`;
 
   if (level === 'error') {
-    console.error(msg, entry.error ? `— ${entry.error}` : '');
+    console.error(msg, safeEntry.error ? `— ${safeEntry.error}` : '');
   } else {
-    console.log(msg, entry.tokenUsage ? `tokens=${entry.tokenUsage.totalTokens}` : '');
+    console.log(msg, safeEntry.tokenUsage ? `tokens=${safeEntry.tokenUsage.totalTokens}` : '');
   }
 }
 
@@ -108,7 +123,7 @@ export function createLogEntry(
     feature: options?.feature,
     latencyMs,
     success,
-    error: options?.error,
+    error: classifyErrorForLog(options?.error),
     tokenUsage: options?.tokenUsage,
     promptHash: options?.promptHash,
   };

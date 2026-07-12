@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { retainMemory } from '@/lib/hindsightClient';
+import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import type { 
   ClinicalPhrase, 
   PhraseField, 
@@ -200,15 +200,16 @@ export const useClinicalPhrases = () => {
 
       // Save version before updating
       if (saveVersion && updates.content && updates.content !== currentPhrase.content) {
-        await supabase.from('phrase_versions').insert({
+        const { error: versionError } = await supabase.from('phrase_versions').insert({
           phrase_id: id,
           version: currentPhrase.version,
           content: currentPhrase.content,
           changed_by: user.id,
         });
+        if (versionError) throw versionError;
       }
 
-      const dbUpdates: Record<string, unknown> = {};
+      const dbUpdates: TablesUpdate<'clinical_phrases'> = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
       if (updates.content !== undefined) {
@@ -217,7 +218,9 @@ export const useClinicalPhrases = () => {
       }
       if (updates.shortcut !== undefined) dbUpdates.shortcut = updates.shortcut;
       if (updates.hotkey !== undefined) dbUpdates.hotkey = updates.hotkey;
-      if (updates.contextTriggers !== undefined) dbUpdates.context_triggers = updates.contextTriggers;
+      if (updates.contextTriggers !== undefined) {
+        dbUpdates.context_triggers = JSON.parse(JSON.stringify(updates.contextTriggers)) as Json;
+      }
       if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
       if (updates.isShared !== undefined) dbUpdates.is_shared = updates.isShared;
       if (updates.folderId !== undefined) dbUpdates.folder_id = updates.folderId;
@@ -311,15 +314,21 @@ export const useClinicalPhrases = () => {
   // Update field
   const updatePhraseField = React.useCallback(async (id: string, updates: Partial<PhraseField>): Promise<boolean> => {
     try {
-      const dbUpdates: Record<string, unknown> = {};
+      const dbUpdates: TablesUpdate<'phrase_fields'> = {};
       if (updates.fieldKey !== undefined) dbUpdates.field_key = updates.fieldKey;
       if (updates.fieldType !== undefined) dbUpdates.field_type = updates.fieldType;
       if (updates.label !== undefined) dbUpdates.label = updates.label;
       if (updates.placeholder !== undefined) dbUpdates.placeholder = updates.placeholder;
       if (updates.defaultValue !== undefined) dbUpdates.default_value = updates.defaultValue;
-      if (updates.options !== undefined) dbUpdates.options = updates.options;
-      if (updates.validation !== undefined) dbUpdates.validation = updates.validation;
-      if (updates.conditionalLogic !== undefined) dbUpdates.conditional_logic = updates.conditionalLogic;
+      if (updates.options !== undefined) {
+        dbUpdates.options = JSON.parse(JSON.stringify(updates.options)) as Json;
+      }
+      if (updates.validation !== undefined) {
+        dbUpdates.validation = JSON.parse(JSON.stringify(updates.validation)) as Json;
+      }
+      if (updates.conditionalLogic !== undefined) {
+        dbUpdates.conditional_logic = JSON.parse(JSON.stringify(updates.conditionalLogic)) as Json;
+      }
       if (updates.calculationFormula !== undefined) dbUpdates.calculation_formula = updates.calculationFormula;
       if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
 
@@ -381,65 +390,34 @@ export const useClinicalPhrases = () => {
     phraseId: string,
     patientId?: string,
     targetField?: string,
-    inputValues?: Record<string, unknown>,
-    insertedContent?: string
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data, error } = await supabase.rpc('record_owned_phrase_usage', {
+        p_phrase_id: phraseId,
+        p_patient_id: patientId ?? null,
+        p_target_field: targetField ?? null,
+      });
+      if (error) throw error;
 
-      // Update usage count
-      await supabase
-        .from('clinical_phrases')
-        .update({ 
-          usage_count: phrases.find(p => p.id === phraseId)?.usageCount ?? 0 + 1,
-          last_used_at: new Date().toISOString()
-        })
-        .eq('id', phraseId);
-
-      // Log usage
-      await supabase.from('phrase_usage_log').insert([{
-        user_id: user.id,
-        phrase_id: phraseId,
-        patient_id: patientId,
-        target_field: targetField,
-        input_values: inputValues ? JSON.parse(JSON.stringify(inputValues)) : null,
-        inserted_content: insertedContent,
-      }]);
+      const recordedUsage = data?.[0];
+      if (!recordedUsage) throw new Error('Phrase usage transaction returned no result');
 
       // Update local state
       setPhrases(prev => prev.map(p => 
         p.id === phraseId
-          ? { ...p, usageCount: p.usageCount + 1, lastUsedAt: new Date().toISOString() }
+          ? {
+              ...p,
+              usageCount: recordedUsage.usage_count,
+              lastUsedAt: recordedUsage.last_used_at,
+            }
           : p
       ));
-
-      if (insertedContent) {
-        const bankId = `clinician:${user.id}`;
-        const metadata = {
-          feature: 'phrases' as const,
-          phraseId,
-          patientId: patientId ?? null,
-          targetField: targetField ?? null,
-        };
-        const contentParts = [
-          `Phrase ID: ${phraseId}`,
-          patientId ? `Patient ID: ${patientId}` : null,
-          targetField ? `Target field: ${targetField}` : null,
-          inputValues ? `Input values:\n${JSON.stringify(inputValues)}` : null,
-          `Inserted content:\n${insertedContent}`,
-        ].filter(Boolean);
-
-        void retainMemory({
-          bankId,
-          content: contentParts.join('\n\n'),
-          metadata,
-        });
-      }
-    } catch (error) {
-      console.error('Error logging usage:', error);
+      return true;
+    } catch {
+      console.error('Phrase usage logging failed');
+      return false;
     }
-  }, [phrases]);
+  }, []);
 
   // Folder operations
   const createFolder = React.useCallback(async (folder: Omit<PhraseFolder, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<PhraseFolder | null> => {
@@ -477,7 +455,7 @@ export const useClinicalPhrases = () => {
 
   const updateFolder = React.useCallback(async (id: string, updates: Partial<PhraseFolder>): Promise<boolean> => {
     try {
-      const dbUpdates: Record<string, unknown> = {};
+      const dbUpdates: TablesUpdate<'phrase_folders'> = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.description !== undefined) dbUpdates.description = updates.description;
       if (updates.parentId !== undefined) dbUpdates.parent_id = updates.parentId;

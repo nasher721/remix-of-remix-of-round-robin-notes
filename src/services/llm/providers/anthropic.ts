@@ -11,6 +11,7 @@
  */
 
 import type { LLMProvider, LLMRequest, LLMResponse, ProviderConfig } from '../types';
+import { safeProviderHttpError, safeProviderRuntimeError } from './errors';
 
 const DEFAULT_BASE_URL = 'https://api.anthropic.com/v1';
 const API_VERSION = '2023-06-01';
@@ -75,14 +76,13 @@ export class AnthropicProvider implements LLMProvider {
       const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'anthropic',
           model: request.model,
           latencyMs,
-          error: `Anthropic API error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('Anthropic', 'request', response.status),
         };
       }
 
@@ -111,7 +111,7 @@ export class AnthropicProvider implements LLMProvider {
         provider: 'anthropic',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown Anthropic error',
+        error: safeProviderRuntimeError('Anthropic', 'request', err),
       };
     }
   }
@@ -135,14 +135,13 @@ export class AnthropicProvider implements LLMProvider {
       const response = await fetch(`${this.baseUrl}/messages`, fetchOptions);
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'anthropic',
           model: request.model,
           latencyMs: Date.now() - startTime,
-          error: `Anthropic stream error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('Anthropic', 'stream', response.status),
         };
       }
 
@@ -189,7 +188,7 @@ export class AnthropicProvider implements LLMProvider {
         provider: 'anthropic',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown Anthropic streaming error',
+        error: safeProviderRuntimeError('Anthropic', 'stream', err),
       };
     }
   }

@@ -30,6 +30,8 @@ export interface QueuedMutationDB {
   entityId?: string;
   conflictResolution?: 'server-wins' | 'client-wins' | 'manual';
   conflictData?: Record<string, unknown>;
+  /** The authenticated user that owns this mutation. */
+  ownerId?: string;
 }
 
 export interface CachedPatient {
@@ -65,18 +67,7 @@ export interface SyncMetadata {
   pendingChanges: number;
   conflictCount: number;
   checksum?: string;
-}
-
-export interface AICacheEntry {
-  id: string;
-  queryHash: string;
-  feature: string;
-  query: string;
-  response: string;
-  model: string;
-  cachedAt: number;
-  expiresAt: number;
-  hitCount: number;
+  ownerId?: string;
 }
 
 // ============================================
@@ -89,7 +80,6 @@ class RoundRobinDatabase extends Dexie {
   phrases!: EntityTable<CachedPhrase, 'id'>;
   guidelines!: EntityTable<CachedGuideline, 'id'>;
   syncMetadata!: EntityTable<SyncMetadata, 'id'>;
-  aiCache!: EntityTable<AICacheEntry, 'id'>;
 
   constructor() {
     super('RoundRobinNotesDB');
@@ -102,6 +92,12 @@ class RoundRobinDatabase extends Dexie {
       syncMetadata: 'id, tableName, lastSyncAt',
       aiCache: 'id, queryHash, feature, cachedAt, expiresAt'
     });
+
+    // Raw AI prompts and responses were cached by older builds. The cache is
+    // unused and can contain clinical text, so remove its object store.
+    this.version(3).stores({
+      aiCache: null,
+    });
   }
 }
 
@@ -110,6 +106,84 @@ class RoundRobinDatabase extends Dexie {
 // ============================================
 
 export const db = new RoundRobinDatabase();
+
+const AUTH_OWNER_METADATA_ID = '__auth_owner__';
+
+export type DataOwnerTransition = 'preserved' | 'cleared' | 'claimed';
+export type DataOwnerAction = 'preserve' | 'clear' | 'clear-and-claim';
+
+export function decideDataOwnerAction(
+  currentOwnerId: string | null,
+  nextOwnerId: string | null,
+): DataOwnerAction {
+  if (nextOwnerId !== null && currentOwnerId === nextOwnerId) return 'preserve';
+  return nextOwnerId === null ? 'clear' : 'clear-and-claim';
+}
+
+const allDataTables = () => [
+  db.mutations,
+  db.patients,
+  db.phrases,
+  db.guidelines,
+  db.syncMetadata,
+];
+
+async function clearAllTables(): Promise<void> {
+  await Promise.all([
+    db.mutations.clear(),
+    db.patients.clear(),
+    db.phrases.clear(),
+    db.guidelines.clear(),
+    db.syncMetadata.clear(),
+  ]);
+}
+
+/**
+ * Keep the browser database bound to exactly one authenticated user.
+ *
+ * The ownership check, purge, and claim run in one IndexedDB transaction, so a
+ * crash cannot leave another user's records associated with the new identity.
+ * Data created before ownership markers existed is deliberately quarantined by
+ * clearing it before the first user claims the database.
+ */
+export async function transitionDatabaseOwner(
+  nextOwnerId: string | null,
+): Promise<DataOwnerTransition> {
+  await db.open();
+
+  return db.transaction('rw', allDataTables(), async (): Promise<DataOwnerTransition> => {
+    const ownerRecord = await db.syncMetadata.get(AUTH_OWNER_METADATA_ID);
+    const currentOwnerId = ownerRecord?.ownerId ?? null;
+    const action = decideDataOwnerAction(currentOwnerId, nextOwnerId);
+
+    if (action === 'preserve') {
+      return 'preserved';
+    }
+
+    await clearAllTables();
+
+    if (nextOwnerId === null) {
+      return 'cleared';
+    }
+
+    await db.syncMetadata.put({
+      id: AUTH_OWNER_METADATA_ID,
+      tableName: AUTH_OWNER_METADATA_ID,
+      lastSyncAt: Date.now(),
+      lastSuccessfulSyncAt: Date.now(),
+      pendingChanges: 0,
+      conflictCount: 0,
+      ownerId: nextOwnerId,
+    });
+
+    return 'claimed';
+  });
+}
+
+export async function getDatabaseOwner(): Promise<string | null> {
+  await db.open();
+  return (await db.syncMetadata.get(AUTH_OWNER_METADATA_ID))?.ownerId ?? null;
+}
 
 // ============================================
 // Helper Functions
@@ -134,14 +208,7 @@ export async function initializeDatabase(): Promise<boolean> {
  */
 export async function clearAllData(): Promise<void> {
   try {
-    await Promise.all([
-      db.mutations.clear(),
-      db.patients.clear(),
-      db.phrases.clear(),
-      db.guidelines.clear(),
-      db.syncMetadata.clear(),
-      db.aiCache.clear()
-    ]);
+    await db.transaction('rw', allDataTables(), clearAllTables);
     logInfo('[IndexedDB] All data cleared');
   } catch (error) {
     console.error('[IndexedDB] Failed to clear data:', error);
@@ -157,17 +224,15 @@ export async function getDatabaseStats(): Promise<{
   patients: number;
   phrases: number;
   guidelines: number;
-  aiCache: number;
 }> {
-  const [mutations, patients, phrases, guidelines, aiCache] = await Promise.all([
+  const [mutations, patients, phrases, guidelines] = await Promise.all([
     db.mutations.count(),
     db.patients.count(),
     db.phrases.count(),
     db.guidelines.count(),
-    db.aiCache.count()
   ]);
   
-  return { mutations, patients, phrases, guidelines, aiCache };
+  return { mutations, patients, phrases, guidelines };
 }
 
 /**

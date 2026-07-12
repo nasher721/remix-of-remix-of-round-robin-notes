@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { getUserFacingErrorMessage, UserFacingError } from '@/lib/userFacingErrors';
 
 export interface CameraScannerProps {
   /** Callback when an image is captured */
@@ -42,6 +43,7 @@ export function CameraScanner({
   
   const [isActive, setIsActive] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
@@ -56,6 +58,7 @@ export function CameraScanner({
   const startCamera = useCallback(async () => {
     try {
       setError(null);
+      setPermissionDenied(false);
       
       const constraints: MediaStreamConstraints = {
         video: {
@@ -78,10 +81,18 @@ export function CameraScanner({
       setHasPermission(true);
       setIsActive(true);
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to access camera');
-      setError(error.message);
+      const denied = err instanceof DOMException &&
+        (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      const message = denied
+        ? 'Camera access was denied. Enable camera access in browser settings, then retry.'
+        : getUserFacingErrorMessage(
+          err,
+          'Camera could not start. Check that a camera is connected and not in use, then retry.',
+        );
+      setError(message);
+      setPermissionDenied(denied);
       setHasPermission(false);
-      onError?.(error);
+      onError?.(new UserFacingError(message));
     }
   }, [facingMode, videoConstraints, onError]);
 
@@ -215,8 +226,9 @@ export function CameraScanner({
             <circle cx="12" cy="13" r="4"/>
             <line x1="1" y1="1" x2="23" y2="23"/>
           </svg>
-          <p>Camera access denied</p>
-          <p className="hint">Please enable camera permissions in your browser settings</p>
+          <p>{permissionDenied ? 'Camera access denied' : 'Camera unavailable'}</p>
+          <p className="hint">{error}</p>
+          <button type="button" onClick={startCamera}>Retry camera</button>
         </div>
       </div>
     );

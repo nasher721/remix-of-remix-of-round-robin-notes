@@ -7,6 +7,11 @@ import type { Patient } from "@/types/patient";
 import { getPageMetrics } from "@/lib/print/layout";
 import { formatMedicationsHtml } from "./utils";
 import DOMPurify from "dompurify";
+import { sanitizeHtml } from "@/lib/sanitize";
+import {
+  PATIENT_IMAGE_KEY_ATTRIBUTE,
+  resolveOwnedPatientImageSignedUrl,
+} from "@/lib/patientImages";
 
 interface PrintDocumentProps extends PrintDataProps {
   settings: PrintSettings;
@@ -14,7 +19,21 @@ interface PrintDocumentProps extends PrintDataProps {
   documentId?: string;
 }
 
-const PRINT_ALLOWED_TAGS = new Set(["b", "strong", "i", "em", "u", "br", "ul", "ol", "li", "p", "div", "span"]);
+const PRINT_ALLOWED_TAGS = new Set([
+  "b",
+  "strong",
+  "i",
+  "em",
+  "u",
+  "br",
+  "ul",
+  "ol",
+  "li",
+  "p",
+  "div",
+  "span",
+  "img",
+]);
 
 const parsePrintableStyle = (styleText: string) => {
   const style: React.CSSProperties = {};
@@ -33,12 +52,18 @@ const parsePrintableStyle = (styleText: string) => {
   return style;
 };
 
-const renderPrintableHtml = (html: string): React.ReactNode => {
+const renderPrintableHtml = (
+  html: string,
+  imageOwnerId?: string,
+  imageSignedUrls?: ReadonlyMap<string, string>,
+): React.ReactNode => {
   if (!html) return null;
 
   const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: Array.from(PRINT_ALLOWED_TAGS),
-    ALLOWED_ATTR: ["style"],
+    // Stored src attributes are deliberately excluded. A private image URL is
+    // attached below only when its canonical key belongs to the active owner.
+    ALLOWED_ATTR: ["style", "alt", PATIENT_IMAGE_KEY_ATTRIBUTE],
   });
 
   const parser = new DOMParser();
@@ -63,6 +88,26 @@ const renderPrintableHtml = (html: string): React.ReactNode => {
       return <br key={key} />;
     }
 
+    if (tagName === "img") {
+      const objectKey = element.getAttribute(PATIENT_IMAGE_KEY_ATTRIBUTE);
+      const signedUrl = resolveOwnedPatientImageSignedUrl(
+        objectKey,
+        imageSignedUrls,
+        imageOwnerId,
+      );
+      if (!objectKey || !signedUrl) return null;
+
+      return (
+        <img
+          key={key}
+          src={signedUrl}
+          alt={(element.getAttribute("alt") || "Patient image").slice(0, 500)}
+          data-patient-image-key={objectKey}
+          className="my-2 h-auto max-w-full break-inside-avoid"
+        />
+      );
+    }
+
     if (!PRINT_ALLOWED_TAGS.has(tagName)) {
       return children;
     }
@@ -82,7 +127,19 @@ const renderPrintableHtml = (html: string): React.ReactNode => {
 const PRINT_STYLE_ID = "print-formatting-styles";
 
 export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps>(
-  ({ patients, patientTodos, patientNotes, settings, className, documentId }, ref) => {
+  (
+    {
+      patients,
+      patientTodos,
+      patientNotes,
+      patientImageOwnerId,
+      patientImageSignedUrls,
+      settings,
+      className,
+      documentId,
+    },
+    ref,
+  ) => {
     React.useEffect(() => {
       if (!document.getElementById(PRINT_STYLE_ID)) {
         const style = document.createElement("style");
@@ -123,7 +180,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
     const cleanInlineStyles = (html: string) => {
       if (!html) return "";
       const temp = document.createElement("div");
-      temp.innerHTML = html;
+      temp.innerHTML = sanitizeHtml(html);
       const elements = temp.querySelectorAll("*");
       elements.forEach((el) => {
         const style = el.getAttribute("style");
@@ -147,6 +204,12 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
       const sysKey = key.replace("systems.", "");
       return SYSTEM_LABELS_SHORT[sysKey] || key;
     }, []);
+
+    const renderClinicalHtml = React.useCallback(
+      (html: string) =>
+        renderPrintableHtml(html, patientImageOwnerId, patientImageSignedUrls),
+      [patientImageOwnerId, patientImageSignedUrls],
+    );
 
     const getHeaderFontSize = () => {
       const base = settings.printFontSize;
@@ -253,12 +316,12 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
         const sysKey = colKey.replace("systems.", "") as keyof typeof patient.systems;
         const val = patient.systems[sysKey];
         if (!val) return null;
-        return <div className="whitespace-pre-wrap break-words">{renderPrintableHtml(cleanInlineStyles(val))}</div>;
+        return <div className="whitespace-pre-wrap break-words">{renderClinicalHtml(cleanInlineStyles(val))}</div>;
       }
       if (colKey === "medications") {
         return (
           <div className="whitespace-pre-wrap break-words">
-            {renderPrintableHtml(
+            {renderClinicalHtml(
               formatMedicationsHtml(
                 (patient as Patient & { medications?: { infusions?: string[]; scheduled?: string[]; prn?: string[]; rawText?: string } }).medications
               )
@@ -268,7 +331,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
       }
       const val = patient[colKey as keyof typeof patient] as string;
       if (!val) return null;
-      return <div className="whitespace-pre-wrap break-words">{renderPrintableHtml(cleanInlineStyles(val))}</div>;
+      return <div className="whitespace-pre-wrap break-words">{renderClinicalHtml(cleanInlineStyles(val))}</div>;
     };
 
     const renderCombinedCell = (patient: Patient, sourceKeys: string[]) => {

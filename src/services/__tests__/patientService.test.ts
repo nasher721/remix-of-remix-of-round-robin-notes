@@ -31,6 +31,7 @@ test("maps patient records with safe defaults", () => {
   assert.equal(mapped.labs, "");
   assert.deepEqual(mapped.systems, defaultSystemsValue);
   assert.deepEqual(mapped.medications, defaultMedicationsValue);
+  assert.equal(mapped.lastModified, "2024-01-01T00:00:00Z");
 });
 
 test("builds patient insert payload with defaults", () => {
@@ -112,15 +113,15 @@ test("computes next patient counter correctly", () => {
     fieldTimestamps: {},
     collapsed: false,
     createdAt: "",
-    lastModified: null,
+    lastModified: "",
   };
   assert.equal(getNextPatientCounter([mockPatient]), 8);
   assert.equal(getNextPatientCounter([]), 1);
   
   const unsorted = [
-    { ...{ patientNumber: 3 }, id: "3", name: "", mrn: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: null },
-    { ...{ patientNumber: 1 }, id: "1", name: "", mrn: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: null },
-    { ...{ patientNumber: 5 }, id: "5", name: "", mrn: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: null },
+    { ...{ patientNumber: 3 }, id: "3", name: "", mrn: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: "" },
+    { ...{ patientNumber: 1 }, id: "1", name: "", mrn: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: "" },
+    { ...{ patientNumber: 5 }, id: "5", name: "", mrn: "", bed: "", clinicalSummary: "", intervalEvents: "", imaging: "", labs: "", systems: defaultSystemsValue, medications: defaultMedicationsValue, fieldTimestamps: {}, collapsed: false, createdAt: "", lastModified: "" },
   ];
   assert.equal(getNextPatientCounter(unsorted), 6);
 

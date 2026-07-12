@@ -1,230 +1,391 @@
 import {
   authenticateRequest,
-  getCorsHeaders,
-  errorResponse,
   checkRateLimit,
   handleOptions,
-  safeLog,
-  RATE_LIMITS,
-  parseAndValidateBody,
-  safeErrorMessage,
   jsonResponse,
-} from '../_shared/mod.ts';
+  parseAndValidateBody,
+  RATE_LIMITS,
+  safeLog,
+  validateStringArray,
+} from "../_shared/mod.ts";
 
 interface DrugInteractionRequest {
   medications: string[];
 }
 
-interface DrugInteraction {
+export type DrugLookupStatus = "available" | "not_found" | "provider_error";
+export type DrugPairStatus =
+  | "interaction_found"
+  | "no_documented_interaction"
+  | "inconclusive";
+
+export interface DrugCoverage {
+  drug: string;
+  status: DrugLookupStatus;
+  labelsChecked: number;
+  message: string;
+}
+
+export interface DocumentedInteraction {
   drug1: string;
   drug2: string;
-  severity: 'critical' | 'high' | 'moderate' | 'low';
   description: string;
-  source: string;
+  source: "FDA product labeling";
+  evidenceDrug: string;
+}
+
+export interface DrugPairAssessment {
+  drug1: string;
+  drug2: string;
+  status: DrugPairStatus;
+  message: string;
+}
+
+export interface DrugInteractionCheckResult {
+  success: true;
+  interactions: DocumentedInteraction[];
+  assessments: DrugPairAssessment[];
+  coverage: DrugCoverage[];
+  overallStatus: "complete" | "inconclusive";
+  checkedCount: number;
+  disclaimer: string;
 }
 
 interface OpenFDAResult {
-  id: string;
+  id?: string;
   openfda?: {
     brand_name?: string[];
     generic_name?: string[];
     rxcui?: string[];
   };
-  boxed_warning?: string[];
-  contraindications?: string[];
-  warnings?: string[];
   drug_interactions?: string[];
-  precautions?: string[];
 }
 
-const OPENFDA_BASE_URL = 'https://api.fda.gov/drug/label.json';
-const OPENFDA_API_KEY = Deno.env.get('OPENFDA_API_KEY');
-
-function getOpenFDAUrl(drugName: string): string {
-  const encodedDrug = encodeURIComponent(drugName);
-  const apiKeyParam = OPENFDA_API_KEY ? `&api_key=${OPENFDA_API_KEY}` : '';
-
-  return `${OPENFDA_BASE_URL}?search=openfda.brand_name:"${encodedDrug}"+openfda.generic_name:"${encodedDrug}"&limit=1${apiKeyParam}`;
+interface DrugLookupResult {
+  coverage: DrugCoverage;
+  labels: OpenFDAResult[];
 }
 
-async function fetchDrugInfo(drugName: string): Promise<OpenFDAResult | null> {
+const OPENFDA_BASE_URL = "https://api.fda.gov/drug/label.json";
+const MAX_MEDICATIONS = 20;
+const MAX_MEDICATION_NAME_BYTES = 200;
+const MAX_LABEL_RESULTS = 5;
+const LOOKUP_TIMEOUT_MS = 8_000;
+
+type FetchLike = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+function getOpenFDAApiKey(): string | undefined {
   try {
-    const response = await fetch(getOpenFDAUrl(drugName));
+    return Deno.env.get("OPENFDA_API_KEY");
+  } catch {
+    return undefined;
+  }
+}
+
+export function normalizeDrugName(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function getOpenFDAUrl(drugName: string): string {
+  const escapedDrug = drugName.replace(/[\\"]/g, "\\$&");
+  const url = new URL(OPENFDA_BASE_URL);
+  url.searchParams.set(
+    "search",
+    `openfda.brand_name:"${escapedDrug}" OR openfda.generic_name:"${escapedDrug}"`,
+  );
+  url.searchParams.set("limit", String(MAX_LABEL_RESULTS));
+  const apiKey = getOpenFDAApiKey();
+  if (apiKey) url.searchParams.set("api_key", apiKey);
+  return url.toString();
+}
+
+export async function fetchDrugLabels(
+  drugName: string,
+  fetchImpl: FetchLike = fetch,
+): Promise<DrugLookupResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
+
+  try {
+    const response = await fetchImpl(getOpenFDAUrl(drugName), {
+      signal: controller.signal,
+    });
+
+    if (response.status === 404) {
+      return {
+        coverage: {
+          drug: drugName,
+          status: "not_found",
+          labelsChecked: 0,
+          message: "No matching FDA product label was found.",
+        },
+        labels: [],
+      };
+    }
 
     if (!response.ok) {
-      if (response.status === 404) return null;
-      if (response.status === 429) {
-        throw new Error('OpenFDA rate limit exceeded. Please try again later.');
-      }
-      throw new Error(`OpenFDA API error: ${response.status}`);
+      safeLog("warn", "OpenFDA drug lookup failed", {
+        statusCode: response.status,
+      });
+      return {
+        coverage: {
+          drug: drugName,
+          status: "provider_error",
+          labelsChecked: 0,
+          message: response.status === 429
+            ? "FDA label service rate limit reached."
+            : "FDA label service was unavailable.",
+        },
+        labels: [],
+      };
     }
 
-    const data = await response.json();
+    const payload = await response.json() as { results?: unknown };
+    const labels = Array.isArray(payload.results)
+      ? payload.results.filter((item): item is OpenFDAResult =>
+        typeof item === "object" && item !== null
+      )
+      : [];
 
-    if (data.results && data.results.length > 0) {
-      return data.results[0] as OpenFDAResult;
+    if (labels.length === 0) {
+      return {
+        coverage: {
+          drug: drugName,
+          status: "not_found",
+          labelsChecked: 0,
+          message: "No matching FDA product label was found.",
+        },
+        labels: [],
+      };
     }
 
-    return null;
+    return {
+      coverage: {
+        drug: drugName,
+        status: "available",
+        labelsChecked: labels.length,
+        message: `${labels.length} matching FDA product label${
+          labels.length === 1 ? "" : "s"
+        } reviewed.`,
+      },
+      labels,
+    };
   } catch (error) {
-    console.error(`Error fetching drug info for ${drugName}:`, error);
-    return null;
+    safeLog("warn", "OpenFDA drug lookup failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
+    return {
+      coverage: {
+        drug: drugName,
+        status: "provider_error",
+        labelsChecked: 0,
+        message: error instanceof DOMException && error.name === "AbortError"
+          ? "FDA label service timed out."
+          : "FDA label service was unavailable.",
+      },
+      labels: [],
+    };
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
-function findDrugMentions(text: string, drugNames: string[]): string[] {
-  const found: string[] = [];
-  const lowerText = text.toLowerCase();
-
-  for (const drug of drugNames) {
-    const lowerDrug = drug.toLowerCase();
-    if (lowerText.includes(lowerDrug) || lowerText.includes(lowerDrug.replace(/\s+/g, ''))) {
-      found.push(drug);
-    }
-  }
-
-  return found;
+function normalizedText(value: string): string {
+  return ` ${
+    value
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  } `;
 }
 
-function extractInteractionDescription(
-  sections: string[] | undefined,
-  otherDrug: string
+function extractInteractionEvidence(
+  label: OpenFDAResult,
+  otherDrug: string,
 ): string | null {
-  if (!sections || sections.length === 0) return null;
+  const needle = normalizedText(otherDrug);
+  if (needle.trim().length < 2) return null;
 
-  for (const section of sections) {
-    if (section.toLowerCase().includes(otherDrug.toLowerCase())) {
-      const sentences = section.split(/[.!?]+/).filter(s => s.trim());
-      for (const sentence of sentences) {
-        if (sentence.toLowerCase().includes(otherDrug.toLowerCase())) {
-          return sentence.trim() + '.';
-        }
-      }
-      const firstSentence = sentences[0];
-      if (firstSentence) {
-        return firstSentence.trim() + '.';
+  for (const section of label.drug_interactions ?? []) {
+    if (!normalizedText(section).includes(needle)) continue;
+
+    const matchingSentence = section
+      .split(/(?<=[.!?])\s+/)
+      .find((sentence) => normalizedText(sentence).includes(needle));
+    const evidence = (matchingSentence ?? section).trim();
+    return evidence.length > 500 ? `${evidence.slice(0, 497)}...` : evidence;
+  }
+  return null;
+}
+
+function evidenceFromLookup(
+  lookup: DrugLookupResult,
+  labelDrug: string,
+  otherDrug: string,
+): DocumentedInteraction[] {
+  const evidence: DocumentedInteraction[] = [];
+  const seenDescriptions = new Set<string>();
+
+  for (const label of lookup.labels) {
+    const description = extractInteractionEvidence(label, otherDrug);
+    if (!description || seenDescriptions.has(description)) continue;
+    seenDescriptions.add(description);
+    evidence.push({
+      drug1: labelDrug,
+      drug2: otherDrug,
+      description,
+      source: "FDA product labeling",
+      evidenceDrug: labelDrug,
+    });
+  }
+
+  return evidence;
+}
+
+export function assessDrugLookups(
+  medications: string[],
+  lookups: Map<string, DrugLookupResult>,
+): DrugInteractionCheckResult {
+  const interactions: DocumentedInteraction[] = [];
+  const assessments: DrugPairAssessment[] = [];
+
+  for (let i = 0; i < medications.length; i++) {
+    for (let j = i + 1; j < medications.length; j++) {
+      const drug1 = medications[i];
+      const drug2 = medications[j];
+      const lookup1 = lookups.get(drug1)!;
+      const lookup2 = lookups.get(drug2)!;
+      const pairEvidence = [
+        ...evidenceFromLookup(lookup1, drug1, drug2),
+        ...evidenceFromLookup(lookup2, drug2, drug1),
+      ];
+
+      if (pairEvidence.length > 0) {
+        interactions.push(...pairEvidence);
+        assessments.push({
+          drug1,
+          drug2,
+          status: "interaction_found",
+          message:
+            "An interaction mention was found in retrieved FDA labeling.",
+        });
+      } else if (
+        lookup1.coverage.status === "available" &&
+        lookup2.coverage.status === "available"
+      ) {
+        assessments.push({
+          drug1,
+          drug2,
+          status: "no_documented_interaction",
+          message:
+            "No interaction was documented in the FDA labels retrieved for either drug.",
+        });
+      } else {
+        const unavailable = [lookup1.coverage, lookup2.coverage]
+          .filter((coverage) => coverage.status !== "available")
+          .map((coverage) => coverage.drug)
+          .join(" and ");
+        assessments.push({
+          drug1,
+          drug2,
+          status: "inconclusive",
+          message: `Coverage was incomplete for ${unavailable}.`,
+        });
       }
     }
   }
 
-  return null;
+  const coverage = medications.map((drug) => lookups.get(drug)!.coverage);
+  return {
+    success: true,
+    interactions,
+    assessments,
+    coverage,
+    overallStatus: coverage.every((item) => item.status === "available")
+      ? "complete"
+      : "inconclusive",
+    checkedCount: medications.length,
+    disclaimer:
+      "FDA product labels are not a complete interaction database. An absent label mention does not establish safety; verify with a validated interaction reference or pharmacist.",
+  };
 }
 
-async function checkInteraction(
-  drug1: string,
-  drug2: string
-): Promise<DrugInteraction | null> {
-  const drug1Info = await fetchDrugInfo(drug1);
-
-  if (!drug1Info) return null;
-
-  const sections = [
-    { field: drug1Info.boxed_warning, severity: 'critical' as const },
-    { field: drug1Info.contraindications, severity: 'high' as const },
-    { field: drug1Info.warnings, severity: 'moderate' as const },
-    { field: drug1Info.drug_interactions, severity: 'low' as const },
-  ];
-
-  for (const { field, severity } of sections) {
-    if (!field) continue;
-
-    for (const section of field) {
-      const mentions = findDrugMentions(section, [drug2]);
-
-      if (mentions.length > 0) {
-        const description = extractInteractionDescription(field, drug2);
-
-        if (description) {
-          return {
-            drug1,
-            drug2,
-            severity,
-            description: description.slice(0, 500),
-            source: 'OpenFDA Drug Labeling',
-          };
-        }
-      }
-    }
-  }
-
-  return null;
+export async function checkMedicationSet(
+  medications: string[],
+  fetchImpl: FetchLike = fetch,
+): Promise<DrugInteractionCheckResult> {
+  const lookupEntries = await Promise.all(
+    medications.map(async (drug) =>
+      [drug, await fetchDrugLabels(drug, fetchImpl)] as const
+    ),
+  );
+  return assessDrugLookups(medications, new Map(lookupEntries));
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return handleOptions(req);
+export async function handler(req: Request): Promise<Response> {
+  if (req.method === "OPTIONS") return handleOptions(req);
+  if (req.method !== "POST") {
+    return jsonResponse(
+      req,
+      { success: false, error: "Method not allowed" },
+      405,
+    );
   }
 
-  // SECURITY: Authenticate request
   const authResult = await authenticateRequest(req);
-  if ('error' in authResult) {
-    return authResult.error;
+  if ("error" in authResult) return authResult.error;
+
+  const rateLimitResult = await checkRateLimit(
+    req,
+    RATE_LIMITS.standard,
+    authResult.userId,
+  );
+  if (!rateLimitResult.allowed) return rateLimitResult.response!;
+
+  const bodyResult = await parseAndValidateBody<DrugInteractionRequest>(req);
+  if (!bodyResult.valid) return bodyResult.response;
+
+  const validated = validateStringArray(
+    bodyResult.data.medications,
+    "medications",
+    MAX_MEDICATIONS,
+    MAX_MEDICATION_NAME_BYTES,
+  );
+  if (!Array.isArray(validated)) {
+    return jsonResponse(req, { success: false, error: validated.error }, 400);
   }
 
-  // Rate limiting
-  const rateLimitResult = checkRateLimit(req, RATE_LIMITS.standard, authResult.userId);
-  if (!rateLimitResult.allowed) {
-    return rateLimitResult.response!;
-  }
-
-  safeLog('info', 'Drug interaction check request', { userIdPrefix: authResult.userId.slice(0, 8) });
-
-  try {
-    const bodyResult = await parseAndValidateBody<{ medications?: string[] }>(req);
-    if (!bodyResult.valid) {
-      return bodyResult.response;
-    }
-    const { medications } = bodyResult.data;
-
-    if (!Array.isArray(medications) || medications.length < 2) {
-      return jsonResponse(req, { error: 'At least 2 medications required to check for interactions' }, 400);
-    }
-
-    const normalizedMeds = medications
-      .map(m => m.trim())
-      .filter(m => m.length > 0)
-      .map(m => m.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim());
-
-    if (normalizedMeds.length < 2) {
-      return jsonResponse(req, { error: 'At least 2 valid medication names required' }, 400);
-    }
-
-    const interactions: DrugInteraction[] = [];
-    const seenPairs = new Set<string>();
-
-    for (let i = 0; i < normalizedMeds.length; i++) {
-      for (let j = i + 1; j < normalizedMeds.length; j++) {
-        const pairKey = [normalizedMeds[i], normalizedMeds[j]].sort().join('|');
-
-        if (seenPairs.has(pairKey)) continue;
-        seenPairs.add(pairKey);
-
-        const interaction = await checkInteraction(normalizedMeds[i], normalizedMeds[j]);
-
-        if (interaction) {
-          interactions.push(interaction);
-        }
-      }
-    }
-
-    interactions.sort((a, b) => {
-      const severityOrder = { critical: 0, high: 1, moderate: 2, low: 3 };
-      return severityOrder[a.severity] - severityOrder[b.severity];
-    });
-
+  const medications = [
+    ...new Set(validated.map(normalizeDrugName).filter(Boolean)),
+  ];
+  if (medications.length < 2) {
     return jsonResponse(req, {
-      success: true,
-      interactions,
-      checkedCount: normalizedMeds.length,
-      disclaimer: 'This information is for reference only and should not replace professional medical advice. Data sourced from FDA drug labeling.',
-    });
-
-  } catch (error) {
-    safeLog('error', 'Drug interaction check error', { errorMessage: (error as Error).message });
-
-    return jsonResponse(req, {
-      error: safeErrorMessage(error, 'An unexpected error occurred'),
       success: false,
-    }, 500);
+      error: "At least 2 distinct valid medication names are required",
+    }, 400);
   }
-});
+
+  safeLog("info", "Drug interaction check request accepted", {
+    medicationCount: medications.length,
+  });
+
+  const result = await checkMedicationSet(medications);
+  safeLog("info", "Drug interaction check completed", {
+    interactionCount: result.interactions.length,
+    medicationCount: result.checkedCount,
+    status: result.overallStatus,
+  });
+  return jsonResponse(req, result);
+}
+
+if (import.meta.main) Deno.serve(handler);

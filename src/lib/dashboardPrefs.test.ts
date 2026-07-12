@@ -1,6 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_DASHBOARD_PREFS, sanitizeDashboardPrefs } from "@/lib/dashboardPrefs";
+import {
+  DASHBOARD_PREFS_STORAGE_KEY,
+  DEFAULT_DASHBOARD_PREFS,
+  loadDashboardPrefs,
+  sanitizeDashboardPrefs,
+  saveDashboardPrefs,
+} from "@/lib/dashboardPrefs";
+import { createSafeStorage } from "@/utils/safeStorage";
 
 describe("sanitizeDashboardPrefs", () => {
   it("returns defaults for non-object input", () => {
@@ -39,5 +46,72 @@ describe("sanitizeDashboardPrefs", () => {
   it("falls back to sidebar for invalid roster layout mode", () => {
     const prefs = sanitizeDashboardPrefs({ patientRosterLayoutMode: "unknown_mode" });
     assert.equal(prefs.patientRosterLayoutMode, "sidebar");
+  });
+});
+
+describe("dashboard preference storage failures", () => {
+  it("returns defaults when localStorage cannot be accessed", () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("Access to storage is not allowed from this context");
+      },
+    });
+
+    try {
+      assert.deepEqual(loadDashboardPrefs(), DEFAULT_DASHBOARD_PREFS);
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(window, "localStorage", originalDescriptor);
+      }
+    }
+  });
+
+  it("keeps working when localStorage writes throw", () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: {
+        getItem: () => null,
+        setItem: () => {
+          throw new Error("Quota exceeded");
+        },
+        removeItem: () => {},
+      },
+    });
+
+    try {
+      assert.doesNotThrow(() => {
+        saveDashboardPrefs({ ...DEFAULT_DASHBOARD_PREFS, leftPatientListOpen: false });
+      });
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(window, "localStorage", originalDescriptor);
+      }
+    }
+  });
+
+  it("creates a memory-backed safe storage adapter when localStorage access throws", () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new Error("Access to storage is not allowed from this context");
+      },
+    });
+
+    try {
+      const storage = createSafeStorage();
+      storage.setItem(DASHBOARD_PREFS_STORAGE_KEY, "memory-value");
+      assert.equal(storage.getItem(DASHBOARD_PREFS_STORAGE_KEY), "memory-value");
+    } finally {
+      if (originalDescriptor) {
+        Object.defineProperty(window, "localStorage", originalDescriptor);
+      }
+    }
   });
 });

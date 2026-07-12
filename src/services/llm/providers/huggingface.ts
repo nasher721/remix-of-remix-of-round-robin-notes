@@ -13,6 +13,7 @@
  */
 
 import type { LLMProvider, LLMRequest, LLMResponse, ProviderConfig } from '../types';
+import { safeProviderHttpError, safeProviderRuntimeError } from './errors';
 
 const DEFAULT_BASE_URL = 'https://api-inference.huggingface.co/models';
 
@@ -72,7 +73,7 @@ export class HuggingFaceProvider implements LLMProvider {
         provider: 'huggingface',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown HuggingFace error',
+        error: safeProviderRuntimeError('HuggingFace', 'request', err),
       };
     }
   }
@@ -108,14 +109,13 @@ export class HuggingFaceProvider implements LLMProvider {
       const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'huggingface',
           model: request.model,
           latencyMs: Date.now() - startTime,
-          error: `HuggingFace stream error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('HuggingFace', 'stream', response.status),
         };
       }
 
@@ -163,7 +163,7 @@ export class HuggingFaceProvider implements LLMProvider {
         provider: 'huggingface',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown HuggingFace streaming error',
+        error: safeProviderRuntimeError('HuggingFace', 'stream', err),
       };
     }
   }
@@ -211,8 +211,6 @@ export class HuggingFaceProvider implements LLMProvider {
     const latencyMs = Date.now() - startTime;
 
     if (!response.ok) {
-      const errorText = await response.text();
-
       // HF returns 503 when model is loading
       if (response.status === 503) {
         return {
@@ -231,7 +229,7 @@ export class HuggingFaceProvider implements LLMProvider {
         provider: 'huggingface',
         model: request.model,
         latencyMs,
-        error: `HuggingFace API error ${response.status}: ${errorText}`,
+        error: safeProviderHttpError('HuggingFace', 'request', response.status),
       };
     }
 
@@ -287,14 +285,13 @@ export class HuggingFaceProvider implements LLMProvider {
     const latencyMs = Date.now() - startTime;
 
     if (!response.ok) {
-      const errorText = await response.text();
       return {
         success: false,
         content: '',
         provider: 'huggingface',
         model: request.model,
         latencyMs,
-        error: `HuggingFace API error ${response.status}: ${errorText}`,
+        error: safeProviderHttpError('HuggingFace', 'request', response.status),
       };
     }
 

@@ -67,9 +67,10 @@ export function usePatientSearch(patients: Patient[]) {
     }
 
     if (filter.systemFilter !== "all") {
+      const systemFilter = filter.systemFilter;
       result = result.filter((p) => {
         const systems = p.systems as PatientSystems | undefined;
-        return systems && systems[filter.systemFilter] && systems[filter.systemFilter].length > 0;
+        return Boolean(systems?.[systemFilter]?.length);
       });
     }
 
@@ -77,17 +78,18 @@ export function usePatientSearch(patients: Patient[]) {
       result = result.filter((p) => {
         const meds = p.medications as PatientMedications | undefined;
         if (!meds) return false;
-        const infusions = meds.infusions || meds.infusions;
+        const infusions = meds.infusions;
         const totalMeds = (infusions?.length || 0) + (meds.scheduled?.length || 0) + (meds.prn?.length || 0);
         return totalMeds > 0;
       });
     }
 
     if (filter.medicationType !== "all") {
+      const medicationType = filter.medicationType;
       result = result.filter((p) => {
         const meds = p.medications as PatientMedications | undefined;
         if (!meds) return false;
-        return meds[filter.medicationType] && meds[filter.medicationType].length > 0;
+        return meds[medicationType].length > 0;
       });
     }
 

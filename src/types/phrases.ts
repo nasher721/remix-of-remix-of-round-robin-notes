@@ -117,8 +117,6 @@ export interface PhraseUsageLog {
   phraseId: string;
   patientId?: string | null;
   targetField?: string | null;
-  inputValues?: Record<string, unknown> | null;
-  insertedContent: string;
   createdAt: string;
 }
 

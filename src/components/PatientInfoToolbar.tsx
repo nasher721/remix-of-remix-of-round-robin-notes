@@ -33,6 +33,28 @@ interface PatientInfoToolbarProps {
   className?: string;
 }
 
+const formatMedications = (patient: Patient): string => {
+  const { infusions, scheduled, prn, rawText } = patient.medications;
+  if (rawText?.trim()) return rawText;
+
+  const medications = [...infusions, ...scheduled, ...prn].filter(Boolean);
+  return medications.length > 0 ? medications.join(", ") : "[Medications]";
+};
+
+const formatVitals = (patient: Patient): string => {
+  if (!patient.vitals) return "[Vitals]";
+
+  const values = [
+    patient.vitals.temp && `Temp ${patient.vitals.temp}`,
+    patient.vitals.hr && `HR ${patient.vitals.hr}`,
+    patient.vitals.bp && `BP ${patient.vitals.bp}`,
+    patient.vitals.rr && `RR ${patient.vitals.rr}`,
+    patient.vitals.spo2 && `SpO₂ ${patient.vitals.spo2}`,
+  ].filter((value): value is string => Boolean(value));
+
+  return values.length > 0 ? values.join(", ") : "[Vitals]";
+};
+
 export const PatientInfoToolbar = ({
   onInsert,
   patient,
@@ -76,31 +98,31 @@ export const PatientInfoToolbar = ({
         value = patient.mrn || "[MRN]";
         break;
       case "dob":
-        value = patient.dob || "[DOB]";
+        value = "[DOB]";
         break;
       case "room":
-        value = patient.room || "[Room]";
+        value = patient.bed || "[Room]";
         break;
       case "codeStatus":
         value = patient.codeStatus || "[Code Status]";
         break;
       case "attending":
-        value = patient.attending || "[Attending]";
+        value = patient.attendingPhysician || "[Attending]";
         break;
       case "diagnosis":
-        value = patient.diagnosis || "[Diagnosis]";
+        value = "[Diagnosis]";
         break;
       case "admissionDate":
-        value = patient.admissionDate || "[Admission]";
+        value = "[Admission]";
         break;
       case "allergies":
-        value = patient.allergies || "[No Allergies]";
+        value = "[No Allergies]";
         break;
       case "medications":
-        value = patient.medications || "[Medications]";
+        value = formatMedications(patient);
         break;
       case "vitals":
-        value = patient.vitals || "[Vitals]";
+        value = formatVitals(patient);
         break;
       case "labs":
         value = patient.labs || "[Labs]";

@@ -1,65 +1,97 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+const CLINICAL_USE_WARNING = "Bundled demo content only. It is not synchronized with IBCC or any live clinical source, has no verified review date, and must not be used for clinical decision-making. Verify guidance against current institutional protocols and authoritative sources.";
+
+const demoContent: Readonly<Record<string, string>> = Object.freeze({
+    Resuscitation: "Demo topic outline covering fluid therapy, vasopressors, and airway management. No current protocol or treatment parameters are included.",
+    Neurology: "Demo topic outline covering acute stroke, status epilepticus, and elevated intracranial pressure. No current protocol or treatment parameters are included.",
+    Pulmonology: "Demo topic outline covering ARDS ventilation and asthma exacerbation. No current protocol or treatment parameters are included.",
+    DKA: "Demo topic outline covering fluids, insulin, electrolyte monitoring, and resolution criteria. No current protocol or treatment parameters are included."
+});
+
+export interface DemoContentResult {
+    text: string;
+    structuredContent: {
+        status: "unverified_demo_content";
+        clinical_use: "not_for_clinical_decision_making";
+        last_verified_at: null;
+        requested_topic: string;
+        matched_category: string | null;
+        content: string;
+        source: "Bundled demo content (not synchronized)";
+        disclaimer: string;
+    };
+}
+
+export function lookupDemoContent(topic: string): DemoContentResult {
+    const requestedTopic = topic.trim();
+    if (!requestedTopic) {
+        throw new Error("Topic cannot be empty");
+    }
+
+    const topicWords: string[] = requestedTopic.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+    const matchedCategory = Object.keys(demoContent).find(category =>
+        topicWords.includes(category.toLowerCase())
+    ) ?? null;
+
+    const content = matchedCategory
+        ? demoContent[matchedCategory]
+        : `No bundled demo outline matched '${requestedTopic}'. Available demo topics: ${Object.keys(demoContent).join(", ")}.`;
+
+    return {
+        text: `WARNING: ${CLINICAL_USE_WARNING}\n\n## Demo topic: ${matchedCategory ?? requestedTopic}\n\n${content}\n\nSource: Bundled demo content (not synchronized)`,
+        structuredContent: {
+            status: "unverified_demo_content",
+            clinical_use: "not_for_clinical_decision_making",
+            last_verified_at: null,
+            requested_topic: requestedTopic,
+            matched_category: matchedCategory,
+            content,
+            source: "Bundled demo content (not synchronized)",
+            disclaimer: CLINICAL_USE_WARNING
+        }
+    };
+}
+
 export function registerContentTools(server: McpServer) {
     server.registerTool(
         "clinical_sync_content",
         {
-            title: "Sync/Search Clinical Content",
-            description: `Retrieves or synchronizes clinical content from the IBCC library.
-This tool allows the AI to fetch specific chapters or topics to provide up-to-date protocol guidance.
-
-Note: Currently acting as a mock interface reading from hardcoded summaries until DB integration is defined.
+            title: "Search Bundled Clinical Demo Topics",
+            description: `Searches a small set of bundled demo topic outlines. Despite the legacy tool name, this implementation does not synchronize content and does not connect to IBCC, institutional protocols, or another live clinical source. The outlines have no verified review date and are not clinical guidance.
 
 Args:
-  - topic (string): The clinical topic or chapter to search for (e.g., 'Resuscitation', 'Neurology', 'Pulmonology', 'DKA').
+  - topic (string): Demo topic to search for (for example, 'Resuscitation', 'Neurology', 'Pulmonology', or 'DKA').
 
 Returns:
-  A structured object containing the content summary and source reference.`,
+  A demo outline with explicit provenance, verification status, and a warning against clinical use.`,
             inputSchema: z.object({
-                topic: z.string()
+                topic: z.string().trim().min(1, "Topic cannot be empty").max(200)
             }),
             annotations: {
                 readOnlyHint: true,
                 destructiveHint: false,
                 idempotentHint: true,
-                openWorldHint: true
+                openWorldHint: false
             }
         },
         async ({ topic }) => {
-            // Mock content database
-            const mockDb: Record<string, string> = {
-                "Resuscitation": "Core principles of fluid therapy, vasopressors, and airway management. Prioritize ABCs. For septic shock, target MAP >65 mmHg.",
-                "Neurology": "Management of acute stroke, status epilepticus, and elevated ICP. Target normothermia, specific blood pressure parameters depending on pathology (e.g., <185/110 for ischemic stroke receiving tPA).",
-                "Pulmonology": "ARDSnet protocol: Low tidal volume ventilation (6 cc/kg ideal body weight), peep/fio2 titration. Asthma exacerbation: Continuous nebulizers, steroids, consider magnesium.",
-                "DKA": "Diabetic Ketoacidosis management: 1. Fluid resuscitation (NS or LR). 2. Insulin infusion (0.1 U/kg/hr). 3. Potassium replacement. Do not stop insulin until anion gap is closed.",
-            };
-
-            const normalizedTopic = Object.keys(mockDb).find(k =>
-                topic.toLowerCase().includes(k.toLowerCase()) ||
-                k.toLowerCase().includes(topic.toLowerCase())
-            );
-
-            let content = "";
-            if (normalizedTopic) {
-                content = mockDb[normalizedTopic];
-            } else {
-                content = `No specific mock content found for topic: '${topic}'. Available topics: ${Object.keys(mockDb).join(", ")}`;
+            try {
+                const result = lookupDemoContent(topic);
+                return {
+                    content: [{ type: "text", text: result.text }],
+                    structuredContent: result.structuredContent
+                };
+            } catch (error: unknown) {
+                return {
+                    isError: true,
+                    content: [{
+                        type: "text",
+                        text: `Error searching demo content: ${error instanceof Error ? error.message : String(error)}`
+                    }]
+                };
             }
-
-            const output = {
-                requested_topic: topic,
-                matched_category: normalizedTopic || null,
-                content: content,
-                source: "IBCC Mock Database"
-            };
-
-            const textContent = `## Topic: ${normalizedTopic || topic}\n\n**Content:** ${content}\n\n*Source: IBCC Mock Database*`;
-
-            return {
-                content: [{ type: "text", text: textContent }],
-                structuredContent: output
-            };
         }
     );
 }

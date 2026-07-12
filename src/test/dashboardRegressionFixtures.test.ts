@@ -5,6 +5,7 @@ import {
   dashboardPatients20,
   dashboardImportPatients,
   dashboardPatientUpdatePatch,
+  dashboardPatients3,
   makeDashboardPatientRows,
   makeDashboardPatients,
   makeDashboardTodoRows,
@@ -31,6 +32,18 @@ describe("dashboard regression fixtures", () => {
     assert.equal(dashboardPatients20[19].bed, "E20");
     assert.equal(Object.keys(todosMap).length, 20);
     assert.equal(todosMap["patient-20"][0].content, "Review active plan for E20");
+  });
+
+  it("provides an explicit three-patient roster fixture for compact dashboard states", () => {
+    assert.equal(dashboardPatients3.length, 3);
+    assert.deepEqual(
+      dashboardPatients3.map((patient) => patient.bed),
+      ["A01", "A02", "A03"],
+    );
+    assert.deepEqual(
+      dashboardPatients3.map((patient) => patient.id),
+      ["patient-01", "patient-02", "patient-03"],
+    );
   });
 
   it("provides database-row mocks and small workflow fixtures for dashboard harnesses", () => {

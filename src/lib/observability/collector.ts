@@ -22,7 +22,7 @@ let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getIngestUrl(): string | undefined {
   try {
-    const u = typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEMETRY_INGEST_URL;
+    const u = import.meta.env.VITE_TELEMETRY_INGEST_URL;
     return typeof u === 'string' && u.length > 0 ? u : undefined;
   } catch {
     return undefined;

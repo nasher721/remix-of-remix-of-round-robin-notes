@@ -17,6 +17,30 @@ function setupAuthMock() {
   };
 }
 
+function setupAuthTransitionMock(initialUserId = "user-a") {
+  let authStateCallback: ((event: string, session: { user: { id: string } }) => void) | undefined;
+  (globalThis as unknown as {
+    __SUPABASE_AUTH_MOCK__?: {
+      getSession: () => Promise<{ data: { session: { user: { id: string } } }; error: null }>;
+      onAuthStateChange: (callback: typeof authStateCallback) => { unsubscribe: () => void };
+    };
+  }).__SUPABASE_AUTH_MOCK__ = {
+    getSession: async () => ({ data: { session: { user: { id: initialUserId } } }, error: null }),
+    onAuthStateChange: (callback) => {
+      authStateCallback = callback;
+      return { unsubscribe: () => {} };
+    },
+  };
+
+  return async (nextUserId: string) => {
+    assert.ok(authStateCallback, "auth listener should be registered");
+    await act(async () => {
+      authStateCallback!("SIGNED_IN", { user: { id: nextUserId } });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+  };
+}
+
 function makeExistingPatient(patientNumber: number): Patient {
   return {
     id: `existing-${patientNumber}`,
@@ -317,6 +341,84 @@ test("usePatientImport importPatients preserves patient-number conflict retry wi
     assert.deepEqual(patientsRef.current.map((patient) => patient.patientNumber), [43, 44]);
   } finally {
     supabaseMock.restore();
+  }
+});
+
+test("usePatientImport ignores a deferred user-A insert after switching to user B", async () => {
+  const transitionTo = setupAuthTransitionMock();
+  const userAPatient = makeExistingPatient(1);
+  userAPatient.id = "patient-a";
+  userAPatient.name = "User A";
+  const userBPatient = makeExistingPatient(2);
+  userBPatient.id = "patient-b";
+  userBPatient.name = "User B";
+  const patientsRef: React.MutableRefObject<Patient[]> = { current: [userAPatient] };
+  let renderedPatients = patientsRef.current;
+  const setPatients = (action: React.SetStateAction<Patient[]>) => {
+    renderedPatients = typeof action === "function"
+      ? (action as (prev: Patient[]) => Patient[])(renderedPatients)
+      : action;
+    patientsRef.current = renderedPatients;
+  };
+
+  const supabaseWithMutableFrom = supabase as unknown as { from: (table: string) => unknown };
+  const originalFrom = supabaseWithMutableFrom.from.bind(supabase);
+  let resolveInsert!: (result: { data: unknown; error: null }) => void;
+  let insertedPayload: Record<string, unknown> | undefined;
+  supabaseWithMutableFrom.from = (table: string) => {
+    if (table !== "patients") return originalFrom(table);
+    return {
+      insert(rows: unknown[]) {
+        insertedPayload = rows[0] as Record<string, unknown>;
+        return {
+          select: () => ({
+            single: () => new Promise((resolve) => {
+              resolveInsert = resolve;
+            }),
+          }),
+        };
+      },
+    };
+  };
+
+  try {
+    const { result } = renderHook(
+      () => usePatientImport({ patientsRef, setPatients }),
+      { wrapper: authWrapper },
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+
+    let pendingInsert!: Promise<void>;
+    await act(async () => {
+      pendingInsert = result.current.addPatientWithData({
+        name: "Late User A",
+        bed: "A1",
+        clinicalSummary: "A-only summary",
+        intervalEvents: "",
+        imaging: "",
+        labs: "",
+        systems: defaultSystemsValue,
+      });
+      await Promise.resolve();
+    });
+    assert.ok(insertedPayload, "user-A insert should be in flight");
+
+    await transitionTo("user-b");
+    renderedPatients = [userBPatient];
+    patientsRef.current = renderedPatients;
+
+    await act(async () => {
+      resolveInsert({ data: rowFromPayload(insertedPayload!, "late-patient-a"), error: null });
+      await pendingInsert;
+    });
+
+    assert.deepEqual(renderedPatients, [userBPatient]);
+    assert.deepEqual(patientsRef.current, [userBPatient]);
+  } finally {
+    supabaseWithMutableFrom.from = originalFrom;
   }
 });
 

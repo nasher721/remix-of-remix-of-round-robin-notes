@@ -8,6 +8,7 @@ import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { recordTelemetryEvent } from "@/lib/observability/telemetry";
+import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
 
 function isDynamicImportFetchError(error: Error): boolean {
   const msg = (error?.message || "").toLowerCase();
@@ -58,7 +59,10 @@ export function LazyPanelErrorFallback({
         <div>
           <h3 className="font-medium text-lg">{title}</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            {error.message || "An unexpected error occurred"}
+            {getUserFacingErrorMessage(
+              error,
+              "This panel could not be loaded. Please try again.",
+            )}
           </p>
         </div>
         <Button onClick={onRetry} variant="outline" className="gap-2" type="button">
@@ -97,7 +101,6 @@ export class LazyPanelErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error("[LazyPanelErrorBoundary]", error, errorInfo);
     recordTelemetryEvent("render_error", error, {
       boundary: "LazyPanelErrorBoundary",
       panelTitle: this.props.title,

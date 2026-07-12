@@ -1,11 +1,12 @@
 /**
- * CRDT-based sync for collaborative editing (Yjs + IndexedDB + Supabase).
- * Currently unused; remove or adopt when real-time collaboration is implemented.
+ * CRDT-based local editing with Yjs, IndexedDB, and RLS-protected table sync.
+ * Public Realtime broadcast is disabled until private topic authorization is
+ * implemented.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as Y from 'yjs';
 import { IndexeddbPersistence } from 'y-indexeddb';
-import { createClient, RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface CRDTDoc {
   id: string;
@@ -58,17 +59,11 @@ export function useCRDT(
   onConflictRef.current = onConflict;
   onErrorRef.current = onError;
 
-  const autoSyncRef = useRef(autoSync);
-  const syncIntervalRef = useRef(syncInterval);
-  autoSyncRef.current = autoSync;
-  syncIntervalRef.current = syncInterval;
-
   const ydocRef = useRef<Y.Doc | null>(null);
   const ytextRef = useRef<Y.Text | null>(null);
-  const providerRef = useRef<RealtimeChannel | null>(null);
   const persistenceRef = useRef<IndexeddbPersistence | null>(null);
   const isRemoteUpdate = useRef(false);
-  const isLocalUpdate = useRef(false);
+  const isDirtyRef = useRef(false);
 
   const [content, setContent] = useState(initialContent);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -84,72 +79,40 @@ export function useCRDT(
     persistenceRef.current.on('synced', () => {
       setContent(ytextRef.current?.toString() || '');
       setIsDirty(false);
+      isDirtyRef.current = false;
+      if (autoSync) {
+        void syncFromServer();
+      }
     });
 
     const handleLocalChange = () => {
       if (!isRemoteUpdate.current && ytextRef.current) {
-        isLocalUpdate.current = true;
         const newContent = ytextRef.current.toString();
         setContent(newContent);
         setIsDirty(true);
+        isDirtyRef.current = true;
         onSyncRef.current(newContent);
-        isLocalUpdate.current = false;
       }
     };
 
     ytextRef.current.observe(handleLocalChange);
 
-    const channel = supabase.channel(`crdt-${tableName}-${docId}`, {
-      config: {
-        presence: { key: docId },
-        broadcast: { self: false },
-      },
-    });
-
-    channel.on('broadcast', { event: 'crdt-update' }, (payload) => {
-      if (ydocRef.current && payload.payload) {
-        isRemoteUpdate.current = true;
-        try {
-          const update = new Uint8Array(payload.payload.update);
-          Y.applyUpdate(ydocRef.current, update);
-          setContent(ytextRef.current?.toString() || '');
-          setIsDirty(false);
-          setLastSynced(new Date());
-          setVersion((v) => v + 1);
-        } catch (err) {
-          onError?.(err as Error);
-        }
-        isRemoteUpdate.current = false;
-      }
-    });
-
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        if (autoSync) {
-          await syncFromServer();
-        }
-      }
-    });
-
-    providerRef.current = channel;
-
     const syncIntervalId = autoSync
       ? setInterval(() => {
-          if (isDirty) {
-            syncToServer();
+          if (isDirtyRef.current) {
+            void syncToServer();
           }
         }, syncInterval)
       : null;
 
     return () => {
       if (syncIntervalId) clearInterval(syncIntervalId);
-      channel.unsubscribe();
       ytextRef.current?.unobserve(handleLocalChange);
       persistenceRef.current?.destroy();
       ydocRef.current?.destroy();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- isDirty, syncFns, onError accessed via refs/setInterval closure
-  }, [docId, tableName, autoSync, syncInterval, supabase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- sync callbacks use the same lifecycle keys listed here
+  }, [docId, tableName, idField, contentField, autoSync, syncInterval, supabase]);
 
   const syncFromServer = useCallback(async () => {
     if (!docId || !supabase) return;
@@ -158,25 +121,34 @@ export function useCRDT(
     try {
       const { data, error } = await supabase
         .from(tableName)
-        .select(`${idField}, ${contentField}, updated_at`)
+        .select('*')
         .eq(idField, docId)
         .single();
 
       if (error) throw error;
 
       if (data && ydocRef.current && ytextRef.current) {
-        const remoteContent = data[contentField];
+        const remoteContent = (data as unknown as Record<string, unknown>)[contentField];
         const localContent = ytextRef.current.toString();
 
+        if (typeof remoteContent !== 'string') {
+          throw new Error(`Expected ${contentField} to contain text`);
+        }
+
         if (remoteContent !== localContent) {
-          if (onConflict && remoteContent) {
-            onConflict(localContent, remoteContent);
+          if (onConflictRef.current && remoteContent) {
+            onConflictRef.current(localContent, remoteContent);
           }
 
-          ydocRef.current.transact(() => {
-            ytextRef.current?.delete(0, ytextRef.current.length);
-            ytextRef.current?.insert(0, remoteContent);
-          });
+          isRemoteUpdate.current = true;
+          try {
+            ydocRef.current.transact(() => {
+              ytextRef.current?.delete(0, ytextRef.current.length);
+              ytextRef.current?.insert(0, remoteContent);
+            });
+          } finally {
+            isRemoteUpdate.current = false;
+          }
 
           setContent(remoteContent);
           setVersion((v) => v + 1);
@@ -185,14 +157,14 @@ export function useCRDT(
         setLastSynced(new Date());
       }
     } catch (err) {
-      onError?.(err as Error);
+      onErrorRef.current?.(err as Error);
     } finally {
       setIsSyncing(false);
     }
-  }, [docId, tableName, idField, contentField, supabase, onConflict, onError]);
+  }, [docId, tableName, idField, contentField, supabase]);
 
   const syncToServer = useCallback(async () => {
-    if (!docId || !supabase || !isDirty) return;
+    if (!docId || !supabase || !isDirtyRef.current) return;
 
     setIsSyncing(true);
     try {
@@ -208,23 +180,15 @@ export function useCRDT(
 
       if (error) throw error;
 
-      if (providerRef.current) {
-        const stateVector = Y.encodeStateVector(ydocRef.current);
-        providerRef.current.send({
-          type: 'broadcast',
-          event: 'crdt-update',
-          payload: { update: Array.from(stateVector) },
-        });
-      }
-
       setIsDirty(false);
+      isDirtyRef.current = false;
       setLastSynced(new Date());
     } catch (err) {
-      onError?.(err as Error);
+      onErrorRef.current?.(err as Error);
     } finally {
       setIsSyncing(false);
     }
-  }, [docId, tableName, idField, contentField, supabase, isDirty, onError]);
+  }, [docId, tableName, idField, contentField, supabase]);
 
   const update = useCallback(
     (newContent: string) => {
@@ -235,6 +199,7 @@ export function useCRDT(
         });
         setContent(newContent);
         setIsDirty(true);
+        isDirtyRef.current = true;
         setVersion((v) => v + 1);
       }
     },
@@ -254,11 +219,11 @@ export function useCRDT(
       });
       setContent(initialContent);
       setIsDirty(false);
+      isDirtyRef.current = false;
     }
   }, [initialContent]);
 
   const destroy = useCallback(() => {
-    providerRef.current?.unsubscribe();
     persistenceRef.current?.destroy();
     ydocRef.current?.destroy();
   }, []);

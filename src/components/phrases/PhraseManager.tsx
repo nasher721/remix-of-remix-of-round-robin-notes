@@ -53,7 +53,6 @@ import {
   Trash2,
   Copy,
   History,
-  Share2,
   FolderPlus,
   Loader2,
   Keyboard,
@@ -133,7 +132,6 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
     shortcut: '',
     hotkey: '',
     isActive: true,
-    isShared: false,
     folderId: null as string | null,
   });
 
@@ -165,7 +163,6 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         shortcut: editingPhrase.shortcut || '',
         hotkey: editingPhrase.hotkey || '',
         isActive: editingPhrase.isActive,
-        isShared: editingPhrase.isShared,
         folderId: editingPhrase.folderId || null,
       });
       // Load phrase fields
@@ -184,7 +181,6 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         shortcut: '',
         hotkey: '',
         isActive: true,
-        isShared: false,
         folderId: selectedFolder,
       });
       setPhraseFields([]);
@@ -241,7 +237,7 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         autotextShortcuts: autotextsForConflicts.map((a) => a.shortcut),
         phrases: phrases.map((p) => ({
           id: p.id,
-          shortcut: p.shortcut,
+          shortcut: p.shortcut ?? null,
           name: p.name,
         })),
         excludePhraseId: editingPhrase?.id,
@@ -284,7 +280,7 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         shortcut: formData.shortcut || null,
         hotkey: formData.hotkey || null,
         isActive: formData.isActive,
-        isShared: formData.isShared,
+        isShared: false,
         folderId: formData.folderId,
       });
       phraseId = editingPhrase.id;
@@ -346,7 +342,7 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
         hotkey: formData.hotkey || null,
         contextTriggers: {},
         isActive: formData.isActive,
-        isShared: formData.isShared,
+        isShared: false,
         folderId: formData.folderId,
         lastUsedAt: null,
       });
@@ -640,19 +636,6 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="flex items-center gap-2">
-                    <Share2 className="h-4 w-4" />
-                    Share with team
-                  </Label>
-                  <p className="text-xs text-muted-foreground">Allow team members to use this phrase</p>
-                </div>
-                <Switch
-                  checked={formData.isShared}
-                  onCheckedChange={v => setFormData(prev => ({ ...prev, isShared: v }))}
-                />
-              </div>
             </div>
           </ScrollArea>
 
@@ -941,12 +924,6 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
                             <span className="font-medium">{phrase.name}</span>
                             {!phrase.isActive && (
                               <Badge variant="secondary">Disabled</Badge>
-                            )}
-                            {phrase.isShared && (
-                              <Badge variant="outline">
-                                <Share2 className="h-3 w-3 mr-1" />
-                                Shared
-                              </Badge>
                             )}
                             {phrase.shortcut && (
                               <Badge variant="secondary">{phrase.shortcut}</Badge>

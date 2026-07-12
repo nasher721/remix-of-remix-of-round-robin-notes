@@ -5,6 +5,17 @@ import { TimeoutError } from '@/lib/requestTimeout';
 const isApiError = (e: unknown): e is ApiError =>
   typeof e === 'object' && e !== null && (e as ApiError).name === 'ApiError';
 
+/**
+ * Marks a message as deliberately authored for display to an end user.
+ * Arbitrary provider/runtime errors must never be wrapped in this type.
+ */
+export class UserFacingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UserFacingError';
+  }
+}
+
 /** Supabase / fetch-style errors that expose HTTP status */
 function getErrorStatus(e: unknown): number | undefined {
   if (isApiError(e) && typeof e.status === 'number') {
@@ -61,6 +72,10 @@ export function getUserFacingErrorMessage(
     return 'This request is taking longer than expected. Please try again.';
   }
 
+  if (error instanceof UserFacingError) {
+    return error.message;
+  }
+
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
 
@@ -82,14 +97,10 @@ export function getUserFacingErrorMessage(
       return 'You do not have permission to perform this action.';
     }
 
-    if (error.message.trim().length > 0) {
-      return error.message;
-    }
   }
 
-  if (typeof error === 'string' && error.trim().length > 0) {
-    return error;
-  }
-
+  // Provider, API, and runtime messages can contain identifiers, request
+  // payload fragments, or secrets. Only the classifications above and
+  // explicitly constructed UserFacingError instances may cross into the UI.
   return fallback;
 }

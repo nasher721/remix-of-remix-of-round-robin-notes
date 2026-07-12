@@ -9,6 +9,7 @@
  */
 
 import type { LLMProvider, LLMRequest, LLMResponse, ProviderConfig } from '../types';
+import { safeProviderHttpError, safeProviderRuntimeError } from './errors';
 
 const DEFAULT_BASE_URL = 'https://api.x.ai/v1';
 
@@ -82,14 +83,13 @@ export class GrokProvider implements LLMProvider {
       const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'grok',
           model: request.model,
           latencyMs,
-          error: `Grok API error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('Grok', 'request', response.status),
         };
       }
 
@@ -115,7 +115,7 @@ export class GrokProvider implements LLMProvider {
         provider: 'grok',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown Grok error',
+        error: safeProviderRuntimeError('Grok', 'request', err),
       };
     }
   }
@@ -155,14 +155,13 @@ export class GrokProvider implements LLMProvider {
       const response = await fetch(`${this.baseUrl}/chat/completions`, fetchOptions);
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'grok',
           model: request.model,
           latencyMs: Date.now() - startTime,
-          error: `Grok stream error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('Grok', 'stream', response.status),
         };
       }
 
@@ -210,7 +209,7 @@ export class GrokProvider implements LLMProvider {
         provider: 'grok',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown Grok streaming error',
+        error: safeProviderRuntimeError('Grok', 'stream', err),
       };
     }
   }

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TimelineEventForm } from './TimelineEventForm';
 import { TimelineVisualizer } from './TimelineVisualizer';
 import { Button } from '@/components/ui/button';
-import { Calendar, Download, Plus } from 'lucide-react';
+import { Calendar, Plus } from 'lucide-react';
 
 export interface TimelineEvent {
     id: string;
@@ -13,40 +13,7 @@ export interface TimelineEvent {
 }
 
 export function TimelineGenerator() {
-    const [events, setEvents] = useState<TimelineEvent[]>(() => {
-        // Initial sample data to show how it looks
-        const today = new Date();
-        return [
-            {
-                id: '1',
-                date: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000),
-                title: 'EMS Arrival',
-                description: 'Patient found down. GCS 13. O2 sat 88%. Administered Narcan with minimal effect.',
-                category: 'ems'
-            },
-            {
-                id: '2',
-                date: new Date(today.getTime() - 4 * 24 * 60 * 60 * 1000 + 2 * 60 * 60 * 1000),
-                title: 'ED Admission',
-                description: 'Intubated for airway protection. CT head negative. Empiric antibiotics started.',
-                category: 'ed'
-            },
-            {
-                id: '3',
-                date: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000),
-                title: 'ICU Transfer',
-                description: 'Transferred to MICU on Propofol/Fentanyl. Pressors initiated for hypotension.',
-                category: 'icu'
-            },
-            {
-                id: '4',
-                date: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000),
-                title: 'Extubated & Floor Transfer',
-                description: 'Successfully liberated from ventilator. Weaned off vasopressors. Transferred to step-down.',
-                category: 'floor'
-            }
-        ];
-    });
+    const [events, setEvents] = useState<TimelineEvent[]>([]);
 
     const [isAddingEvent, setIsAddingEvent] = useState(false);
 

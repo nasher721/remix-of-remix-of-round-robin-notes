@@ -1,34 +1,95 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { handleCallback, fetchPatientData } from '@/integrations/fhir';
+import {
+  assertFHIRLaunchOwner,
+  clearFHIRState,
+  fetchPatientData,
+  handleCallback,
+} from '@/integrations/fhir/client';
 import { extractMRN } from '@/integrations/fhir/mapper';
+import { useAuth } from '@/hooks/useAuth';
 import { usePatients } from '@/hooks/usePatients';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 type ImportStatus = 'loading' | 'fetching' | 'importing' | 'success' | 'error';
 
+function safeFHIRCallbackMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : '';
+  if (
+    message === 'You must be signed in to complete an EHR import.'
+    || message === 'The EHR import was interrupted by an authentication change.'
+    || message === 'This EHR import no longer belongs to the current user. Please start it again.'
+    || message === 'No patient data received from EHR'
+  ) {
+    return message;
+  }
+  return 'The EHR import could not be completed securely. Please start it again.';
+}
+
 export default function FHIRCallback() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const { addPatientWithData } = usePatients();
   const [status, setStatus] = useState<ImportStatus>('loading');
   const [error, setError] = useState<string | null>(null);
   const [patientName, setPatientName] = useState<string | null>(null);
+  const callbackRunId = useRef(0);
+  const userId = user?.id;
 
   useEffect(() => {
+    const runId = ++callbackRunId.current;
+    let redirectTimer: number | undefined;
+
+    const isCurrentRun = () => callbackRunId.current === runId;
+    const retireRun = () => {
+      if (!isCurrentRun()) return;
+      callbackRunId.current += 1;
+      const retiredRunId = callbackRunId.current;
+
+      // A StrictMode probe is replaced synchronously and advances the run ID.
+      // A real unmount has no replacement, so purge its abandoned SMART state.
+      void Promise.resolve().then(() => {
+        if (callbackRunId.current === retiredRunId) clearFHIRState();
+      });
+    };
+
+    if (authLoading) {
+      return retireRun;
+    }
+
+    if (!userId) {
+      clearFHIRState();
+      setError('You must be signed in to complete an EHR import.');
+      setStatus('error');
+      return retireRun;
+    }
+
+    const ownerId = userId;
+    const requireCurrentOwner = () => {
+      if (!isCurrentRun()) {
+        throw new Error('The EHR import was interrupted by an authentication change.');
+      }
+      assertFHIRLaunchOwner(ownerId);
+    };
+
     async function processCallback() {
       try {
         setStatus('loading');
-        
-        const client = await handleCallback();
+        setError(null);
+
+        requireCurrentOwner();
+        const client = await handleCallback(ownerId);
         
         if (!client) {
           throw new Error('Failed to initialize FHIR client');
         }
 
+        requireCurrentOwner();
         setStatus('fetching');
         
         const fhirData = await fetchPatientData(client);
+        requireCurrentOwner();
         
         if (!fhirData.patient) {
           throw new Error('No patient data received from EHR');
@@ -76,25 +137,35 @@ export default function FHIRCallback() {
           },
         };
 
+        requireCurrentOwner();
         await addPatientWithData(patientData);
-        
-        sessionStorage.removeItem('fhir_launch_state');
-        
+        requireCurrentOwner();
+
         setStatus('success');
         
-        setTimeout(() => {
+        redirectTimer = window.setTimeout(() => {
           navigate('/');
         }, 2000);
         
       } catch (err) {
-        console.error('FHIR callback error:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+        if (!isCurrentRun()) return;
+        console.error('FHIR callback failed');
+        setError(safeFHIRCallbackMessage(err));
         setStatus('error');
+      } finally {
+        if (isCurrentRun()) clearFHIRState();
       }
     }
 
-    processCallback();
-  }, [addPatientWithData, navigate]);
+    // Defer one microtask so React StrictMode can retire its probe effect
+    // before any one-time OAuth callback work begins.
+    void Promise.resolve().then(processCallback);
+
+    return () => {
+      retireRun();
+      if (redirectTimer !== undefined) window.clearTimeout(redirectTimer);
+    };
+  }, [addPatientWithData, authLoading, navigate, userId]);
 
   return (
     <main id="main-content" className="min-h-screen flex items-center justify-center bg-background p-4">

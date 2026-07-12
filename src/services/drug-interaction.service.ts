@@ -1,29 +1,154 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
-export interface DrugInteraction {
+export type DrugLookupStatus = 'available' | 'not_found' | 'provider_error';
+export type DrugPairStatus = 'interaction_found' | 'no_documented_interaction' | 'inconclusive';
+
+export interface DocumentedInteraction {
   drug1: string;
   drug2: string;
-  severity: 'critical' | 'high' | 'moderate' | 'low';
   description: string;
-  source: string;
+  source: 'FDA product labeling';
+  evidenceDrug: string;
 }
 
-export interface DrugInteractionResponse {
-  success: boolean;
-  interactions: DrugInteraction[];
-  checkedCount?: number;
-  disclaimer?: string;
-  error?: string;
+export interface DrugCoverage {
+  drug: string;
+  status: DrugLookupStatus;
+  labelsChecked: number;
+  message: string;
+}
+
+export interface DrugPairAssessment {
+  drug1: string;
+  drug2: string;
+  status: DrugPairStatus;
+  message: string;
+}
+
+export interface SuccessfulDrugInteractionResponse {
+  success: true;
+  interactions: DocumentedInteraction[];
+  assessments: DrugPairAssessment[];
+  coverage: DrugCoverage[];
+  overallStatus: 'complete' | 'inconclusive';
+  checkedCount: number;
+  disclaimer: string;
+}
+
+export interface FailedDrugInteractionResponse {
+  success: false;
+  interactions: [];
+  error: string;
+}
+
+export type DrugInteractionResponse =
+  | SuccessfulDrugInteractionResponse
+  | FailedDrugInteractionResponse;
+
+const failedResponse = (error: string): FailedDrugInteractionResponse => ({
+  success: false,
+  interactions: [],
+  error,
+});
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizedPairKey(drug1: string, drug2: string): string {
+  return [drug1.trim().toLowerCase(), drug2.trim().toLowerCase()].sort().join('\u0000');
+}
+
+function isSuccessfulResponse(value: unknown): value is SuccessfulDrugInteractionResponse {
+  if (!isRecord(value) || value.success !== true) return false;
+  if (value.overallStatus !== 'complete' && value.overallStatus !== 'inconclusive') return false;
+  if (
+    !Array.isArray(value.interactions) ||
+    !Array.isArray(value.assessments) ||
+    !Array.isArray(value.coverage) ||
+    typeof value.checkedCount !== 'number' ||
+    !Number.isInteger(value.checkedCount) ||
+    value.checkedCount < 2 ||
+    typeof value.disclaimer !== 'string' ||
+    value.disclaimer.trim().length === 0
+  ) return false;
+
+  const coverageValid = value.coverage.every((item) =>
+    isRecord(item) &&
+    typeof item.drug === 'string' && item.drug.trim().length > 0 &&
+    ['available', 'not_found', 'provider_error'].includes(String(item.status)) &&
+    typeof item.labelsChecked === 'number' &&
+    Number.isInteger(item.labelsChecked) && item.labelsChecked >= 0 &&
+    (item.status === 'available' ? Number(item.labelsChecked) > 0 : Number(item.labelsChecked) === 0) &&
+    typeof item.message === 'string' && item.message.trim().length > 0
+  );
+  const assessmentsValid = value.assessments.every((item) =>
+    isRecord(item) &&
+    typeof item.drug1 === 'string' && item.drug1.trim().length > 0 &&
+    typeof item.drug2 === 'string' && item.drug2.trim().length > 0 &&
+    ['interaction_found', 'no_documented_interaction', 'inconclusive'].includes(String(item.status)) &&
+    typeof item.message === 'string' && item.message.trim().length > 0
+  );
+  const interactionsValid = value.interactions.every((item) =>
+    isRecord(item) &&
+    typeof item.drug1 === 'string' && item.drug1.trim().length > 0 &&
+    typeof item.drug2 === 'string' && item.drug2.trim().length > 0 &&
+    typeof item.description === 'string' && item.description.trim().length > 0 &&
+    item.source === 'FDA product labeling' &&
+    typeof item.evidenceDrug === 'string' && item.evidenceDrug.trim().length > 0 &&
+    !('severity' in item)
+  );
+
+  if (!coverageValid || !assessmentsValid || !interactionsValid) return false;
+  if (value.coverage.length !== value.checkedCount) return false;
+
+  const coverageByDrug = new Map(
+    value.coverage.map((item) => [item.drug.trim().toLowerCase(), item] as const),
+  );
+  if (coverageByDrug.size !== value.coverage.length) return false;
+
+  const allCoverageAvailable = value.coverage.every((item) => item.status === 'available');
+  if ((value.overallStatus === 'complete') !== allCoverageAvailable) return false;
+
+  const expectedPairCount = (value.checkedCount * (value.checkedCount - 1)) / 2;
+  if (value.assessments.length !== expectedPairCount) return false;
+
+  const assessmentByPair = new Map<string, DrugPairAssessment>();
+  for (const assessment of value.assessments) {
+    const drug1Coverage = coverageByDrug.get(assessment.drug1.trim().toLowerCase());
+    const drug2Coverage = coverageByDrug.get(assessment.drug2.trim().toLowerCase());
+    const pairKey = normalizedPairKey(assessment.drug1, assessment.drug2);
+    if (!drug1Coverage || !drug2Coverage || drug1Coverage === drug2Coverage) return false;
+    if (assessmentByPair.has(pairKey)) return false;
+    if (
+      assessment.status === 'no_documented_interaction' &&
+      (drug1Coverage.status !== 'available' || drug2Coverage.status !== 'available')
+    ) return false;
+    if (
+      assessment.status === 'inconclusive' &&
+      drug1Coverage.status === 'available' &&
+      drug2Coverage.status === 'available'
+    ) return false;
+    assessmentByPair.set(pairKey, assessment as DrugPairAssessment);
+  }
+
+  const interactionPairs = new Set(
+    value.interactions.map((item) => normalizedPairKey(item.drug1, item.drug2)),
+  );
+  for (const pairKey of interactionPairs) {
+    if (assessmentByPair.get(pairKey)?.status !== 'interaction_found') return false;
+  }
+  for (const [pairKey, assessment] of assessmentByPair) {
+    if ((assessment.status === 'interaction_found') !== interactionPairs.has(pairKey)) return false;
+  }
+
+  return true;
 }
 
 export async function checkDrugInteractions(medications: string[]): Promise<DrugInteractionResponse> {
   if (!medications || medications.length < 2) {
-    return {
-      success: true,
-      interactions: [],
-      disclaimer: 'At least 2 medications required to check for interactions.',
-    };
+    return failedResponse('At least 2 medications required to check for interactions.');
   }
 
   const cleanMeds = medications
@@ -31,11 +156,7 @@ export async function checkDrugInteractions(medications: string[]): Promise<Drug
     .filter(m => m.length > 0);
 
   if (cleanMeds.length < 2) {
-    return {
-      success: true,
-      interactions: [],
-      disclaimer: 'At least 2 valid medication names required.',
-    };
+    return failedResponse('At least 2 valid medication names required.');
   }
 
   try {
@@ -44,81 +165,19 @@ export async function checkDrugInteractions(medications: string[]): Promise<Drug
     });
 
     if (error) {
-      console.error('Drug interaction check error:', error);
-      return {
-        success: false,
-        interactions: [],
-        error: getUserFacingErrorMessage(error, 'Failed to check drug interactions'),
-      };
+      console.error('Drug interaction check failed');
+      return failedResponse(getUserFacingErrorMessage(error, 'Failed to check drug interactions'));
     }
 
-    return data as DrugInteractionResponse;
+    if (!isSuccessfulResponse(data)) {
+      return failedResponse(
+        'Interaction coverage could not be verified. No safety conclusion was produced.',
+      );
+    }
+
+    return data;
   } catch (error) {
-    console.error('Drug interaction check error:', error);
-    return {
-      success: false,
-      interactions: [],
-      error: getUserFacingErrorMessage(error, 'An unexpected error occurred'),
-    };
-  }
-}
-
-export function getSeverityColor(severity: DrugInteraction['severity']): string {
-  switch (severity) {
-    case 'critical':
-      return 'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-200 dark:border-red-700';
-    case 'high':
-      return 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-700';
-    case 'moderate':
-      return 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-200 dark:border-yellow-700';
-    case 'low':
-      return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-200 dark:border-blue-700';
-    default:
-      return 'bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-600';
-  }
-}
-
-export function getSeverityIcon(severity: DrugInteraction['severity']): string {
-  switch (severity) {
-    case 'critical':
-      return 'alert-octagon';
-    case 'high':
-      return 'alert-triangle';
-    case 'moderate':
-      return 'alert-circle';
-    case 'low':
-      return 'info';
-    default:
-      return 'info';
-  }
-}
-
-export function getSeverityLabel(severity: DrugInteraction['severity']): string {
-  switch (severity) {
-    case 'critical':
-      return 'Critical';
-    case 'high':
-      return 'High Severity';
-    case 'moderate':
-      return 'Moderate';
-    case 'low':
-      return 'Low Severity';
-    default:
-      return 'Unknown';
-  }
-}
-
-export function getSeverityBadgeVariant(severity: DrugInteraction['severity']): 'destructive' | 'default' | 'secondary' | 'outline' {
-  switch (severity) {
-    case 'critical':
-      return 'destructive';
-    case 'high':
-      return 'destructive';
-    case 'moderate':
-      return 'default';
-    case 'low':
-      return 'secondary';
-    default:
-      return 'outline';
+    console.error('Drug interaction check failed');
+    return failedResponse(getUserFacingErrorMessage(error, 'An unexpected error occurred'));
   }
 }

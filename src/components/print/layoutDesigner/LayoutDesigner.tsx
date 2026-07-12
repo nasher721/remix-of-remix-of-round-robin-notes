@@ -101,9 +101,10 @@ const VIEW_TYPE_ICONS: Record<LayoutViewType, React.ElementType> = {
 interface LayoutDesignerProps {
   onApplyLayout?: (layout: LayoutConfig) => void;
   onClose?: () => void;
+  storageOwnerId?: string | null;
 }
 
-export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) => {
+export const LayoutDesigner = ({ onApplyLayout, onClose, storageOwnerId = null }: LayoutDesignerProps) => {
   const {
     currentLayout,
     savedLayouts,
@@ -143,7 +144,7 @@ export const LayoutDesigner = ({ onApplyLayout, onClose }: LayoutDesignerProps) 
     setIsDragging,
     undo,
     redo,
-  } = useLayoutDesigner();
+  } = useLayoutDesigner({ storageOwnerId });
 
   const [activeTab, setActiveTab] = React.useState<'templates' | 'sections' | 'styles'>('templates');
   const [saveDialogOpen, setSaveDialogOpen] = React.useState(false);

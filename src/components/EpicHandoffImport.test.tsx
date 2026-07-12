@@ -3,11 +3,17 @@ import assert from "node:assert/strict";
 import * as React from "react";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 
+const AuthenticatedSettings = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  if (loading || !user) return null;
+  return React.createElement(SettingsProvider, null, children);
+};
+
 const authWrapper = ({ children }: { children: React.ReactNode }) =>
-  React.createElement(AuthProvider, null, React.createElement(SettingsProvider, null, children));
+  React.createElement(AuthProvider, null, React.createElement(AuthenticatedSettings, null, children));
 
 function setupAuthMock() {
   (globalThis as unknown as {
@@ -21,11 +27,12 @@ function setupAuthMock() {
   };
 }
 
-function setClipboard(textOrError: string | Error) {
+function setClipboard(textOrError: string | Error, onRead: () => void = () => {}) {
   Object.defineProperty(globalThis.navigator, "clipboard", {
     configurable: true,
     value: {
       readText: async () => {
+        onRead();
         if (textOrError instanceof Error) throw textOrError;
         return textOrError;
       },
@@ -60,7 +67,7 @@ test("clipboard import does not invoke parse when clipboard content is empty", a
     { wrapper: authWrapper },
   );
 
-  fireEvent.click(screen.getByText("Paste Content"));
+  fireEvent.click(await screen.findByRole("button", { name: /paste handoff content/i }));
 
   await waitFor(() => {
     assert.equal(invokeCount, 0);
@@ -69,12 +76,18 @@ test("clipboard import does not invoke parse when clipboard content is empty", a
 
 test("parsed patients are selectable and duplicate bed warning is shown", async () => {
   setupAuthMock();
-  setClipboard("Epic handoff text that is definitely long enough to parse and includes multiple patients for testing.");
+  let clipboardReadCount = 0;
+  setClipboard(
+    "Epic handoff text that is definitely long enough to parse and includes multiple patients for testing.",
+    () => { clipboardReadCount += 1; },
+  );
 
+  let invokeCount = 0;
   (globalThis as unknown as {
     __SUPABASE_FUNCTIONS_INVOKE_MOCK__?: (name: string) => Promise<unknown>;
-  }).__SUPABASE_FUNCTIONS_INVOKE_MOCK__ = async () => ({
-    data: {
+  }).__SUPABASE_FUNCTIONS_INVOKE_MOCK__ = async () => {
+    invokeCount += 1;
+    return { data: {
       success: true,
       data: {
         patients: [
@@ -105,8 +118,8 @@ test("parsed patients are selectable and duplicate bed warning is shown", async 
         ],
       },
     },
-    error: null,
-  });
+    error: null };
+  };
 
   render(
     React.createElement(EpicHandoffImport, {
@@ -117,7 +130,10 @@ test("parsed patients are selectable and duplicate bed warning is shown", async 
     { wrapper: authWrapper },
   );
 
-  fireEvent.click(screen.getByText("Paste Content"));
+  fireEvent.click(await screen.findByRole("button", { name: /paste handoff content/i }));
+
+  await waitFor(() => assert.equal(clipboardReadCount, 1));
+  await waitFor(() => assert.equal(invokeCount, 1));
 
   await screen.findByText("2 patients found");
   assert.ok(screen.getByText("Bed exists"));

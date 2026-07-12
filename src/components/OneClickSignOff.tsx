@@ -86,11 +86,11 @@ const SECTIONS: SignOffSection[] = [
     label: 'Todos',
     icon: ListTodo,
     isComplete: (p, todos) => {
-      const patientTodos = todos?.[p.id] || [];
+      const patientTodos = todos ?? [];
       return patientTodos.length > 0;
     },
     getDescription: (p, todos) => {
-      const patientTodos = todos?.[p.id] || [];
+      const patientTodos = todos ?? [];
       const completed = patientTodos.filter(t => t.completed).length;
       return `${completed}/${patientTodos.length} completed`;
     },

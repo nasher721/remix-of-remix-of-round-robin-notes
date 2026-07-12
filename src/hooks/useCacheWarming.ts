@@ -1,75 +1,110 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { cacheWarming, WarmingProgress } from '@/lib/cache/cacheWarming';
-import { cacheHydration } from '@/lib/cache/queryClientConfig';
 import { useAuth } from '@/hooks/useAuth';
 
 export function useCacheWarming() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [isWarming, setIsWarming] = useState(false);
-  const [progress, setProgress] = useState<WarmingProgress | null>(null);
-  const [isHydrated, setIsHydrated] = useState(false);
-  
-  // Hydrate cache from localStorage on mount
-  useEffect(() => {
-    if (!isHydrated) {
-      cacheHydration.hydrate(queryClient);
-      setIsHydrated(true);
+  const ownerId = user?.id ?? null;
+  const ownerIdRef = useRef(ownerId);
+  ownerIdRef.current = ownerId;
+  const runSequenceRef = useRef(0);
+  const activeRunRef = useRef<{ ownerId: string; sequence: number } | null>(null);
+  const [warmingState, setWarmingState] = useState<{
+    ownerId: string | null;
+    isWarming: boolean;
+    progress: WarmingProgress | null;
+  }>({ ownerId: null, isWarming: false, progress: null });
+
+  const stateBelongsToOwner = warmingState.ownerId === ownerId;
+  const isWarming = stateBelongsToOwner ? warmingState.isWarming : false;
+  const progress = stateBelongsToOwner ? warmingState.progress : null;
+
+  // Manual and automatic warming share one owner-bound run. A new owner may
+  // start immediately; its run token invalidates any pending work for the old
+  // owner before a late response can reach cache or progress state.
+  const warmCaches = useCallback(async () => {
+    const requestOwnerId = ownerId;
+    if (!requestOwnerId) return null;
+
+    const activeRun = activeRunRef.current;
+    if (activeRun?.ownerId === requestOwnerId) return null;
+
+    const run = {
+      ownerId: requestOwnerId,
+      sequence: ++runSequenceRef.current,
+    };
+    activeRunRef.current = run;
+    const isCurrentRun = () => (
+      ownerIdRef.current === requestOwnerId
+      && activeRunRef.current?.sequence === run.sequence
+    );
+
+    setWarmingState({ ownerId: requestOwnerId, isWarming: true, progress: null });
+
+    try {
+      const result = await cacheWarming.warmEssential(
+        queryClient,
+        requestOwnerId,
+        isCurrentRun,
+        (nextProgress) => {
+          if (!isCurrentRun()) return;
+          setWarmingState({
+            ownerId: requestOwnerId,
+            isWarming: true,
+            progress: nextProgress,
+          });
+        },
+      );
+      return isCurrentRun() ? result : null;
+    } catch {
+      if (isCurrentRun()) console.error('Cache warming failed');
+      return null;
+    } finally {
+      const runIsStillActive = activeRunRef.current?.sequence === run.sequence;
+      if (runIsStillActive) {
+        activeRunRef.current = null;
+      }
+      if (runIsStillActive && ownerIdRef.current === requestOwnerId) {
+        setWarmingState((previous) => (
+          previous.ownerId === requestOwnerId
+            ? { ...previous, isWarming: false }
+            : previous
+        ));
+      }
     }
-  }, [queryClient, isHydrated]);
-  
+  }, [ownerId, queryClient]);
+
   // Warm essential caches when user logs in
   useEffect(() => {
-    if (user?.id && isHydrated) {
-      warmCaches();
+    if (ownerId) {
+      void warmCaches();
+      return;
     }
-  }, [user?.id, isHydrated, warmCaches]);
-  
-  // Persist cache before page unload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      cacheHydration.persist(queryClient);
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    // Also persist periodically
-    const interval = setInterval(() => {
-      cacheHydration.persist(queryClient);
-    }, 60000); // Every minute
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      clearInterval(interval);
-    };
-  }, [queryClient]);
-  
-  // Manual cache warming
-  const warmCaches = useCallback(async () => {
-    if (!user?.id || isWarming) return;
-    
-    setIsWarming(true);
-    setProgress(null);
-    
-    try {
-      await cacheWarming.warmEssential(
-        queryClient,
-        user.id,
-        (p) => setProgress(p)
-      );
-    } catch (error) {
-      console.error('Cache warming failed:', error);
-    } finally {
-      setIsWarming(false);
-    }
-  }, [queryClient, user?.id, isWarming]);
-  
+
+    activeRunRef.current = null;
+    setWarmingState({ ownerId: null, isWarming: false, progress: null });
+  }, [ownerId, warmCaches]);
+
   // Prefetch patient data on hover
   const prefetchPatient = useCallback(async (patientId: string) => {
-    if (!patientId) return;
-    await cacheWarming.prefetchPatient(queryClient, patientId);
-  }, [queryClient]);
+    const requestOwnerId = ownerId;
+    if (!requestOwnerId || !patientId) return;
+
+    try {
+      await cacheWarming.prefetchPatient(
+        queryClient,
+        requestOwnerId,
+        patientId,
+        () => ownerIdRef.current === requestOwnerId,
+      );
+    } catch {
+      if (ownerIdRef.current === requestOwnerId) {
+        console.error('Patient cache prefetch failed');
+      }
+    }
+  }, [ownerId, queryClient]);
   
   return {
     isWarming,

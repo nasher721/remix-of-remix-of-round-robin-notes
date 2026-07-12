@@ -1,4 +1,6 @@
 // Performance monitoring for cache operations
+import { safeLocalStorage } from '../../utils/safeStorage';
+
 export interface CacheMetricsData {
   hits: number;
   misses: number;
@@ -11,15 +13,18 @@ export interface CacheMetricsData {
   lastUpdated: number;
 }
 
-const METRICS_STORAGE_KEY = 'cache-performance-metrics';
 const MAX_RESPONSE_TIMES = 100;
+
+// Query keys can contain patient-scoped identifiers. Metrics remain in memory,
+// and legacy unscoped browser copies are removed on startup.
+safeLocalStorage.removeItem('cache-performance-metrics');
 
 class CacheMetrics {
   private data: CacheMetricsData;
   private observers: Set<(metrics: CacheMetricsData) => void> = new Set();
   
   constructor() {
-    this.data = this.loadFromStorage() || this.createEmptyMetrics();
+    this.data = this.createEmptyMetrics();
   }
   
   private createEmptyMetrics(): CacheMetricsData {
@@ -36,26 +41,6 @@ class CacheMetrics {
     };
   }
   
-  private loadFromStorage(): CacheMetricsData | null {
-    try {
-      const stored = localStorage.getItem(METRICS_STORAGE_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (error) {
-      console.warn('Failed to load cache metrics:', error);
-    }
-    return null;
-  }
-  
-  private saveToStorage(): void {
-    try {
-      localStorage.setItem(METRICS_STORAGE_KEY, JSON.stringify(this.data));
-    } catch (error) {
-      console.warn('Failed to save cache metrics:', error);
-    }
-  }
-  
   private updateMetrics(): void {
     this.data.totalRequests = this.data.hits + this.data.misses;
     this.data.hitRate = this.data.totalRequests > 0
@@ -66,7 +51,6 @@ class CacheMetrics {
       : 0;
     this.data.lastUpdated = Date.now();
     
-    this.saveToStorage();
     this.notifyObservers();
   }
   
@@ -121,7 +105,6 @@ class CacheMetrics {
   
   reset(): void {
     this.data = this.createEmptyMetrics();
-    this.saveToStorage();
     this.notifyObservers();
   }
   
@@ -141,9 +124,11 @@ export async function getServiceWorkerMetrics(): Promise<{
   hitRate: number;
   averageRetrievalTime: number;
 } | null> {
-  if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+  if (!('serviceWorker' in navigator)) {
     return null;
   }
+  const controller = navigator.serviceWorker.controller;
+  if (!controller) return null;
   
   return new Promise((resolve) => {
     const channel = new MessageChannel();
@@ -152,7 +137,7 @@ export async function getServiceWorkerMetrics(): Promise<{
       resolve(event.data);
     };
     
-    navigator.serviceWorker.controller.postMessage(
+    controller.postMessage(
       { type: 'GET_METRICS' },
       [channel.port2]
     );

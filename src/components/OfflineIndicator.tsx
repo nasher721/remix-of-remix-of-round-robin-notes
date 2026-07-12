@@ -283,7 +283,9 @@ export function OfflineIndicator() {
           
           {!isOnline && (
             <p className="text-xs text-muted-foreground text-center">
-              Changes will sync when you're back online
+              {pendingCount > 0
+                ? "Only the pending changes listed above will sync after you reconnect. New changes are not queued."
+                : "New changes are not queued while offline and may fail to save. Reconnect before editing."}
             </p>
           )}
         </div>

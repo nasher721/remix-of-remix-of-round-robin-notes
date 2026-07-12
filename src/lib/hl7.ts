@@ -2,7 +2,7 @@
  * HL7 v2.x Parser
  * Supports ADT (Admissions, Transfers, Discharges), ORU (Observations), and MDM (Documents) messages
  */
-import type { Patient } from '@/types/patient';
+import { defaultSystems, type Patient } from '@/types/patient';
 
 /* Extended patient with full details for import */
 export interface PatientWithDetails extends Patient {
@@ -10,6 +10,8 @@ export interface PatientWithDetails extends Patient {
   primaryDiagnosis?: string;
   attendingPhysician?: string;
   dischargeSummary?: string;
+  dateOfBirth?: string;
+  gender?: 'male' | 'female' | 'other';
 }
 
 export interface HL7Segment {
@@ -22,6 +24,7 @@ export interface HL7Message {
   messageType: HL7MessageType;
   timestamp: Date;
   triggerEvent: string;
+  messageControlId: string;
 }
 
 export interface HL7MessageType {
@@ -31,7 +34,10 @@ export interface HL7MessageType {
 }
 
 export interface ADTMessage extends HL7Message {
-  messageType: { event: 'ADT'; trigger: 'A01' | 'A02' | 'A03' | 'A04' | 'A08' | 'A11' | 'A12' | 'A13' };
+  messageType: HL7MessageType & {
+    event: 'ADT';
+    trigger: 'A01' | 'A02' | 'A03' | 'A04' | 'A08' | 'A11' | 'A12' | 'A13';
+  };
   patient: {
     mrn: string;
     firstName: string;
@@ -53,7 +59,7 @@ export interface ADTMessage extends HL7Message {
 }
 
 export interface ORUMessage extends HL7Message {
-  messageType: { event: 'ORU'; trigger: 'R01' };
+  messageType: HL7MessageType & { event: 'ORU'; trigger: 'R01' };
   patient: {
     mrn: string;
     firstName: string;
@@ -72,7 +78,7 @@ export interface ORUObservation {
 }
 
 export interface MDMMessage extends HL7Message {
-  messageType: { event: 'MDM'; trigger: 'T01' | 'T02' };
+  messageType: HL7MessageType & { event: 'MDM'; trigger: 'T01' | 'T02' };
   patient: {
     mrn: string;
     firstName: string;
@@ -115,6 +121,7 @@ class HL7Parser {
         segments,
         messageType,
         timestamp,
+        triggerEvent: messageType.trigger,
         messageControlId
       };
     } catch (error) {
@@ -127,7 +134,7 @@ class HL7Parser {
    * Parse HL7 message string into segments
    */
   private parseSegments(rawMessage: string): HL7Segment[] {
-    const lines = rawMessage.split(/\r?\n/);
+    const lines = rawMessage.split(/\r\n|\n|\r/);
     return lines
       .filter(line => line.trim().length > 0)
       .map(line => {
@@ -179,6 +186,10 @@ class HL7Parser {
    * Get field by index (1-based)
    */
   getField(segment: HL7Segment, index: number): string {
+    if (segment.name === 'MSH') {
+      if (index === 1) return this.fieldSeparator;
+      return segment.fields[index - 2] || '';
+    }
     return segment.fields[index - 1] || '';
   }
 
@@ -274,8 +285,8 @@ class HL7Parser {
       observations.push({
         observationId: this.getField(obx, 3) || '',
         value: valueField,
-        unit: this.getComponent(valueField, 2) || undefined,
-        timestamp: this.convertHL7DateTime(this.getField(obx, 14)),
+        unit: this.getField(obx, 6) || undefined,
+        timestamp: this.convertHL7DateTime(this.getField(obx, 14)) || '',
         resultStatus: this.getField(obx, 11),
         referenceRange: this.getField(obx, 7) || undefined
       });
@@ -354,6 +365,19 @@ class HL7Parser {
     return date;
   }
 
+  /** Format a Date as an HL7 compact timestamp (YYYYMMDDHHmmss). */
+  private formatHL7DateTime(date: Date): string {
+    const pad = (value: number): string => String(value).padStart(2, '0');
+    return [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate()),
+      pad(date.getHours()),
+      pad(date.getMinutes()),
+      pad(date.getSeconds()),
+    ].join('');
+  }
+
   /**
    * Format address from PID segment
    */
@@ -407,9 +431,10 @@ class HL7Parser {
       return {
         name: `${adt.patient.firstName} ${adt.patient.lastName}`,
         mrn: adt.patient.mrn,
-        date_of_birth: adt.patient.dateOfBirth || null,
-        gender: adt.patient.gender as 'male' | 'female' | 'other' | null,
+        dateOfBirth: adt.patient.dateOfBirth,
+        gender: this.normalizeGender(adt.patient.gender),
         systems: {
+          ...defaultSystems,
           neuro: adt.visit.diagnosis?.join('\n') || '',
         },
         // Map additional fields as needed
@@ -417,6 +442,22 @@ class HL7Parser {
     }
 
     return {};
+  }
+
+  private normalizeGender(gender: string | undefined): PatientWithDetails['gender'] {
+    switch (gender?.toUpperCase()) {
+      case 'M':
+      case 'MALE':
+        return 'male';
+      case 'F':
+      case 'FEMALE':
+        return 'female';
+      case 'O':
+      case 'OTHER':
+        return 'other';
+      default:
+        return undefined;
+    }
   }
 
   /**

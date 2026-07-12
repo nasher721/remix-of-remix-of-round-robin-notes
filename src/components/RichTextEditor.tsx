@@ -42,6 +42,7 @@ import { EditorFindReplace } from "./EditorFindReplace";
 import { EditorStatusBar } from "./EditorStatusBar";
 import type { Patient } from "@/types/patient";
 import { QuickModelSwitcher } from "./settings/QuickModelSwitcher";
+import { createSafeLinkHtml, sanitizeHtml, sanitizePastedHtml } from "@/lib/sanitize";
 
 const textColors = [
   { name: "Default", value: "" },
@@ -94,6 +95,7 @@ export const RichTextEditor = ({
   onChange,
   placeholder = "Enter text...",
   className,
+  minHeight = "120px",
   autotexts = defaultAutotexts,
   fontSize = 11,
   changeTracking = null,
@@ -142,6 +144,7 @@ export const RichTextEditor = ({
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(content);
     }
+    contentHtml = sanitizeHtml(contentHtml);
 
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
@@ -176,6 +179,7 @@ export const RichTextEditor = ({
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
     }
+    contentHtml = sanitizeHtml(contentHtml);
 
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
@@ -228,6 +232,7 @@ export const RichTextEditor = ({
     if (effectiveChangeTracking?.enabled) {
       contentHtml = effectiveChangeTracking.wrapWithMarkup(text);
     }
+    contentHtml = sanitizeHtml(contentHtml);
 
     if (range && editorRef.current.contains(range.startContainer)) {
       range.deleteContents();
@@ -255,8 +260,12 @@ export const RichTextEditor = ({
     document.execCommand(command, false, cmdValue);
     editorRef.current?.focus();
     if (editorRef.current) {
+      const sanitizedValue = sanitizeHtml(editorRef.current.innerHTML);
+      if (sanitizedValue !== editorRef.current.innerHTML) {
+        editorRef.current.innerHTML = sanitizedValue;
+      }
       isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizedValue);
     }
   }, [onChange]);
 
@@ -272,7 +281,7 @@ export const RichTextEditor = ({
       if (e.inputType === 'insertText' || e.inputType === 'insertFromPaste') {
         e.preventDefault();
 
-        const markedHtml = effectiveChangeTracking.wrapWithMarkup(e.data);
+        const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(e.data));
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return;
 
@@ -301,16 +310,18 @@ export const RichTextEditor = ({
     return () => editor.removeEventListener('beforeinput', handleBeforeInput);
   }, [effectiveChangeTracking, onChange]);
 
-  // Handle paste separately for text content
+  // Always intercept rich-text paste so executable clipboard markup never
+  // reaches the contenteditable DOM.
   const handlePaste = React.useCallback((e: React.ClipboardEvent) => {
-    if (!effectiveChangeTracking?.enabled) return;
-
+    const html = e.clipboardData?.getData('text/html') || '';
     const text = e.clipboardData?.getData('text/plain');
-    if (!text) return;
+    if (!html && !text) return;
 
     e.preventDefault();
 
-    const markedHtml = effectiveChangeTracking.wrapWithMarkup(text);
+    const contentHtml = effectiveChangeTracking?.enabled
+      ? sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(text || ''))
+      : sanitizePastedHtml(html, text || '');
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
 
@@ -318,7 +329,7 @@ export const RichTextEditor = ({
     range.deleteContents();
 
     const temp = document.createElement('div');
-    temp.innerHTML = markedHtml;
+    temp.innerHTML = contentHtml;
     const fragment = document.createDocumentFragment();
     while (temp.firstChild) {
       fragment.appendChild(temp.firstChild);
@@ -337,8 +348,12 @@ export const RichTextEditor = ({
 
   const handleInput = React.useCallback(() => {
     if (editorRef.current) {
+      const sanitizedValue = sanitizeHtml(editorRef.current.innerHTML);
+      if (sanitizedValue !== editorRef.current.innerHTML) {
+        editorRef.current.innerHTML = sanitizedValue;
+      }
       isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizedValue);
     }
   }, [onChange]);
 
@@ -401,7 +416,7 @@ export const RichTextEditor = ({
     // Apply change tracking markup if enabled
     let content: Node;
     if (effectiveChangeTracking?.enabled) {
-      const markedHtml = effectiveChangeTracking.wrapWithMarkup(replacement);
+      const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(replacement));
       const temp = document.createElement('div');
       temp.innerHTML = markedHtml + " ";
       content = document.createDocumentFragment();
@@ -438,11 +453,9 @@ export const RichTextEditor = ({
     const selectedText = selection && !selection.isCollapsed ? selection.toString() : "";
     const url = window.prompt("Enter URL:", "https://");
     if (url) {
-      if (selectedText) {
-        execCommand("createLink", url);
-      } else {
-        const linkText = window.prompt("Link text:", url) || url;
-        const link = `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+      const linkText = selectedText || window.prompt("Link text:", url) || url;
+      const link = createSafeLinkHtml(url, linkText);
+      if (link) {
         execCommand("insertHTML", link);
       }
     }
@@ -583,12 +596,13 @@ export const RichTextEditor = ({
       return;
     }
 
-    if (editorRef.current && editorRef.current.innerHTML !== value) {
+    const sanitizedValue = sanitizeHtml(value);
+    if (editorRef.current && editorRef.current.innerHTML !== sanitizedValue) {
       // Save cursor position
       const selection = window.getSelection();
       const hadFocus = document.activeElement === editorRef.current;
 
-      editorRef.current.innerHTML = value;
+      editorRef.current.innerHTML = sanitizedValue;
 
       // Restore cursor to end if we had focus
       if (hadFocus && selection && editorRef.current.childNodes.length > 0) {
@@ -614,7 +628,7 @@ export const RichTextEditor = ({
             "p-3 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 transition-all prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
             isPopOutInstance ? "min-h-[55vh]" : "min-h-[120px]"
           )}
-          style={{ fontSize: `${fontSizeRef.current}px` }}
+          style={{ fontSize: `${fontSizeRef.current}px`, minHeight }}
           onInput={handleInput}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
@@ -1007,9 +1021,10 @@ export const RichTextEditor = ({
             onImport={(content) => {
               if (editorRef.current) {
                 // Append imported content to existing content
-                const newContent = editorRef.current.innerHTML
-                  ? `${editorRef.current.innerHTML}<br/><br/>${content}`
-                  : content;
+                const importedContent = sanitizeHtml(content);
+                const newContent = sanitizeHtml(editorRef.current.innerHTML
+                  ? `${editorRef.current.innerHTML}<br/><br/>${importedContent}`
+                  : importedContent);
                 editorRef.current.innerHTML = newContent;
                 isInternalUpdate.current = true;
                 onChange(newContent);
@@ -1035,7 +1050,7 @@ export const RichTextEditor = ({
 
               let content: Node;
               if (effectiveChangeTracking?.enabled) {
-                const markedHtml = effectiveChangeTracking.wrapWithMarkup(newText);
+                const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(newText));
                 const temp = document.createElement('div');
                 temp.innerHTML = markedHtml;
                 content = document.createDocumentFragment();
@@ -1059,7 +1074,10 @@ export const RichTextEditor = ({
               if (!editorRef.current) return;
               const isEmpty = editorRef.current.innerText.trim() === "";
               const separator = isEmpty ? "" : "<br/><br/>";
-              const newContent = isEmpty ? draft : `${editorRef.current.innerHTML}${separator}${draft}`;
+              const sanitizedDraft = sanitizeHtml(draft);
+              const newContent = sanitizeHtml(isEmpty
+                ? sanitizedDraft
+                : `${editorRef.current.innerHTML}${separator}${sanitizedDraft}`);
               editorRef.current.innerHTML = newContent;
               isInternalUpdate.current = true;
               onChange(newContent);

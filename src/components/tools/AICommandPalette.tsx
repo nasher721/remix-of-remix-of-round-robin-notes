@@ -325,7 +325,12 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
 
   return (
     <>
-      <CommandDialog open={open} onOpenChange={handleOpenChange}>
+      <CommandDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        title="AI command palette"
+        description="Choose an AI-assisted clinical documentation action."
+      >
         <CommandInput 
           placeholder={selectedCommand?.placeholder || "Type an AI command or search..."} 
           disabled={isStreaming}

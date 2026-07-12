@@ -187,10 +187,10 @@ function checkForContradictions(
   ];
 
   for (const pair of contradictionPairs) {
-    const inputHasPositive = inputText.includes(pair.positive);
-    const inputHasNegative = inputText.includes(pair.negative);
-    const responseHasPositive = lowerResponse.includes(pair.positive);
-    const responseHasNegative = lowerResponse.includes(pair.negative);
+    const inputHasPositive = containsClinicalPhrase(inputText, pair.positive);
+    const inputHasNegative = containsClinicalPhrase(inputText, pair.negative);
+    const responseHasPositive = containsClinicalPhrase(lowerResponse, pair.positive);
+    const responseHasNegative = containsClinicalPhrase(lowerResponse, pair.negative);
 
     if (inputHasPositive && responseHasNegative) {
       issues.push({
@@ -210,6 +210,12 @@ function checkForContradictions(
   }
 
   return issues;
+}
+
+/** Match complete clinical terms so, for example, "febrile" is not found in "afebrile". */
+function containsClinicalPhrase(text: string, phrase: string): boolean {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`, 'i').test(text);
 }
 
 // ---------------------------------------------------------------------------

@@ -116,7 +116,7 @@ export function PrintTemplateSelector({
   onSelectTemplate,
   className,
 }: PrintTemplateSelectorProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion() ?? false;
 
   return (
     <div className={cn("space-y-4", className)}>
@@ -133,6 +133,9 @@ export function PrintTemplateSelector({
             const IconComponent = ICON_MAP[template.icon] || FileText;
             const isSelected = selectedTemplate === template.id;
             const enabledSectionsCount = template.sections.filter((s) => s.enabled).length;
+            const ringStyle = isSelected
+              ? ({ '--tw-ring-color': template.styling.accentColor } as React.CSSProperties)
+              : undefined;
 
             return (
               <motion.div
@@ -152,13 +155,13 @@ export function PrintTemplateSelector({
                     isSelected && "ring-2 ring-offset-1"
                   )}
                   style={{
+                    ...ringStyle,
                     borderColor: isSelected 
                       ? template.styling.accentColor 
                       : "hsl(var(--border) / 0.6)",
                     backgroundColor: isSelected 
                       ? `color-mix(in srgb, ${template.styling.headerColor} 3%, white)` 
                       : undefined,
-                    ringColor: isSelected ? template.styling.accentColor : undefined,
                   }}
                   onClick={() => onSelectTemplate(template.id)}
                   onKeyDown={(e) => {
@@ -296,7 +299,7 @@ export function PrintTemplateSelectorCompact({
   onSelectTemplate,
   className,
 }: PrintTemplateSelectorProps) {
-  const prefersReducedMotion = useReducedMotion();
+  const prefersReducedMotion = useReducedMotion() ?? false;
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -310,6 +313,9 @@ export function PrintTemplateSelectorCompact({
         {PRINT_TEMPLATES.slice(0, 6).map((template, index) => {
           const IconComponent = ICON_MAP[template.icon] || FileText;
           const isSelected = selectedTemplate === template.id;
+          const ringStyle = isSelected
+            ? ({ '--tw-ring-color': template.styling.accentColor } as React.CSSProperties)
+            : undefined;
 
           return (
             <motion.button
@@ -331,11 +337,11 @@ export function PrintTemplateSelectorCompact({
                   : "border-border/60 hover:border-border hover:bg-muted/30"
               )}
               style={{
+                ...ringStyle,
                 borderColor: isSelected ? template.styling.accentColor : undefined,
                 backgroundColor: isSelected 
                   ? `color-mix(in srgb, ${template.styling.headerColor} 4%, white)` 
                   : undefined,
-                ringColor: isSelected ? template.styling.accentColor : undefined,
               }}
             >
               <div

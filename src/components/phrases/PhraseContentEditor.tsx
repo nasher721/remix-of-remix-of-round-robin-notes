@@ -15,6 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { sanitizeHtml, sanitizePastedHtml } from "@/lib/sanitize";
 
 const textColors = [
   { name: "Default", value: "" },
@@ -50,9 +51,10 @@ export const PhraseContentEditor = ({
   // Initialize content
   useEffect(() => {
     if (editorRef.current && !isInternalUpdate.current) {
+      const sanitizedValue = sanitizeHtml(value);
       const currentContent = editorRef.current.innerHTML;
-      if (currentContent !== value) {
-        editorRef.current.innerHTML = value;
+      if (currentContent !== sanitizedValue) {
+        editorRef.current.innerHTML = sanitizedValue;
       }
     }
     isInternalUpdate.current = false;
@@ -63,23 +65,41 @@ export const PhraseContentEditor = ({
     editorRef.current?.focus();
     // Trigger change after command
     if (editorRef.current) {
+      const sanitizedValue = sanitizeHtml(editorRef.current.innerHTML);
+      if (sanitizedValue !== editorRef.current.innerHTML) {
+        editorRef.current.innerHTML = sanitizedValue;
+      }
       isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizedValue);
     }
   }, [onChange]);
 
   const handleInput = useCallback(() => {
     if (editorRef.current) {
+      const sanitizedValue = sanitizeHtml(editorRef.current.innerHTML);
+      if (sanitizedValue !== editorRef.current.innerHTML) {
+        editorRef.current.innerHTML = sanitizedValue;
+      }
       isInternalUpdate.current = true;
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizedValue);
     }
   }, [onChange]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     e.preventDefault();
+    const html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
-    document.execCommand('insertText', false, text);
-  }, []);
+    const sanitizedContent = sanitizePastedHtml(html, text);
+    document.execCommand('insertHTML', false, sanitizedContent);
+    if (editorRef.current) {
+      const sanitizedValue = sanitizeHtml(editorRef.current.innerHTML);
+      if (sanitizedValue !== editorRef.current.innerHTML) {
+        editorRef.current.innerHTML = sanitizedValue;
+      }
+      isInternalUpdate.current = true;
+      onChange(sanitizedValue);
+    }
+  }, [onChange]);
 
   return (
     <div className={cn("border-2 border-border rounded-md bg-card overflow-hidden relative", className)}>
@@ -246,6 +266,7 @@ export const PhraseContentEditor = ({
           style={{ 
             fontSize: '14px',
             lineHeight: '1.5',
+            minHeight,
           }}
         />
         {!value && !isFocused && (

@@ -26,8 +26,16 @@ export function usePatientImport({
 }: PatientImportDeps) {
     const { user } = useAuth();
     const notifications = useNotifications();
+    const activeOwnerIdRef = React.useRef<string | null>(user?.id ?? null);
+    activeOwnerIdRef.current = user?.id ?? null;
 
-    const appendPatients = React.useCallback((patientsToAppend: Patient[]) => {
+    const isCurrentOwner = React.useCallback(
+        (requestOwnerId: string) => activeOwnerIdRef.current === requestOwnerId,
+        []
+    );
+
+    const appendPatients = React.useCallback((requestOwnerId: string, patientsToAppend: Patient[]) => {
+        if (!isCurrentOwner(requestOwnerId)) return;
         if (patientsToAppend.length === 0) return;
 
         const mergePatients = (existingPatients: Patient[]) => {
@@ -44,7 +52,7 @@ export function usePatientImport({
             patientsRef.current = mergedPatients;
             return mergedPatients;
         });
-    }, [patientsRef, setPatients]);
+    }, [isCurrentOwner, patientsRef, setPatients]);
 
     const isPatientNumberConflict = React.useCallback((error: unknown): boolean => {
         if (typeof error !== "object" || error === null) return false;
@@ -75,6 +83,7 @@ export function usePatientImport({
         medications?: PatientMedications;
     }>) => {
         if (!user) return;
+        const requestOwnerId = user.id;
         if (!hasSupabaseConfig) {
             notifications.error({
                 title: "Configuration Error",
@@ -100,7 +109,7 @@ export function usePatientImport({
                 let { data, error } = await supabase
                     .from("patients")
                     .insert([buildPatientInsertPayload({
-                        userId: user.id,
+                        userId: requestOwnerId,
                         patientNumber: insertNumber,
                         name: p.name,
                         bed: p.bed,
@@ -112,13 +121,15 @@ export function usePatientImport({
                     .select()
                     .single();
 
+                if (!isCurrentOwner(requestOwnerId)) return;
                 if (error && isPatientNumberConflict(error)) {
                     const latestNumber = await getLatestPatientNumber();
+                    if (!isCurrentOwner(requestOwnerId)) return;
                     insertNumber = latestNumber + 1;
                     const retryResult = await supabase
                         .from("patients")
                         .insert([buildPatientInsertPayload({
-                            userId: user.id,
+                            userId: requestOwnerId,
                             patientNumber: insertNumber,
                             name: p.name,
                             bed: p.bed,
@@ -129,6 +140,7 @@ export function usePatientImport({
                         })])
                         .select()
                         .single();
+                    if (!isCurrentOwner(requestOwnerId)) return;
                     data = retryResult.data;
                     error = retryResult.error;
                 }
@@ -149,7 +161,7 @@ export function usePatientImport({
                 currentCounter = insertNumber + 1;
             }
 
-            appendPatients(newPatients);
+            appendPatients(requestOwnerId, newPatients);
 
             if (failedPatients.length > 0) {
                 if (newPatients.length === 0) {
@@ -170,14 +182,15 @@ export function usePatientImport({
                 });
             }
         } catch (error) {
-            console.error("Error importing patients:", error);
+            if (!isCurrentOwner(requestOwnerId)) return;
+            console.error("Patient import failed");
             notifications.error({
                 title: "Import Error",
                 description: "Failed to import some patients.",
             });
             throw error;
         }
-    }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, appendPatients]);
+    }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, isCurrentOwner, appendPatients]);
 
     const addPatientWithData = React.useCallback(async (patientData: {
         name: string;
@@ -197,6 +210,7 @@ export function usePatientImport({
             });
             throw new Error("Not signed in");
         }
+        const requestOwnerId = user.id;
         if (!hasSupabaseConfig) {
             notifications.error({
                 title: "Configuration Error",
@@ -217,7 +231,7 @@ export function usePatientImport({
             let { data, error } = await supabase
                 .from("patients")
                 .insert([buildPatientInsertPayload({
-                    userId: user.id,
+                    userId: requestOwnerId,
                     patientNumber: insertNumber,
                     name: patientData.name || "",
                     mrn: patientData.mrn ?? "",
@@ -232,13 +246,15 @@ export function usePatientImport({
                 .select()
                 .single();
 
+            if (!isCurrentOwner(requestOwnerId)) return;
             if (error && isPatientNumberConflict(error)) {
                 const latestNumber = await getLatestPatientNumber();
+                if (!isCurrentOwner(requestOwnerId)) return;
                 insertNumber = latestNumber + 1;
                 const retryResult = await supabase
                     .from("patients")
                     .insert([buildPatientInsertPayload({
-                        userId: user.id,
+                        userId: requestOwnerId,
                         patientNumber: insertNumber,
                         name: patientData.name || "",
                         mrn: patientData.mrn ?? "",
@@ -252,6 +268,7 @@ export function usePatientImport({
                     })])
                     .select()
                     .single();
+                if (!isCurrentOwner(requestOwnerId)) return;
                 data = retryResult.data;
                 error = retryResult.error;
             }
@@ -261,21 +278,22 @@ export function usePatientImport({
 
             const newPatient = mapPatientRecord(data);
 
-            appendPatients([newPatient]);
+            appendPatients(requestOwnerId, [newPatient]);
 
             notifications.success({
                 title: "Patient Imported",
                 description: `${patientData.name || 'New patient'} added successfully.`,
             });
         } catch (error) {
-            console.error("Error adding patient with data:", error);
+            if (!isCurrentOwner(requestOwnerId)) return;
+            console.error("Patient import failed");
             notifications.error({
                 title: "Error",
                 description: "Failed to import patient.",
             });
             throw error;
         }
-    }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, appendPatients]);
+    }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, isCurrentOwner, appendPatients]);
 
     return {
         importPatients,

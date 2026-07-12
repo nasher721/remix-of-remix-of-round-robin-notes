@@ -3,13 +3,26 @@ import { getCircuitBreaker, CircuitOpenError, type CircuitState } from "@/lib/ci
 import { logError, logInfo, generateRequestId } from "@/lib/observability/logger";
 import { captureEdgeFetchFailureToSentry } from "@/lib/observability/sentryClient";
 
-export type ApiError = {
-  name: "ApiError";
-  message: string;
-  status?: number;
-  url?: string;
-  cause?: unknown;
-};
+export class ApiError extends Error {
+  readonly status?: number;
+  readonly url?: string;
+  readonly cause?: unknown;
+
+  constructor(message: string, options: { status?: number; url?: string; cause?: unknown } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = options.status;
+    this.url = options.url;
+    this.cause = options.cause;
+  }
+}
+
+class CallerCancelledError extends ApiError {
+  constructor(url: string, cause?: unknown) {
+    super('Request cancelled', { url, cause });
+    this.name = 'CallerCancelledError';
+  }
+}
 
 export type ApiFetchOptions = RequestInit & {
   timeoutMs?: number;
@@ -28,26 +41,67 @@ const EDGE_RETRY_COUNT = 3;
 /** Fixed delay between edge retries (no exponential backoff). */
 const EDGE_RETRY_DELAY_MS = 1000;
 
-const inflightRequests = new Map<string, Promise<Response>>();
-
 const normalizeError = (error: unknown, url?: string, status?: number): ApiError => {
+  if (error instanceof ApiError) {
+    if ((url === undefined || url === error.url) &&
+      (status === undefined || status === error.status)) {
+      return error;
+    }
+    return new ApiError(error.message, {
+      status: status ?? error.status,
+      url: url ?? error.url,
+      cause: error.cause,
+    });
+  }
+
   const message = error instanceof Error ? error.message : "Network request failed";
-  return {
-    name: "ApiError",
-    message,
+  return new ApiError(message, {
     status,
     url,
     cause: error,
-  };
+  });
 };
 
 const createRequestKey = (url: string, init?: RequestInit): string => {
   const method = init?.method ?? "GET";
-  const body = typeof init?.body === "string" ? init.body : "";
-  return `${method}:${url}:${body}`;
+  const headers = Array.from(new Headers(init?.headers).entries())
+    .sort(([left], [right]) => left.localeCompare(right));
+  return JSON.stringify([method.toUpperCase(), url, headers]);
 };
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const hasCredentialHeaders = (headers?: HeadersInit): boolean => {
+  const normalized = new Headers(headers);
+  return normalized.has('authorization') ||
+    normalized.has('apikey') ||
+    normalized.has('cookie') ||
+    normalized.has('proxy-authorization');
+};
+
+const abortableDelay = (
+  ms: number,
+  signal: AbortSignal | null | undefined,
+  url: string,
+): Promise<void> => {
+  if (signal?.aborted) {
+    return Promise.reject(new CallerCancelledError(url, signal.reason));
+  }
+  return new Promise((resolve, reject) => {
+    const timeoutId = globalThis.setTimeout(() => {
+      signal?.removeEventListener('abort', cancelDelay);
+      resolve();
+    }, ms);
+    const cancelDelay = () => {
+      globalThis.clearTimeout(timeoutId);
+      signal?.removeEventListener('abort', cancelDelay);
+      reject(new CallerCancelledError(url, signal?.reason));
+    };
+    signal?.addEventListener('abort', cancelDelay, { once: true });
+  });
+};
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
 
 function edgeFunctionNameFromUrl(url: string): string {
   if (url.includes('/functions/v1/')) {
@@ -104,18 +158,42 @@ function logEdgeStructured(
 }
 
 export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
+  // Keep deduplication local to a client instance so responses can never cross
+  // fetch implementations, auth owners, or test/runtime boundaries.
+  const inflightRequests = new Map<string, Promise<Response>>();
+
   const apiFetch = async (url: URL | RequestInfo, init: ApiFetchOptions = {}): Promise<Response> => {
     const urlString = typeof url === 'string' ? url : url instanceof URL ? url.toString() : (url as Request).url;
+    const sourceRequest = typeof Request !== 'undefined' && url instanceof Request ? url : undefined;
     const isEdgeFunction = urlString.includes('/functions/v1/');
+    const requestedMethod = init.method ?? sourceRequest?.method ?? 'GET';
+    const isIdempotentMethod = ['GET', 'HEAD', 'OPTIONS'].includes(requestedMethod.toUpperCase());
     const {
       timeoutMs = isEdgeFunction ? EDGE_FUNCTION_TIMEOUT_MS : DEFAULT_TIMEOUT_MS,
-      retryCount = isEdgeFunction ? EDGE_RETRY_COUNT : DEFAULT_RETRY_COUNT,
+      retryCount = isEdgeFunction
+        ? EDGE_RETRY_COUNT
+        : isIdempotentMethod ? DEFAULT_RETRY_COUNT : 0,
       retryDelayMs = DEFAULT_RETRY_DELAY_MS,
-      dedupe = !isEdgeFunction,
+      dedupe = false,
       ...requestInit
     } = init;
 
+    const effectiveMethod = requestedMethod;
+    const effectiveHeaders = requestInit.headers ?? sourceRequest?.headers;
+    const effectiveCredentials = requestInit.credentials ?? sourceRequest?.credentials;
+    const callerSignal = requestInit.signal ?? sourceRequest?.signal;
+    const canDedupe = dedupe &&
+      !isEdgeFunction &&
+      (effectiveMethod.toUpperCase() === 'GET' || effectiveMethod.toUpperCase() === 'HEAD') &&
+      !callerSignal &&
+      !hasCredentialHeaders(effectiveHeaders) &&
+      effectiveCredentials !== 'include';
+
     const effectiveEdgeDelay = isEdgeFunction ? EDGE_RETRY_DELAY_MS : retryDelayMs;
+
+    if (callerSignal?.aborted) {
+      throw new CallerCancelledError(urlString, callerSignal.reason);
+    }
 
     const cbName = circuitNameFromUrl(urlString);
     const cb = getCircuitBreaker(cbName, {
@@ -130,8 +208,12 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
       );
     }
 
-    const requestKey = createRequestKey(urlString, requestInit);
-    if (dedupe && inflightRequests.has(requestKey)) {
+    const requestKey = createRequestKey(urlString, {
+      ...requestInit,
+      method: effectiveMethod,
+      headers: effectiveHeaders,
+    });
+    if (canDedupe && inflightRequests.has(requestKey)) {
       const inflight = inflightRequests.get(requestKey);
       if (inflight) {
         return inflight.then((response) => response.clone());
@@ -140,21 +222,37 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
 
     const executeFetch = async (): Promise<Response> => {
       const controller = new AbortController();
-      const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-      const signal = requestInit.signal
-        ? new AbortSignalProxy(requestInit.signal, controller.signal).signal
-        : controller.signal;
+      let abortSource: 'caller' | 'timeout' | null = null;
+      const abortFromCaller = () => {
+        if (controller.signal.aborted) return;
+        abortSource = 'caller';
+        controller.abort(callerSignal?.reason);
+      };
+
+      if (callerSignal?.aborted) {
+        throw new CallerCancelledError(urlString, callerSignal.reason);
+      }
+      callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
+      const timeoutId = globalThis.setTimeout(() => {
+        if (controller.signal.aborted) return;
+        abortSource = 'timeout';
+        controller.abort();
+      }, timeoutMs);
 
       try {
-        const response = await fetchImpl(urlString, { ...requestInit, signal });
+        const response = await fetchImpl(url, { ...requestInit, signal: controller.signal });
         return response;
       } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
+        if (abortSource === 'caller' && (isAbortError(error) || controller.signal.aborted)) {
+          throw new CallerCancelledError(urlString, error);
+        }
+        if (abortSource === 'timeout' && (isAbortError(error) || controller.signal.aborted)) {
           throw normalizeError(new Error("Request timed out"), urlString);
         }
         throw normalizeError(error, urlString);
       } finally {
         globalThis.clearTimeout(timeoutId);
+        callerSignal?.removeEventListener('abort', abortFromCaller);
       }
     };
 
@@ -205,7 +303,7 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
               message: `HTTP ${response.status}`,
               circuitState: cb.getState(),
             });
-            await delay(effectiveEdgeDelay);
+            await abortableDelay(effectiveEdgeDelay, callerSignal, urlString);
             attempt += 1;
             continue;
           }
@@ -213,6 +311,9 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
           return response;
         } catch (error) {
           lastError = normalizeError(error, urlString);
+          if (lastError instanceof CallerCancelledError) {
+            throw lastError;
+          }
           if (attempt >= retryCount) {
             const category = lastError.message.includes('timed out') ? 'network_error' : 'api_error';
             recordTelemetryEvent(category, lastError.message, {
@@ -261,23 +362,28 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
               message: lastError.message,
               circuitState: cb.getState(),
             });
-            await delay(effectiveEdgeDelay);
+            await abortableDelay(effectiveEdgeDelay, callerSignal, urlString);
             attempt += 1;
             continue;
           }
 
           const backoff = retryDelayMs * Math.pow(2, attempt);
           const jitter = Math.floor(Math.random() * retryDelayMs);
-          await delay(backoff + jitter);
+          await abortableDelay(backoff + jitter, callerSignal, urlString);
           attempt += 1;
         }
       }
       throw lastError ?? normalizeError(new Error("Request failed"), urlString);
+    }, {
+      shouldCountFailure: (error) => !(error instanceof CallerCancelledError),
     });
 
-    if (dedupe) {
+    if (canDedupe) {
       inflightRequests.set(requestKey, requestPromise);
-      requestPromise.finally(() => inflightRequests.delete(requestKey));
+      const clearInflight = () => {
+        inflightRequests.delete(requestKey);
+      };
+      void requestPromise.then(clearInflight, clearInflight);
     }
 
     return requestPromise;
@@ -285,18 +391,6 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
 
   return { apiFetch };
 };
-
-class AbortSignalProxy {
-  signal: AbortSignal;
-
-  constructor(primary: AbortSignal, secondary: AbortSignal) {
-    const controller = new AbortController();
-    const onAbort = () => controller.abort();
-    primary.addEventListener("abort", onAbort, { once: true });
-    secondary.addEventListener("abort", onAbort, { once: true });
-    this.signal = controller.signal;
-  }
-}
 
 const client = createApiClient();
 export const apiFetch = client.apiFetch;

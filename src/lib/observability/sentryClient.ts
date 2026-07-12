@@ -5,6 +5,8 @@
 
 import * as Sentry from '@sentry/react';
 
+type CaptureExceptionContext = Parameters<typeof Sentry.captureException>[1];
+
 let initialized = false;
 
 function scrubUrl(url: string | undefined): string | undefined {
@@ -32,32 +34,40 @@ export function initAppSentry(): void {
     dsn,
     environment: import.meta.env.MODE,
     release: import.meta.env.VITE_APP_VERSION as string | undefined,
-    integrations: [Sentry.browserTracingIntegration()],
-    tracesSampleRate: import.meta.env.PROD ? 0.1 : 0,
+    // Performance spans can capture request URLs containing clinical record
+    // identifiers. Keep tracing disabled until every transaction/span surface
+    // has a tested scrubber; error events still pass through beforeSend below.
+    integrations: [],
+    tracesSampleRate: 0,
     sendDefaultPii: false,
     beforeSend(event) {
+      event.message = event.message ? 'client_error' : undefined;
+      event.user = undefined;
+      event.extra = undefined;
+      event.tags = undefined;
+      event.contexts = undefined;
       if (event.request) {
         event.request.url = scrubUrl(event.request.url);
         delete event.request.data;
         delete event.request.cookies;
+        delete event.request.headers;
+        delete event.request.env;
+        delete event.request.query_string;
       }
       if (event.exception?.values) {
         for (const ex of event.exception.values) {
+          ex.value = 'client_error';
           if (ex.stacktrace?.frames) {
             for (const frame of ex.stacktrace.frames) {
-              if (frame.filename?.includes('patient') || frame.filename?.includes('Patient')) {
-                frame.vars = undefined;
-              }
+              frame.vars = undefined;
             }
           }
         }
       }
       if (event.breadcrumbs) {
         for (const b of event.breadcrumbs) {
-          if (b.data && typeof b.data === 'object') {
-            delete (b.data as Record<string, unknown>).body;
-            delete (b.data as Record<string, unknown>).payload;
-          }
+          b.message = undefined;
+          b.data = undefined;
         }
       }
       return event;
@@ -65,7 +75,7 @@ export function initAppSentry(): void {
   });
 }
 
-export function captureExceptionToSentry(error: unknown, captureContext?: Sentry.CaptureContext): void {
+export function captureExceptionToSentry(error: unknown, captureContext?: CaptureExceptionContext): void {
   if (!import.meta.env.VITE_SENTRY_DSN) return;
   Sentry.captureException(error, captureContext);
 }

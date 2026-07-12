@@ -30,6 +30,7 @@ import { medicalDictionary } from "@/data/autotexts";
 import { stripHtml } from "@/lib/sanitize";
 import type { AutoText, Template } from "@/types/autotext";
 import { useToast } from "@/hooks/use-toast";
+import { getUserFacingErrorMessage, UserFacingError } from "@/lib/userFacingErrors";
 
 interface AutotextManagerProps {
   onInsertText?: (text: string) => void;
@@ -94,7 +95,7 @@ export const AutotextManager = ({
       
       // Validate the data structure
       if (typeof data !== "object" || data === null) {
-        throw new Error("Invalid dictionary format");
+        throw new UserFacingError("Invalid dictionary format");
       }
 
       // Validate all entries are string -> string
@@ -110,7 +111,7 @@ export const AutotextManager = ({
       }
 
       if (Object.keys(validEntries).length === 0) {
-        throw new Error("No valid dictionary entries found");
+        throw new UserFacingError("No valid dictionary entries found");
       }
 
       if (onImportDictionary) {
@@ -122,10 +123,10 @@ export const AutotextManager = ({
         description: `${Object.keys(validEntries).length} entries imported${invalidCount > 0 ? `, ${invalidCount} invalid entries skipped` : ""}` 
       });
     } catch (error) {
-      console.error("Error importing dictionary:", error);
+      console.error("Dictionary import failed");
       toast({ 
         title: "Import failed", 
-        description: error instanceof Error ? error.message : "Failed to parse dictionary file",
+        description: getUserFacingErrorMessage(error, "Failed to parse dictionary file"),
         variant: "destructive" 
       });
     }

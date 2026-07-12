@@ -46,7 +46,7 @@ export const useMedicationFormat = () => {
       );
 
       if (error) {
-        console.error('Format medications error:', error);
+        console.error('Medication formatting request failed');
         toast.error(getUserFacingErrorMessage(error, 'Failed to format medications'));
         return null;
       }
@@ -80,7 +80,7 @@ export const useMedicationFormat = () => {
 
       return null;
     } catch (err) {
-      console.error('Format medications error:', err);
+      console.error('Medication formatting request failed');
       toast.error(getUserFacingErrorMessage(err, 'Failed to format medications'));
       return null;
     } finally {

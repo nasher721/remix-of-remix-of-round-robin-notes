@@ -1,14 +1,12 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.3';
+const CACHE_VERSION = 'v1.0.5';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
-const API_CACHE = `api-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
 
 // Cache TTL configurations (in milliseconds)
 const CACHE_TTL = {
-  api: 5 * 60 * 1000, // 5 minutes
   images: 24 * 60 * 60 * 1000, // 24 hours
   static: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
@@ -17,13 +15,16 @@ const CACHE_TTL = {
 // Avoid precaching HTML/navigations: stale HTML can reference deleted hashed chunks after deploy.
 const PRECACHE_ASSETS = ['/favicon.ico', '/placeholder.svg'];
 
-// API endpoints to cache
-const CACHEABLE_API_PATTERNS = [
-  /\/rest\/v1\/patients/,
-  /\/rest\/v1\/autotexts/,
-  /\/rest\/v1\/clinical_phrases/,
-  /\/rest\/v1\/templates/,
-  /\/rest\/v1\/user_dictionary/,
+const SENSITIVE_API_PATHS = ['/rest/v1/', '/functions/v1/', '/storage/v1/'];
+const SENSITIVE_QUERY_KEYS = [
+  'access_token',
+  'api_key',
+  'apikey',
+  'code',
+  'key',
+  'session_state',
+  'state',
+  'token',
 ];
 
 // Performance metrics storage
@@ -55,16 +56,18 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames
           .filter((name) => {
-            return name.startsWith('static-') || 
-                   name.startsWith('dynamic-') || 
+            return name.startsWith('static-') ||
+                   name.startsWith('dynamic-') ||
                    name.startsWith('api-') ||
                    name.startsWith('images-');
           })
           .filter((name) => {
-            return name !== STATIC_CACHE && 
-                   name !== DYNAMIC_CACHE && 
-                   name !== API_CACHE &&
-                   name !== IMAGE_CACHE;
+            // API caches from older workers may contain PHI. There is no active
+            // API cache, so every api-* cache is always removed.
+            return name.startsWith('api-') ||
+                   (name !== STATIC_CACHE &&
+                   name !== DYNAMIC_CACHE &&
+                   name !== IMAGE_CACHE);
           })
           .map((name) => {
             console.log('[SW] Deleting old cache:', name);
@@ -99,6 +102,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Never persist third-party responses. Cross-origin endpoints can carry
+  // provider credentials or clinical data under query names unknown to us.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Authenticated and Supabase data requests are network-only. CacheStorage is
+  // shared by every signed-in user for this origin, so caching these responses
+  // could expose one clinician's patient data to the next session.
+  if (isSensitiveRequest(request, url)) {
+    return;
+  }
+
   // SPA navigations / HTML should be network-first.
   // Caching HTML with a SW can easily cause "Failed to fetch dynamically imported module"
   // after a deployment when the cached HTML points at old hashed chunk filenames.
@@ -113,9 +129,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Determine caching strategy based on request type
-  if (isApiRequest(url)) {
-    event.respondWith(networkFirstWithCache(request, API_CACHE, CACHE_TTL.api));
-  } else if (isImageRequest(url)) {
+  if (isImageRequest(url)) {
     event.respondWith(cacheFirstWithNetwork(request, IMAGE_CACHE, CACHE_TTL.images));
   } else if (isStaticAsset(url)) {
     event.respondWith(cacheFirstWithNetwork(request, STATIC_CACHE, CACHE_TTL.static));
@@ -124,17 +138,21 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Check if request is an API call
-function isApiRequest(url) {
-  return CACHEABLE_API_PATTERNS.some(pattern => pattern.test(url.pathname)) ||
-         url.pathname.includes('/rest/v1/') ||
-         url.pathname.includes('/functions/v1/');
+function isSensitiveUrl(url) {
+  return SENSITIVE_API_PATHS.some(path => url.pathname.includes(path)) ||
+         SENSITIVE_QUERY_KEYS.some(key => url.searchParams.has(key));
+}
+
+function isSensitiveRequest(request, url) {
+  return request.headers.has('authorization') ||
+         request.headers.has('apikey') ||
+         request.headers.has('cookie') ||
+         isSensitiveUrl(url);
 }
 
 // Check if request is for an image
 function isImageRequest(url) {
-  return /\.(png|jpg|jpeg|gif|svg|webp|ico)$/i.test(url.pathname) ||
-         url.pathname.includes('/storage/v1/');
+  return /\.(png|jpg|jpeg|gif|svg|webp|ico)$/i.test(url.pathname);
 }
 
 // Check if request is for a static asset
@@ -168,7 +186,7 @@ async function networkFirstWithJsRetry(request, cacheName, ttl) {
   }
 }
 
-// Network First with Cache Fallback (for API requests)
+// Network First with Cache Fallback (for navigations and versioned assets)
 async function networkFirstWithCache(request, cacheName, ttl) {
   const startTime = performance.now();
   
@@ -329,15 +347,28 @@ self.addEventListener('message', (event) => {
       break;
       
     case 'CLEAR_API_CACHE':
-      caches.delete(API_CACHE).then(() => {
-        event.ports[0]?.postMessage({ success: true });
+    case 'CLEAR_SENSITIVE_CACHES':
+      caches.keys().then((names) => {
+        const sensitiveCaches = names.filter((name) =>
+          name.startsWith('api-') || name.startsWith('dynamic-') || name.startsWith('images-')
+        );
+        Promise.all(sensitiveCaches.map((name) => caches.delete(name))).then(() => {
+          event.ports[0]?.postMessage({ success: true });
+        });
       });
       break;
       
     case 'PRECACHE_URLS':
       if (payload?.urls) {
+        const safeUrls = payload.urls.filter((value) => {
+          try {
+            return !isSensitiveUrl(new URL(value, self.location.origin));
+          } catch {
+            return false;
+          }
+        });
         caches.open(DYNAMIC_CACHE).then((cache) => {
-          cache.addAll(payload.urls).then(() => {
+          cache.addAll(safeUrls).then(() => {
             event.ports[0]?.postMessage({ success: true });
           });
         });

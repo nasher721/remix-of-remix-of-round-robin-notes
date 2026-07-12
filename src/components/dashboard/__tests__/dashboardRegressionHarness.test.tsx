@@ -20,6 +20,7 @@ import { MobileDashboard } from "@/components/dashboard/MobileDashboard";
 import { VirtualizedMobilePatientList } from "@/components/mobile/VirtualizedMobilePatientList";
 import {
   dashboardImportPatients,
+  dashboardPatients3,
   dashboardPatients8,
   dashboardPatients20,
   makeDashboardTodosMap,
@@ -27,6 +28,19 @@ import {
 import { PatientFilterType } from "@/constants/config";
 import type { Patient } from "@/types/patient";
 import type { MobileTab } from "@/components/layout";
+
+globalThis.MutationObserver = window.MutationObserver;
+globalThis.NodeFilter = window.NodeFilter;
+globalThis.HTMLInputElement = window.HTMLInputElement;
+globalThis.HTMLTextAreaElement = window.HTMLTextAreaElement;
+globalThis.ResizeObserver =
+  window.ResizeObserver ??
+  class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+Element.prototype.scrollIntoView = Element.prototype.scrollIntoView ?? function scrollIntoView() {};
 
 afterEach(() => {
   cleanup();
@@ -55,6 +69,12 @@ function buildDashboardValue({
   selectedPatient = null,
   desktopSelectedPatientId = patients[0]?.id ?? null,
   setDesktopSelectedPatientId = () => {},
+  searchQuery = "",
+  setSearchQuery = () => {},
+  filter = PatientFilterType.All,
+  setFilter = () => {},
+  onAddPatient = () => {},
+  onRefetchPatients = () => {},
 }: {
   patients: Patient[];
   filteredPatients?: Patient[];
@@ -62,6 +82,12 @@ function buildDashboardValue({
   selectedPatient?: Patient | null;
   desktopSelectedPatientId?: string | null;
   setDesktopSelectedPatientId?: (patientId: string | null) => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
+  filter?: PatientFilterType;
+  setFilter?: (filter: PatientFilterType) => void;
+  onAddPatient?: () => void;
+  onRefetchPatients?: () => void | Promise<void>;
 }) {
   return {
     user: { email: "clinician@example.test" },
@@ -70,26 +96,26 @@ function buildDashboardValue({
     autotexts: [],
     templates: [],
     customDictionary: {},
-    searchQuery: "",
-    setSearchQuery: () => {},
-    filter: PatientFilterType.All,
-    setFilter: () => {},
+    searchQuery,
+    setSearchQuery,
+    filter,
+    setFilter,
     selectedPatient,
     mobileTab,
     setMobileTab: () => {},
     lastSaved: new Date("2026-05-27T12:00:00.000Z"),
     patientListViewMode: "compact" as const,
     setPatientListViewMode: () => {},
-    onAddPatient: () => {},
+    onAddPatient,
     onAddPatientWithData: async () => {},
-    onUpdatePatient: () => {},
-    onRemovePatient: () => {},
-    onDuplicatePatient: () => {},
-    onToggleCollapse: () => {},
-    onCollapseAll: () => {},
-    onClearAll: () => {},
+    onUpdatePatient: async () => {},
+    onRemovePatient: async () => {},
+    onDuplicatePatient: async () => {},
+    onToggleCollapse: async () => {},
+    onCollapseAll: async () => {},
+    onClearAll: async () => {},
     onImportPatients: async () => {},
-    onRefetchPatients: () => {},
+    onRefetchPatients,
     onAddAutotext: async () => true,
     onRemoveAutotext: async () => {},
     onAddTemplate: async () => true,
@@ -109,6 +135,12 @@ function AppProviders({
   selectedPatient = null,
   desktopSelectedPatientId = patients[0]?.id ?? null,
   setDesktopSelectedPatientId = () => {},
+  searchQuery = "",
+  setSearchQuery = () => {},
+  filter = PatientFilterType.All,
+  setFilter = () => {},
+  onAddPatient = () => {},
+  onRefetchPatients = () => {},
   children,
 }: {
   patients: Patient[];
@@ -117,6 +149,12 @@ function AppProviders({
   selectedPatient?: Patient | null;
   desktopSelectedPatientId?: string | null;
   setDesktopSelectedPatientId?: (patientId: string | null) => void;
+  searchQuery?: string;
+  setSearchQuery?: (query: string) => void;
+  filter?: PatientFilterType;
+  setFilter?: (filter: PatientFilterType) => void;
+  onAddPatient?: () => void;
+  onRefetchPatients?: () => void | Promise<void>;
   children: React.ReactNode;
 }) {
   const queryClient = React.useMemo(() => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }), []);
@@ -139,6 +177,12 @@ function AppProviders({
                           selectedPatient,
                           desktopSelectedPatientId,
                           setDesktopSelectedPatientId,
+                          searchQuery,
+                          setSearchQuery,
+                          filter,
+                          setFilter,
+                          onAddPatient,
+                          onRefetchPatients,
                         })}
                       >
                         <DashboardTodosProvider todosMap={makeDashboardTodosMap(patients)}>
@@ -158,6 +202,59 @@ function AppProviders({
 }
 
 describe("production dashboard roster regression harness", () => {
+  it("renders sober zero-patient dashboard recovery actions", async () => {
+    setViewport(1440, 900);
+    let addPatientCalls = 0;
+
+    render(
+      <MemoryRouter>
+        <AppProviders patients={[]} onAddPatient={() => addPatientCalls += 1}>
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    assert.ok(await screen.findByRole("heading", { name: "Ready to Start Rounds" }));
+    assert.ok(screen.getByText("No patients on your roster yet"));
+    assert.ok(screen.getByText("Add your first patient to begin documenting rounds with your team."));
+    fireEvent.click(screen.getByRole("button", { name: "Add First Patient" }));
+    assert.equal(addPatientCalls, 1);
+    assert.ok(screen.getByRole("button", { name: "Import from CSV/EHR" }));
+    assert.ok(screen.getByRole("button", { name: "Preview example structure" }));
+  });
+
+  it("renders filtered-empty dashboard recovery actions without losing the source roster", async () => {
+    setViewport(1440, 900);
+    let clearedSearch = "";
+    let clearedFilter: PatientFilterType | null = null;
+
+    render(
+      <MemoryRouter>
+        <AppProviders
+          patients={dashboardPatients3}
+          filteredPatients={[]}
+          searchQuery="zz-no-match"
+          setSearchQuery={(query) => {
+            clearedSearch = query;
+          }}
+          filter={PatientFilterType.Filled}
+          setFilter={(nextFilter) => {
+            clearedFilter = nextFilter;
+          }}
+        >
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    assert.ok(await screen.findByRole("heading", { name: "No patients match your filter" }));
+    assert.ok(screen.getByText("0 of 3 patients"));
+    assert.ok(screen.getByText("Try adjusting your search or filter criteria."));
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+    assert.equal(clearedSearch, "");
+    assert.equal(clearedFilter, PatientFilterType.All);
+  });
+
   it("renders real VirtualizedPatientList with at least four user-visible desktop roster rows at 1440x900", async () => {
     setViewport(1440, 900);
     render(
@@ -190,6 +287,31 @@ describe("production dashboard roster regression harness", () => {
     const rows = screen.getAllByRole("button", { name: /^Select / });
     assert.equal(rows.filter(isUserVisible).length >= 4, true);
     assert.ok(screen.getByRole("button", { name: /Select Alex Morgan, A01/ }));
+  });
+
+  it("opens the AI command palette with selected non-first patient context", async () => {
+    setViewport(1440, 900);
+    render(
+      <MemoryRouter>
+        <AppProviders
+          patients={dashboardPatients20}
+          selectedPatient={dashboardPatients20[3]}
+          desktopSelectedPatientId={dashboardPatients20[3].id}
+        >
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    assert.equal(
+      screen.getByRole("button", { name: /Select Devon Rivera, A04/ }).getAttribute("aria-current"),
+      "true",
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "AI" }));
+
+    assert.ok(await screen.findByText("Draft note for Devon Rivera"));
+    assert.ok(screen.getByText("Summarize Devon Rivera's overnight events"));
   });
 
   it("keeps desktop roster rows visible and active-row accessibility stable after add/import/selection", async () => {
@@ -245,6 +367,83 @@ describe("production dashboard roster regression harness", () => {
     assert.match(patientListRegion.className, /lg:h-full/);
     assert.doesNotMatch(patientListRegion.className, /100vh-14rem/);
     assert.equal(document.querySelectorAll("[data-anime-stagger-item]").length, 0);
+  });
+
+  it("names the target patient before confirming a desktop remove action", async () => {
+    setViewport(1440, 768);
+    render(
+      <AppProviders patients={dashboardPatients8} desktopSelectedPatientId={dashboardPatients8[0].id}>
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    assert.ok(await screen.findByRole("button", { name: /Select Alex Morgan, A01/ }));
+
+    const removeButton = screen.getAllByRole("button", { name: /remove/i }).find(isUserVisible);
+    assert.ok(removeButton, "expected a visible remove button for the selected patient");
+    fireEvent.click(removeButton);
+
+    assert.ok(await screen.findByRole("alertdialog", { name: "Remove Patient" }));
+    assert.ok(screen.getByText(/Remove Alex Morgan from rounds\?/));
+    assert.ok(screen.getByRole("button", { name: "Cancel" }));
+  });
+
+  it("returns focus to the remove trigger after closing a representative confirmation dialog", async () => {
+    setViewport(1440, 768);
+    render(
+      <AppProviders patients={dashboardPatients8} desktopSelectedPatientId={dashboardPatients8[0].id}>
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    assert.ok(await screen.findByRole("button", { name: /Select Alex Morgan, A01/ }));
+
+    const removeButton = screen.getAllByRole("button", { name: /remove/i }).find(isUserVisible);
+    assert.ok(removeButton, "expected a visible remove button for the selected patient");
+    removeButton.focus();
+    assert.equal(document.activeElement, removeButton);
+
+    fireEvent.click(removeButton);
+    assert.ok(await screen.findByRole("alertdialog", { name: "Remove Patient" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // Radix restores focus from a zero-delay task after the portal unmounts.
+    // Yield before asserting so Testing Library does not install a document-wide
+    // MutationObserver while the focus scope is still tearing down.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(screen.queryByRole("alertdialog", { name: "Remove Patient" }), null);
+    assert.equal(document.activeElement, removeButton);
+  });
+
+  it("exposes sync loading status while desktop patient refresh is in flight", async () => {
+    setViewport(1440, 900);
+    let resolveRefetch: (() => void) | undefined;
+    const refetchPromise = new Promise<void>((resolve) => {
+      resolveRefetch = resolve;
+    });
+
+    render(
+      <MemoryRouter>
+        <AppProviders patients={dashboardPatients3} onRefetchPatients={() => refetchPromise}>
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    const retrySyncButton = await screen.findByRole("button", { name: "Retry sync and refresh patient list" });
+    fireEvent.click(retrySyncButton);
+
+    await waitFor(() => {
+      assert.equal(retrySyncButton.getAttribute("aria-busy"), "true");
+      assert.equal(retrySyncButton.hasAttribute("disabled"), true);
+    });
+
+    resolveRefetch?.();
+
+    await waitFor(() => {
+      assert.equal(retrySyncButton.getAttribute("aria-busy"), "false");
+      assert.equal(retrySyncButton.hasAttribute("disabled"), false);
+    });
   });
 
   it("renders real VirtualizedMobilePatientList with visible 20-patient rows at 375px width", async () => {

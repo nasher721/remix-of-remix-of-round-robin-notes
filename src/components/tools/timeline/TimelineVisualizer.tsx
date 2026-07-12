@@ -58,8 +58,8 @@ export function TimelineVisualizer({ events, onDelete }: TimelineVisualizerProps
         return (
             <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground border border-dashed border-border/50 rounded-xl bg-card w-full">
                 <AlertTriangle className="h-8 w-8 mb-4 text-neutral-500 opacity-50" />
-                <p className="font-medium text-neutral-300">No events recorded</p>
-                <p className="text-sm">Click "Add Event" to start building the patient journey.</p>
+                <p className="font-medium text-neutral-300">No patient timeline events recorded</p>
+                <p className="text-sm">Add only events verified from the patient record.</p>
             </div>
         );
     }

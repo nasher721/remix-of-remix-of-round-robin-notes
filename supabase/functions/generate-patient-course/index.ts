@@ -1,7 +1,16 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MissingAPIKeyError, handleOptions } from '../_shared/mod.ts';
-import { callLLM } from '../_shared/llm-client.ts';
+import {
+  authenticateRequest,
+  checkRateLimit,
+  corsHeaders,
+  createErrorResponse,
+  handleOptions,
+  MissingAPIKeyError,
+  parseAndValidateBody,
+  RATE_LIMITS,
+  safeErrorMessage,
+  safeLog,
+} from "../_shared/mod.ts";
+import { callLLM } from "../_shared/llm-client.ts";
 
 interface PatientSystems {
   neuro: string;
@@ -25,34 +34,44 @@ interface PatientData {
   systems: PatientSystems;
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
     return handleOptions(req);
   }
 
   try {
     // Authenticate the request
     const authResult = await authenticateRequest(req);
-    if ('error' in authResult) {
+    if ("error" in authResult) {
       return authResult.error;
     }
     const userId = authResult.userId;
-    safeLog('info', `Authenticated request from user: ${userId}`);
-    const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
+    safeLog("info", "Generate patient course request authenticated");
+    const rateLimit = await checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+      return rateLimit.response ??
+        new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        });
     }
 
-    const bodyResult = await parseAndValidateBody<{ patientData?: PatientData; existingCourse?: string; model?: string }>(req);
+    const bodyResult = await parseAndValidateBody<
+      { patientData?: PatientData; existingCourse?: string; model?: string }
+    >(req);
     if (!bodyResult.valid) {
       return bodyResult.response;
     }
-    const { patientData, existingCourse, model: requestedModel } = bodyResult.data;
+    const { patientData, existingCourse, model: requestedModel } =
+      bodyResult.data;
 
     if (!patientData) {
       return new Response(
-        JSON.stringify({ error: 'Missing required field: patientData' }),
-        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Missing required field: patientData" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -60,22 +79,26 @@ serve(async (req) => {
     const patientContent: string[] = [];
 
     if (patientData.clinicalSummary) {
-      const cleanSummary = patientData.clinicalSummary.replace(/<[^>]*>/g, '').trim();
-      if (cleanSummary) patientContent.push(`Clinical Summary: ${cleanSummary}`);
+      const cleanSummary = patientData.clinicalSummary.replace(/<[^>]*>/g, "")
+        .trim();
+      if (cleanSummary) {
+        patientContent.push(`Clinical Summary: ${cleanSummary}`);
+      }
     }
 
     if (patientData.intervalEvents) {
-      const cleanEvents = patientData.intervalEvents.replace(/<[^>]*>/g, '').trim();
+      const cleanEvents = patientData.intervalEvents.replace(/<[^>]*>/g, "")
+        .trim();
       if (cleanEvents) patientContent.push(`Interval Events:\n${cleanEvents}`);
     }
 
     if (patientData.imaging) {
-      const cleanImaging = patientData.imaging.replace(/<[^>]*>/g, '').trim();
+      const cleanImaging = patientData.imaging.replace(/<[^>]*>/g, "").trim();
       if (cleanImaging) patientContent.push(`Imaging: ${cleanImaging}`);
     }
 
     if (patientData.labs) {
-      const cleanLabs = patientData.labs.replace(/<[^>]*>/g, '').trim();
+      const cleanLabs = patientData.labs.replace(/<[^>]*>/g, "").trim();
       if (cleanLabs) patientContent.push(`Labs: ${cleanLabs}`);
     }
 
@@ -96,26 +119,33 @@ serve(async (req) => {
       const systemNotes: string[] = [];
       for (const [key, label] of Object.entries(systemLabels)) {
         const content = patientData.systems[key as keyof PatientSystems];
-        if (content && typeof content === 'string') {
-          const cleanContent = content.replace(/<[^>]*>/g, '').trim();
+        if (content && typeof content === "string") {
+          const cleanContent = content.replace(/<[^>]*>/g, "").trim();
           if (cleanContent) {
             systemNotes.push(`${label}: ${cleanContent}`);
           }
         }
       }
       if (systemNotes.length > 0) {
-        patientContent.push(`Systems Review:\n${systemNotes.join('\n')}`);
+        patientContent.push(`Systems Review:\n${systemNotes.join("\n")}`);
       }
     }
 
     if (patientContent.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No patient data to generate course from. Add clinical notes first.' }),
-        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error:
+            "No patient data to generate course from. Add clinical notes first.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        },
       );
     }
 
-    const systemPrompt = `You are a medical documentation expert creating a chronological hospital course summary for ICU/hospital patients.
+    const systemPrompt =
+      `You are a medical documentation expert creating a chronological hospital course summary for ICU/hospital patients.
 
 REQUIRED FORMAT:
 - Organize events chronologically by DATE (most recent first)
@@ -145,13 +175,21 @@ STYLE GUIDELINES:
 - If dates can be inferred from interval events format, use those
 - If no dates are available, organize by clinical progression
 
-${existingCourse ? `EXISTING COURSE (update/expand as needed):\n${existingCourse}\n` : ''}
+${
+        existingCourse
+          ? `EXISTING COURSE (update/expand as needed):\n${existingCourse}\n`
+          : ""
+      }
 
 Output ONLY the formatted course summary. No explanations or headers outside the date structure.`;
 
-    const userPrompt = `Generate a chronological hospital course for ${patientData.name || 'this patient'} from the following clinical data:\n\n${patientContent.join('\n\n')}`;
+    const userPrompt = `Generate a chronological hospital course for ${
+      patientData.name || "this patient"
+    } from the following clinical data:\n\n${patientContent.join("\n\n")}`;
 
-    safeLog('info', `Generating patient course for ${patientData.name || 'patient'}`);
+    safeLog("info", "Generate patient course processing started", {
+      sectionCount: patientContent.length,
+    });
 
     const generatedCourse = await callLLM(systemPrompt, userPrompt, {
       model: requestedModel,
@@ -159,24 +197,34 @@ Output ONLY the formatted course summary. No explanations or headers outside the
     });
 
     if (!generatedCourse) {
-      throw new Error('No response from AI');
+      throw new Error("No response from AI");
     }
 
-    safeLog('info', `Successfully generated patient course: ${generatedCourse.length} characters`);
+    safeLog("info", "Generate patient course processing completed", {
+      outputChars: generatedCourse.length,
+    });
 
     return new Response(
       JSON.stringify({ course: generatedCourse }),
-      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } },
     );
-
   } catch (error) {
-    safeLog('error', `Generate patient course error: ${error}`);
+    safeLog("error", "Generate patient course request failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     if (error instanceof MissingAPIKeyError) {
       return new Response(
-        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
-        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: error.message, code: "MISSING_API_KEY" }),
+        {
+          status: 503,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        },
       );
     }
-    return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate patient course'), 500);
+    return createErrorResponse(
+      req,
+      safeErrorMessage(error, "Failed to generate patient course"),
+      500,
+    );
   }
 });

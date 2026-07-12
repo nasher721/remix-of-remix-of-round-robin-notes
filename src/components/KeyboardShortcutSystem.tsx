@@ -250,7 +250,7 @@ export function KeyboardShortcutSystem() {
         opacity: { from: 0, to: 1 },
         y: { from: 8, to: 0 },
         duration: 300,
-        delay: stagger(40, { from: 'start' }),
+        delay: stagger(40, { from: 'first' }),
       });
       return tl;
     },

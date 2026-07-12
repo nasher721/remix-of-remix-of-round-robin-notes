@@ -7,6 +7,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export type TransformType = 'comma-list' | 'medical-shorthand' | 'custom';
 
@@ -26,7 +27,32 @@ export interface CustomPrompt {
   prompt: string;
 }
 
-const CUSTOM_PROMPTS_KEY = 'ai-custom-prompts';
+const MAX_CUSTOM_PROMPTS = 50;
+const MAX_PROMPT_NAME_LENGTH = 100;
+const MAX_PROMPT_LENGTH = 4000;
+
+const sanitizeCustomPrompts = (value: unknown): CustomPrompt[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((prompt): prompt is CustomPrompt => (
+      typeof prompt === 'object'
+      && prompt !== null
+      && typeof (prompt as CustomPrompt).id === 'string'
+      && typeof (prompt as CustomPrompt).name === 'string'
+      && typeof (prompt as CustomPrompt).prompt === 'string'
+    ))
+    .slice(0, MAX_CUSTOM_PROMPTS)
+    .map((prompt) => ({
+      id: prompt.id.slice(0, 100),
+      name: prompt.name.slice(0, MAX_PROMPT_NAME_LENGTH),
+      prompt: prompt.prompt.slice(0, MAX_PROMPT_LENGTH),
+    }));
+};
+
+// Custom prompts can contain clinical text. RLS-protected user settings are
+// the durable store; remove copies left in unscoped browser storage.
+safeLocalStorage.removeItem('ai-custom-prompts');
 
 export const useTextTransform = () => {
   const { user } = useAuth();
@@ -35,112 +61,109 @@ export const useTextTransform = () => {
   const [isSyncing, setIsSyncing] = React.useState(false);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const initialSyncDone = React.useRef(false);
+  const loadedOwnerRef = React.useRef<string | null>(null);
+  const userId = user?.id ?? null;
 
-  const [customPrompts, setCustomPrompts] = React.useState<CustomPrompt[]>(() => {
-    try {
-      const stored = localStorage.getItem(CUSTOM_PROMPTS_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [storedCustomPrompts, setStoredCustomPrompts] = React.useState<CustomPrompt[]>([]);
+  const customPrompts = React.useMemo(
+    () => loadedOwnerRef.current === userId ? storedCustomPrompts : [],
+    [storedCustomPrompts, userId],
+  );
 
   // Sync custom prompts to database
   const syncPromptsToDb = React.useCallback(async (prompts: CustomPrompt[]) => {
-    if (!user) return;
+    if (!userId) return;
 
     try {
-      const { data: existing } = await supabase
+      const { data: existing, error: lookupError } = await supabase
         .from('user_settings')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .maybeSingle();
+      if (lookupError) throw lookupError;
 
       // Cast prompts to Json-compatible type
-      const promptsJson = JSON.parse(JSON.stringify(prompts)) as Json;
+      const promptsJson = JSON.parse(JSON.stringify(sanitizeCustomPrompts(prompts))) as Json;
 
       if (existing) {
-        await supabase
+        const { error } = await supabase
           .from('user_settings')
           .update({ custom_prompts: promptsJson })
-          .eq('user_id', user.id);
+          .eq('user_id', userId);
+        if (error) throw error;
       } else {
-        await supabase
+        const { error } = await supabase
           .from('user_settings')
-          .insert([{ user_id: user.id, custom_prompts: promptsJson }]);
+          .insert([{ user_id: userId, custom_prompts: promptsJson }]);
+        if (error) throw error;
       }
-    } catch (err) {
-      console.error('Failed to sync custom prompts:', err);
+    } catch {
+      console.error('Failed to sync custom prompts');
     }
-  }, [user]);
+  }, [userId]);
 
   // Load prompts from database on login
   React.useEffect(() => {
+    let active = true;
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = null;
+    }
+    setIsSyncing(false);
+    initialSyncDone.current = false;
+    loadedOwnerRef.current = null;
+    setStoredCustomPrompts([]);
+    safeLocalStorage.removeItem('ai-custom-prompts');
+
     const loadFromDb = async () => {
-      if (!user || initialSyncDone.current) return;
+      if (!userId) return;
 
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('user_settings')
           .select('custom_prompts')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .maybeSingle();
+        if (error) throw error;
 
-        if (data?.custom_prompts) {
-          const dbPrompts = data.custom_prompts as unknown as CustomPrompt[];
-          if (Array.isArray(dbPrompts)) {
-            setCustomPrompts(dbPrompts);
-            localStorage.setItem(CUSTOM_PROMPTS_KEY, JSON.stringify(dbPrompts));
-          }
-        } else {
-          // No DB settings, sync current local storage to DB
-          const localPrompts = localStorage.getItem(CUSTOM_PROMPTS_KEY);
-          if (localPrompts) {
-            try {
-              const parsed = JSON.parse(localPrompts);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                await supabase
-                  .from('user_settings')
-                  .upsert({ user_id: user.id, custom_prompts: parsed }, { onConflict: 'user_id' });
-              }
-            } catch {
-              // Ignore parse errors
-            }
-          }
-        }
+        if (!active) return;
+        const dbPrompts = sanitizeCustomPrompts(data?.custom_prompts);
+        loadedOwnerRef.current = userId;
+        setStoredCustomPrompts(dbPrompts);
         initialSyncDone.current = true;
-      } catch (err) {
-        console.error('Failed to load prompts from DB:', err);
+      } catch {
+        if (active) console.error('Failed to load custom prompts');
       }
     };
 
-    loadFromDb();
-  }, [user]);
-
-  // Reset sync flag on logout
-  React.useEffect(() => {
-    if (!user) {
-      initialSyncDone.current = false;
-    }
-  }, [user]);
+    void loadFromDb();
+    return () => {
+      active = false;
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
+      }
+    };
+  }, [userId]);
 
   const saveCustomPrompts = React.useCallback((prompts: CustomPrompt[]) => {
-    setCustomPrompts(prompts);
-    localStorage.setItem(CUSTOM_PROMPTS_KEY, JSON.stringify(prompts));
+    const sanitizedPrompts = sanitizeCustomPrompts(prompts);
+    loadedOwnerRef.current = userId;
+    setStoredCustomPrompts(sanitizedPrompts);
     
     // Debounce DB sync
-    if (user && initialSyncDone.current) {
+    if (userId && initialSyncDone.current) {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
       setIsSyncing(true);
       syncTimeoutRef.current = setTimeout(() => {
-        syncPromptsToDb(prompts).finally(() => {
+        syncPromptsToDb(sanitizedPrompts).finally(() => {
           setIsSyncing(false);
         });
       }, 500);
     }
-  }, [user, syncPromptsToDb]);
+  }, [userId, syncPromptsToDb]);
 
   const addCustomPrompt = React.useCallback((name: string, prompt: string) => {
     const newPrompt: CustomPrompt = {

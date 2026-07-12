@@ -64,7 +64,12 @@ export function CacheMonitorPanel() {
   };
   
   const handleWarmCaches = async () => {
-    await warmCaches();
+    const result = await warmCaches();
+    if (!result) return;
+    if (result.errors.length > 0) {
+      toast.error(`${result.errors.length} cache source${result.errors.length === 1 ? '' : 's'} could not be loaded`);
+      return;
+    }
     toast.success('Caches warmed successfully');
   };
   

@@ -8,33 +8,25 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { 
-  TrendingUp, 
-  Clock, 
-  FileText, 
-  Sparkles, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Plus,
+import {
+  TrendingUp,
+  Clock,
+  FileText,
+  Sparkles,
+  ArrowUpRight,
   Copy,
   Check,
-  X,
-  Calendar
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { ClinicalPhrase } from "@/types/phrases";
 import { supabase } from "@/integrations/supabase/client";
 import { hasSupabaseConfig } from "@/integrations/supabase/client";
-
-interface PhraseUsageStats {
-  phraseId: string;
-  phraseShortcut: string;
-  phraseTitle: string;
-  usageCount: number;
-  lastUsed: string;
-  trend: number;
-  avgTimeSaved: number;
-}
+import {
+  buildPhraseUsageStats,
+  ESTIMATED_SECONDS_SAVED_PER_USE,
+  type PhraseUsageStats,
+} from "@/lib/clinicalPhraseAnalytics";
 
 interface SuggestedPhrase {
   text: string;
@@ -71,35 +63,10 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
 
       if (error) throw error;
 
-      const phraseUsageMap = new Map<string, number>();
-      const phraseLastUsedMap = new Map<string, string>();
-      
-      usageData?.forEach(log => {
-        phraseUsageMap.set(log.phrase_id, (phraseUsageMap.get(log.phrase_id) || 0) + 1);
-        if (!phraseLastUsedMap.has(log.phrase_id) || new Date(log.created_at) > new Date(phraseLastUsedMap.get(log.phrase_id)!)) {
-          phraseLastUsedMap.set(log.phrase_id, log.created_at);
-        }
-      });
-
-      const stats: PhraseUsageStats[] = phrases
-        .filter(phrase => phraseUsageMap.has(phrase.id))
-        .map(phrase => {
-          const usageCount = phraseUsageMap.get(phrase.id) || 0;
-          return {
-            phraseId: phrase.id,
-            phraseShortcut: phrase.shortcut,
-            phraseTitle: phrase.name,
-            usageCount,
-            lastUsed: phraseLastUsedMap.get(phrase.id) || '',
-            trend: Math.random() * 20 - 10,
-            avgTimeSaved: 30 + Math.random() * 60,
-          };
-        })
-        .sort((a, b) => b.usageCount - a.usageCount);
-
-      setUsageStats(stats);
+      setUsageStats(buildPhraseUsageStats(phrases, usageData ?? []));
     } catch (error) {
       console.error('Error fetching usage stats:', error);
+      toast.error('Phrase usage statistics could not be loaded');
     } finally {
       setLoading(false);
     }
@@ -142,15 +109,15 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
         .filter(([_, count]) => count >= 3)
         .map(([text, frequency]) => {
           const existingPhrase = phrases.find(p => 
-            p.shortcut.toLowerCase().includes(text.substring(0, 10).toLowerCase()) ||
+            (p.shortcut?.toLowerCase().includes(text.substring(0, 10).toLowerCase()) ?? false) ||
             p.name.toLowerCase().includes(text.substring(0, 10).toLowerCase())
           );
 
           return {
             text: text + '...',
             frequency,
-            estimatedSavings: frequency * 45,
-            existingShortcut: existingPhrase?.shortcut,
+            estimatedSavings: frequency * ESTIMATED_SECONDS_SAVED_PER_USE,
+            existingShortcut: existingPhrase?.shortcut ?? undefined,
           };
         })
         .sort((a, b) => b.estimatedSavings - a.estimatedSavings)
@@ -159,6 +126,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
       setSuggestedPhrases(suggestions);
     } catch (error) {
       console.error('Error generating suggestions:', error);
+      toast.error('Phrase suggestions could not be generated');
     }
   }, [phrases]);
 
@@ -180,20 +148,14 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
     color: COLORS[index % COLORS.length],
   }));
 
-  const trendData = usageStats.slice(0, 7).map((stat, index) => ({
+  const usageComparisonData = usageStats.slice(0, 7).map((stat) => ({
     name: stat.phraseShortcut.substring(0, 8),
     usage: stat.usageCount,
-    trend: stat.trend,
   }));
 
   const totalUsage = usageStats.reduce((sum, stat) => sum + stat.usageCount, 0);
-  const totalTimeSaved = usageStats.reduce((sum, stat) => sum + (stat.usageCount * stat.avgTimeSaved), 0);
+  const totalTimeSaved = totalUsage * ESTIMATED_SECONDS_SAVED_PER_USE;
   const avgUsagePerDay = totalUsage / (timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90);
-
-  const handleCopyShortcut = (shortcut: string, expansion: string) => {
-    navigator.clipboard.writeText(expansion);
-    toast.success(`Copied "${shortcut}" to clipboard`);
-  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -227,7 +189,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 pr-4" aria-busy={loading}>
           <Tabs defaultValue="overview" className="mt-4">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -263,7 +225,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                   <CardContent>
                     <div className="flex items-center text-xs text-muted-foreground">
                       <Clock className="h-3 w-3 mr-1" />
-                      Est. 45s per use
+                      Assumes {ESTIMATED_SECONDS_SAVED_PER_USE}s per use
                     </div>
                   </CardContent>
                 </Card>
@@ -348,11 +310,12 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
             <TabsContent value="usage" className="space-y-4 mt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Usage Trends</CardTitle>
+                    <CardTitle className="text-base">Usage Comparison</CardTitle>
+                    <CardDescription>Phrase counts for the selected period</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={trendData}>
+                    <LineChart data={usageComparisonData}>
                       <XAxis dataKey="name" fontSize={10} />
                       <YAxis fontSize={10} />
                       <Tooltip />
@@ -393,10 +356,6 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                               <Calendar className="h-3 w-3" />
                               {stat.lastUsed ? new Date(stat.lastUsed).toLocaleDateString() : 'Never'}
                             </span>
-                            <span className={`flex items-center gap-1 ${stat.trend >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-                              {stat.trend >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                              {Math.abs(stat.trend).toFixed(1)}%
-                            </span>
                           </div>
                         </div>
                         <Progress 
@@ -415,10 +374,10 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                 <div className="flex items-start gap-3">
                   <Sparkles className="h-5 w-5 text-primary mt-0.5" />
                   <div>
-                    <h3 className="font-medium mb-1">AI-Powered Suggestions</h3>
+                    <h3 className="font-medium mb-1">Pattern-Based Suggestions</h3>
                     <p className="text-sm text-muted-foreground">
-                      Based on your recent documentation patterns, these phrases could save you time. 
-                      Click to add them as shortcuts.
+                      Repeated text from recent documentation is surfaced as a possible shortcut.
+                      Savings use the stated {ESTIMATED_SECONDS_SAVED_PER_USE}-second estimate per occurrence.
                     </p>
                   </div>
                 </div>
@@ -458,12 +417,6 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                               {suggestion.text}
                             </p>
                             <div className="flex items-center gap-2">
-                              {!suggestion.existingShortcut && (
-                                <Button variant="outline" size="sm" className="h-7">
-                                  <Plus className="h-3 w-3 mr-1" />
-                                  Create Shortcut
-                                </Button>
-                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -495,7 +448,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                 <CardContent>
                   <div className="space-y-4">
                     {usageStats.slice(0, 10).map((stat, index) => {
-                      const timeSaved = stat.usageCount * stat.avgTimeSaved;
+                      const timeSaved = stat.usageCount * ESTIMATED_SECONDS_SAVED_PER_USE;
                       return (
                         <div key={stat.phraseId}>
                           <div className="flex items-center justify-between text-sm mb-1">
@@ -515,7 +468,7 @@ export function ClinicalPhraseAnalytics({ phrases }: PhraseAnalyticsProps) {
                             </div>
                           </div>
                           <Progress 
-                            value={(timeSaved / Math.max(...usageStats.map(s => s.usageCount * s.avgTimeSaved))) * 100} 
+                            value={(timeSaved / Math.max(...usageStats.map(s => s.usageCount * ESTIMATED_SECONDS_SAVED_PER_USE))) * 100}
                             className="h-2"
                           />
                         </div>

@@ -1,6 +1,28 @@
 -- Supabase Postgres optimizations (query performance, schema FK indexes, RLS)
 -- Refs: query-missing-indexes, schema-foreign-key-indexes, security-rls-performance
 
+-- This migration was timestamped before the migrations that create the tables
+-- below. On a fresh replay, defer the complete optimization batch so a partial
+-- schema cannot receive only some of the indexes or policies. The latest
+-- catch-up migration reapplies this batch after all dependencies exist.
+DO $migration$
+BEGIN
+  IF to_regclass('public.patients') IS NULL
+    OR to_regclass('public.patient_todos') IS NULL
+    OR to_regclass('public.autotexts') IS NULL
+    OR to_regclass('public.templates') IS NULL
+    OR to_regclass('public.phrase_folders') IS NULL
+    OR to_regclass('public.phrase_teams') IS NULL
+    OR to_regclass('public.phrase_team_members') IS NULL
+    OR to_regclass('public.phrase_usage_log') IS NULL
+    OR to_regclass('public.patient_field_history') IS NULL
+    OR to_regclass('public.user_settings') IS NULL
+    OR to_regclass('public.user_dictionary') IS NULL
+  THEN
+    RAISE NOTICE 'Deferring index and RLS optimization batch until all referenced tables exist';
+    RETURN;
+  END IF;
+
 -- =============================================================================
 -- 1. Missing indexes on foreign keys and RLS columns
 --    (speeds up JOINs, CASCADE, and policy checks)
@@ -155,3 +177,5 @@ CREATE POLICY "Users can create their own field history" ON public.patient_field
 DROP POLICY IF EXISTS "Users can delete their own field history" ON public.patient_field_history;
 CREATE POLICY "Users can delete their own field history" ON public.patient_field_history FOR DELETE
   USING ((SELECT auth.uid()) = user_id);
+END;
+$migration$;

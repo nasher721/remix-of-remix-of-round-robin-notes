@@ -1,18 +1,17 @@
 /**
  * LLM System Configuration
  *
- * Reads provider API keys from environment variables and
- * initializes the router with available providers.
+ * Initializes the router from server-only environment secrets or user-supplied
+ * credentials that exist only in browser memory.
  *
- * Environment variables (set in Supabase secrets for edge functions,
- * or in .env with VITE_ prefix for client-side config):
+ * Provider secrets may be set only in a Deno/server environment:
  *
- * OPENAI_API_KEY / VITE_OPENAI_API_KEY
- * ANTHROPIC_API_KEY / VITE_ANTHROPIC_API_KEY
- * GEMINI_API_KEY / VITE_GEMINI_API_KEY
- * GROK_API_KEY / VITE_GROK_API_KEY
- * GLM_API_KEY / VITE_GLM_API_KEY
- * HUGGINGFACE_API_KEY / VITE_HUGGINGFACE_API_KEY
+ * OPENAI_API_KEY
+ * ANTHROPIC_API_KEY
+ * GEMINI_API_KEY
+ * GROK_API_KEY
+ * GLM_API_KEY
+ * HUGGINGFACE_API_KEY
  *
  * VITE_DEFAULT_LLM_PROVIDER (e.g. "openai")
  * VITE_DEFAULT_LLM_MODEL (e.g. "gpt-4o-mini")
@@ -20,7 +19,7 @@
  * VITE_FALLBACK_LLM_MODEL (e.g. "gemini-2.0-flash")
  */
 
-import { DEFAULT_CONFIG, STORAGE_KEYS } from '@/constants/config';
+import { DEFAULT_CONFIG } from '@/constants/config';
 import type { LLMProviderName, LLMSystemConfig, ProviderConfig, RouterConfig } from './types';
 import { LLMRouter } from './LLMRouter';
 import {
@@ -36,21 +35,8 @@ import {
 // Environment helpers
 // ---------------------------------------------------------------------------
 
-function getEnv(key: string): string | undefined {
-  // Works in both Vite (import.meta.env) and Deno (Deno.env) environments
+function getServerEnv(key: string): string | undefined {
   try {
-    // Vite client-side — import.meta.env is always an object in Vite
-    const meta = import.meta;
-    if (meta && typeof meta === 'object' && 'env' in meta) {
-      const env = (meta as { env: Record<string, string> }).env;
-      return env[`VITE_${key}`] || env[key];
-    }
-  } catch {
-    // Not in Vite environment
-  }
-
-  try {
-    // Deno (edge functions)
     const g = globalThis as Record<string, unknown>;
     if (typeof g.Deno !== 'undefined') {
       return (g.Deno as { env: { get: (k: string) => string } }).env.get(key);
@@ -62,15 +48,56 @@ function getEnv(key: string): string | undefined {
   return undefined;
 }
 
-function getStoredCredentials(): Partial<Record<LLMProviderName, string>> {
-  if (typeof window === 'undefined') return {};
+type ClientSetting =
+  | 'DEFAULT_LLM_PROVIDER'
+  | 'DEFAULT_LLM_MODEL'
+  | 'FALLBACK_LLM_PROVIDER'
+  | 'FALLBACK_LLM_MODEL'
+  | 'HUGGINGFACE_BASE_URL';
+
+function getSetting(key: ClientSetting): string | undefined {
+  const serverValue = getServerEnv(key);
+  if (serverValue) return serverValue;
+
+  // Keep this allowlist explicit. Reading the complete import.meta.env object
+  // can cause every VITE_* value, including a mistakenly named secret, to be
+  // embedded in the browser bundle.
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEYS.AI_CREDENTIALS);
-    if (!raw) return {};
-    return JSON.parse(raw) as Partial<Record<LLMProviderName, string>>;
+    switch (key) {
+      case 'DEFAULT_LLM_PROVIDER':
+        return import.meta.env.VITE_DEFAULT_LLM_PROVIDER;
+      case 'DEFAULT_LLM_MODEL':
+        return import.meta.env.VITE_DEFAULT_LLM_MODEL;
+      case 'FALLBACK_LLM_PROVIDER':
+        return import.meta.env.VITE_FALLBACK_LLM_PROVIDER;
+      case 'FALLBACK_LLM_MODEL':
+        return import.meta.env.VITE_FALLBACK_LLM_MODEL;
+      case 'HUGGINGFACE_BASE_URL':
+        return import.meta.env.VITE_HUGGINGFACE_BASE_URL;
+    }
   } catch {
-    return {};
+    // import.meta.env is injected by Vite and is absent in the Node test runner.
+    return undefined;
   }
+}
+
+let runtimeCredentials: Partial<Record<LLMProviderName, string>> = {};
+
+/**
+ * User-supplied provider keys intentionally live in memory only. Persisting
+ * billable credentials in Web Storage or synced user preferences exposes them
+ * to any script executing in the origin and to backups of the settings row.
+ */
+export function setRuntimeCredentials(
+  credentials: Partial<Record<LLMProviderName, string>>,
+): void {
+  runtimeCredentials = { ...credentials };
+  resetRouter();
+}
+
+export function clearRuntimeCredentials(): void {
+  runtimeCredentials = {};
+  resetRouter();
 }
 
 // ---------------------------------------------------------------------------
@@ -80,45 +107,45 @@ function getStoredCredentials(): Partial<Record<LLMProviderName, string>> {
 export function buildConfigFromEnv(): LLMSystemConfig {
   const providers: Partial<Record<LLMProviderName, ProviderConfig>> = {};
 
-  const storedCredentials = getStoredCredentials();
+  const storedCredentials = runtimeCredentials;
 
-  const openaiKey = getEnv('OPENAI_API_KEY') || storedCredentials.openai;
+  const openaiKey = getServerEnv('OPENAI_API_KEY') || storedCredentials.openai;
   if (openaiKey) {
     providers.openai = { apiKey: openaiKey };
   }
 
-  const anthropicKey = getEnv('ANTHROPIC_API_KEY') || storedCredentials.anthropic;
+  const anthropicKey = getServerEnv('ANTHROPIC_API_KEY') || storedCredentials.anthropic;
   if (anthropicKey) {
     providers.anthropic = { apiKey: anthropicKey };
   }
 
-  const geminiKey = getEnv('GEMINI_API_KEY') || storedCredentials.gemini;
+  const geminiKey = getServerEnv('GEMINI_API_KEY') || storedCredentials.gemini;
   if (geminiKey) {
     providers.gemini = { apiKey: geminiKey };
   }
 
-  const grokKey = getEnv('GROK_API_KEY') || storedCredentials.grok;
+  const grokKey = getServerEnv('GROK_API_KEY') || storedCredentials.grok;
   if (grokKey) {
     providers.grok = { apiKey: grokKey };
   }
 
-  const glmKey = getEnv('GLM_API_KEY') || storedCredentials.glm;
+  const glmKey = getServerEnv('GLM_API_KEY') || storedCredentials.glm;
   if (glmKey) {
     providers.glm = { apiKey: glmKey };
   }
 
-  const hfKey = getEnv('HUGGINGFACE_API_KEY') || storedCredentials.huggingface;
+  const hfKey = getServerEnv('HUGGINGFACE_API_KEY') || storedCredentials.huggingface;
   if (hfKey) {
     providers.huggingface = {
       apiKey: hfKey,
-      baseUrl: getEnv('HUGGINGFACE_BASE_URL'),
+      baseUrl: getSetting('HUGGINGFACE_BASE_URL'),
     };
   }
 
-  const defaultProvider = (getEnv('DEFAULT_LLM_PROVIDER') || DEFAULT_CONFIG.DEFAULT_AI_PROVIDER) as LLMProviderName;
-  const defaultModel = getEnv('DEFAULT_LLM_MODEL') || DEFAULT_CONFIG.DEFAULT_AI_MODEL;
-  const fallbackProvider = (getEnv('FALLBACK_LLM_PROVIDER') || 'gemini') as LLMProviderName;
-  const fallbackModel = getEnv('FALLBACK_LLM_MODEL') || 'gemini-2.0-flash';
+  const defaultProvider = (getSetting('DEFAULT_LLM_PROVIDER') || DEFAULT_CONFIG.DEFAULT_AI_PROVIDER) as LLMProviderName;
+  const defaultModel = getSetting('DEFAULT_LLM_MODEL') || DEFAULT_CONFIG.DEFAULT_AI_MODEL;
+  const fallbackProvider = (getSetting('FALLBACK_LLM_PROVIDER') || 'gemini') as LLMProviderName;
+  const fallbackModel = getSetting('FALLBACK_LLM_MODEL') || 'gemini-2.0-flash';
 
   return {
     providers,

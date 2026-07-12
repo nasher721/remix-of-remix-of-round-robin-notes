@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2, Download } from 'lucide-react';
 import { launchSMART } from '@/integrations/fhir';
+import { useToast } from '@/hooks/use-toast';
 
 interface EHRImportButtonProps {
   variant?: 'default' | 'outline' | 'ghost';
@@ -26,17 +27,21 @@ export function EHRImportButton({
 }: EHRImportButtonProps) {
   const [isLaunching, setIsLaunching] = useState(false);
   const [showDialogState, setShowDialogState] = useState(false);
+  const { toast } = useToast();
 
   const handleLaunch = async () => {
     setIsLaunching(true);
-    sessionStorage.setItem('fhir_launch_state', 'launching');
-    
+
     try {
       await launchSMART();
-    } catch (error) {
-      console.error('SMART launch failed:', error);
+    } catch {
+      console.error('SMART launch failed');
       setIsLaunching(false);
-      sessionStorage.removeItem('fhir_launch_state');
+      toast({
+        title: 'EHR connection failed',
+        description: 'The secure EHR connection could not be started. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 

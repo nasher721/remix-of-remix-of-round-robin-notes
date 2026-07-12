@@ -23,6 +23,9 @@ interface DictationButtonProps {
   enhanceMedical?: boolean;
 }
 
+const DICTATION_DATA_DISCLOSURE =
+  "Raw audio may be sent to OpenAI for transcription. When medical enhancement is enabled, the resulting transcript may then be sent to the selected AI provider.";
+
 // Simple audio level bars component
 const AudioLevelIndicator = ({ level }: { level: number }) => {
   const barCount = 5;
@@ -61,7 +64,7 @@ export const DictationButton = ({
   variant = "ghost",
   enhanceMedical = true,
 }: DictationButtonProps) => {
-  const { isRecording, isProcessing, toggleRecording, audioLevel } = useDictation({
+  const { isRecording, isProcessing, toggleRecording, audioLevel, error } = useDictation({
     onTranscript,
     enhanceMedical,
   });
@@ -141,19 +144,29 @@ export const DictationButton = ({
 
   // When not recording, show tooltip
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {buttonContent}
-        </TooltipTrigger>
-        <TooltipContent side="bottom">
-          <p>
-            {isProcessing 
-              ? "Processing..." 
-              : "Start medical dictation"}
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <span className="inline-flex items-center gap-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {buttonContent}
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p className="font-medium">
+              {isProcessing
+                ? "Processing..."
+                : "Start medical dictation"}
+            </p>
+            <p className="mt-1 max-w-72 text-xs text-muted-foreground">
+              {DICTATION_DATA_DISCLOSURE}
+            </p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {error && (
+        <span role="alert" aria-live="polite" className="max-w-64 text-xs text-destructive">
+          {error}
+        </span>
+      )}
+    </span>
   );
 };

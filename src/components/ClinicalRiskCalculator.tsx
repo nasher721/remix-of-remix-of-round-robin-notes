@@ -1,14 +1,5 @@
 import * as React from "react";
-import {
-  Calculator,
-  ChevronDown,
-  ChevronUp,
-  AlertTriangle,
-  CheckCircle,
-  AlertCircle,
-  Info,
-  Stethoscope,
-} from "lucide-react";
+import { AlertCircle, AlertTriangle, Calculator, CheckCircle, Info, Stethoscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,51 +8,42 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  calculateSOFA,
-  calculateQSOFA,
   calculateCURB65,
+  calculateNEWS2,
+  calculateQSOFA,
+  calculateSOFA,
   calculateWellsDVT,
   calculateWellsPE,
-  calculateNEWS2,
-  type SOFAInputs,
-  type QSOFAInputs,
   type CURB65Inputs,
+  type NEWS2Inputs,
+  type QSOFAInputs,
+  type RiskScoreResult,
+  type SOFAInputs,
   type WellsDVTInputs,
   type WellsPEInputs,
-  type NEWS2Inputs,
-  type RiskScoreResult,
 } from "@/types/riskScores";
 
 interface ClinicalRiskCalculatorProps {
   className?: string;
-  patientLabs?: string;
-  patientSummary?: string;
 }
 
 type ScoreTab = 'qsofa' | 'sofa' | 'curb65' | 'wells_dvt' | 'wells_pe' | 'news2';
 
-const RiskLevelIcon = ({ level }: { level: string }) => {
+const parseOptionalNumber = (value: string) => value === '' ? undefined : Number(value);
+const isFiniteNumber = (value: number | undefined): value is number =>
+  value !== undefined && Number.isFinite(value);
+const isNonNegativeNumber = (value: number | undefined): value is number =>
+  isFiniteNumber(value) && value >= 0;
+
+const RiskLevelIcon = ({ level }: { level: RiskScoreResult['riskLevel'] }) => {
   switch (level) {
     case 'low':
       return <CheckCircle className="h-4 w-4 text-green-600" />;
     case 'moderate':
       return <AlertCircle className="h-4 w-4 text-amber-600" />;
     case 'high':
-      return <AlertTriangle className="h-4 w-4 text-orange-600" />;
-    case 'critical':
       return <AlertTriangle className="h-4 w-4 text-red-600" />;
     default:
       return <Info className="h-4 w-4 text-blue-600" />;
@@ -71,328 +53,274 @@ const RiskLevelIcon = ({ level }: { level: string }) => {
 const ScoreDisplay = ({ result, title }: { result: RiskScoreResult | null; title: string }) => {
   if (!result) return null;
 
-  const bgColor = result.riskLevel === 'low' ? 'bg-green-50 border-green-200' :
+  const tone = result.riskLevel === 'low' ? 'bg-green-50 border-green-200' :
     result.riskLevel === 'moderate' ? 'bg-amber-50 border-amber-200' :
-    result.riskLevel === 'high' ? 'bg-orange-50 border-orange-200' :
-    'bg-red-50 border-red-200';
+    result.riskLevel === 'high' ? 'bg-red-50 border-red-200' :
+    'bg-blue-50 border-blue-200';
 
   return (
-    <div className={cn("p-4 rounded-lg border-2 transition-all", bgColor)}>
-      <div className="flex items-center justify-between mb-2">
+    <div className={cn("rounded-lg border-2 p-4", tone)}>
+      <div className="mb-2 flex items-center justify-between">
         <h4 className="font-semibold">{title}</h4>
         <div className="flex items-center gap-2">
           <RiskLevelIcon level={result.riskLevel} />
-          <Badge className={cn(
-            "capitalize",
-            result.riskLevel === 'low' && "bg-green-100 text-green-800",
-            result.riskLevel === 'moderate' && "bg-amber-100 text-amber-800",
-            result.riskLevel === 'high' && "bg-orange-100 text-orange-800",
-            result.riskLevel === 'critical' && "bg-red-100 text-red-800"
-          )}>
-            {result.riskLevel}
-          </Badge>
+          <Badge variant="outline" className="capitalize">{result.riskLevel}</Badge>
         </div>
       </div>
-      <div className="flex items-center gap-4 mb-3">
+      <div className="mb-3 flex items-center gap-4">
         <div className="text-3xl font-bold">{result.score}</div>
         <div className="text-sm text-muted-foreground">/ {result.maxScore} points</div>
       </div>
-      <p className={cn("text-sm font-medium mb-2", result.color)}>{result.interpretation}</p>
-      {result.recommendation && (
-        <p className="text-xs text-muted-foreground bg-background/50 p-2 rounded">{result.recommendation}</p>
-      )}
+      <p className={cn("text-sm font-medium", result.color)}>{result.interpretation}</p>
     </div>
   );
 };
 
-// qSOFA Calculator
 const QSOFACalculator = () => {
-  const [inputs, setInputs] = React.useState<QSOFAInputs>({});
+  const [inputs, setInputs] = React.useState<QSOFAInputs>({ alteredMentation: false });
   const [result, setResult] = React.useState<RiskScoreResult | null>(null);
-
-  React.useEffect(() => {
-    if (inputs.respiratoryRate !== undefined || inputs.systolicBP !== undefined || inputs.alteredMentation !== undefined) {
-      setResult(calculateQSOFA(inputs));
-    }
-  }, [inputs]);
+  const update = (next: QSOFAInputs) => {
+    setInputs(next);
+    setResult(null);
+  };
+  const complete = isNonNegativeNumber(inputs.respiratoryRate) && isNonNegativeNumber(inputs.systolicBP);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4">
-        <div className="space-y-2">
-          <Label>Respiratory Rate (breaths/min)</Label>
-          <Input
-            type="number"
-            placeholder="22"
-            value={inputs.respiratoryRate ?? ''}
-            onChange={(e) => setInputs({ ...inputs, respiratoryRate: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-          <p className="text-xs text-muted-foreground">+1 if &ge;22 breaths/min</p>
-        </div>
-        <div className="space-y-2">
-          <Label>Systolic Blood Pressure (mmHg)</Label>
-          <Input
-            type="number"
-            placeholder="100"
-            value={inputs.systolicBP ?? ''}
-            onChange={(e) => setInputs({ ...inputs, systolicBP: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-          <p className="text-xs text-muted-foreground">+1 if &le;100 mmHg</p>
-        </div>
-        <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
-          <div>
-            <Label>Altered Mentation</Label>
-            <p className="text-xs text-muted-foreground">GCS &lt; 15 or confusion</p>
-          </div>
-          <Switch
-            checked={inputs.alteredMentation ?? false}
-            onCheckedChange={(checked) => setInputs({ ...inputs, alteredMentation: checked })}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label>Respiratory Rate (breaths/min)</Label>
+        <Input
+          aria-label="qSOFA respiratory rate"
+          type="number"
+          min={0}
+          placeholder="22"
+          value={inputs.respiratoryRate ?? ''}
+          onChange={(event) => update({ ...inputs, respiratoryRate: parseOptionalNumber(event.target.value) })}
+        />
+        <p className="text-xs text-muted-foreground">+1 if ≥22 breaths/min</p>
       </div>
-      <ScoreDisplay result={result} title="qSOFA Score" />
+      <div className="space-y-2">
+        <Label>Systolic Blood Pressure (mmHg)</Label>
+        <Input
+          aria-label="qSOFA systolic blood pressure"
+          type="number"
+          min={0}
+          placeholder="100"
+          value={inputs.systolicBP ?? ''}
+          onChange={(event) => update({ ...inputs, systolicBP: parseOptionalNumber(event.target.value) })}
+        />
+        <p className="text-xs text-muted-foreground">+1 if ≤100 mmHg</p>
+      </div>
+      <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3">
+        <div>
+          <Label>Altered Mentation</Label>
+          <p className="text-xs text-muted-foreground">GCS &lt;15</p>
+        </div>
+        <Switch
+          aria-label="Altered mentation"
+          checked={inputs.alteredMentation}
+          onCheckedChange={(checked) => update({ ...inputs, alteredMentation: checked })}
+        />
+      </div>
+      <Button className="w-full" disabled={!complete} onClick={() => setResult(calculateQSOFA(inputs))}>
+        Calculate qSOFA
+      </Button>
+      {!complete && <p className="text-xs text-muted-foreground">Enter both numeric fields to calculate.</p>}
+      <ScoreDisplay result={result} title="qSOFA Criteria Count" />
     </div>
   );
 };
 
-// CURB-65 Calculator
 const CURB65Calculator = () => {
-  const [inputs, setInputs] = React.useState<CURB65Inputs>({});
+  const [inputs, setInputs] = React.useState<CURB65Inputs>({ confusion: false });
   const [result, setResult] = React.useState<RiskScoreResult | null>(null);
+  const update = (next: CURB65Inputs) => {
+    setInputs(next);
+    setResult(null);
+  };
+  const complete = [inputs.bun, inputs.respiratoryRate, inputs.systolicBP, inputs.diastolicBP, inputs.age]
+    .every(isNonNegativeNumber);
 
-  React.useEffect(() => {
-    const hasInput = Object.values(inputs).some(v => v !== undefined);
-    if (hasInput) {
-      setResult(calculateCURB65(inputs));
-    }
-  }, [inputs]);
+  const numericFields: Array<{
+    key: keyof Pick<CURB65Inputs, 'bun' | 'respiratoryRate' | 'systolicBP' | 'diastolicBP' | 'age'>;
+    label: string;
+    placeholder: string;
+  }> = [
+    { key: 'bun', label: 'BUN (mg/dL)', placeholder: '20' },
+    { key: 'respiratoryRate', label: 'Respiratory Rate', placeholder: '30' },
+    { key: 'systolicBP', label: 'Systolic BP', placeholder: '90' },
+    { key: 'diastolicBP', label: 'Diastolic BP', placeholder: '60' },
+    { key: 'age', label: 'Age (years)', placeholder: '65' },
+  ];
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4">
-        <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
-          <div>
-            <Label>Confusion</Label>
-            <p className="text-xs text-muted-foreground">New disorientation</p>
-          </div>
-          <Switch
-            checked={inputs.confusion ?? false}
-            onCheckedChange={(checked) => setInputs({ ...inputs, confusion: checked })}
-          />
+      <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3">
+        <div>
+          <Label>Confusion</Label>
+          <p className="text-xs text-muted-foreground">New disorientation</p>
         </div>
-        <div className="space-y-2">
-          <Label>BUN (mg/dL)</Label>
-          <Input
-            type="number"
-            placeholder="20"
-            value={inputs.bun ?? ''}
-            onChange={(e) => setInputs({ ...inputs, bun: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-          <p className="text-xs text-muted-foreground">+1 if &gt;19 mg/dL (or urea &gt;7 mmol/L)</p>
-        </div>
-        <div className="space-y-2">
-          <Label>Respiratory Rate</Label>
-          <Input
-            type="number"
-            placeholder="30"
-            value={inputs.respiratoryRate ?? ''}
-            onChange={(e) => setInputs({ ...inputs, respiratoryRate: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-          <p className="text-xs text-muted-foreground">+1 if &ge;30 breaths/min</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-2">
-            <Label>Systolic BP</Label>
-            <Input
-              type="number"
-              placeholder="90"
-              value={inputs.systolicBP ?? ''}
-              onChange={(e) => setInputs({ ...inputs, systolicBP: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Diastolic BP</Label>
-            <Input
-              type="number"
-              placeholder="60"
-              value={inputs.diastolicBP ?? ''}
-              onChange={(e) => setInputs({ ...inputs, diastolicBP: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">+1 if SBP &lt;90 or DBP &le;60 mmHg</p>
-        <div className="space-y-2">
-          <Label>Age (years)</Label>
-          <Input
-            type="number"
-            placeholder="65"
-            value={inputs.age ?? ''}
-            onChange={(e) => setInputs({ ...inputs, age: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-          <p className="text-xs text-muted-foreground">+1 if &ge;65 years</p>
-        </div>
+        <Switch
+          aria-label="Confusion"
+          checked={inputs.confusion}
+          onCheckedChange={(checked) => update({ ...inputs, confusion: checked })}
+        />
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        {numericFields.map((field) => (
+          <div key={field.key} className="space-y-2">
+            <Label>{field.label}</Label>
+            <Input
+              aria-label={`CURB-65 ${field.label}`}
+              type="number"
+              min={0}
+              placeholder={field.placeholder}
+              value={inputs[field.key] ?? ''}
+              onChange={(event) => update({ ...inputs, [field.key]: parseOptionalNumber(event.target.value) })}
+            />
+          </div>
+        ))}
+      </div>
+      <Button className="w-full" disabled={!complete} onClick={() => setResult(calculateCURB65(inputs))}>
+        Calculate CURB-65
+      </Button>
+      {!complete && <p className="text-xs text-muted-foreground">Enter all five numeric fields to calculate.</p>}
       <ScoreDisplay result={result} title="CURB-65 Score" />
     </div>
   );
 };
 
-// Wells DVT Calculator
+const dvtCriteria: Array<{ field: keyof WellsDVTInputs; label: string; points: string }> = [
+  { field: 'activeCancer', label: 'Active cancer (treated within 6 months or palliative)', points: '+1' },
+  { field: 'paralysisParesis', label: 'Paralysis, paresis, or recent plaster immobilization of a leg', points: '+1' },
+  { field: 'recentImmobilization', label: 'Bedridden >3 days or major surgery <12 weeks', points: '+1' },
+  { field: 'localizedTenderness', label: 'Tenderness along the deep venous system', points: '+1' },
+  { field: 'entireLegSwollen', label: 'Entire leg swollen', points: '+1' },
+  { field: 'calfSwelling3cm', label: 'Calf swelling >3 cm', points: '+1' },
+  { field: 'pittingEdema', label: 'Pitting edema confined to the symptomatic leg', points: '+1' },
+  { field: 'collateralVeins', label: 'Collateral superficial veins (nonvaricose)', points: '+1' },
+  { field: 'previousDVT', label: 'Previous documented DVT', points: '+1' },
+  { field: 'alternativeDiagnosisLikely', label: 'Alternative diagnosis at least as likely', points: '-2' },
+];
+
 const WellsDVTCalculator = () => {
   const [inputs, setInputs] = React.useState<WellsDVTInputs>({});
   const [result, setResult] = React.useState<RiskScoreResult | null>(null);
-
-  React.useEffect(() => {
-    const hasInput = Object.values(inputs).some(v => v === true);
-    if (hasInput) {
-      setResult(calculateWellsDVT(inputs));
-    }
-  }, [inputs]);
-
-  const criteria = [
-    { key: 'activeCancer', label: 'Active cancer', points: '+1', field: 'activeCancer' },
-    { key: 'paralysisParesis', label: 'Paralysis/paresis/immobilization of legs', points: '+1', field: 'paralysisParesis' },
-    { key: 'recentImmobilization', label: 'Bedridden >3 days or major surgery <12 weeks', points: '+1', field: 'recentImmobilization' },
-    { key: 'localizedTenderness', label: 'Localized tenderness along deep venous system', points: '+1', field: 'localizedTenderness' },
-    { key: 'entireLegSwollen', label: 'Entire leg swollen', points: '+1', field: 'entireLegSwollen' },
-    { key: 'calfSwelling3cm', label: 'Calf swelling >3cm vs asymptomatic leg', points: '+1', field: 'calfSwelling3cm' },
-    { key: 'pittingEdema', label: 'Pitting edema in symptomatic leg', points: '+1', field: 'pittingEdema' },
-    { key: 'collateralVeins', label: 'Collateral superficial veins (non-varicose)', points: '+1', field: 'collateralVeins' },
-    { key: 'previousDVT', label: 'Previous documented DVT', points: '+1', field: 'previousDVT' },
-    { key: 'alternativeDiagnosisLikely', label: 'Alternative diagnosis as likely or more likely', points: '-2', field: 'alternativeDiagnosisLikely' },
-  ];
+  const update = (field: keyof WellsDVTInputs, checked: boolean) => {
+    setInputs((current) => ({ ...current, [field]: checked }));
+    setResult(null);
+  };
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">Review every criterion, then calculate the three-tier Wells DVT score.</p>
       <div className="space-y-2">
-        {criteria.map((c) => (
-          <div key={c.key} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition-colors">
-            <div className="flex-1">
-              <span className="text-sm">{c.label}</span>
-              <span className={cn("ml-2 text-xs font-mono", c.points === '-2' ? 'text-green-600' : 'text-blue-600')}>({c.points})</span>
-            </div>
+        {dvtCriteria.map((criterion) => (
+          <div key={criterion.field} className="flex items-center justify-between rounded-lg bg-secondary/30 p-3">
+            <span className="pr-3 text-sm">{criterion.label} <span className="font-mono text-xs">({criterion.points})</span></span>
             <Switch
-              checked={inputs[c.field as keyof WellsDVTInputs] ?? false}
-              onCheckedChange={(checked) => setInputs({ ...inputs, [c.field]: checked })}
+              aria-label={criterion.label}
+              checked={inputs[criterion.field] ?? false}
+              onCheckedChange={(checked) => update(criterion.field, checked)}
             />
           </div>
         ))}
       </div>
+      <Button className="w-full" onClick={() => setResult(calculateWellsDVT(inputs))}>Calculate Wells DVT</Button>
       <ScoreDisplay result={result} title="Wells DVT Score" />
     </div>
   );
 };
 
-// Wells PE Calculator
+const peCriteria: Array<{ field: keyof WellsPEInputs; label: string; points: string }> = [
+  { field: 'clinicalDVTSigns', label: 'Clinical signs of DVT', points: '+3' },
+  { field: 'alternativeDiagnosisLessLikely', label: 'PE is more likely than an alternative diagnosis', points: '+3' },
+  { field: 'heartRate100', label: 'Heart rate >100 bpm', points: '+1.5' },
+  { field: 'immobilizationOrSurgery', label: 'Immobilization ≥3 days or surgery in past 4 weeks', points: '+1.5' },
+  { field: 'previousPEOrDVT', label: 'Previous PE or DVT', points: '+1.5' },
+  { field: 'hemoptysis', label: 'Hemoptysis', points: '+1' },
+  { field: 'malignancy', label: 'Malignancy (treated within 6 months or palliative)', points: '+1' },
+];
+
 const WellsPECalculator = () => {
   const [inputs, setInputs] = React.useState<WellsPEInputs>({});
   const [result, setResult] = React.useState<RiskScoreResult | null>(null);
-
-  React.useEffect(() => {
-    const hasInput = Object.values(inputs).some(v => v === true);
-    if (hasInput) {
-      setResult(calculateWellsPE(inputs));
-    }
-  }, [inputs]);
-
-  const criteria = [
-    { key: 'clinicalDVTSigns', label: 'Clinical signs/symptoms of DVT', points: '+3', field: 'clinicalDVTSigns' },
-    { key: 'alternativeDiagnosisLessLikely', label: 'PE is #1 diagnosis or equally likely', points: '+3', field: 'alternativeDiagnosisLessLikely' },
-    { key: 'heartRate100', label: 'Heart rate >100 bpm', points: '+1.5', field: 'heartRate100' },
-    { key: 'immobilizationOrSurgery', label: 'Immobilization or surgery in past 4 weeks', points: '+1.5', field: 'immobilizationOrSurgery' },
-    { key: 'previousPEOrDVT', label: 'Previous PE or DVT', points: '+1.5', field: 'previousPEOrDVT' },
-    { key: 'hemoptysis', label: 'Hemoptysis', points: '+1', field: 'hemoptysis' },
-    { key: 'malignancy', label: 'Malignancy (treatment in last 6 months or palliative)', points: '+1', field: 'malignancy' },
-  ];
+  const update = (field: keyof WellsPEInputs, checked: boolean) => {
+    setInputs((current) => ({ ...current, [field]: checked }));
+    setResult(null);
+  };
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">Review every criterion, then calculate the two-tier Wells PE score.</p>
       <div className="space-y-2">
-        {criteria.map((c) => (
-          <div key={c.key} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition-colors">
-            <div className="flex-1">
-              <span className="text-sm">{c.label}</span>
-              <span className="ml-2 text-xs font-mono text-blue-600">({c.points})</span>
-            </div>
+        {peCriteria.map((criterion) => (
+          <div key={criterion.field} className="flex items-center justify-between rounded-lg bg-secondary/30 p-3">
+            <span className="pr-3 text-sm">{criterion.label} <span className="font-mono text-xs">({criterion.points})</span></span>
             <Switch
-              checked={inputs[c.field as keyof WellsPEInputs] ?? false}
-              onCheckedChange={(checked) => setInputs({ ...inputs, [c.field]: checked })}
+              aria-label={criterion.label}
+              checked={inputs[criterion.field] ?? false}
+              onCheckedChange={(checked) => update(criterion.field, checked)}
             />
           </div>
         ))}
       </div>
+      <Button className="w-full" onClick={() => setResult(calculateWellsPE(inputs))}>Calculate Wells PE</Button>
       <ScoreDisplay result={result} title="Wells PE Score" />
     </div>
   );
 };
 
-// NEWS2 Calculator
 const NEWS2Calculator = () => {
-  const [inputs, setInputs] = React.useState<NEWS2Inputs>({});
+  const [inputs, setInputs] = React.useState<NEWS2Inputs>({ onSupplementalO2: false });
   const [result, setResult] = React.useState<RiskScoreResult | null>(null);
-
-  React.useEffect(() => {
-    const hasInput = Object.values(inputs).some(v => v !== undefined);
-    if (hasInput) {
-      setResult(calculateNEWS2(inputs));
-    }
-  }, [inputs]);
+  const update = (next: NEWS2Inputs) => {
+    setInputs(next);
+    setResult(null);
+  };
+  const complete = isNonNegativeNumber(inputs.respiratoryRate)
+    && isFiniteNumber(inputs.spo2) && inputs.spo2 >= 0 && inputs.spo2 <= 100
+    && isFiniteNumber(inputs.temperature) && inputs.temperature > 0
+    && isNonNegativeNumber(inputs.systolicBP)
+    && isNonNegativeNumber(inputs.heartRate)
+    && inputs.consciousness !== undefined;
+  const numericFields: Array<{
+    key: keyof Pick<NEWS2Inputs, 'respiratoryRate' | 'spo2' | 'temperature' | 'systolicBP' | 'heartRate'>;
+    label: string;
+    placeholder: string;
+    step?: string;
+  }> = [
+    { key: 'respiratoryRate', label: 'Respiratory Rate', placeholder: '16' },
+    { key: 'spo2', label: 'SpO2 (%) — Scale 1', placeholder: '97' },
+    { key: 'temperature', label: 'Temperature (°C)', placeholder: '37.0', step: '0.1' },
+    { key: 'systolicBP', label: 'Systolic BP', placeholder: '120' },
+    { key: 'heartRate', label: 'Heart Rate', placeholder: '80' },
+  ];
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label>Resp Rate</Label>
-          <Input
-            type="number"
-            placeholder="16"
-            value={inputs.respiratoryRate ?? ''}
-            onChange={(e) => setInputs({ ...inputs, respiratoryRate: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>SpO2 (%)</Label>
-          <Input
-            type="number"
-            placeholder="97"
-            value={inputs.spo2 ?? ''}
-            onChange={(e) => setInputs({ ...inputs, spo2: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Temperature</Label>
-          <Input
-            type="number"
-            step="0.1"
-            placeholder="37.0"
-            value={inputs.temperature ?? ''}
-            onChange={(e) => setInputs({ ...inputs, temperature: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Systolic BP</Label>
-          <Input
-            type="number"
-            placeholder="120"
-            value={inputs.systolicBP ?? ''}
-            onChange={(e) => setInputs({ ...inputs, systolicBP: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Heart Rate</Label>
-          <Input
-            type="number"
-            placeholder="80"
-            value={inputs.heartRate ?? ''}
-            onChange={(e) => setInputs({ ...inputs, heartRate: e.target.value ? parseFloat(e.target.value) : undefined })}
-          />
-        </div>
-        <div className="flex items-center gap-2 p-2 bg-secondary/50 rounded-lg">
+        {numericFields.map((field) => (
+          <div key={field.key} className="space-y-2">
+            <Label>{field.label}</Label>
+            <Input
+              aria-label={`NEWS2 ${field.label}`}
+              type="number"
+              min={0}
+              step={field.step}
+              placeholder={field.placeholder}
+              value={inputs[field.key] ?? ''}
+              onChange={(event) => update({ ...inputs, [field.key]: parseOptionalNumber(event.target.value) })}
+            />
+          </div>
+        ))}
+        <div className="flex items-center gap-2 rounded-lg bg-secondary/50 p-2">
           <Switch
-            checked={inputs.onSupplementalO2 ?? false}
-            onCheckedChange={(checked) => setInputs({ ...inputs, onSupplementalO2: checked })}
+            aria-label="Supplemental oxygen"
+            checked={inputs.onSupplementalO2}
+            onCheckedChange={(checked) => update({ ...inputs, onSupplementalO2: checked })}
           />
-          <Label className="text-sm">On O2</Label>
+          <Label>On supplemental O2</Label>
         </div>
       </div>
       <div className="space-y-2">
@@ -401,208 +329,106 @@ const NEWS2Calculator = () => {
           {(['alert', 'confusion', 'voice', 'pain', 'unresponsive'] as const).map((level) => (
             <Button
               key={level}
-              variant={inputs.consciousness === level ? "default" : "outline"}
+              variant={inputs.consciousness === level ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setInputs({ ...inputs, consciousness: level })}
+              onClick={() => update({ ...inputs, consciousness: level })}
               className="capitalize"
             >
-              {level === 'alert' ? 'Alert' : level.charAt(0).toUpperCase()}
+              {level}
             </Button>
           ))}
         </div>
       </div>
+      <Button className="w-full" disabled={!complete} onClick={() => setResult(calculateNEWS2(inputs))}>
+        Calculate NEWS2
+      </Button>
+      {!complete && <p className="text-xs text-muted-foreground">Enter all numeric fields and select consciousness to calculate.</p>}
       <ScoreDisplay result={result} title="NEWS2 Score" />
     </div>
   );
 };
 
-// SOFA Calculator (more complex)
 const SOFACalculator = () => {
-  const [inputs, setInputs] = React.useState<SOFAInputs>({});
+  const [inputs, setInputs] = React.useState<SOFAInputs>({ onVentilator: false, dobutamine: false });
   const [result, setResult] = React.useState<RiskScoreResult | null>(null);
-  const [expandedSections, setExpandedSections] = React.useState<string[]>(['respiration']);
-
-  React.useEffect(() => {
-    const hasInput = Object.values(inputs).some(v => v !== undefined && v !== false);
-    if (hasInput) {
-      setResult(calculateSOFA(inputs));
-    }
-  }, [inputs]);
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev =>
-      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
-    );
+  const update = (next: SOFAInputs) => {
+    setInputs(next);
+    setResult(null);
   };
+  const complete = [
+    inputs.pao2fio2,
+    inputs.platelets,
+    inputs.bilirubin,
+    inputs.map,
+    inputs.dopamine,
+    inputs.epinephrine,
+    inputs.norepinephrine,
+  ].every(isNonNegativeNumber)
+    && isFiniteNumber(inputs.gcs) && inputs.gcs >= 3 && inputs.gcs <= 15
+    && (isNonNegativeNumber(inputs.creatinine) || isNonNegativeNumber(inputs.urineOutput));
+
+  const fields: Array<{
+    key: keyof Pick<SOFAInputs, 'pao2fio2' | 'platelets' | 'bilirubin' | 'map' | 'dopamine' | 'epinephrine' | 'norepinephrine' | 'gcs' | 'creatinine' | 'urineOutput'>;
+    label: string;
+    placeholder: string;
+    step?: string;
+  }> = [
+    { key: 'pao2fio2', label: 'PaO2/FiO2 ratio', placeholder: '400' },
+    { key: 'platelets', label: 'Platelets (×10³/µL)', placeholder: '150' },
+    { key: 'bilirubin', label: 'Bilirubin (mg/dL)', placeholder: '1.0', step: '0.1' },
+    { key: 'map', label: 'MAP (mmHg)', placeholder: '70' },
+    { key: 'dopamine', label: 'Dopamine (mcg/kg/min)', placeholder: '0', step: '0.1' },
+    { key: 'epinephrine', label: 'Epinephrine (mcg/kg/min)', placeholder: '0', step: '0.01' },
+    { key: 'norepinephrine', label: 'Norepinephrine (mcg/kg/min)', placeholder: '0', step: '0.01' },
+    { key: 'gcs', label: 'Glasgow Coma Scale (3–15)', placeholder: '15' },
+    { key: 'creatinine', label: 'Creatinine (mg/dL)', placeholder: '1.0', step: '0.1' },
+    { key: 'urineOutput', label: 'Urine output (mL/day)', placeholder: '1500' },
+  ];
 
   return (
     <div className="space-y-4">
-      {/* Respiration */}
-      <Collapsible open={expandedSections.includes('respiration')} onOpenChange={() => toggleSection('respiration')}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full justify-between p-3 h-auto bg-secondary/30">
-            <span className="font-medium">Respiration</span>
-            {expandedSections.includes('respiration') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 space-y-3">
-          <div className="space-y-2">
-            <Label>PaO2/FiO2 Ratio</Label>
+      <p className="text-xs text-muted-foreground">
+        Enter all organ-system values. Enter 0 for absent vasoactive infusions; creatinine or 24-hour urine output is required.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        {fields.map((field) => (
+          <div key={field.key} className="space-y-2">
+            <Label>{field.label}</Label>
             <Input
+              aria-label={`SOFA ${field.label}`}
               type="number"
-              placeholder="400"
-              value={inputs.pao2fio2 ?? ''}
-              onChange={(e) => setInputs({ ...inputs, pao2fio2: e.target.value ? parseFloat(e.target.value) : undefined })}
+              min={field.key === 'gcs' ? 3 : 0}
+              max={field.key === 'gcs' ? 15 : undefined}
+              step={field.step}
+              placeholder={field.placeholder}
+              value={inputs[field.key] as number | undefined ?? ''}
+              onChange={(event) => update({ ...inputs, [field.key]: parseOptionalNumber(event.target.value) })}
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={inputs.onVentilator ?? false}
-              onCheckedChange={(checked) => setInputs({ ...inputs, onVentilator: checked })}
-            />
-            <Label>On mechanical ventilation</Label>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Coagulation */}
-      <Collapsible open={expandedSections.includes('coagulation')} onOpenChange={() => toggleSection('coagulation')}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full justify-between p-3 h-auto bg-secondary/30">
-            <span className="font-medium">Coagulation</span>
-            {expandedSections.includes('coagulation') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3">
-          <div className="space-y-2">
-            <Label>Platelets (x10^3/uL)</Label>
-            <Input
-              type="number"
-              placeholder="150"
-              value={inputs.platelets ?? ''}
-              onChange={(e) => setInputs({ ...inputs, platelets: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Liver */}
-      <Collapsible open={expandedSections.includes('liver')} onOpenChange={() => toggleSection('liver')}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full justify-between p-3 h-auto bg-secondary/30">
-            <span className="font-medium">Liver</span>
-            {expandedSections.includes('liver') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3">
-          <div className="space-y-2">
-            <Label>Bilirubin (mg/dL)</Label>
-            <Input
-              type="number"
-              step="0.1"
-              placeholder="1.0"
-              value={inputs.bilirubin ?? ''}
-              onChange={(e) => setInputs({ ...inputs, bilirubin: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Cardiovascular */}
-      <Collapsible open={expandedSections.includes('cardiovascular')} onOpenChange={() => toggleSection('cardiovascular')}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full justify-between p-3 h-auto bg-secondary/30">
-            <span className="font-medium">Cardiovascular</span>
-            {expandedSections.includes('cardiovascular') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 space-y-3">
-          <div className="space-y-2">
-            <Label>MAP (mmHg)</Label>
-            <Input
-              type="number"
-              placeholder="70"
-              value={inputs.map ?? ''}
-              onChange={(e) => setInputs({ ...inputs, map: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2">
-              <Label>Dopamine (mcg/kg/min)</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={inputs.dopamine ?? ''}
-                onChange={(e) => setInputs({ ...inputs, dopamine: e.target.value ? parseFloat(e.target.value) : undefined })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Norepinephrine (mcg/kg/min)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={inputs.norepinephrine ?? ''}
-                onChange={(e) => setInputs({ ...inputs, norepinephrine: e.target.value ? parseFloat(e.target.value) : undefined })}
-              />
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* CNS */}
-      <Collapsible open={expandedSections.includes('cns')} onOpenChange={() => toggleSection('cns')}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full justify-between p-3 h-auto bg-secondary/30">
-            <span className="font-medium">CNS</span>
-            {expandedSections.includes('cns') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3">
-          <div className="space-y-2">
-            <Label>Glasgow Coma Scale (3-15)</Label>
-            <Input
-              type="number"
-              min={3}
-              max={15}
-              placeholder="15"
-              value={inputs.gcs ?? ''}
-              onChange={(e) => setInputs({ ...inputs, gcs: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
-      {/* Renal */}
-      <Collapsible open={expandedSections.includes('renal')} onOpenChange={() => toggleSection('renal')}>
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full justify-between p-3 h-auto bg-secondary/30">
-            <span className="font-medium">Renal</span>
-            {expandedSections.includes('renal') ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 space-y-3">
-          <div className="space-y-2">
-            <Label>Creatinine (mg/dL)</Label>
-            <Input
-              type="number"
-              step="0.1"
-              placeholder="1.0"
-              value={inputs.creatinine ?? ''}
-              onChange={(e) => setInputs({ ...inputs, creatinine: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Urine Output (mL/day)</Label>
-            <Input
-              type="number"
-              placeholder="1500"
-              value={inputs.urineOutput ?? ''}
-              onChange={(e) => setInputs({ ...inputs, urineOutput: e.target.value ? parseFloat(e.target.value) : undefined })}
-            />
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3">
+          <Label>Respiratory support</Label>
+          <Switch
+            aria-label="Respiratory support"
+            checked={inputs.onVentilator}
+            onCheckedChange={(checked) => update({ ...inputs, onVentilator: checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-lg bg-secondary/50 p-3">
+          <Label>Dobutamine</Label>
+          <Switch
+            aria-label="Dobutamine"
+            checked={inputs.dobutamine}
+            onCheckedChange={(checked) => update({ ...inputs, dobutamine: checked })}
+          />
+        </div>
+      </div>
+      <Button className="w-full" disabled={!complete} onClick={() => setResult(calculateSOFA(inputs))}>
+        Calculate SOFA
+      </Button>
+      {!complete && <p className="text-xs text-muted-foreground">Complete all required SOFA fields before calculating.</p>}
       <ScoreDisplay result={result} title="SOFA Score" />
     </div>
   );
@@ -611,19 +437,48 @@ const SOFACalculator = () => {
 export function ClinicalRiskCalculator({ className }: ClinicalRiskCalculatorProps) {
   const [activeTab, setActiveTab] = React.useState<ScoreTab>('qsofa');
 
+  const tabContent: Record<ScoreTab, { title: string; description: string; calculator: React.ReactNode }> = {
+    qsofa: {
+      title: 'Quick SOFA',
+      description: 'Manual criteria count for adults with suspected infection',
+      calculator: <QSOFACalculator />,
+    },
+    sofa: {
+      title: 'SOFA Score',
+      description: 'Sequential Organ Failure Assessment',
+      calculator: <SOFACalculator />,
+    },
+    curb65: {
+      title: 'CURB-65',
+      description: 'Manual pneumonia severity score',
+      calculator: <CURB65Calculator />,
+    },
+    wells_dvt: {
+      title: 'Wells Criteria — DVT',
+      description: 'Three-tier pretest-probability score',
+      calculator: <WellsDVTCalculator />,
+    },
+    wells_pe: {
+      title: 'Wells Criteria — PE',
+      description: 'Two-tier pretest-probability score',
+      calculator: <WellsPECalculator />,
+    },
+    news2: {
+      title: 'NEWS2',
+      description: 'National Early Warning Score 2 — SpO2 Scale 1 only',
+      calculator: <NEWS2Calculator />,
+    },
+  };
+
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className={cn("gap-2 h-8", className)}
-        >
+        <Button variant="outline" size="sm" className={cn("h-8 gap-2", className)}>
           <Calculator className="h-4 w-4" />
           <span className="hidden sm:inline">Risk Scores</span>
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[420px] sm:w-[540px] overflow-y-auto">
+      <SheetContent className="w-[420px] overflow-y-auto sm:w-[540px]">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Stethoscope className="h-5 w-5" />
@@ -631,97 +486,37 @@ export function ClinicalRiskCalculator({ className }: ClinicalRiskCalculatorProp
           </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-6">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ScoreTab)}>
-            <TabsList className="grid grid-cols-3 lg:grid-cols-6 h-auto gap-1 p-1">
-              <TabsTrigger value="qsofa" className="text-xs px-2 py-1.5">qSOFA</TabsTrigger>
-              <TabsTrigger value="sofa" className="text-xs px-2 py-1.5">SOFA</TabsTrigger>
-              <TabsTrigger value="curb65" className="text-xs px-2 py-1.5">CURB-65</TabsTrigger>
-              <TabsTrigger value="wells_dvt" className="text-xs px-2 py-1.5">Wells DVT</TabsTrigger>
-              <TabsTrigger value="wells_pe" className="text-xs px-2 py-1.5">Wells PE</TabsTrigger>
-              <TabsTrigger value="news2" className="text-xs px-2 py-1.5">NEWS2</TabsTrigger>
-            </TabsList>
-
-            <div className="mt-4">
-              <TabsContent value="qsofa" className="m-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Quick SOFA</CardTitle>
-                    <p className="text-xs text-muted-foreground">Rapid bedside sepsis screening</p>
-                  </CardHeader>
-                  <CardContent>
-                    <QSOFACalculator />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="sofa" className="m-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">SOFA Score</CardTitle>
-                    <p className="text-xs text-muted-foreground">Sequential Organ Failure Assessment</p>
-                  </CardHeader>
-                  <CardContent>
-                    <SOFACalculator />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="curb65" className="m-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">CURB-65</CardTitle>
-                    <p className="text-xs text-muted-foreground">Pneumonia severity score</p>
-                  </CardHeader>
-                  <CardContent>
-                    <CURB65Calculator />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="wells_dvt" className="m-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Wells Criteria - DVT</CardTitle>
-                    <p className="text-xs text-muted-foreground">Deep vein thrombosis probability</p>
-                  </CardHeader>
-                  <CardContent>
-                    <WellsDVTCalculator />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="wells_pe" className="m-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Wells Criteria - PE</CardTitle>
-                    <p className="text-xs text-muted-foreground">Pulmonary embolism probability</p>
-                  </CardHeader>
-                  <CardContent>
-                    <WellsPECalculator />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="news2" className="m-0">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">NEWS2</CardTitle>
-                    <p className="text-xs text-muted-foreground">National Early Warning Score 2</p>
-                  </CardHeader>
-                  <CardContent>
-                    <NEWS2Calculator />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </div>
-          </Tabs>
+        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+          <strong>Manual entry only.</strong> No values are inferred from notes, labs, or patient records. Results are score
+          context only and do not estimate individual outcomes or recommend treatment or disposition.
         </div>
 
-        <div className="mt-6 p-3 bg-secondary/30 rounded-lg">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ScoreTab)} className="mt-4">
+          <TabsList className="grid h-auto grid-cols-3 gap-1 p-1 lg:grid-cols-6">
+            <TabsTrigger value="qsofa" className="px-2 py-1.5 text-xs">qSOFA</TabsTrigger>
+            <TabsTrigger value="sofa" className="px-2 py-1.5 text-xs">SOFA</TabsTrigger>
+            <TabsTrigger value="curb65" className="px-2 py-1.5 text-xs">CURB-65</TabsTrigger>
+            <TabsTrigger value="wells_dvt" className="px-2 py-1.5 text-xs">Wells DVT</TabsTrigger>
+            <TabsTrigger value="wells_pe" className="px-2 py-1.5 text-xs">Wells PE</TabsTrigger>
+            <TabsTrigger value="news2" className="px-2 py-1.5 text-xs">NEWS2</TabsTrigger>
+          </TabsList>
+
+          {(Object.keys(tabContent) as ScoreTab[]).map((tab) => (
+            <TabsContent key={tab} value={tab} className="mt-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">{tabContent[tab].title}</CardTitle>
+                  <p className="text-xs text-muted-foreground">{tabContent[tab].description}</p>
+                </CardHeader>
+                <CardContent>{tabContent[tab].calculator}</CardContent>
+              </Card>
+            </TabsContent>
+          ))}
+        </Tabs>
+
+        <div className="mt-6 rounded-lg bg-secondary/30 p-3">
           <p className="text-xs text-muted-foreground">
-            <strong>Disclaimer:</strong> These calculators are for educational purposes and clinical decision support only.
-            Always use clinical judgment and refer to primary literature for patient care decisions.
+            Verify the selected score, population, units, and current institutional guidance before clinical use.
           </p>
         </div>
       </SheetContent>

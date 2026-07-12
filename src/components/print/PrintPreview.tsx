@@ -49,6 +49,8 @@ export function PrintPreview({
   patients, 
   patientTodos, 
   patientNotes, 
+  patientImageOwnerId,
+  patientImageSignedUrls,
   settings,
   onViewModeChange 
 }: PrintPreviewProps) {
@@ -391,6 +393,8 @@ export function PrintPreview({
             patients={previewPatients}
             patientTodos={patientTodos}
             patientNotes={patientNotes}
+            patientImageOwnerId={patientImageOwnerId}
+            patientImageSignedUrls={patientImageSignedUrls}
             settings={settings}
             className="shadow-xl rounded-sm"
             documentId="preview"

@@ -1,5 +1,7 @@
+// deno-lint-ignore no-import-prefix -- Supabase Edge runtime resolves esm.sh imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { jsonResponse, handleOptions } from "../_shared/cors.ts";
+import { handleOptions, jsonResponse } from "../_shared/cors.ts";
+import { checkRateLimit, RATE_LIMITS, safeLog } from "../_shared/mod.ts";
 
 /**
  * Healthcheck Edge Function
@@ -9,6 +11,15 @@ import { jsonResponse, handleOptions } from "../_shared/cors.ts";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return handleOptions(req);
+  }
+  if (req.method !== "GET") {
+    return jsonResponse(req, { error: "Method not allowed" }, 405);
+  }
+
+  const rateLimit = await checkRateLimit(req, RATE_LIMITS.standard);
+  if (!rateLimit.allowed) {
+    return rateLimit.response ??
+      jsonResponse(req, { error: "Rate limit exceeded" }, 429);
   }
 
   try {
@@ -23,10 +34,11 @@ Deno.serve(async (req) => {
 
     // Perform a lightweight database ping (checking standard configuration table, or auth if RLS allows)
     // Here we run a rapid generic DB function just to ensure the pooler is alive and responsive.
-    const { error: dbError } = await supabase.from('user_settings').select('id').limit(1);
+    const { error: dbError } = await supabase.from("user_settings").select("id")
+      .limit(1);
 
     if (dbError) {
-      console.error("Healthcheck DB Ping failed:", dbError);
+      safeLog("error", "Healthcheck database ping failed");
       return jsonResponse(req, {
         status: "unhealthy",
         component: "database",
@@ -40,12 +52,13 @@ Deno.serve(async (req) => {
       timestamp: new Date().toISOString(),
       components: {
         database: "connected",
-        edge_functions: "online"
-      }
+        edge_functions: "online",
+      },
     }, 200);
-
   } catch (error) {
-    console.error("Healthcheck severe failure:", error);
+    safeLog("error", "Healthcheck request failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     return jsonResponse(req, {
       status: "unhealthy",
       message: "Internal Server Error",

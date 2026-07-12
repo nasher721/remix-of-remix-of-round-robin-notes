@@ -124,4 +124,91 @@ test("useAuth: signOut clears user when listener fires", async () => {
   await captured.signOut();
   await new Promise((r) => setTimeout(r, 50));
   assert.equal(captured.user, null, "user should be cleared after signOut");
+  root.unmount();
+});
+
+test("useAuth: a resolved Supabase sign-out error keeps the active session", async () => {
+  const mockUser = { id: "user-signout-error", email: "error@example.com" };
+  globalThis.__SUPABASE_AUTH_MOCK__ = {
+    getSession: async () => ({ data: { session: { user: mockUser } }, error: null }),
+    onAuthStateChange: () => ({ unsubscribe: () => {} }),
+    signOut: async () => ({ error: new Error("sign-out rejected") }),
+  };
+  const { useAuth, AuthProvider } = await import("@/hooks/useAuth");
+  const { indexedDBQueue } = await import("@/lib/offline/indexedDBQueue");
+  let captured: ReturnType<typeof useAuth> | null = null;
+  const Capture = () => {
+    captured = useAuth();
+    return null;
+  };
+  const div = document.createElement("div");
+  const root = createRoot(div);
+  root.render(<AuthProvider><Capture /></AuthProvider>);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  const mutationId = await indexedDBQueue.enqueue({
+    type: "patient",
+    operation: "update",
+    table: "patients",
+    entityId: "patient-a",
+    payload: { diagnosis: "keep me" },
+  });
+  await assert.rejects(() => captured!.signOut(), /sign-out rejected/);
+
+  assert.equal(captured!.user?.id, mockUser.id);
+  assert.equal((await indexedDBQueue.getQueue())[0]?.id, mutationId);
+  root.unmount();
+  await indexedDBQueue.clear();
+});
+
+test("useAuth: same-user refresh preserves work and A-to-B transition isolates it", async () => {
+  const userA = { id: "user-a", email: "a@example.com" };
+  const userB = { id: "user-b", email: "b@example.com" };
+  let authStateCallback: ((event: string, session: unknown) => void) | null = null;
+  globalThis.__SUPABASE_AUTH_MOCK__ = {
+    getSession: async () => ({ data: { session: { user: userA } }, error: null }),
+    onAuthStateChange: (callback) => {
+      authStateCallback = callback;
+      return { unsubscribe: () => {} };
+    },
+  };
+  const { useAuth, AuthProvider } = await import("@/hooks/useAuth");
+  const { indexedDBQueue } = await import("@/lib/offline/indexedDBQueue");
+  let captured: ReturnType<typeof useAuth> | null = null;
+  const Capture = () => {
+    captured = useAuth();
+    return null;
+  };
+  const div = document.createElement("div");
+  const root = createRoot(div);
+  root.render(<AuthProvider><Capture /></AuthProvider>);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  const userAMutation = await indexedDBQueue.enqueue({
+    type: "patient",
+    operation: "update",
+    table: "patients",
+    entityId: "patient-a",
+    payload: { diagnosis: "A only" },
+  });
+  authStateCallback!("TOKEN_REFRESHED", { user: userA });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal((await indexedDBQueue.getQueue())[0]?.id, userAMutation);
+
+  authStateCallback!("SIGNED_IN", { user: userB });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(captured!.user?.id, "user-b");
+  assert.deepEqual(await indexedDBQueue.getQueue(), []);
+
+  const userBMutation = await indexedDBQueue.enqueue({
+    type: "patient",
+    operation: "update",
+    table: "patients",
+    entityId: "patient-b",
+    payload: { diagnosis: "B only" },
+  });
+  assert.equal((await indexedDBQueue.getQueue())[0]?.id, userBMutation);
+  assert.equal((await indexedDBQueue.getQueue())[0]?.ownerId, "user-b");
+  root.unmount();
+  await indexedDBQueue.clear();
 });

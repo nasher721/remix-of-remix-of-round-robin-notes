@@ -12,7 +12,6 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error: Error | null;
 }
 
 /**
@@ -24,15 +23,14 @@ interface State {
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): State {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
     recordTelemetryEvent("render_error", error, {
       boundary: "ErrorBoundary",
       componentStack: errorInfo.componentStack?.slice(0, 1000),
@@ -52,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   reset = (): void => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false });
   };
 
   handleRetry = (): void => {
@@ -72,7 +70,7 @@ export class ErrorBoundary extends Component<Props, State> {
             Something went wrong
           </h3>
           <p className="text-sm text-muted-foreground mb-4 text-center max-w-md">
-            {this.state.error?.message || "An unexpected error occurred"}
+            This section could not be displayed. Please try again.
           </p>
           <Button
             variant="outline"
@@ -100,11 +98,11 @@ export function createSectionErrorBoundary(sectionName: string) {
     
     constructor(props: Omit<Props, "onError">) {
       super(props);
-      this.state = { hasError: false, error: null };
+      this.state = { hasError: false };
     }
 
-    static getDerivedStateFromError(error: Error): State {
-      return { hasError: true, error };
+    static getDerivedStateFromError(): State {
+      return { hasError: true };
     }
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
@@ -116,7 +114,7 @@ export function createSectionErrorBoundary(sectionName: string) {
     }
 
     handleRetry = (): void => {
-      this.setState({ hasError: false, error: null });
+      this.setState({ hasError: false });
     };
 
     render() {

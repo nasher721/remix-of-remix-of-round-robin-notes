@@ -73,7 +73,20 @@ function IndexContent(): React.ReactElement | null {
 
   // Mobile-specific state
   const [mobileTab, setMobileTab] = React.useState<MobileTab>("patients");
-  const [selectedPatient, setSelectedPatient] = React.useState<Patient | null>(null);
+  const [selectedPatientState, setSelectedPatientState] = React.useState<{
+    ownerId: string;
+    patient: Patient;
+  } | null>(null);
+  const selectedPatient = selectedPatientState && selectedPatientState.ownerId === user?.id
+    ? selectedPatientState.patient
+    : null;
+  const setSelectedPatient = React.useCallback((patient: Patient | null) => {
+    setSelectedPatientState(patient && user ? { ownerId: user.id, patient } : null);
+  }, [user]);
+
+  React.useEffect(() => {
+    setSelectedPatientState(null);
+  }, [user?.id]);
 
   React.useEffect(() => {
     if (isMobile) return;
@@ -113,21 +126,25 @@ function IndexContent(): React.ReactElement | null {
     setCurrentPatient(currentPatient);
   }, [currentPatient, setCurrentPatient]);
 
-  const handleUpdatePatient = React.useCallback((id: string, field: string, value: unknown) => {
-    updatePatient(id, field, value);
-  }, [updatePatient]);
+  const handleUpdatePatient = React.useCallback(
+    (id: string, field: string, value: unknown) => updatePatient(id, field, value),
+    [updatePatient],
+  );
 
-  const handleRemovePatient = React.useCallback((id: string) => {
-    removePatient(id);
-  }, [removePatient]);
+  const handleRemovePatient = React.useCallback(
+    (id: string) => removePatient(id),
+    [removePatient],
+  );
 
-  const handleDuplicatePatient = React.useCallback((id: string) => {
-    duplicatePatient(id);
-  }, [duplicatePatient]);
+  const handleDuplicatePatient = React.useCallback(
+    (id: string) => duplicatePatient(id),
+    [duplicatePatient],
+  );
 
-  const handleToggleCollapse = React.useCallback((id: string) => {
-    toggleCollapse(id);
-  }, [toggleCollapse]);
+  const handleToggleCollapse = React.useCallback(
+    (id: string) => toggleCollapse(id),
+    [toggleCollapse],
+  );
 
   const handleAddPatient = React.useCallback(() => {
     setNewPatientSheetOpen(true);
@@ -152,10 +169,9 @@ function IndexContent(): React.ReactElement | null {
   const handleSignOut = React.useCallback(async () => {
     try {
       await signOut();
+      navigate("/auth");
     } catch (error) {
       console.error("Failed to sign out:", error);
-    } finally {
-      navigate("/auth");
     }
   }, [navigate, signOut]);
 

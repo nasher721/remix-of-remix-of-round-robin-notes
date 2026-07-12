@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Calendar as CalendarIcon, Clock, X } from 'lucide-react';
 import { format } from 'date-fns';
-import { LocalDictationButton } from './../LocalDictationButton';
+import { DictationButton } from '@/components/DictationButton';
 
 interface TimelineEventFormProps {
     onSave: (event: TimelineEvent) => void;
@@ -120,9 +120,10 @@ export function TimelineEventForm({ onSave, onCancel }: TimelineEventFormProps) 
                 <div className="space-y-2">
                     <div className="flex items-center justify-between">
                         <Label htmlFor="desc" className="text-neutral-200">Clinical Details</Label>
-                        <LocalDictationButton
-                            onTranscriptionComplete={(text) => setDescription(prev => prev ? `${prev} ${text}` : text)}
+                        <DictationButton
+                            onTranscript={(text) => setDescription(prev => prev ? `${prev} ${text}` : text)}
                             className="h-8 w-8"
+                            variant="outline"
                         />
                     </div>
                     <Textarea

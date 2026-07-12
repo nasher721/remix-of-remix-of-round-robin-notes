@@ -27,7 +27,6 @@ import { ObservabilitySupportCard } from "@/components/settings/ObservabilitySup
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator";
 import { TimelineDialog } from "../tools/timeline/TimelineDialog";
-import { LabTrendingPanel } from "@/components/LabTrendingPanel";
 import { UnitCensusDashboard } from "@/components/UnitCensusDashboard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PresenceIndicator } from "@/components/PresenceIndicator";
@@ -38,6 +37,7 @@ import { KeyboardShortcutHelp, useKeyboardShortcutHelp } from "@/components/Keyb
 import { LiveRegion } from "@/components/LiveRegion";
 import { SyncHistoryPanel } from "@/components/sync/SyncHistoryPanel";
 import { useAICommandPalette } from "@/components/tools/AICommandPalette";
+import type { ChangeTrackingStyles } from "@/types/changeTracking";
 
 // Lazy-load heavy modal components for better initial bundle size
 const PrintExportModal = React.lazy(() => import("@/components/PrintExportModal").then(m => ({ default: m.PrintExportModal })));
@@ -124,6 +124,7 @@ export const DesktopDashboard = () => {
     setSearchQuery,
     filter,
     setFilter,
+    selectedPatient,
     autotexts,
     templates,
     customDictionary,
@@ -970,7 +971,11 @@ export const DesktopDashboard = () => {
       </React.Suspense>
 
       <React.Suspense fallback={null}>
-        <AICommandPalette open={isAICommandPaletteOpen} onOpenChange={setAICommandPaletteOpen} />
+        <AICommandPalette
+          open={isAICommandPaletteOpen}
+          onOpenChange={setAICommandPaletteOpen}
+          patient={selectedPatient ?? undefined}
+        />
       </React.Suspense>
 
       <AlertDialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
@@ -1015,7 +1020,7 @@ interface DesktopUtilityPanelProps {
   todosMap: ReturnType<typeof useDashboardTodos>;
   todosAlwaysVisible: boolean;
   globalFontSize: number;
-  setTodosAlwaysVisible: (updater: (prev: boolean) => boolean) => void;
+  setTodosAlwaysVisible: (visible: boolean) => void;
   setGlobalFontSize: (size: number) => void;
   patientRosterLayoutMode: "sidebar" | "topbar";
   onPatientRosterLayoutModeChange: (mode: "sidebar" | "topbar") => void;
@@ -1023,13 +1028,13 @@ interface DesktopUtilityPanelProps {
   setEditorToolbarMode: (mode: 'minimal' | 'full' | 'custom') => void;
   ctEnabled: boolean;
   ctColor: string;
-  ctStyles: unknown;
+  ctStyles: ChangeTrackingStyles;
   ctToggleEnabled: () => void;
   ctSetColor: (color: string) => void;
-  ctToggleStyle: () => void;
-  onAddPatientWithData: (data: unknown) => Promise<void> | void;
-  onImportPatients: (patients: unknown) => Promise<void> | void;
-  onUpdatePatient: (id: string, field: string, value: unknown) => void;
+  ctToggleStyle: (style: keyof ChangeTrackingStyles) => void;
+  onAddPatientWithData: ReturnType<typeof useDashboard>["onAddPatientWithData"];
+  onImportPatients: ReturnType<typeof useDashboard>["onImportPatients"];
+  onUpdatePatient: ReturnType<typeof useDashboard>["onUpdatePatient"];
   onAddAutotext: ReturnType<typeof useDashboard>["onAddAutotext"];
   onRemoveAutotext: ReturnType<typeof useDashboard>["onRemoveAutotext"];
   onAddTemplate: ReturnType<typeof useDashboard>["onAddTemplate"];
@@ -1140,6 +1145,15 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
     setActiveTab("tools");
   }, [openToolsRequestToken, setMenuOpen]);
 
+  const handleCsvImport = React.useCallback(async (records: Record<string, string>[]) => {
+    await onImportPatients(records.map((record) => ({
+      name: record.name ?? "",
+      bed: record.bed || record.room || "",
+      clinicalSummary: record.diagnosis ?? "",
+      intervalEvents: "",
+    })));
+  }, [onImportPatients]);
+
   return (
     <div
       ref={panelRef}
@@ -1249,7 +1263,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
                     <SmartPatientImport onImportPatient={onAddPatientWithData} />
                     <EpicHandoffImport existingBeds={patients.map((p) => p.bed)} onImportPatients={onImportPatients} />
-                    <CSVColumnMapper onImportPatients={onImportPatients} />
+                    <CSVColumnMapper onImportPatients={handleCsvImport} />
                     <Button onClick={onOpenAICommandPalette} className="w-full justify-start gap-2 bg-primary/10 text-primary hover:bg-primary/15 border border-primary/20">
                       <Sparkles className="h-4 w-4" /> AI Assistant <span className="ml-auto text-xs opacity-60">⌘⇧A</span>
                     </Button>
@@ -1264,7 +1278,6 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
                     <UnitCensusDashboard patients={patients} />
-                    <LabTrendingPanel patients={patients} />
                     <ContextAwareHelp />
                     <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} todosMap={todosMap} />
                   </CollapsibleContent>
@@ -1281,7 +1294,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   <Button
                     variant={todosAlwaysVisible ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setTodosAlwaysVisible((prev) => !prev)}
+                    onClick={() => setTodosAlwaysVisible(!todosAlwaysVisible)}
                     className="w-full gap-1.5"
                   >
                     <ListTodo className="h-3.5 w-3.5" /> Todos Always Visible

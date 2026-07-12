@@ -67,7 +67,8 @@ describe("usePatientTodos mutation cache updates", { concurrency: false }, () =>
     const { queryClient, wrapper } = createQueryWrapper();
     const allTodosKey = [...QUERY_KEYS.allTodos, "test-user-id", "patient-1|patient-2"] as const;
 
-    queryClient.setQueryData<PatientTodo[]>(QUERY_KEYS.patientTodos("patient-1"), [initialTodo]);
+    const patientTodosKey = QUERY_KEYS.patientTodosForOwner("test-user-id", "patient-1");
+    queryClient.setQueryData<PatientTodo[]>(patientTodosKey, [initialTodo]);
     queryClient.setQueryData<PatientTodosMap>(allTodosKey, {
       "patient-1": [initialTodo],
       "patient-2": [],
@@ -88,7 +89,7 @@ describe("usePatientTodos mutation cache updates", { concurrency: false }, () =>
     assert.equal(addedTodo?.content, "Call family");
     await waitFor(() => assert.equal(result.current.todos[0]?.content, "Call family", "selected todo state should prepend added todo"));
     assert.equal(
-      queryClient.getQueryData<PatientTodo[]>(QUERY_KEYS.patientTodos("patient-1"))?.[0]?.content,
+      queryClient.getQueryData<PatientTodo[]>(patientTodosKey)?.[0]?.content,
       "Call family",
       "patient todo cache should prepend added todo",
     );
@@ -104,7 +105,7 @@ describe("usePatientTodos mutation cache updates", { concurrency: false }, () =>
 
     const toggledSelectedTodo = result.current.todos.find((todo) => todo.id === "todo-1");
     const toggledPatientCacheTodo = queryClient
-      .getQueryData<PatientTodo[]>(QUERY_KEYS.patientTodos("patient-1"))
+      .getQueryData<PatientTodo[]>(patientTodosKey)
       ?.find((todo) => todo.id === "todo-1");
     const toggledDashboardTodo = queryClient
       .getQueryData<PatientTodosMap>(allTodosKey)
@@ -120,12 +121,17 @@ describe("usePatientTodos mutation cache updates", { concurrency: false }, () =>
 
     assert.equal(result.current.todos.some((todo) => todo.id === "todo-1"), false);
     assert.equal(
-      queryClient.getQueryData<PatientTodo[]>(QUERY_KEYS.patientTodos("patient-1"))?.some((todo) => todo.id === "todo-1"),
+      queryClient.getQueryData<PatientTodo[]>(patientTodosKey)?.some((todo) => todo.id === "todo-1"),
       false,
     );
     assert.equal(
       queryClient.getQueryData<PatientTodosMap>(allTodosKey)?.["patient-1"]?.some((todo) => todo.id === "todo-1"),
       false,
+    );
+    assert.equal(
+      queryClient.getQueryData(["todos", "patient-1"]),
+      undefined,
+      "todo mutations must not populate the legacy ownerless cache key",
     );
   });
 

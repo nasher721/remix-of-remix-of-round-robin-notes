@@ -125,7 +125,12 @@ export const useAI = () => {
   
   const run = useCallback(async (
     feature: AIFeature, 
-    options?: { text?: string; patient?: Patient; customPrompt?: string }
+    options: {
+      text?: string;
+      context?: ClinicalContext;
+      patient?: Patient;
+      customPrompt?: string;
+    } = {}
   ) => {
     return streamingAI.streamWithAI(feature, options);
   }, [streamingAI]);

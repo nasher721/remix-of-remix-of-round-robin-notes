@@ -58,8 +58,12 @@ export const VirtualizedPatientList = React.memo(() => {
   } = useDashboardLayout();
 
   const [pendingRemoveId, setPendingRemoveId] = React.useState<string | null>(null);
+  const removeTriggerRef = React.useRef<HTMLElement | null>(null);
 
   const handleRemoveRequest = React.useCallback((id: string) => {
+    removeTriggerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     setPendingRemoveId(id);
   }, []);
 
@@ -394,8 +398,18 @@ export const VirtualizedPatientList = React.memo(() => {
         )}
       </div>
 
-      <AlertDialog open={pendingRemoveId !== null} onOpenChange={(open) => !open && handleCancelRemove()}>
-        <AlertDialogContent>
+      <AlertDialog
+        open={pendingRemoveId !== null}
+        onOpenChange={(open) => {
+          if (!open) handleCancelRemove();
+        }}
+      >
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            removeTriggerRef.current?.focus();
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Patient</AlertDialogTitle>
             <AlertDialogDescription>
@@ -406,7 +420,7 @@ export const VirtualizedPatientList = React.memo(() => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelRemove}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmRemove}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

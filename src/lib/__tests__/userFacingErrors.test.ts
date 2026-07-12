@@ -3,7 +3,7 @@ import test from 'node:test';
 import type { ApiError } from '@/api/apiClient';
 import { CircuitOpenError } from '@/lib/circuitBreaker';
 import { TimeoutError } from '@/lib/requestTimeout';
-import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import { getUserFacingErrorMessage, UserFacingError } from '@/lib/userFacingErrors';
 
 test('maps TimeoutError', () => {
   assert.match(
@@ -35,4 +35,18 @@ test('maps 429 from ApiError status', () => {
 
 test('uses fallback for unknown', () => {
   assert.equal(getUserFacingErrorMessage(null, 'Fallback'), 'Fallback');
+});
+
+test('does not expose arbitrary upstream error details', () => {
+  const diagnostic = new Error('request failed for patient Jane Doe with sk-live-secret');
+
+  assert.equal(getUserFacingErrorMessage(diagnostic, 'Safe fallback'), 'Safe fallback');
+  assert.equal(getUserFacingErrorMessage(diagnostic.message, 'Safe fallback'), 'Safe fallback');
+});
+
+test('preserves explicitly authored user-facing errors', () => {
+  assert.equal(
+    getUserFacingErrorMessage(new UserFacingError('Enable OCR and try again.'), 'Fallback'),
+    'Enable OCR and try again.',
+  );
 });

@@ -2,8 +2,8 @@ import { syncedStore, getYjsValue } from "@syncedstore/core";
 import * as Y from "yjs";
 
 export type PatientNoteStore = {
-  notes: Record<string, string>;
-  cursors: Record<string, CursorInfo>;
+  notes: Partial<Record<string, string>>;
+  cursors: Partial<Record<string, CursorInfo>>;
 };
 
 export type CursorInfo = {
@@ -68,7 +68,7 @@ export function getCursorsForPatient(
 ): Array<{ userId: string } & CursorInfo> {
   const result: Array<{ userId: string } & CursorInfo> = [];
   for (const [userId, info] of Object.entries(store.cursors)) {
-    if (info.system.startsWith(patientId)) {
+    if (info?.system.startsWith(patientId)) {
       result.push({ userId, ...info });
     }
   }

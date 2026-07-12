@@ -44,9 +44,7 @@ function highlightMatches(ranges: Range[], activeIdx: number) {
         const inactive = ranges.filter((_, i) => i !== activeIdx);
         const active = ranges[activeIdx] ? [ranges[activeIdx]] : [];
 
-        // @ts-expect-error - CSS Custom Highlight API
         const matchHighlight = new Highlight(...inactive);
-        // @ts-expect-error - CSS Custom Highlight API
         const activeHighlight = new Highlight(...active);
 
         CSS.highlights.set("editor-find-matches", matchHighlight);

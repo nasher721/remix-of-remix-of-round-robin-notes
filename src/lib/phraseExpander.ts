@@ -96,37 +96,179 @@ export const getPatientDataValue = (
   }
 };
 
-// Calculate formula result
+const MAX_FORMULA_LENGTH = 1000;
+const MAX_FORMULA_TOKENS = 500;
+const MAX_FORMULA_DEPTH = 50;
+
+class ArithmeticParser {
+  private index = 0;
+  private tokenCount = 0;
+
+  constructor(
+    private readonly expression: string,
+    private readonly values: Record<string, unknown>,
+  ) {}
+
+  evaluate(): number {
+    const result = this.parseAdditive(0);
+    this.skipWhitespace();
+
+    if (this.index !== this.expression.length || !Number.isFinite(result)) {
+      throw new Error('Invalid arithmetic expression');
+    }
+
+    return result;
+  }
+
+  private parseAdditive(depth: number): number {
+    let result = this.parseMultiplicative(depth);
+
+    while (true) {
+      this.skipWhitespace();
+      const operator = this.expression[this.index];
+      if (operator !== '+' && operator !== '-') break;
+
+      this.consumeToken();
+      this.index += 1;
+      const operand = this.parseMultiplicative(depth);
+      result = operator === '+' ? result + operand : result - operand;
+      this.assertFinite(result);
+    }
+
+    return result;
+  }
+
+  private parseMultiplicative(depth: number): number {
+    let result = this.parseUnary(depth);
+
+    while (true) {
+      this.skipWhitespace();
+      const operator = this.expression[this.index];
+      if (operator !== '*' && operator !== '/') break;
+
+      this.consumeToken();
+      this.index += 1;
+      const operand = this.parseUnary(depth);
+      if (operator === '/' && operand === 0) {
+        throw new Error('Division by zero');
+      }
+      result = operator === '*' ? result * operand : result / operand;
+      this.assertFinite(result);
+    }
+
+    return result;
+  }
+
+  private parseUnary(depth: number): number {
+    this.assertDepth(depth);
+    this.skipWhitespace();
+    const operator = this.expression[this.index];
+
+    if (operator === '+' || operator === '-') {
+      this.consumeToken();
+      this.index += 1;
+      const operand = this.parseUnary(depth + 1);
+      return operator === '-' ? -operand : operand;
+    }
+
+    return this.parsePrimary(depth);
+  }
+
+  private parsePrimary(depth: number): number {
+    this.assertDepth(depth);
+    this.skipWhitespace();
+    const next = this.expression[this.index];
+
+    if (next === '(') {
+      this.consumeToken();
+      this.index += 1;
+      const result = this.parseAdditive(depth + 1);
+      this.skipWhitespace();
+      if (this.expression[this.index] !== ')') {
+        throw new Error('Unbalanced parentheses');
+      }
+      this.consumeToken();
+      this.index += 1;
+      return result;
+    }
+
+    if (next && /[\d.]/.test(next)) {
+      return this.readNumber();
+    }
+
+    if (next && /[A-Za-z_]/.test(next)) {
+      return this.readVariable();
+    }
+
+    throw new Error('Expected a number, variable, or parenthesized expression');
+  }
+
+  private readNumber(): number {
+    const match = /^(?:\d+(?:\.\d*)?|\.\d+)/.exec(this.expression.slice(this.index));
+    if (!match) throw new Error('Invalid number');
+
+    this.consumeToken();
+    this.index += match[0].length;
+    const value = Number(match[0]);
+    this.assertFinite(value);
+    return value;
+  }
+
+  private readVariable(): number {
+    const match = /^[A-Za-z_][A-Za-z0-9_]*/.exec(this.expression.slice(this.index));
+    if (!match) throw new Error('Invalid variable');
+
+    this.consumeToken();
+    this.index += match[0].length;
+    if (!Object.prototype.hasOwnProperty.call(this.values, match[0])) {
+      throw new Error('Unknown variable');
+    }
+
+    const value = Number(this.values[match[0]]);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  private skipWhitespace(): void {
+    while (/\s/.test(this.expression[this.index] ?? '')) {
+      this.index += 1;
+    }
+  }
+
+  private consumeToken(): void {
+    this.tokenCount += 1;
+    if (this.tokenCount > MAX_FORMULA_TOKENS) {
+      throw new Error('Formula is too complex');
+    }
+  }
+
+  private assertDepth(depth: number): void {
+    if (depth > MAX_FORMULA_DEPTH) {
+      throw new Error('Formula nesting is too deep');
+    }
+  }
+
+  private assertFinite(value: number): void {
+    if (!Number.isFinite(value)) {
+      throw new Error('Formula result is not finite');
+    }
+  }
+}
+
+// Calculate formula result without executing dynamic JavaScript.
 export const calculateFormula = (
   formula: string,
   values: Record<string, unknown>
 ): number | null => {
+  if (formula.length > MAX_FORMULA_LENGTH) return null;
+
   try {
-    // Replace field references with values
-    let expression = formula;
-    
-    // Extract the expression part (after = if present)
-    if (formula.includes('=')) {
-      expression = formula.split('=')[1].trim();
-    }
+    const separatorIndex = formula.indexOf('=');
+    const expression = (separatorIndex >= 0 ? formula.slice(separatorIndex + 1) : formula).trim();
+    if (!expression) return null;
 
-    // Replace variable names with values
-    for (const [key, value] of Object.entries(values)) {
-      const regex = new RegExp(`\\b${key}\\b`, 'g');
-      expression = expression.replace(regex, String(Number(value) || 0));
-    }
-
-    // Safe evaluation (only allow math operations)
-    if (!/^[\d\s+\-*/().]+$/.test(expression)) {
-      console.warn('Invalid formula expression:', expression);
-      return null;
-    }
-
-    // Use Function constructor instead of eval for safer math-only evaluation
-    const result = new Function(`"use strict"; return (${expression});`)();
-    return typeof result === 'number' && !isNaN(result) ? Math.round(result * 100) / 100 : null;
-  } catch (error) {
-    console.error('Formula calculation error:', error);
+    const result = new ArithmeticParser(expression, values).evaluate();
+    return Math.round((result + Math.sign(result) * Number.EPSILON) * 100) / 100;
+  } catch {
     return null;
   }
 };

@@ -1,12 +1,12 @@
 /**
  * Shared Authentication Module for Edge Functions
- * 
+ *
  * Provides consistent authentication across all Edge Functions.
  * Validates JWT tokens via Supabase Auth and extracts user ID.
- * 
+ *
  * Usage:
  *   import { authenticateRequest } from '../_shared/auth.ts';
- *   
+ *
  *   const authResult = await authenticateRequest(req);
  *   if ('error' in authResult) {
  *     return authResult.error;
@@ -14,8 +14,9 @@
  *   const userId = authResult.userId;
  */
 
+// deno-lint-ignore no-import-prefix -- Supabase Edge runtime resolves esm.sh imports.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCorsHeaders, errorResponse } from "./cors.ts";
+import { errorResponse } from "./cors.ts";
 
 export interface AuthResult {
   userId: string;
@@ -24,35 +25,39 @@ export interface AuthResult {
 
 /**
  * Authenticate a request by validating the Bearer token
- * 
+ *
  * @param req - The incoming Request object
  * @returns AuthResult with userId, or error Response
  */
 export async function authenticateRequest(
-  req: Request
+  req: Request,
 ): Promise<AuthResult | { error: Response }> {
-  const authHeader = req.headers.get('Authorization');
-  
+  const authHeader = req.headers.get("Authorization");
+
   if (!authHeader || !/^Bearer\s+\S/im.test(authHeader)) {
     return {
       error: errorResponse(
         req,
-        'Missing or invalid authorization header',
-        401
+        "Missing or invalid authorization header",
+        401,
       ),
     };
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('Missing SUPABASE_URL or SUPABASE_ANON_KEY (required for auth.getUser server validation)');
+    console.error(JSON.stringify({
+      level: "error",
+      event: "Authentication service configuration missing",
+      timestamp: new Date().toISOString(),
+    }));
     return {
       error: errorResponse(
         req,
-        'Server configuration error',
-        500
+        "Server configuration error",
+        500,
       ),
     };
   }
@@ -63,25 +68,25 @@ export async function authenticateRequest(
     },
   });
 
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
     return {
-      error: errorResponse(req, 'Missing or invalid authorization header', 401),
+      error: errorResponse(req, "Missing or invalid authorization header", 401),
     };
   }
-  
+
   try {
     // Use getUser() for server-side validation - this actually verifies
     // with the Supabase Auth server that the session is still valid
     // (unlike getClaims() which only does local JWT validation)
     const { data, error } = await supabaseClient.auth.getUser(token);
-    
+
     if (error || !data?.user) {
       return {
         error: errorResponse(
           req,
-          'Unauthorized - invalid token',
-          401
+          "Unauthorized - invalid token",
+          401,
         ),
       };
     }
@@ -90,45 +95,33 @@ export async function authenticateRequest(
       userId: data.user.id,
       email: data.user.email,
     };
-  } catch (err) {
-    console.error('Auth error:', err);
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: "error",
+      event: "Authentication failed",
+      errorType: error instanceof Error ? error.name : "UnknownError",
+      timestamp: new Date().toISOString(),
+    }));
     return {
       error: errorResponse(
         req,
-        'Authentication failed',
-        401
+        "Authentication failed",
+        401,
       ),
     };
   }
 }
 
 /**
- * Optional: Verify user has specific role/permission
- * Can be extended based on your auth needs
- */
-export async function verifyUserRole(
-  req: Request,
-  _requiredRole: string
-): Promise<AuthResult | { error: Response }> {
-  const authResult = await authenticateRequest(req);
-  
-  if ('error' in authResult) {
-    return authResult;
-  }
-
-  // Role checking: not implemented. When you add app-wide roles (e.g. JWT app_metadata.role
-  // or a user_roles table), compare _requiredRole to the resolved role and return 403 if missing.
-  return authResult;
-}
-
-/**
  * Log authentication events safely (without exposing PHI)
  */
 export function logAuthEvent(
-  event: 'authenticated' | 'auth_failed' | 'rate_limited',
-  userId?: string
+  event: "authenticated" | "auth_failed" | "rate_limited",
+  _userId?: string,
 ): void {
-  // Use a truncated/anonymized user ID for logging
-  const safeUserId = userId ? `${userId.slice(0, 8)}...` : 'anonymous';
-  console.log(`[AUTH] ${event}: ${safeUserId}`);
+  console.log(JSON.stringify({
+    level: "info",
+    event: `Authentication ${event}`,
+    timestamp: new Date().toISOString(),
+  }));
 }

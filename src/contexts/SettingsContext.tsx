@@ -1,11 +1,13 @@
 import * as React from 'react';
+import type { User } from '@supabase/supabase-js';
 import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS, normalizeGlobalFontSizeToPx, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels, type Theme } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { getRoleById, type SpecialtyFeature } from '@/constants/specialties';
 import type { LLMProviderName } from '@/services/llm';
-import { resetRouter } from '@/services/llm';
+import { clearRuntimeCredentials, setRuntimeCredentials } from '@/services/llm';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export type SortBy = 'number' | 'room' | 'name';
 
@@ -78,7 +80,6 @@ interface AppPreferences {
   selectedSpecialty: string | null;
   aiProvider: LLMProviderName;
   aiModel: string;
-  aiCredentials?: Partial<Record<LLMProviderName, string>>;
   aiFeatureModels?: AIFeatureModels;
   editorToolbarMode?: 'minimal' | 'full' | 'custom';
   editorToolbarButtons?: string[];
@@ -86,30 +87,49 @@ interface AppPreferences {
   patientInfoToolbarButtons?: string[];
 }
 
+const withoutCredentialFields = (
+  preferences: AppPreferences & { aiCredentials?: unknown },
+): AppPreferences => {
+  const sanitized = { ...preferences };
+  delete sanitized.aiCredentials;
+  return sanitized;
+};
+
 const SettingsContext = React.createContext<SettingsContextType | undefined>(undefined);
 
 interface SettingsProviderProps {
   children: React.ReactNode;
 }
 
-export const SettingsProvider = ({ children }: SettingsProviderProps) => {
-  const { user } = useAuth();
+const getPreferenceStorageKey = (key: string, ownerId: string | null): string => (
+  ownerId ? `${key}:user:${ownerId}` : key
+);
+
+interface SettingsOwnerProviderProps extends SettingsProviderProps {
+  user: User | null;
+}
+
+const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) => {
+  const ownerId = user?.id ?? null;
   const [isSyncingSettings, setIsSyncingSettings] = React.useState(false);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const syncGenerationRef = React.useRef(0);
   const initialSyncDone = React.useRef(false);
+  const isActiveRef = React.useRef(true);
 
   const [globalFontSize, setGlobalFontSizeState] = React.useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.GLOBAL_FONT_SIZE);
+    const storageKey = getPreferenceStorageKey(STORAGE_KEYS.GLOBAL_FONT_SIZE, ownerId);
+    const saved = safeLocalStorage.getItem(storageKey);
     if (saved) {
       const parsed = parseInt(saved, 10);
       // Migrate from old default (14) to new smaller default
       if (parsed === 14) {
-        localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(DEFAULT_CONFIG.GLOBAL_FONT_SIZE));
+        safeLocalStorage.setItem(storageKey, String(DEFAULT_CONFIG.GLOBAL_FONT_SIZE));
         return DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
       }
       const normalized = normalizeGlobalFontSizeToPx(parsed);
       if (normalized !== parsed) {
-        localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(normalized));
+        safeLocalStorage.setItem(storageKey, String(normalized));
       }
       return normalized;
     }
@@ -117,40 +137,54 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   });
 
   const [todosAlwaysVisible, setTodosAlwaysVisibleState] = React.useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE) === 'true';
+    return safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE, ownerId),
+    ) === 'true';
   });
 
   const [sortBy, setSortByState] = React.useState<SortBy>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PATIENT_SORT_BY);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.PATIENT_SORT_BY, ownerId),
+    );
     return (saved as SortBy) || DEFAULT_CONFIG.DEFAULT_SORT_BY;
   });
 
   const [theme, setThemeState] = React.useState<Theme>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.THEME) as Theme | null;
+    const saved = safeLocalStorage.getItem(STORAGE_KEYS.THEME) as Theme | null;
     return saved || DEFAULT_CONFIG.DEFAULT_THEME;
   });
 
   const [showLabFishbones, setShowLabFishbonesState] = React.useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SHOW_LAB_FISHBONES);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.SHOW_LAB_FISHBONES, ownerId),
+    );
     return saved !== null ? saved === 'true' : true;
   });
 
   const [selectedSpecialty, setSelectedSpecialtyState] = React.useState<string | null>(() => {
-    return localStorage.getItem(STORAGE_KEYS.SELECTED_SPECIALTY) || null;
+    return safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.SELECTED_SPECIALTY, ownerId),
+    ) || null;
   });
 
   const [aiProvider, setAiProviderState] = React.useState<LLMProviderName>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.AI_PROVIDER) as LLMProviderName | null;
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.AI_PROVIDER, ownerId),
+    ) as LLMProviderName | null;
     return saved || DEFAULT_CONFIG.DEFAULT_AI_PROVIDER;
   });
 
   const [aiModel, setAiModelState] = React.useState(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.AI_MODEL);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.AI_MODEL, ownerId),
+    );
     return saved || DEFAULT_CONFIG.DEFAULT_AI_MODEL;
   });
 
   const [aiFeatureModels, setAiFeatureModelsState] = React.useState<AIFeatureModels>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.AI_FEATURE_MODELS);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.AI_FEATURE_MODELS, ownerId),
+    );
     if (!saved) return {};
     try {
       return JSON.parse(saved) as AIFeatureModels;
@@ -160,17 +194,21 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   });
 
   const [aiCredentials, setAiCredentialsState] = React.useState<Partial<Record<LLMProviderName, string>>>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.AI_CREDENTIALS);
-    if (!saved) return {};
-    try {
-      return JSON.parse(saved) as Partial<Record<LLMProviderName, string>>;
-    } catch {
-      return {};
-    }
+    // Remove credentials written by older versions; new values are memory-only.
+    safeLocalStorage.removeItem(STORAGE_KEYS.AI_CREDENTIALS);
+    return {};
   });
 
+  React.useLayoutEffect(() => {
+    // Provider instances are owner-keyed. Never let an in-memory credential
+    // from the previous instance survive into the next owner's effects.
+    clearRuntimeCredentials();
+  }, [ownerId]);
+
   const [sectionVisibility, setSectionVisibilityState] = React.useState<SectionVisibility>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.SECTION_VISIBILITY, ownerId),
+    );
     if (saved) {
       try {
         return { ...DEFAULT_SECTION_VISIBILITY, ...JSON.parse(saved) };
@@ -182,12 +220,16 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   });
 
   const [editorToolbarMode, setEditorToolbarModeState] = React.useState<'minimal' | 'full' | 'custom'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EDITOR_TOOLBAR_MODE);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.EDITOR_TOOLBAR_MODE, ownerId),
+    );
     return (saved === 'minimal' || saved === 'full' || saved === 'custom') ? saved : 'minimal';
   });
 
   const [editorToolbarButtons, setEditorToolbarButtonsState] = React.useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, ownerId),
+    );
     if (!saved) return [...DEFAULT_EDITOR_TOOLBAR_BUTTONS];
     try {
       const parsed = JSON.parse(saved) as string[];
@@ -198,12 +240,16 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
   });
 
   const [patientInfoToolbarMode, setPatientInfoToolbarModeState] = React.useState<'minimal' | 'full' | 'custom'>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE, ownerId),
+    );
     return (saved === 'minimal' || saved === 'full' || saved === 'custom') ? saved : 'minimal';
   });
 
   const [patientInfoToolbarButtons, setPatientInfoToolbarButtonsState] = React.useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS);
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS, ownerId),
+    );
     if (!saved) return [...DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS];
     try {
       const parsed = JSON.parse(saved) as string[];
@@ -221,96 +267,113 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     selectedSpecialty,
     aiProvider,
     aiModel,
-    aiCredentials,
     aiFeatureModels,
     editorToolbarMode,
     editorToolbarButtons,
     patientInfoToolbarMode,
     patientInfoToolbarButtons,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiCredentials, aiFeatureModels, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons]);
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiFeatureModels, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons]);
+
+  const buildAppPreferencesRef = React.useRef(buildAppPreferences);
+  buildAppPreferencesRef.current = buildAppPreferences;
+
+  const preferenceStorageKey = React.useCallback(
+    (key: string) => getPreferenceStorageKey(key, ownerId),
+    [ownerId],
+  );
 
   const applyAppPreferences = React.useCallback((prefs: Partial<AppPreferences>) => {
     if (prefs.globalFontSize !== undefined) {
       const normalized = normalizeGlobalFontSizeToPx(prefs.globalFontSize);
       setGlobalFontSizeState(normalized);
-      localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(normalized));
+      safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.GLOBAL_FONT_SIZE), String(normalized));
     }
     if (prefs.todosAlwaysVisible !== undefined) {
       setTodosAlwaysVisibleState(prefs.todosAlwaysVisible);
-      localStorage.setItem(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE, String(prefs.todosAlwaysVisible));
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE),
+        String(prefs.todosAlwaysVisible),
+      );
     }
     if (prefs.sortBy !== undefined) {
       setSortByState(prefs.sortBy);
-      localStorage.setItem(STORAGE_KEYS.PATIENT_SORT_BY, prefs.sortBy);
+      safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.PATIENT_SORT_BY), prefs.sortBy);
     }
     if (prefs.showLabFishbones !== undefined) {
       setShowLabFishbonesState(prefs.showLabFishbones);
-      localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(prefs.showLabFishbones));
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.SHOW_LAB_FISHBONES),
+        String(prefs.showLabFishbones),
+      );
     }
     if (prefs.selectedSpecialty !== undefined) {
       setSelectedSpecialtyState(prefs.selectedSpecialty);
+      const storageKey = preferenceStorageKey(STORAGE_KEYS.SELECTED_SPECIALTY);
       if (prefs.selectedSpecialty) {
-        localStorage.setItem(STORAGE_KEYS.SELECTED_SPECIALTY, prefs.selectedSpecialty);
+        safeLocalStorage.setItem(storageKey, prefs.selectedSpecialty);
       } else {
-        localStorage.removeItem(STORAGE_KEYS.SELECTED_SPECIALTY);
+        safeLocalStorage.removeItem(storageKey);
       }
     }
 
     if (prefs.aiProvider !== undefined) {
       setAiProviderState(prefs.aiProvider);
-      localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, prefs.aiProvider);
+      safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_PROVIDER), prefs.aiProvider);
     }
 
     if (prefs.aiModel !== undefined) {
       setAiModelState(prefs.aiModel);
-      localStorage.setItem(STORAGE_KEYS.AI_MODEL, prefs.aiModel);
-    }
-
-    if (prefs.aiCredentials !== undefined) {
-      setAiCredentialsState(prefs.aiCredentials ?? {});
-      if (prefs.aiCredentials) {
-        localStorage.setItem(STORAGE_KEYS.AI_CREDENTIALS, JSON.stringify(prefs.aiCredentials));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.AI_CREDENTIALS);
-      }
-      resetRouter();
+      safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_MODEL), prefs.aiModel);
     }
 
     if (prefs.aiFeatureModels !== undefined) {
       setAiFeatureModelsState(prefs.aiFeatureModels ?? {});
+      const storageKey = preferenceStorageKey(STORAGE_KEYS.AI_FEATURE_MODELS);
       if (prefs.aiFeatureModels) {
-        localStorage.setItem(STORAGE_KEYS.AI_FEATURE_MODELS, JSON.stringify(prefs.aiFeatureModels));
+        safeLocalStorage.setItem(storageKey, JSON.stringify(prefs.aiFeatureModels));
       } else {
-        localStorage.removeItem(STORAGE_KEYS.AI_FEATURE_MODELS);
+        safeLocalStorage.removeItem(storageKey);
       }
     }
 
     if (prefs.editorToolbarMode !== undefined) {
       setEditorToolbarModeState(prefs.editorToolbarMode);
-      localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_MODE, prefs.editorToolbarMode);
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.EDITOR_TOOLBAR_MODE),
+        prefs.editorToolbarMode,
+      );
     }
     if (prefs.editorToolbarButtons !== undefined) {
       setEditorToolbarButtonsState(prefs.editorToolbarButtons);
-      localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, JSON.stringify(prefs.editorToolbarButtons));
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS),
+        JSON.stringify(prefs.editorToolbarButtons),
+      );
     }
     if (prefs.patientInfoToolbarMode !== undefined) {
       setPatientInfoToolbarModeState(prefs.patientInfoToolbarMode);
-      localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE, prefs.patientInfoToolbarMode);
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE),
+        prefs.patientInfoToolbarMode,
+      );
     }
     if (prefs.patientInfoToolbarButtons !== undefined) {
       setPatientInfoToolbarButtonsState(prefs.patientInfoToolbarButtons);
-      localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS, JSON.stringify(prefs.patientInfoToolbarButtons));
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS),
+        JSON.stringify(prefs.patientInfoToolbarButtons),
+      );
     }
-  }, []);
+  }, [preferenceStorageKey]);
 
   // Sync settings to database with debounce
   const syncSettingsToDb = React.useCallback(async (visibility: SectionVisibility, appPreferences: AppPreferences) => {
-    if (!user) return;
+    if (!user || !isActiveRef.current) return;
 
     try {
       const appPreferencesJson = JSON.parse(JSON.stringify(appPreferences)) as Json;
       const sectionVisibilityJson = JSON.parse(JSON.stringify(visibility)) as Json;
-      await supabase
+      const { error } = await supabase
         .from('user_settings')
         .upsert(
           {
@@ -320,147 +383,201 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
           },
           { onConflict: 'user_id' }
         );
+      if (!isActiveRef.current) return;
+      if (error) throw error;
     } catch (err) {
+      if (!isActiveRef.current) return;
       console.error('Failed to sync settings:', err);
     }
   }, [user]);
 
   // Load settings from database on login
   React.useEffect(() => {
+    let cancelled = false;
+    const isCurrentOwner = () => !cancelled && isActiveRef.current;
+
     const loadFromDb = async () => {
       if (!user || initialSyncDone.current) return;
 
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('user_settings')
           .select('section_visibility, app_preferences')
           .eq('user_id', user.id)
           .maybeSingle();
+        if (!isCurrentOwner()) return;
+        if (error) throw error;
 
         if (data?.section_visibility) {
           const dbVisibility = data.section_visibility as unknown as SectionVisibility;
           setSectionVisibilityState(dbVisibility);
-          localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(dbVisibility));
+          safeLocalStorage.setItem(
+            preferenceStorageKey(STORAGE_KEYS.SECTION_VISIBILITY),
+            JSON.stringify(dbVisibility),
+          );
         }
 
         if (data?.app_preferences) {
-          const dbPreferences = data.app_preferences as unknown as AppPreferences;
+          const rawDbPreferences = data.app_preferences as unknown as AppPreferences & { aiCredentials?: unknown };
+          const dbPreferences = withoutCredentialFields(rawDbPreferences);
           applyAppPreferences(dbPreferences);
-        }
 
-        if (!data?.section_visibility || !data?.app_preferences) {
-          // No DB settings, sync current local storage to DB
-          const localVisibility = localStorage.getItem(STORAGE_KEYS.SECTION_VISIBILITY);
-          const localPreferences = buildAppPreferences();
-          if (localVisibility) {
-            try {
-              const parsed = JSON.parse(localVisibility);
-              await supabase
-                .from('user_settings')
-                .upsert({
-                  user_id: user.id,
-                  section_visibility: parsed,
-                  app_preferences: localPreferences as unknown as Json,
-                },
-                  { onConflict: 'user_id' }
-                );
-            } catch {
-              // Ignore parse errors
-            }
-          } else {
-            await supabase
+          if (Object.prototype.hasOwnProperty.call(rawDbPreferences, 'aiCredentials')) {
+            const { error: scrubError } = await supabase
               .from('user_settings')
               .upsert({
                 user_id: user.id,
-                section_visibility: DEFAULT_SECTION_VISIBILITY as unknown as Json,
-                app_preferences: localPreferences as unknown as Json,
-              },
-                { onConflict: 'user_id' }
-              );
+                section_visibility: (data.section_visibility ?? DEFAULT_SECTION_VISIBILITY) as Json,
+                app_preferences: dbPreferences as unknown as Json,
+              }, { onConflict: 'user_id' });
+            if (!isCurrentOwner()) return;
+            if (scrubError) throw scrubError;
           }
         }
+
+        if (!data?.section_visibility || !data?.app_preferences) {
+          const storedVisibility = safeLocalStorage.getItem(
+            preferenceStorageKey(STORAGE_KEYS.SECTION_VISIBILITY),
+          );
+          let localVisibility: SectionVisibility = DEFAULT_SECTION_VISIBILITY;
+          if (storedVisibility) {
+            try {
+              localVisibility = JSON.parse(storedVisibility) as SectionVisibility;
+            } catch {
+              localVisibility = DEFAULT_SECTION_VISIBILITY;
+            }
+          }
+
+          const { error: initializeError } = await supabase
+            .from('user_settings')
+            .upsert({
+              user_id: user.id,
+              section_visibility: localVisibility as unknown as Json,
+              app_preferences: buildAppPreferencesRef.current() as unknown as Json,
+            }, { onConflict: 'user_id' });
+          if (!isCurrentOwner()) return;
+          if (initializeError) throw initializeError;
+        }
+
+        if (!isCurrentOwner()) return;
         initialSyncDone.current = true;
       } catch (err) {
+        if (!isCurrentOwner()) return;
         console.error('Failed to load settings from DB:', err);
       }
     };
 
-    loadFromDb();
-  }, [user, applyAppPreferences, buildAppPreferences]);
+    void loadFromDb();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, applyAppPreferences, preferenceStorageKey]);
 
   // Reset sync flag on logout
   React.useEffect(() => {
     if (!user) {
       initialSyncDone.current = false;
+      setAiCredentialsState({});
+      clearRuntimeCredentials();
     }
   }, [user]);
 
   // Cleanup timeout on unmount to prevent memory leaks
   React.useEffect(() => {
     return () => {
+      isActiveRef.current = false;
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = null;
       }
+      clearRuntimeCredentials();
     };
   }, []);
 
   // Persist font size
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.GLOBAL_FONT_SIZE, String(globalFontSize));
-  }, [globalFontSize]);
+    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.GLOBAL_FONT_SIZE), String(globalFontSize));
+  }, [globalFontSize, preferenceStorageKey]);
 
   // Persist todos visibility
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE, String(todosAlwaysVisible));
-  }, [todosAlwaysVisible]);
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.TODOS_ALWAYS_VISIBLE),
+      String(todosAlwaysVisible),
+    );
+  }, [todosAlwaysVisible, preferenceStorageKey]);
 
   // Persist sort preference
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PATIENT_SORT_BY, sortBy);
-  }, [sortBy]);
+    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.PATIENT_SORT_BY), sortBy);
+  }, [sortBy, preferenceStorageKey]);
 
   // Persist lab fishbones preference
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SHOW_LAB_FISHBONES, String(showLabFishbones));
-  }, [showLabFishbones]);
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.SHOW_LAB_FISHBONES),
+      String(showLabFishbones),
+    );
+  }, [showLabFishbones, preferenceStorageKey]);
 
   const setEditorToolbarMode = React.useCallback((mode: 'minimal' | 'full' | 'custom') => {
     setEditorToolbarModeState(mode);
-    localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_MODE, mode);
-  }, []);
+    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.EDITOR_TOOLBAR_MODE), mode);
+  }, [preferenceStorageKey]);
 
   const setEditorToolbarButtons = React.useCallback((buttons: string[]) => {
     setEditorToolbarButtonsState(buttons);
-    localStorage.setItem(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS, JSON.stringify(buttons));
-  }, []);
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.EDITOR_TOOLBAR_BUTTONS),
+      JSON.stringify(buttons),
+    );
+  }, [preferenceStorageKey]);
 
   const setPatientInfoToolbarMode = React.useCallback((mode: 'minimal' | 'full' | 'custom') => {
     setPatientInfoToolbarModeState(mode);
-    localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE, mode);
-  }, []);
+    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_MODE), mode);
+  }, [preferenceStorageKey]);
 
   const setPatientInfoToolbarButtons = React.useCallback((buttons: string[]) => {
     setPatientInfoToolbarButtonsState(buttons);
-    localStorage.setItem(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS, JSON.stringify(buttons));
-  }, []);
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS),
+      JSON.stringify(buttons),
+    );
+  }, [preferenceStorageKey]);
 
   // Persist section visibility to local storage and sync to DB with debounce
   React.useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.SECTION_VISIBILITY, JSON.stringify(sectionVisibility));
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.SECTION_VISIBILITY),
+      JSON.stringify(sectionVisibility),
+    );
 
-    // Debounce DB sync to avoid too many requests
-    if (user && initialSyncDone.current) {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-      setIsSyncingSettings(true);
-      syncTimeoutRef.current = setTimeout(() => {
-        syncSettingsToDb(sectionVisibility, buildAppPreferences()).finally(() => {
-          setIsSyncingSettings(false);
-        });
-      }, 1000);
+    if (!user || !initialSyncDone.current) return;
+
+    if (syncTimeoutRef.current) {
+      clearTimeout(syncTimeoutRef.current);
     }
-  }, [sectionVisibility, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons, aiCredentials, aiProvider, aiModel, aiFeatureModels, user, buildAppPreferences, syncSettingsToDb]);
+
+    const generation = ++syncGenerationRef.current;
+    setIsSyncingSettings(true);
+    const timeout = setTimeout(() => {
+      syncTimeoutRef.current = null;
+      void syncSettingsToDb(sectionVisibility, buildAppPreferences()).finally(() => {
+        if (isActiveRef.current && syncGenerationRef.current === generation) {
+          setIsSyncingSettings(false);
+        }
+      });
+    }, 1000);
+    syncTimeoutRef.current = timeout;
+
+    return () => {
+      clearTimeout(timeout);
+      if (syncTimeoutRef.current === timeout) {
+        syncTimeoutRef.current = null;
+      }
+    };
+  }, [sectionVisibility, user, buildAppPreferences, preferenceStorageKey, syncSettingsToDb]);
 
   const setGlobalFontSize = React.useCallback((size: number) => {
     setGlobalFontSizeState(normalizeGlobalFontSizeToPx(size));
@@ -480,7 +597,7 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
 
   const setTheme = React.useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem(STORAGE_KEYS.THEME, newTheme);
+    safeLocalStorage.setItem(STORAGE_KEYS.THEME, newTheme);
 
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
@@ -495,37 +612,45 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
 
   const setSelectedSpecialty = React.useCallback((specialtyId: string | null) => {
     setSelectedSpecialtyState(specialtyId);
+    const storageKey = preferenceStorageKey(STORAGE_KEYS.SELECTED_SPECIALTY);
     if (specialtyId) {
-      localStorage.setItem(STORAGE_KEYS.SELECTED_SPECIALTY, specialtyId);
+      safeLocalStorage.setItem(storageKey, specialtyId);
     } else {
-      localStorage.removeItem(STORAGE_KEYS.SELECTED_SPECIALTY);
+      safeLocalStorage.removeItem(storageKey);
     }
-  }, []);
+  }, [preferenceStorageKey]);
 
   const setAiModel = React.useCallback((provider: LLMProviderName, model: string) => {
     setAiProviderState(provider);
     setAiModelState(model);
-    localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, provider);
-    localStorage.setItem(STORAGE_KEYS.AI_MODEL, model);
-  }, []);
+    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_PROVIDER), provider);
+    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_MODEL), model);
+  }, [preferenceStorageKey]);
 
   const resetAiModel = React.useCallback(() => {
     setAiProviderState(DEFAULT_CONFIG.DEFAULT_AI_PROVIDER);
     setAiModelState(DEFAULT_CONFIG.DEFAULT_AI_MODEL);
-    localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, DEFAULT_CONFIG.DEFAULT_AI_PROVIDER);
-    localStorage.setItem(STORAGE_KEYS.AI_MODEL, DEFAULT_CONFIG.DEFAULT_AI_MODEL);
-  }, []);
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.AI_PROVIDER),
+      DEFAULT_CONFIG.DEFAULT_AI_PROVIDER,
+    );
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.AI_MODEL),
+      DEFAULT_CONFIG.DEFAULT_AI_MODEL,
+    );
+  }, [preferenceStorageKey]);
 
   const setAiCredential = React.useCallback((provider: LLMProviderName, credential: string) => {
+    if (!isActiveRef.current) return;
     setAiCredentialsState((prev) => {
+      if (!isActiveRef.current) return prev;
       const next = { ...prev } as Partial<Record<LLMProviderName, string>>;
       if (credential) {
         next[provider] = credential;
       } else {
         delete next[provider];
       }
-      localStorage.setItem(STORAGE_KEYS.AI_CREDENTIALS, JSON.stringify(next));
-      resetRouter();
+      setRuntimeCredentials(next);
       return next;
     });
   }, []);
@@ -538,10 +663,13 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       } else {
         delete next[feature];
       }
-      localStorage.setItem(STORAGE_KEYS.AI_FEATURE_MODELS, JSON.stringify(next));
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.AI_FEATURE_MODELS),
+        JSON.stringify(next),
+      );
       return next;
     });
-  }, []);
+  }, [preferenceStorageKey]);
 
   const getModelForFeature = React.useCallback((feature: AIFeatureCategory): string => {
     return aiFeatureModels[feature] || DEFAULT_GATEWAY_MODEL;
@@ -638,6 +766,17 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
     <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
+  );
+};
+
+export const SettingsProvider = ({ children }: SettingsProviderProps) => {
+  const { user } = useAuth();
+  const ownerId = user?.id ?? 'anonymous';
+
+  return (
+    <SettingsOwnerProvider key={ownerId} user={user}>
+      {children}
+    </SettingsOwnerProvider>
   );
 };
 

@@ -55,7 +55,7 @@ export function OfflineSyncProvider({ children }: OfflineSyncProviderProps): Rea
       setStatus(newStatus);
     });
 
-    const unsubscribeConflict = syncEngine.on("conflict", (data: ConflictData) => {
+    const unsubscribeConflict = syncEngine.on("conflict", (data) => {
       setConflicts((prev) => [...prev, data]);
     });
 
@@ -100,7 +100,8 @@ export function OfflineSyncProvider({ children }: OfflineSyncProviderProps): Rea
     if (!conflict) return false;
 
     try {
-      await indexedDBQueue.updateStatus(conflict.id, "completed");
+      const resolved = await syncEngine.resolvePendingConflict(conflict, strategy);
+      if (!resolved) return false;
       setConflicts((prev) => prev.filter((c) => c.id !== conflictId));
       return true;
     } catch {

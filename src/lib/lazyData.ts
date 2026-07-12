@@ -74,10 +74,9 @@ export function useLazyData<TModule, TData>(
             error: err instanceof Error ? err : new Error('Failed to load lazy data'),
           });
         }
-      });
+    });
 
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return state;

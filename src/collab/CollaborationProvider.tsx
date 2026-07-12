@@ -9,7 +9,6 @@ import React, {
 import * as Y from "yjs";
 import {
   createPatientNoteStore,
-  getYjsDocFromStore,
   PatientNoteStore,
   CursorInfo,
   updateCursor,
@@ -57,13 +56,9 @@ export function CollaborationProvider({
   const userIdRef = useRef<string>(
     `user-${Math.random().toString(36).substring(2, 9)}`
   );
-  const docRef = useRef<Y.Doc | null>(null);
-
   useEffect(() => {
     const currentUserId = userIdRef.current;
     const doc = new Y.Doc();
-    docRef.current = doc;
-
     const newStore = createPatientNoteStore(doc);
     setStore(newStore);
     setIsConnected(true);
@@ -72,7 +67,11 @@ export function CollaborationProvider({
       if (newStore.cursors) {
         const cursorList: Array<{ userId: string } & CursorInfo> = [];
         for (const [uid, info] of Object.entries(newStore.cursors)) {
-          if (uid !== userIdRef.current && info.timestamp > Date.now() - 30000) {
+          if (
+            info &&
+            uid !== userIdRef.current &&
+            info.timestamp > Date.now() - 30000
+          ) {
             cursorList.push({ userId: uid, ...info });
           }
         }

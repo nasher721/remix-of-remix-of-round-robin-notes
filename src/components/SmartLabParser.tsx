@@ -28,6 +28,17 @@ interface ParsedLabs {
   other?: LabValue[];
 }
 
+const getLabPanels = (labs: ParsedLabs): Array<[keyof ParsedLabs, LabValue[]]> => {
+  const panels: Array<[keyof ParsedLabs, LabValue[]]> = [];
+
+  for (const panel of Object.keys(labs) as Array<keyof ParsedLabs>) {
+    const values = labs[panel];
+    if (values) panels.push([panel, values]);
+  }
+
+  return panels;
+};
+
 const LAB_PATTERNS = {
   bmp: {
     sodium: [/na\s*[:=]?\s*(\d+\.?\d*)\s*(mmol\/L|mEq\/L)?/i, /sodium\s*[:=]?\s*(\d+\.?\d*)\s*(mmol\/L|mEq\/L)?/i],
@@ -124,11 +135,12 @@ export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
         
         if (!ref) return null;
 
-        const criticalRef = 'critical' in ref ? (ref as { critical: { min: number; max: number } }).critical : null;
-        const isCritical = criticalRef && (
-          (criticalRef.min && value < criticalRef.min) ||
-          (criticalRef.max && value > criticalRef.max)
-        );
+        const criticalRef: { min?: number; max?: number } | undefined =
+          'critical' in ref ? ref.critical : undefined;
+        const isCritical = Boolean(criticalRef && (
+          (criticalRef.min !== undefined && value < criticalRef.min) ||
+          (criticalRef.max !== undefined && value > criticalRef.max)
+        ));
         
         const isAbnormal = value < ref.min || value > ref.max;
 
@@ -347,8 +359,8 @@ export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
     const lines: string[] = [];
     const criticalValues: string[] = [];
 
-    Object.entries(labs).forEach(([panel, values]) => {
-      if (values && values.length > 0) {
+    getLabPanels(labs).forEach(([panel, values]) => {
+      if (values.length > 0) {
         lines.push(`\n${panel.toUpperCase()}:`);
         values.forEach(lab => {
           const criticalMark = lab.isCritical ? ' ⚠️ CRITICAL' : lab.isAbnormal ? ' *' : '';
@@ -453,10 +465,10 @@ export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
                 ))}
               </TabsList>
 
-              {Object.entries(parsedLabs).map(([panel, values]) => (
+              {getLabPanels(parsedLabs).map(([panel, values]) => (
                 <TabsContent key={panel} value={panel} className="flex-1 overflow-y-auto mt-4">
                   <div className="space-y-2">
-                    {values?.map((lab, i) => (
+                    {values.map((lab, i) => (
                       <LabValueDisplay key={i} lab={lab} />
                     ))}
                   </div>

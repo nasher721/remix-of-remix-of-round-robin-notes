@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSettings } from '@/contexts/SettingsContext';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
-import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import { getUserFacingErrorMessage, UserFacingError } from '@/lib/userFacingErrors';
 
 interface UseDictationOptions {
   onTranscript?: (text: string) => void;
@@ -21,6 +21,28 @@ interface UseDictationReturn {
   audioStream: MediaStream | null;
   audioLevel: number; // 0-100 representing volume level
 }
+
+export function assertDictationRecordingSize(size: number): void {
+  if (size < 1000) {
+    throw new UserFacingError('Recording too short. Please try again.');
+  }
+}
+
+const getMicrophoneErrorMessage = (error: unknown): string => {
+  const name = error instanceof DOMException || error instanceof Error ? error.name : "";
+
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return "Microphone permission was denied. Allow microphone access in your browser settings, then try again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No microphone was found. Connect a microphone, then try again.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "The microphone is busy or unavailable. Close other audio apps, then try again.";
+  }
+
+  return getUserFacingErrorMessage(error, "The microphone could not be started. Check browser access and try again.");
+};
 
 export const useDictation = (options: UseDictationOptions = {}): UseDictationReturn => {
   const { onTranscript, enhanceMedical = true } = options;
@@ -42,6 +64,11 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
   
   const { toast } = useToast();
 
+  const releaseStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
+
   // Cleanup function for audio analysis
   const stopAudioAnalysis = useCallback(() => {
     if (animationFrameRef.current) {
@@ -49,7 +76,9 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
       animationFrameRef.current = null;
     }
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(console.error);
+      audioContextRef.current.close().catch(() => {
+        console.error('Failed to close audio context');
+      });
       audioContextRef.current = null;
     }
     analyserRef.current = null;
@@ -93,7 +122,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
       
       updateLevel();
     } catch (err) {
-      console.error('Failed to start audio analysis:', err);
+      console.error('Failed to start audio analysis');
     }
   }, []);
 
@@ -101,8 +130,9 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
   useEffect(() => {
     return () => {
       stopAudioAnalysis();
+      releaseStream();
     };
-  }, [stopAudioAnalysis]);
+  }, [releaseStream, stopAudioAnalysis]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -152,8 +182,14 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
       });
       
     } catch (err) {
-      console.error('Failed to start recording:', err);
-      const message = err instanceof Error ? err.message : 'Failed to access microphone';
+      console.error('Failed to start recording');
+      stopAudioAnalysis();
+      releaseStream();
+      mediaRecorderRef.current = null;
+      setAudioStream(null);
+      setIsRecording(false);
+      setIsProcessing(false);
+      const message = getMicrophoneErrorMessage(err);
       setError(message);
       toast({
         title: "Microphone error",
@@ -161,7 +197,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
         variant: "destructive",
       });
     }
-  }, [toast, startAudioAnalysis]);
+  }, [releaseStream, stopAudioAnalysis, toast, startAudioAnalysis]);
 
   const stopRecording = useCallback(async (): Promise<string | null> => {
     return new Promise((resolve) => {
@@ -185,9 +221,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
           const mimeType = mediaRecorder.mimeType || 'audio/webm';
           const audioBlob = new Blob(chunksRef.current, { type: mimeType });
           
-          if (audioBlob.size < 1000) {
-            throw new Error('Recording too short. Please try again.');
-          }
+          assertDictationRecordingSize(audioBlob.size);
           
           // Convert to base64
           const reader = new FileReader();
@@ -240,7 +274,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
               resolve(text || null);
               
             } catch (err) {
-              console.error('Transcription error:', err);
+              console.error('Transcription failed');
               const message = getUserFacingErrorMessage(err, 'Transcription failed');
               setError(message);
               toast({
@@ -257,8 +291,8 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
           reader.readAsDataURL(audioBlob);
           
         } catch (err) {
-          console.error('Processing error:', err);
-          const message = err instanceof Error ? err.message : 'Processing failed';
+          console.error('Audio processing failed');
+          const message = getUserFacingErrorMessage(err, 'Audio processing failed. Please try again.');
           setError(message);
           setIsProcessing(false);
           toast({
@@ -270,16 +304,13 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
         }
         
         // Clean up stream
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-          setAudioStream(null);
-        }
+        releaseStream();
+        setAudioStream(null);
       };
       
       mediaRecorder.stop();
     });
-  }, [enhanceMedical, onTranscript, toast, stopAudioAnalysis, getModelForFeature]);
+  }, [enhanceMedical, onTranscript, toast, stopAudioAnalysis, getModelForFeature, releaseStream]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) {

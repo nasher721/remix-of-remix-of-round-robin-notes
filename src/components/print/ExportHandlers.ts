@@ -3,12 +3,20 @@ import type { PatientTodo } from '@/types/todo';
 import type { PdfColumnLayout, PdfExportSettings } from '@/lib/print/types';
 import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
-import { stripHtml, formatTodosForDisplay, formatMedicationsText } from './utils';
+import { escapeHtml, stripHtml, formatTodosForDisplay, formatMedicationsText } from './utils';
 import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, parseColor } from '@/lib/print/htmlFormatter';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import html2pdf from 'html2pdf.js';
+import { sanitizeHtml } from '@/lib/sanitize';
+import {
+  PATIENT_IMAGE_KEY_ATTRIBUTE,
+  PATIENT_IMAGE_MAX_BYTES,
+  extractPatientImageObjectKeys,
+  isOwnedPatientImageObjectKey,
+  resolveOwnedPatientImageSignedUrl,
+} from '@/lib/patientImages';
 
 export function generateExportFilename(
   format: 'pdf' | 'xlsx' | 'doc' | 'rtf' | 'txt' | 'md' | 'json',
@@ -105,7 +113,7 @@ const tintColor = (color: RgbColor, tintFactor: number = 0.9): RgbColor => ({
 const extractDominantColor = (html: string): RgbColor | null => {
   if (!html) return null;
   const temp = document.createElement('div');
-  temp.innerHTML = html;
+  temp.innerHTML = sanitizeHtml(html);
 
   const elementsWithColor = temp.querySelectorAll('[style*="color"], [style*="background-color"]');
   let fallbackColor: RgbColor | null = null;
@@ -140,7 +148,7 @@ const extractDominantColor = (html: string): RgbColor | null => {
 const htmlToStructuredText = (html: string): string => {
   if (!html) return '';
   const temp = document.createElement('div');
-  temp.innerHTML = html;
+  temp.innerHTML = sanitizeHtml(html);
 
   const processNode = (node: Node): string => {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -170,7 +178,7 @@ const htmlToStructuredText = (html: string): string => {
   return normalizePdfText(Array.from(temp.childNodes).map(processNode).join(''));
 };
 
-interface ExportContext {
+export interface ExportContext {
   patients: Patient[];
   patientTodos: PatientTodosMap;
   columns: ColumnConfig[];
@@ -192,6 +200,8 @@ interface ExportContext {
   showTimestamp?: boolean;
   physicianName?: string;
   pdf?: PdfExportSettings;
+  patientImageOwnerId?: string;
+  patientImageSignedUrls?: ReadonlyMap<string, string>;
 }
 
 const getEnabledSystemKeys = (isColumnEnabled: (key: string) => boolean) =>
@@ -847,6 +857,31 @@ const exportWithHtml2PdfFallback = async (ctx: ExportContext, element: HTMLEleme
     .save();
 };
 
+const waitForPrintablePatientImages = async (element: HTMLElement): Promise<void> => {
+  const images = Array.from(
+    element.querySelectorAll<HTMLImageElement>('img[data-patient-image-key][src]'),
+  );
+  await Promise.all(
+    images.map(async (image) => {
+      if (image.complete) return;
+      await new Promise<void>((resolve) => {
+        const finish = () => {
+          window.clearTimeout(timeoutId);
+          image.removeEventListener('load', finish);
+          image.removeEventListener('error', finish);
+          resolve();
+        };
+        const timeoutId = window.setTimeout(finish, 10_000);
+        image.addEventListener('load', finish, { once: true });
+        image.addEventListener('error', finish, { once: true });
+      });
+    }),
+  );
+};
+
+export const containsPrintablePatientImages = (element?: HTMLElement | null): boolean =>
+  Boolean(element?.querySelector('img[data-patient-image-key][src]'));
+
 export const handleExportExcel = (ctx: ExportContext) => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
 
@@ -917,6 +952,15 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
     title: ctx.pdf?.title,
   });
   const generatedAt = new Date().toLocaleString();
+
+  // The vector text renderer cannot preserve clinical images. When the
+  // disposable export tree contains safely hydrated private images, use the
+  // existing async HTML renderer so the visual export includes them.
+  if (element && containsPrintablePatientImages(element)) {
+    await waitForPrintablePatientImages(element);
+    await exportWithHtml2PdfFallback(ctx, element, fileName);
+    return fileName;
+  }
 
   try {
     const doc = new jsPDF({
@@ -1139,9 +1183,103 @@ export const handleExportRTF = (ctx: ExportContext) => {
   return fileName;
 };
 
-export const handleExportDOC = (ctx: ExportContext) => {
+const DOCUMENT_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+
+const patientImageBlobToDataUrl = async (blob: Blob): Promise<string | null> => {
+  const mimeType = blob.type.toLowerCase().split(';', 1)[0];
+  if (!DOCUMENT_IMAGE_TYPES.has(mimeType) || blob.size <= 0 || blob.size > PATIENT_IMAGE_MAX_BYTES) {
+    return null;
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+};
+
+const loadDocumentPatientImageDataUrls = async (
+  ctx: ExportContext,
+): Promise<Map<string, string>> => {
+  const ownerId = ctx.patientImageOwnerId;
+  if (!ownerId || !ctx.patientImageSignedUrls) return new Map();
+
+  const keys = new Set<string>();
+  ctx.patients.forEach((patient) => {
+    extractPatientImageObjectKeys(patient.imaging, ownerId).forEach((key) => keys.add(key));
+  });
+
+  const dataUrls = new Map<string, string>();
+  await Promise.all(
+    Array.from(keys).map(async (key) => {
+      const signedUrl = resolveOwnedPatientImageSignedUrl(
+        key,
+        ctx.patientImageSignedUrls,
+        ownerId,
+      );
+      if (!signedUrl) return;
+
+      try {
+        const response = await fetch(signedUrl, {
+          cache: 'no-store',
+          credentials: 'omit',
+          referrerPolicy: 'no-referrer',
+        });
+        if (!response.ok) return;
+        const dataUrl = await patientImageBlobToDataUrl(await response.blob());
+        if (dataUrl) dataUrls.set(key, dataUrl);
+      } catch {
+        // Keep the document export usable when an individual image expires or
+        // the storage service is temporarily unavailable.
+      }
+    }),
+  );
+
+  return dataUrls;
+};
+
+export const sanitizeClinicalHtmlForDocumentExport = (
+  html: string,
+  ownerId?: string,
+  patientImageDataUrls: ReadonlyMap<string, string> = new Map(),
+): string => {
+  const template = document.createElement('template');
+  template.innerHTML = sanitizeHtml(html);
+
+  template.content.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+    const objectKey = image.getAttribute(PATIENT_IMAGE_KEY_ATTRIBUTE);
+    const dataUrl = objectKey ? patientImageDataUrls.get(objectKey) : undefined;
+    if (
+      !objectKey ||
+      !ownerId ||
+      !isOwnedPatientImageObjectKey(objectKey, ownerId) ||
+      !dataUrl ||
+      !/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(dataUrl)
+    ) {
+      image.remove();
+      return;
+    }
+
+    const alt = (image.getAttribute('alt') || 'Patient image').slice(0, 500);
+    Array.from(image.attributes).forEach((attribute) => image.removeAttribute(attribute.name));
+    image.setAttribute('src', dataUrl);
+    image.setAttribute('alt', alt);
+  });
+
+  return template.innerHTML;
+};
+
+export const handleExportDOC = async (ctx: ExportContext): Promise<string> => {
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
   const enabledSystemKeys = getEnabledSystemKeys(isColumnEnabled);
+  const patientImageDataUrls = await loadDocumentPatientImageDataUrls(ctx);
+  const safeClinicalHtml = (value: string) =>
+    sanitizeClinicalHtmlForDocumentExport(
+      value,
+      ctx.patientImageOwnerId,
+      patientImageDataUrls,
+    );
 
   let html = `
 <!DOCTYPE html>
@@ -1192,8 +1330,8 @@ export const handleExportDOC = (ctx: ExportContext) => {
     html += `
   <div class="patient-card">
     <div class="patient-header">
-      <strong>Patient ${index + 1}: ${patient.name || 'Unnamed'}</strong>
-      ${patient.bed ? ` | Bed: ${patient.bed}` : ''}
+      <strong>Patient ${index + 1}: ${escapeHtml(patient.name || 'Unnamed')}</strong>
+      ${patient.bed ? ` | Bed: ${escapeHtml(patient.bed)}` : ''}
     </div>
 `;
 
@@ -1201,28 +1339,28 @@ export const handleExportDOC = (ctx: ExportContext) => {
       html += `
     <div class="section">
       <div class="section-title">Clinical Summary</div>
-      <div class="section-content">${patient.clinicalSummary}</div>
+      <div class="section-content">${safeClinicalHtml(patient.clinicalSummary)}</div>
     </div>`;
     }
     if (isColumnEnabled("intervalEvents") && patient.intervalEvents) {
       html += `
     <div class="section">
       <div class="section-title">Interval Events</div>
-      <div class="section-content">${patient.intervalEvents}</div>
+      <div class="section-content">${safeClinicalHtml(patient.intervalEvents)}</div>
     </div>`;
     }
     if (isColumnEnabled("imaging") && patient.imaging) {
       html += `
     <div class="section">
       <div class="section-title">Imaging</div>
-      <div class="section-content">${patient.imaging}</div>
+      <div class="section-content">${safeClinicalHtml(patient.imaging)}</div>
     </div>`;
     }
     if (isColumnEnabled("labs") && patient.labs) {
       html += `
     <div class="section">
       <div class="section-title">Labs</div>
-      <div class="section-content">${patient.labs}</div>
+      <div class="section-content">${safeClinicalHtml(patient.labs)}</div>
     </div>`;
     }
     if (isColumnEnabled("medications")) {
@@ -1231,7 +1369,7 @@ export const handleExportDOC = (ctx: ExportContext) => {
         html += `
     <div class="section">
       <div class="section-title">Medications</div>
-      <div class="section-content">${medsText.replace(/\n/g, '<br>')}</div>
+      <div class="section-content">${escapeHtml(medsText).replace(/\n/g, '<br>')}</div>
     </div>`;
       }
     }
@@ -1243,13 +1381,13 @@ export const handleExportDOC = (ctx: ExportContext) => {
       <table>
         <tr>`;
       enabledSystemKeys.forEach(key => {
-        html += `<th>${systemLabels[key]}</th>`;
+        html += `<th>${escapeHtml(systemLabels[key])}</th>`;
       });
       html += `</tr><tr>`;
       enabledSystemKeys.forEach(key => {
         const value = patient.systems[key as keyof typeof patient.systems];
         // Preserve inline styles with colors in table cells
-        html += `<td>${value || '-'}</td>`;
+        html += `<td>${value ? safeClinicalHtml(value) : '-'}</td>`;
       });
       html += `</tr></table>
     </div>`;
@@ -1264,7 +1402,7 @@ export const handleExportDOC = (ctx: ExportContext) => {
         todos.forEach(todo => {
           html += `
       <div class="todo-item ${todo.completed ? 'completed' : ''}">
-        ${todo.completed ? '☑' : '☐'} ${todo.content}
+        ${todo.completed ? '☑' : '☐'} ${escapeHtml(todo.content)}
       </div>`;
         });
         html += `
@@ -1276,7 +1414,7 @@ export const handleExportDOC = (ctx: ExportContext) => {
       html += `
     <div class="section">
       <div class="section-title">Notes</div>
-      <div class="section-content">${patientNotes[patient.id]}</div>
+      <div class="section-content">${escapeHtml(patientNotes[patient.id])}</div>
     </div>`;
     }
 

@@ -35,8 +35,8 @@ test("Auth page renders with form and sign-in button", async () => {
   assert.ok(submitBtn, "Auth page should render a submit button");
   const submitText = submitBtn?.textContent?.toLowerCase() ?? "";
   assert.ok(
-    submitText.includes("sign in") || submitText.includes("create account"),
-    "Submit button should show Sign in or Create account",
+    submitText.includes("sign in"),
+    "Submit button should show Sign in",
   );
   assert.ok(emailInput, "Auth page should render an email input");
   assert.ok(passwordInput, "Auth page should render a password input");
@@ -44,7 +44,7 @@ test("Auth page renders with form and sign-in button", async () => {
   document.body.removeChild(div);
 });
 
-test("Auth page has toggle between sign in and sign up", async () => {
+test("Auth page does not expose self-service sign up", async () => {
   globalThis.__SUPABASE_AUTH_MOCK__ = {
     getSession: async () => ({ data: { session: null }, error: null }),
     onAuthStateChange: () => ({ unsubscribe: () => {} }),
@@ -60,8 +60,11 @@ test("Auth page has toggle between sign in and sign up", async () => {
     </MemoryRouter>
   );
   await new Promise((r) => setTimeout(r, 80));
-  const signUpLink = Array.from(div.querySelectorAll("button")).find((b) => b.textContent?.toLowerCase().includes("sign up"));
-  assert.ok(signUpLink || div.textContent?.includes("Sign up") || div.textContent?.includes("sign up"), "Auth page should show sign up / sign in toggle");
+  const signUpControl = Array.from(div.querySelectorAll("button")).find((button) =>
+    button.textContent?.toLowerCase().includes("sign up")
+  );
+  assert.equal(signUpControl, undefined, "Auth page must not expose self-service sign up");
+  assert.match(div.textContent ?? "", /provisioned by your administrator/i);
   root.unmount();
   document.body.removeChild(div);
 });

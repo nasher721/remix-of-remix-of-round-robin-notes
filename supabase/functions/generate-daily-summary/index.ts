@@ -1,6 +1,16 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, MissingAPIKeyError, parseAndValidateBody, safeErrorMessage, handleOptions, jsonResponse } from '../_shared/mod.ts';
-import { callLLM, getLLMConfig } from '../_shared/llm-client.ts';
+import {
+  authenticateRequest,
+  checkRateLimit,
+  createErrorResponse,
+  handleOptions,
+  jsonResponse,
+  MissingAPIKeyError,
+  parseAndValidateBody,
+  RATE_LIMITS,
+  safeErrorMessage,
+  safeLog,
+} from "../_shared/mod.ts";
+import { callLLM } from "../_shared/llm-client.ts";
 
 interface Todo {
   content: string;
@@ -30,23 +40,24 @@ interface PatientMedications {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return handleOptions(req);
   }
 
   try {
     // Authenticate the request
     const authResult = await authenticateRequest(req);
-    if ('error' in authResult) {
+    if ("error" in authResult) {
       return authResult.error;
     }
     const userId = authResult.userId;
-    safeLog('info', `Authenticated request from user: ${userId}`);
+    safeLog("info", "Generate daily summary request authenticated");
 
     // Rate limiting check
-    const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
+    const rateLimit = await checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? jsonResponse(req, { error: 'Rate limit exceeded' }, 429);
+      return rateLimit.response ??
+        jsonResponse(req, { error: "Rate limit exceeded" }, 429);
     }
 
     const bodyResult = await parseAndValidateBody<{
@@ -67,7 +78,6 @@ Deno.serve(async (req: Request) => {
     const {
       patientName,
       clinicalSummary,
-      intervalEvents,
       imaging,
       labs,
       systems,
@@ -77,16 +87,10 @@ Deno.serve(async (req: Request) => {
       model: requestedModel,
     } = bodyResult.data;
 
-    const todayFormatted = new Date().toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-
-    const tomorrowFormatted = new Date(Date.now() + 86400000).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
+    const todayFormatted = new Date().toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
     });
 
     // Build comprehensive patient context
@@ -101,9 +105,16 @@ Deno.serve(async (req: Request) => {
     const systemsData = systems as PatientSystems;
     if (systemsData) {
       const systemLabels: Record<string, string> = {
-        neuro: "Neuro", cv: "CV", resp: "Resp", renalGU: "Renal/GU",
-        gi: "GI", endo: "Endo", heme: "Heme", infectious: "ID",
-        skinLines: "Skin/Lines", dispo: "Dispo"
+        neuro: "Neuro",
+        cv: "CV",
+        resp: "Resp",
+        renalGU: "Renal/GU",
+        gi: "GI",
+        endo: "Endo",
+        heme: "Heme",
+        infectious: "ID",
+        skinLines: "Skin/Lines",
+        dispo: "Dispo",
       };
       const systemNotes: string[] = [];
       for (const [key, label] of Object.entries(systemLabels)) {
@@ -113,7 +124,7 @@ Deno.serve(async (req: Request) => {
         }
       }
       if (systemNotes.length > 0) {
-        patientContext.push(`SYSTEMS REVIEW:\n${systemNotes.join('\n')}`);
+        patientContext.push(`SYSTEMS REVIEW:\n${systemNotes.join("\n")}`);
       }
     }
 
@@ -132,49 +143,53 @@ Deno.serve(async (req: Request) => {
     if (medsData) {
       const medNotes: string[] = [];
       if (medsData.infusions?.length) {
-        medNotes.push(`Infusions: ${medsData.infusions.join(', ')}`);
+        medNotes.push(`Infusions: ${medsData.infusions.join(", ")}`);
       }
       if (medsData.scheduled?.length) {
-        medNotes.push(`Scheduled: ${medsData.scheduled.join(', ')}`);
+        medNotes.push(`Scheduled: ${medsData.scheduled.join(", ")}`);
       }
       if (medsData.prn?.length) {
-        medNotes.push(`PRN: ${medsData.prn.join(', ')}`);
+        medNotes.push(`PRN: ${medsData.prn.join(", ")}`);
       }
       if (medsData.rawText && stripHtml(medsData.rawText).trim()) {
         medNotes.push(stripHtml(medsData.rawText));
       }
       if (medNotes.length > 0) {
-        patientContext.push(`MEDICATIONS:\n${medNotes.join('\n')}`);
+        patientContext.push(`MEDICATIONS:\n${medNotes.join("\n")}`);
       }
     }
 
     // Check if we have any content
     if (patientContext.length === 0) {
-      return jsonResponse(req, { error: 'No patient data to summarize. Add content to clinical fields first.' }, 400);
+      return jsonResponse(req, {
+        error:
+          "No patient data to summarize. Add content to clinical fields first.",
+      }, 400);
     }
 
     // Process todos
     const allTodos = (todos as Todo[]) || [];
-    const pendingTodos = allTodos.filter(t => !t.completed);
-    const completedTodos = allTodos.filter(t => t.completed);
+    const pendingTodos = allTodos.filter((t) => !t.completed);
+    const completedTodos = allTodos.filter((t) => t.completed);
 
     // Categorize todos by urgency
-    const todayKeywords = ['today', 'now', 'asap', 'stat', 'urgent'];
-    const tomorrowKeywords = ['tomorrow', 'am', 'morning', 'f/u'];
+    const todayKeywords = ["today", "now", "asap", "stat", "urgent"];
+    const tomorrowKeywords = ["tomorrow", "am", "morning", "f/u"];
 
-    const todayTodos = pendingTodos.filter(t =>
-      todayKeywords.some(kw => t.content.toLowerCase().includes(kw))
+    const todayTodos = pendingTodos.filter((t) =>
+      todayKeywords.some((kw) => t.content.toLowerCase().includes(kw))
     );
-    const tomorrowTodos = pendingTodos.filter(t =>
-      tomorrowKeywords.some(kw => t.content.toLowerCase().includes(kw)) &&
-      !todayKeywords.some(kw => t.content.toLowerCase().includes(kw))
+    const tomorrowTodos = pendingTodos.filter((t) =>
+      tomorrowKeywords.some((kw) => t.content.toLowerCase().includes(kw)) &&
+      !todayKeywords.some((kw) => t.content.toLowerCase().includes(kw))
     );
-    const otherTodos = pendingTodos.filter(t =>
-      !todayKeywords.some(kw => t.content.toLowerCase().includes(kw)) &&
-      !tomorrowKeywords.some(kw => t.content.toLowerCase().includes(kw))
+    const otherTodos = pendingTodos.filter((t) =>
+      !todayKeywords.some((kw) => t.content.toLowerCase().includes(kw)) &&
+      !tomorrowKeywords.some((kw) => t.content.toLowerCase().includes(kw))
     );
 
-    const systemPrompt = `You are an ICU/hospital physician generating a concise daily summary in standard medical shorthand. This summary captures the patient's current status and outstanding tasks.
+    const systemPrompt =
+      `You are an ICU/hospital physician generating a concise daily summary in standard medical shorthand. This summary captures the patient's current status and outstanding tasks.
 
 OUTPUT FORMAT:
 ---
@@ -187,12 +202,35 @@ OUTPUT FORMAT:
 • [Focus on: hemodynamics, resp status, neuro, ID, major labs/imaging findings]
 • [Include current drips/key meds if relevant]
 
-${pendingTodos.length > 0 ? `▸ ACTION ITEMS:
-${todayTodos.length > 0 ? '🔴 TODAY:\n' + todayTodos.map(t => `• ${t.content}`).join('\n') : ''}
-${tomorrowTodos.length > 0 ? '🟡 TOMORROW:\n' + tomorrowTodos.map(t => `• ${t.content}`).join('\n') : ''}
-${otherTodos.length > 0 ? '⚪ PENDING:\n' + otherTodos.map(t => `• ${t.content}`).join('\n') : ''}` : ''}
+${
+        pendingTodos.length > 0
+          ? `▸ ACTION ITEMS:
+${
+            todayTodos.length > 0
+              ? "🔴 TODAY:\n" +
+                todayTodos.map((t) => `• ${t.content}`).join("\n")
+              : ""
+          }
+${
+            tomorrowTodos.length > 0
+              ? "🟡 TOMORROW:\n" +
+                tomorrowTodos.map((t) => `• ${t.content}`).join("\n")
+              : ""
+          }
+${
+            otherTodos.length > 0
+              ? "⚪ PENDING:\n" +
+                otherTodos.map((t) => `• ${t.content}`).join("\n")
+              : ""
+          }`
+          : ""
+      }
 
-${completedTodos.length > 0 ? `✓ COMPLETED: ${completedTodos.length} task(s)` : ''}
+${
+        completedTodos.length > 0
+          ? `✓ COMPLETED: ${completedTodos.length} task(s)`
+          : ""
+      }
 ---
 
 ABBREVIATION GUIDELINES:
@@ -221,56 +259,86 @@ RULES:
 5. Highlight any changes from previous status
 6. Output ONLY the formatted summary block`;
 
-    const userPrompt = `Generate a comprehensive daily summary for ${patientName || 'this patient'}:\n\n${patientContext.join('\n\n')}`;
+    const userPrompt = `Generate a comprehensive daily summary for ${
+      patientName || "this patient"
+    }:\n\n${patientContext.join("\n\n")}`;
 
-    safeLog('info', `Generating daily summary for ${patientName}: ${patientContext.length} sections, ${pendingTodos.length} pending todos`);
+    safeLog("info", "Generate daily summary processing started", {
+      sectionCount: patientContext.length,
+      todoCount: pendingTodos.length,
+    });
 
     let summary: string | null | undefined = null;
     try {
       summary = await callLLM(systemPrompt, userPrompt, {
-        model: requestedModel || 'gpt-4o-mini',
+        model: requestedModel || "gpt-4o-mini",
         temperature: 0.4,
       });
-      safeLog('info', `LLM summary received: ${summary?.length || 0} characters`);
+      safeLog("info", "Generate daily summary response received", {
+        outputChars: summary?.length || 0,
+      });
     } catch (err) {
-      safeLog('error', `LLM error: ${err}`);
-      if (err instanceof Error && (err.message.includes('429') || err.message.includes('Rate limit'))) {
-        return jsonResponse(req, { error: 'Rate limit exceeded. Please try again in a moment.' }, 429);
+      safeLog("error", "Generate daily summary provider request failed", {
+        errorType: err instanceof Error ? err.name : "UnknownError",
+      });
+      if (
+        err instanceof Error &&
+        (err.message.includes("429") || err.message.includes("Rate limit"))
+      ) {
+        return jsonResponse(req, {
+          error: "Rate limit exceeded. Please try again in a moment.",
+        }, 429);
       }
       throw err;
     }
 
     if (!summary) {
-      throw new Error('No response from AI');
+      throw new Error("No response from AI");
     }
 
     // Append to existing interval events
     let finalContent = summary;
     if (existingIntervalEvents && existingIntervalEvents.trim()) {
       // Check if today's summary already exists and replace it
-      const datePattern = todayFormatted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const summaryMarkerRegex = new RegExp(`---\\s*\\n📋\\s*${datePattern}[\\s\\S]*?---`, 'g');
+      const datePattern = todayFormatted.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const summaryMarkerRegex = new RegExp(
+        `---\\s*\\n📋\\s*${datePattern}[\\s\\S]*?---`,
+        "g",
+      );
       if (summaryMarkerRegex.test(existingIntervalEvents)) {
-        finalContent = existingIntervalEvents.replace(summaryMarkerRegex, summary);
+        finalContent = existingIntervalEvents.replace(
+          summaryMarkerRegex,
+          summary,
+        );
       } else {
-        finalContent = existingIntervalEvents.trim() + '\n\n' + summary;
+        finalContent = existingIntervalEvents.trim() + "\n\n" + summary;
       }
     }
 
-    safeLog('info', `Successfully generated daily summary: ${summary.length} characters`);
+    safeLog("info", "Generate daily summary processing completed", {
+      outputChars: summary.length,
+    });
 
     return jsonResponse(req, { summary: finalContent, summaryOnly: summary });
-
   } catch (error) {
-    safeLog('error', `Generate daily summary error: ${error}`);
+    safeLog("error", "Generate daily summary request failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     // Handle missing API key configuration
     if (error instanceof MissingAPIKeyError) {
-      return jsonResponse(req, { error: error.message, code: 'MISSING_API_KEY' }, 503);
+      return jsonResponse(req, {
+        error: error.message,
+        code: "MISSING_API_KEY",
+      }, 503);
     }
-    return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate daily summary'), 500);
+    return createErrorResponse(
+      req,
+      safeErrorMessage(error, "Failed to generate daily summary"),
+      500,
+    );
   }
 });
 
 function stripHtml(text: string): string {
-  return text.replace(/<[^>]*>/g, '').trim();
+  return text.replace(/<[^>]*>/g, "").trim();
 }

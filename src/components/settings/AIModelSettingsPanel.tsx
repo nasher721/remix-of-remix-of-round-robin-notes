@@ -42,10 +42,10 @@ const CATEGORY_METADATA: Record<string, { label: string; icon: React.ComponentTy
     description: 'Near-instant responses for simple tasks'
   },
   local: {
-    label: 'Private/Local',
+    label: 'Deployment-specific',
     icon: ShieldCheck,
     color: 'text-green-500 bg-green-500/10',
-    description: 'Runs locally or on private infrastructure'
+    description: 'Availability and data handling depend on configured infrastructure'
   },
 };
 
@@ -313,7 +313,10 @@ export function AIModelSettingsPanel() {
         <div className="pt-6 border-t border-border/60">
           <Label className="text-base font-semibold block mb-1">Provider Credentials</Label>
           <p className="text-xs text-muted-foreground mb-4">
-            API keys are encrypted and stored in your account.
+            API keys are kept in memory for this signed-in session only. They are cleared when you sign out or reload.
+            Requests and included clinical text are sent directly to the selected third-party provider. Provider retention and data handling depend on its settings, terms, and your organization&apos;s agreement or BAA.
+            Dictation uses a separate transcription step: raw audio may be sent to OpenAI for transcription. When medical enhancement is enabled, the resulting transcript may then be sent to the selected AI provider.
+            Use only providers approved by the deployment operator.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {providerOrder.map((provider: LLMProviderName) => (

@@ -12,6 +12,7 @@
  */
 
 import type { LLMProvider, LLMRequest, LLMResponse, ProviderConfig } from '../types';
+import { safeProviderHttpError, safeProviderRuntimeError } from './errors';
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -35,9 +36,9 @@ export class GeminiProvider implements LLMProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${this.baseUrl}/models?key=${this.config.apiKey}`
-      );
+      const response = await fetch(`${this.baseUrl}/models`, {
+        headers: { 'x-goog-api-key': this.config.apiKey },
+      });
       return response.ok;
     } catch {
       return false;
@@ -53,12 +54,13 @@ export class GeminiProvider implements LLMProvider {
 
     try {
       const body = this.buildRequestBody(request);
-      const url = `${this.baseUrl}/models/${request.model}:generateContent?key=${this.config.apiKey}`;
+      const url = `${this.baseUrl}/models/${request.model}:generateContent`;
 
       const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-goog-api-key': this.config.apiKey,
           ...this.config.headers,
         },
         body: JSON.stringify(body),
@@ -72,14 +74,13 @@ export class GeminiProvider implements LLMProvider {
       const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'gemini',
           model: request.model,
           latencyMs,
-          error: `Gemini API error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('Gemini', 'request', response.status),
         };
       }
 
@@ -109,7 +110,7 @@ export class GeminiProvider implements LLMProvider {
         provider: 'gemini',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown Gemini error',
+        error: safeProviderRuntimeError('Gemini', 'request', err),
       };
     }
   }
@@ -119,12 +120,13 @@ export class GeminiProvider implements LLMProvider {
 
     try {
       const body = this.buildRequestBody(request);
-      const url = `${this.baseUrl}/models/${request.model}:streamGenerateContent?key=${this.config.apiKey}&alt=sse`;
+      const url = `${this.baseUrl}/models/${request.model}:streamGenerateContent?alt=sse`;
 
       const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-goog-api-key': this.config.apiKey,
           ...this.config.headers,
         },
         body: JSON.stringify(body),
@@ -137,14 +139,13 @@ export class GeminiProvider implements LLMProvider {
       const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
-        const errorText = await response.text();
         return {
           success: false,
           content: '',
           provider: 'gemini',
           model: request.model,
           latencyMs: Date.now() - startTime,
-          error: `Gemini stream error ${response.status}: ${errorText}`,
+          error: safeProviderHttpError('Gemini', 'stream', response.status),
         };
       }
 
@@ -196,7 +197,7 @@ export class GeminiProvider implements LLMProvider {
         provider: 'gemini',
         model: request.model,
         latencyMs: Date.now() - startTime,
-        error: err instanceof Error ? err.message : 'Unknown Gemini streaming error',
+        error: safeProviderRuntimeError('Gemini', 'stream', err),
       };
     }
   }

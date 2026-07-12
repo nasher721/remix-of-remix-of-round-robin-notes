@@ -36,13 +36,13 @@ test("TrustIndicators renders three trust indicators", async () => {
   await new Promise((r) => setTimeout(r, 100));
   
   // Check for three badge-like elements (data-testid)
-  const hipaaBadge = div.querySelector('[data-testid="hipaa-badge"]');
-  const encryptionBadge = div.querySelector('[data-testid="encryption-badge"]');
-  const auditBadge = div.querySelector('[data-testid="audit-badge"]');
+  const reviewBadge = div.querySelector('[data-testid="deployment-review-badge"]');
+  const httpsBadge = div.querySelector('[data-testid="https-badge"]');
+  const historyBadge = div.querySelector('[data-testid="history-badge"]');
   
-  assert.ok(hipaaBadge, "Should render HIPAA-aligned badge");
-  assert.ok(encryptionBadge, "Should render encryption badge");
-  assert.ok(auditBadge, "Should render audit trail badge");
+  assert.ok(reviewBadge, "Should render deployment-review badge");
+  assert.ok(httpsBadge, "Should render HTTPS-transport badge");
+  assert.ok(historyBadge, "Should render change-history badge");
   
   root.unmount();
   document.body.removeChild(div);
@@ -107,21 +107,21 @@ test("TrustIndicators renders text labels for each indicator", async () => {
   
   const text = div.textContent || "";
   
-  // Check for HIPAA-related text (aligned, compliance, privacy)
+  // Check for deployment-review text without claiming compliance.
   assert.ok(
-    /hipaa|health|privacy|phi/i.test(text),
-    "Should contain HIPAA/privacy related text"
+    /deployment|review/i.test(text),
+    "Should contain deployment-review text"
   );
   
   // Check for encryption-related text
   assert.ok(
-    /encrypt|secure|ssl|tls|ssl\/tls/i.test(text),
+    /https|encrypt|secure|ssl|tls|ssl\/tls/i.test(text),
     "Should contain encryption related text"
   );
   
   // Check for audit-related text
   assert.ok(
-    /audit|log|track|record/i.test(text),
+    /audit|log|track|record|history/i.test(text),
     "Should contain audit related text"
   );
   
@@ -129,7 +129,7 @@ test("TrustIndicators renders text labels for each indicator", async () => {
   document.body.removeChild(div);
 });
 
-test("TrustIndicators HIPAA badge does not claim certification", async () => {
+test("TrustIndicators do not claim compliance or certification", async () => {
   const { div, root } = renderWithProviders(<TrustIndicators />);
   
   await new Promise((r) => setTimeout(r, 100));
@@ -138,8 +138,8 @@ test("TrustIndicators HIPAA badge does not claim certification", async () => {
   
   // Should NOT claim certified status
   assert.ok(
-    !/hipaa.*certified|certified.*hipaa/i.test(text),
-    "Should not claim HIPAA certification (only alignment)"
+    !/hipaa aligned|hipaa certified|compliant|certified/i.test(text),
+    "Should not claim compliance or certification"
   );
   
   root.unmount();

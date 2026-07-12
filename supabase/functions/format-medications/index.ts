@@ -1,5 +1,23 @@
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, requireString, safeErrorMessage, MissingAPIKeyError, handleOptions, jsonResponse } from '../_shared/mod.ts';
-import { getLLMConfig } from '../_shared/llm-client.ts';
+import {
+  authenticateRequest,
+  checkRateLimit,
+  createErrorResponse,
+  handleOptions,
+  jsonResponse,
+  MissingAPIKeyError,
+  parseAndValidateBody,
+  RATE_LIMITS,
+  requireString,
+  safeErrorMessage,
+  safeLog,
+} from "../_shared/mod.ts";
+import {
+  getLLMConfig,
+  normalizeOutputTokenLimit,
+  providerForModel,
+  resolveRequestedModel,
+  selectModelForConfig,
+} from "../_shared/llm-client.ts";
 
 interface MedicationCategories {
   infusions: string[];
@@ -19,40 +37,52 @@ Deno.serve(async (req: Request) => {
   try {
     // Authenticate the request
     const authResult = await authenticateRequest(req);
-    if ('error' in authResult) {
+    if ("error" in authResult) {
       return authResult.error;
     }
     const userId = authResult.userId;
-    safeLog('info', `Authenticated request from user: ${userId}`, { requestId, function: 'format-medications' });
+    safeLog("info", "Format medications request authenticated", {
+      requestId,
+      function: "format-medications",
+    });
     // Rate limiting check
-    const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
+    const rateLimit = await checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? jsonResponse(req, { error: 'Rate limit exceeded' }, 429);
+      return rateLimit.response ??
+        jsonResponse(req, { error: "Rate limit exceeded" }, 429);
     }
 
-    const bodyResult = await parseAndValidateBody<{ medications?: string; model?: string }>(req);
+    const bodyResult = await parseAndValidateBody<
+      { medications?: string; model?: string }
+    >(req);
     if (!bodyResult.valid) {
       return bodyResult.response;
     }
     const { medications, model: requestedModel } = bodyResult.data;
 
-    const medsCheck = requireString(medications, 'medications');
-    if (typeof medsCheck !== 'string') {
+    const modelResult = resolveRequestedModel(requestedModel);
+    if (!modelResult.valid) {
+      return jsonResponse(req, { error: modelResult.error }, 400);
+    }
+
+    const medsCheck = requireString(medications, "medications");
+    if (typeof medsCheck !== "string") {
       return jsonResponse(req, { error: medsCheck.error }, 400);
     }
     const validMedications = medsCheck;
 
-    const llmConfig = getLLMConfig();
+    const llmConfig = getLLMConfig(providerForModel(modelResult.model));
     if (!llmConfig.apiKey) {
-      safeLog('error', "No LLM API key configured");
-      // #region agent log
-      fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H1',location:'format-medications/index.ts:apiKey',message:'No LLM API key in format-medications',data:{},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-      return jsonResponse(req, { error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }, 500);
+      safeLog("error", "No LLM API key configured");
+      return jsonResponse(req, {
+        error:
+          "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets.",
+      }, 500);
     }
     const OPENAI_API_KEY = llmConfig.apiKey;
 
-    const systemPrompt = `You are a medication formatting expert. Parse medication lists into structured categories.
+    const systemPrompt =
+      `You are a medication formatting expert. Parse medication lists into structured categories.
 
 CATEGORIZATION RULES:
 1. INFUSIONS: Any medication with these indicators:
@@ -89,17 +119,23 @@ Each array contains formatted medication strings.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: requestedModel || llmConfig.defaultModel,
+        model: selectModelForConfig(modelResult.model, llmConfig),
+        max_tokens: normalizeOutputTokenLimit(4_000),
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Parse and format these medications:\n\n${validMedications}` },
+          {
+            role: "user",
+            content:
+              `Parse and format these medications:\n\n${validMedications}`,
+          },
         ],
         tools: [
           {
             type: "function",
             function: {
               name: "categorize_medications",
-              description: "Categorize and format medications into infusions, scheduled, and PRN",
+              description:
+                "Categorize and format medications into infusions, scheduled, and PRN",
               parameters: {
                 type: "object",
                 properties: {
@@ -125,29 +161,36 @@ Each array contains formatted medication strings.`;
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "categorize_medications" } },
+        tool_choice: {
+          type: "function",
+          function: { name: "categorize_medications" },
+        },
       }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      safeLog('error', `AI gateway error: ${response.status} ${errorText}`);
-      // #region agent log
-      fetch('http://127.0.0.1:7607/ingest/d75c0a89-7404-4c0b-b79f-4d4b97fa1340',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f153a7'},body:JSON.stringify({sessionId:'f153a7',runId:'initial',hypothesisId:'H2',location:'format-medications/index.ts:llm',message:'Non-OK response from LLM in format-medications',data:{status:response.status,body:errorText.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+      safeLog("error", "Format medications provider request failed", {
+        requestId,
+        function: "format-medications",
+        statusCode: response.status,
+      });
 
       if (response.status === 429) {
-        return jsonResponse(req, { error: "Rate limit exceeded. Please try again." }, 429);
+        return jsonResponse(req, {
+          error: "Rate limit exceeded. Please try again.",
+        }, 429);
       }
       if (response.status === 402) {
-        return jsonResponse(req, { error: "AI credits exhausted. Please add credits." }, 402);
+        return jsonResponse(req, {
+          error: "AI credits exhausted. Please add credits.",
+        }, 402);
       }
 
       return jsonResponse(req, { error: "Failed to process medications" }, 500);
     }
 
     const aiResponse = await response.json();
-    safeLog('info', "AI response received for medications");
+    safeLog("info", "AI response received for medications");
 
     let parsedMeds: MedicationCategories = {
       infusions: [],
@@ -167,8 +210,12 @@ Each array contains formatted medication strings.`;
           prn: args.prn || [],
           rawText: validMedications,
         };
-      } catch (e) {
-        safeLog('error', `Failed to parse tool call arguments: ${e}`);
+      } catch (error) {
+        safeLog("warn", "Format medications tool response parse failed", {
+          errorType: error instanceof Error ? error.name : "UnknownError",
+          function: "format-medications",
+          requestId,
+        });
       }
     }
 
@@ -191,22 +238,44 @@ Each array contains formatted medication strings.`;
               rawText: validMedications,
             };
           }
-        } catch (e) {
-          safeLog('error', `Failed to parse content JSON: ${e}`);
+        } catch (error) {
+          safeLog("warn", "Format medications content response parse failed", {
+            errorType: error instanceof Error ? error.name : "UnknownError",
+            function: "format-medications",
+            requestId,
+          });
         }
       }
     }
 
     const durationMs = Math.round(performance.now() - startMs);
-    safeLog('info', 'format-medications completed', { requestId, function: 'format-medications', durationMs, status: 'success' });
+    safeLog("info", "format-medications completed", {
+      requestId,
+      function: "format-medications",
+      durationMs,
+      status: "success",
+    });
 
     return jsonResponse(req, { medications: parsedMeds });
   } catch (error) {
     const durationMs = Math.round(performance.now() - startMs);
-    safeLog('error', `Error in format-medications: ${error}`, { requestId, function: 'format-medications', durationMs, status: 'error' });
+    safeLog("error", "Format medications request failed", {
+      requestId,
+      function: "format-medications",
+      durationMs,
+      status: "error",
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     if (error instanceof MissingAPIKeyError) {
-      return jsonResponse(req, { error: error.message, code: 'MISSING_API_KEY' }, 503);
+      return jsonResponse(req, {
+        error: error.message,
+        code: "MISSING_API_KEY",
+      }, 503);
     }
-    return createErrorResponse(req, safeErrorMessage(error, 'Failed to format medications'), 500);
+    return createErrorResponse(
+      req,
+      safeErrorMessage(error, "Failed to format medications"),
+      500,
+    );
   }
 });

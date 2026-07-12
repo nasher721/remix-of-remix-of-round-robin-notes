@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasSupabaseConfig, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,7 +33,11 @@ function mapTodoRow(todo: PatientTodoRow): PatientTodo {
   };
 }
 
-async function fetchTodosForPatients(patientIds: string[]): Promise<PatientTodosMap> {
+async function fetchTodosForPatients(
+  ownerId: string,
+  patientIds: string[],
+  isOwnerActive: () => boolean,
+): Promise<PatientTodosMap> {
   const grouped: PatientTodosMap = {};
   patientIds.forEach(id => { grouped[id] = []; });
 
@@ -45,15 +49,16 @@ async function fetchTodosForPatients(patientIds: string[]): Promise<PatientTodos
     .from('patient_todos')
     .select('*')
     .in('patient_id', patientIds)
+    .eq('user_id', ownerId)
     .order('created_at', { ascending: false });
 
+  if (!isOwnerActive()) return grouped;
   if (error) throw error;
 
+  const requestedPatientIds = new Set(patientIds);
   data?.forEach(todo => {
     const mappedTodo = mapTodoRow(todo as PatientTodoRow);
-    if (!grouped[mappedTodo.patientId]) {
-      grouped[mappedTodo.patientId] = [];
-    }
+    if (mappedTodo.userId !== ownerId || !requestedPatientIds.has(mappedTodo.patientId)) return;
     grouped[mappedTodo.patientId].push(mappedTodo);
   });
 
@@ -62,17 +67,34 @@ async function fetchTodosForPatients(patientIds: string[]): Promise<PatientTodos
 
 export function useAllPatientTodos(patientIds: string[]) {
   const { user } = useAuth();
+  const ownerId = user?.id ?? null;
   const queryClient = useQueryClient();
+  const activeOwnerRef = useRef(ownerId);
+  const mountedRef = useRef(true);
+  activeOwnerRef.current = ownerId;
   const stablePatientIds = useMemo(
     () => Array.from(new Set(patientIds)).sort(),
     [patientIds],
   );
   const patientIdsKey = stablePatientIds.join('|');
-  const queryEnabled = hasSupabaseConfig && !!user && stablePatientIds.length > 0;
+  const queryEnabled = hasSupabaseConfig && !!ownerId && stablePatientIds.length > 0;
 
-  const query = useQuery({
-    queryKey: [...QUERY_KEYS.allTodos, user?.id ?? null, patientIdsKey],
-    queryFn: () => fetchTodosForPatients(stablePatientIds),
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const query = useQuery<PatientTodosMap>({
+    queryKey: [...QUERY_KEYS.allTodos, ownerId, patientIdsKey],
+    queryFn: () => ownerId
+      ? fetchTodosForPatients(
+        ownerId,
+        stablePatientIds,
+        () => mountedRef.current && activeOwnerRef.current === ownerId,
+      )
+      : Promise.resolve({} as PatientTodosMap),
     enabled: queryEnabled,
     staleTime: CACHE_CONFIG.staleTime.todos,
     gcTime: CACHE_CONFIG.queries.todos,
@@ -82,22 +104,28 @@ export function useAllPatientTodos(patientIds: string[]) {
   });
 
   useEffect(() => {
-    if (!query.data) return;
+    if (!ownerId || activeOwnerRef.current !== ownerId || !query.data) return;
 
     Object.entries(query.data).forEach(([patientId, todos]) => {
-      queryClient.setQueryData(QUERY_KEYS.patientTodos(patientId), todos);
+      if (todos.some((todo) => todo.userId !== ownerId)) return;
+      queryClient.setQueryData(QUERY_KEYS.patientTodosForOwner(ownerId, patientId), todos);
     });
-  }, [query.data, queryClient]);
+  }, [ownerId, query.data, queryClient]);
 
   useEffect(() => {
-    if (query.isError) {
-      console.error('Error fetching all patient todos:', query.error);
+    if (ownerId && activeOwnerRef.current === ownerId && query.isError) {
+      console.error('Error fetching patient todos');
     }
-  }, [query.error, query.isError]);
+  }, [ownerId, query.isError]);
+
+  const todosMap = ownerId && query.data
+    && Object.values(query.data).every((todos) => todos.every((todo) => todo.userId === ownerId))
+    ? query.data
+    : {};
 
   return {
-    todosMap: query.data ?? {},
-    loading: query.isFetching,
+    todosMap,
+    loading: Boolean(ownerId) && query.isFetching,
     refetch: async () => {
       if (!queryEnabled) return;
       await query.refetch();

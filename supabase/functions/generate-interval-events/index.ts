@@ -1,36 +1,57 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MissingAPIKeyError, handleOptions } from '../_shared/mod.ts';
-import { callLLM } from '../_shared/llm-client.ts';
+import {
+  authenticateRequest,
+  checkRateLimit,
+  corsHeaders,
+  createErrorResponse,
+  handleOptions,
+  MissingAPIKeyError,
+  parseAndValidateBody,
+  RATE_LIMITS,
+  safeErrorMessage,
+  safeLog,
+} from "../_shared/mod.ts";
+import { callLLM } from "../_shared/llm-client.ts";
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
     return handleOptions(req);
   }
 
   try {
     // Authenticate the request
     const authResult = await authenticateRequest(req);
-    if ('error' in authResult) {
+    if ("error" in authResult) {
       return authResult.error;
     }
     const userId = authResult.userId;
-    safeLog('info', `Authenticated request from user: ${userId}`);
+    safeLog("info", "Generate interval events request authenticated");
 
     // Rate limiting check
-    const rateLimit = checkRateLimit(req, RATE_LIMITS.ai, userId);
+    const rateLimit = await checkRateLimit(req, RATE_LIMITS.ai, userId);
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } });
+      return rateLimit.response ??
+        new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        });
     }
 
-    const bodyResult = await parseAndValidateBody<{ systems?: Record<string, string>; existingIntervalEvents?: string; patientName?: string; model?: string }>(req);
+    const bodyResult = await parseAndValidateBody<
+      {
+        systems?: Record<string, string>;
+        existingIntervalEvents?: string;
+        patientName?: string;
+        model?: string;
+      }
+    >(req);
     if (!bodyResult.valid) {
       return bodyResult.response;
     }
-    const { systems, existingIntervalEvents, patientName, model: requestedModel } = bodyResult.data;
+    const { systems, existingIntervalEvents, model: requestedModel } =
+      bodyResult.data;
 
-    if (!systems || typeof systems !== 'object') {
-      return createErrorResponse(req, 'Missing required field: systems', 400);
+    if (!systems || typeof systems !== "object") {
+      return createErrorResponse(req, "Missing required field: systems", 400);
     }
 
     // Build a summary of all system data
@@ -50,9 +71,9 @@ serve(async (req) => {
 
     for (const [key, label] of Object.entries(systemLabels)) {
       const content = systems[key];
-      if (content && typeof content === 'string' && content.trim()) {
+      if (content && typeof content === "string" && content.trim()) {
         // Strip HTML tags for cleaner processing
-        const cleanContent = content.replace(/<[^>]*>/g, '').trim();
+        const cleanContent = content.replace(/<[^>]*>/g, "").trim();
         if (cleanContent) {
           systemSummaries.push(`${label}: ${cleanContent}`);
         }
@@ -61,18 +82,25 @@ serve(async (req) => {
 
     if (systemSummaries.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No system data to summarize. Add content to system reviews first.' }),
-        { status: 400, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error:
+            "No system data to summarize. Add content to system reviews first.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        },
       );
     }
 
-    const today = new Date().toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
+    const today = new Date().toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
     });
 
-    const systemPrompt = `You are a medical documentation expert specializing in creating concise interval event summaries for ICU/hospital patients. Generate a brief daily summary using standard medical abbreviations and shorthand.
+    const systemPrompt =
+      `You are a medical documentation expert specializing in creating concise interval event summaries for ICU/hospital patients. Generate a brief daily summary using standard medical abbreviations and shorthand.
 
 REQUIRED FORMAT:
 - Start with today's date: "${today}:"
@@ -96,13 +124,22 @@ GUIDELINES:
 - Group related items together
 - Prioritize: 1) Clinical changes 2) New interventions 3) Pending items
 
-${existingIntervalEvents ? `EXISTING INTERVAL EVENTS (add new summary below, do not repeat):\n${existingIntervalEvents}\n` : ''}
+${
+        existingIntervalEvents
+          ? `EXISTING INTERVAL EVENTS (add new summary below, do not repeat):\n${existingIntervalEvents}\n`
+          : ""
+      }
 
 Output ONLY the formatted interval events summary. No explanations or headers.`;
 
-    const userPrompt = `Generate today's interval events summary from these system-based rounds notes:\n\n${systemSummaries.join('\n\n')}`;
+    const userPrompt =
+      `Generate today's interval events summary from these system-based rounds notes:\n\n${
+        systemSummaries.join("\n\n")
+      }`;
 
-    safeLog('info', `Generating interval events for ${patientName || 'patient'} from ${systemSummaries.length} systems`);
+    safeLog("info", "Generate interval events processing started", {
+      sectionCount: systemSummaries.length,
+    });
 
     const generatedEvents = await callLLM(systemPrompt, userPrompt, {
       model: requestedModel,
@@ -110,24 +147,34 @@ Output ONLY the formatted interval events summary. No explanations or headers.`;
     });
 
     if (!generatedEvents) {
-      throw new Error('No response from AI');
+      throw new Error("No response from AI");
     }
 
-    safeLog('info', `Successfully generated interval events: ${generatedEvents.length} characters`);
+    safeLog("info", "Generate interval events processing completed", {
+      outputChars: generatedEvents.length,
+    });
 
     return new Response(
       JSON.stringify({ intervalEvents: generatedEvents }),
-      { headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders(req), "Content-Type": "application/json" } },
     );
-
   } catch (error) {
-    safeLog('error', `Generate interval events error: ${error}`);
+    safeLog("error", "Generate interval events request failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     if (error instanceof MissingAPIKeyError) {
       return new Response(
-        JSON.stringify({ error: error.message, code: 'MISSING_API_KEY' }),
-        { status: 503, headers: { ...corsHeaders(req), 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: error.message, code: "MISSING_API_KEY" }),
+        {
+          status: 503,
+          headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+        },
       );
     }
-    return createErrorResponse(req, safeErrorMessage(error, 'Failed to generate interval events'), 500);
+    return createErrorResponse(
+      req,
+      safeErrorMessage(error, "Failed to generate interval events"),
+      500,
+    );
   }
 });

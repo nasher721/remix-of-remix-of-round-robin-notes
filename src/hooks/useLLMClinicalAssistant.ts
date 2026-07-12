@@ -26,9 +26,10 @@ import type {
   AssessmentPlanResponse,
   ClinicalContext,
 } from '@/lib/openai-config';
-import { stripHtml, buildClinicalContextString } from '@/lib/openai-config';
+import { stripHtml } from '@/lib/openai-config';
 import { getLLMRouter } from '@/services/llm';
 import type { LLMProviderName, TaskCategory } from '@/services/llm';
+import { composeClinicalSystemPrompt } from '@/services/llm/promptPolicy';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 import { useAssertBackendReady } from '@/contexts/EdgeHealthContext';
@@ -47,10 +48,11 @@ const FEATURE_TASK_MAP: Record<AIFeature, TaskCategory> = {
   smart_expand: 'fast_query',
   medical_correction: 'fast_query',
   system_based_rounds: 'clinical_note',
-  date_organizer: 'summarization',
+  date_organizer: 'clinical_note',
   problem_list: 'clinical_note',
+  smart_draft: 'clinical_note',
   icu_boards_explainer: 'reasoning',
-  interval_events_generator: 'summarization',
+  interval_events_generator: 'clinical_note',
   neuro_icu_hpi: 'clinical_note',
 };
 
@@ -623,17 +625,15 @@ async function doRouterRequest<T>(
   setLastResult?: (r: unknown) => void,
   onSuccess?: (result: unknown, feature: AIFeature) => void,
 ): Promise<T | null> {
-  const systemPrompt = customPrompt || SYSTEM_PROMPTS[feature] || '';
+  const systemPrompt = composeClinicalSystemPrompt(
+    SYSTEM_PROMPTS[feature] || '',
+    customPrompt,
+  );
   const temperature = FEATURE_TEMPERATURES[feature] || 0.3;
   const task = FEATURE_TASK_MAP[feature] || 'general';
 
-  let userPrompt = text || '';
-  if (context) {
-    const contextString = buildClinicalContextString(context);
-    userPrompt = userPrompt
-      ? `${userPrompt}\n\n---\n\nPATIENT CONTEXT:\n${contextString}`
-      : contextString;
-  }
+  // PromptCompiler injects patientContext exactly once for the selected provider.
+  const userPrompt = text || '';
 
   const responseFormat = JSON_FEATURES.includes(feature) ? 'json' as const : 'text' as const;
 

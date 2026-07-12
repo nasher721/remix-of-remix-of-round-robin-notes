@@ -75,7 +75,7 @@ export default defineConfig(({ mode }) => ({
     },
     // Minification settings
     minify: mode === 'production' ? 'esbuild' : false,
-    // Generate sourcemaps for production debugging
-    sourcemap: mode === 'production',
+    // Clinical application source maps are not published with production assets.
+    sourcemap: false,
   },
 }));

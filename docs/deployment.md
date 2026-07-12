@@ -80,6 +80,14 @@ If the browser shows CORS errors right after a new URL goes live, check allowlis
 
 ---
 
+## Browser security policy
+
+[`vercel.json`](../vercel.json) applies the production Content Security Policy and transport headers. The default policy permits this app, Supabase, bundled provider defaults, Google Fonts, and Sentry ingestion. Before enabling SMART-on-FHIR, a custom Hugging Face endpoint, or `VITE_TELEMETRY_INGEST_URL`, add each exact HTTPS FHIR/API origin to `connect-src`; do not replace the allowlist with a wildcard.
+
+Production source maps are disabled in [`vite.config.ts`](../vite.config.ts). If operators later need symbolicated client traces, upload hidden maps directly to the approved error service during CI and remove them before publishing `dist/`.
+
+---
+
 ## Smoke test (healthcheck)
 
 After `supabase functions deploy`, CI calls:
@@ -120,7 +128,16 @@ Optional client-side error reporting. If `VITE_SENTRY_DSN` is unset, the app doe
 | `VITE_SENTRY_DSN` | Local `.env`, Vercel env (Production + Preview) | Sentry project DSN (public; safe in the bundle). |
 | `VITE_APP_VERSION` | Optional | Overrides Sentry **release** string. If omitted, the build uses `package.json` `version`, and on Vercel appends `+` short git SHA (`VERCEL_GIT_COMMIT_SHA`). |
 
-Match **release** in Sentry to uploaded source maps if you use them. See [`src/lib/observability/sentryClient.ts`](../src/lib/observability/sentryClient.ts) (`beforeSend` scrubs query strings and payload-like breadcrumbs).
+Match **release** in Sentry to any hidden source maps uploaded during CI. Never serve those maps from the production asset directory. See [`src/lib/observability/sentryClient.ts`](../src/lib/observability/sentryClient.ts) (`beforeSend` scrubs query strings and payload-like breadcrumbs).
+
+---
+
+## Legacy provider credentials
+
+Migration `20260711220000_purge_legacy_ai_credentials.sql` removes provider API
+keys persisted by older clients. Operators should treat any previously stored
+provider key as exposed to database backups and rotate it after this migration
+is deployed. Current clients keep provider credentials in memory only.
 
 ---
 

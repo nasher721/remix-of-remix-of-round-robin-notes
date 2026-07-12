@@ -53,32 +53,20 @@ export const CACHE_CONFIG = {
 // Query keys for consistent cache management
 export const QUERY_KEYS = {
   patients: ['patients'] as const,
-  patient: (id: string) => ['patients', id] as const,
+  patientList: (userId: string | null) => ['patients', 'list', userId] as const,
   autotexts: ['autotexts'] as const,
+  autotextList: (userId: string) => ['autotexts', 'list', userId] as const,
   clinicalPhrases: ['clinicalPhrases'] as const,
+  clinicalPhraseList: (userId: string) => ['clinicalPhrases', 'list', userId] as const,
   phrase: (id: string) => ['clinicalPhrases', id] as const,
   templates: ['templates'] as const,
+  templateList: (userId: string) => ['templates', 'list', userId] as const,
   userDictionary: ['userDictionary'] as const,
-  fieldHistory: (patientId: string) => ['fieldHistory', patientId] as const,
+  userDictionaryList: (userId: string) => ['userDictionary', 'list', userId] as const,
+  fieldHistoryForOwner: (userId: string, patientId: string) =>
+    ['fieldHistory', 'owner', userId, patientId] as const,
   todos: ['todos'] as const,
-  patientTodos: (patientId: string) => ['todos', patientId] as const,
+  patientTodosForOwner: (userId: string, patientId: string) =>
+    ['todos', 'owner', userId, patientId] as const,
   allTodos: ['allTodos'] as const,
-} as const;
-
-// Cache invalidation patterns
-export const INVALIDATION_PATTERNS = {
-  patient: {
-    // When a patient is updated, invalidate these queries
-    invalidates: [QUERY_KEYS.patients],
-    // Related queries that might need refresh
-    related: ['fieldHistory', 'todos'],
-  },
-  autotext: {
-    invalidates: [QUERY_KEYS.autotexts],
-    related: [],
-  },
-  phrase: {
-    invalidates: [QUERY_KEYS.clinicalPhrases],
-    related: [],
-  },
 } as const;

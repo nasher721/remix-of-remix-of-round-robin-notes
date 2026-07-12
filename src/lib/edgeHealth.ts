@@ -75,7 +75,7 @@ export async function probeEdgeHealth(options?: { force?: boolean }): Promise<'h
   recordTelemetryEvent('network_error', 'edge_health_probe_exhausted', {
     attempts: PROBE_ATTEMPTS,
     outcome: lastOutcome.kind,
-    reason: lastOutcome.kind !== 'healthy' ? lastOutcome.reason : undefined,
+    reason: lastOutcome.reason,
   });
 
   if (lastOutcome.kind === 'unhealthy') {

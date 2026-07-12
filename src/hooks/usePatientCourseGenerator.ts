@@ -92,7 +92,7 @@ export const usePatientCourseGenerator = () => {
       }
 
       if (error) {
-        console.error('Generate patient course error:', error);
+        console.error('Patient course generation request failed');
         toast.error(getUserFacingErrorMessage(error, 'Failed to generate patient course'));
         return null;
       }
@@ -134,7 +134,7 @@ export const usePatientCourseGenerator = () => {
       if (err instanceof Error && err.name === 'AbortError') {
         return null;
       }
-      console.error('Generate patient course error:', err);
+      console.error('Patient course generation request failed');
       toast.error(getUserFacingErrorMessage(err, 'Failed to generate patient course'));
       return null;
     } finally {

@@ -1,5 +1,24 @@
-import { authenticateRequest, corsHeaders, createErrorResponse, checkRateLimit, createCorsResponse, safeLog, RATE_LIMITS, parseAndValidateBody, safeErrorMessage, MAX_MEDIA_PAYLOAD_BYTES, handleOptions, jsonResponse } from '../_shared/mod.ts';
-import { getLLMConfig, MissingAPIKeyError } from '../_shared/llm-client.ts';
+import {
+  authenticateRequest,
+  checkRateLimit,
+  createErrorResponse,
+  handleOptions,
+  jsonResponse,
+  MAX_MEDIA_PAYLOAD_BYTES,
+  parseAndValidateBody,
+  RATE_LIMITS,
+  safeErrorMessage,
+  safeLog,
+  validateImageArray,
+} from "../_shared/mod.ts";
+import {
+  getLLMConfig,
+  MissingAPIKeyError,
+  normalizeOutputTokenLimit,
+  providerForModel,
+  resolveRequestedModel,
+  selectModelForConfig,
+} from "../_shared/llm-client.ts";
 
 interface PatientSystems {
   neuro: string;
@@ -34,6 +53,13 @@ interface ParsedPatient {
   medications?: MedicationCategories;
 }
 
+type LLMUserContent =
+  | string
+  | Array<
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } }
+  >;
+
 const MAX_IMAGES_PER_REQUEST = 20;
 const MAX_TEXT_CHARS = 1_000_000;
 const MAX_PATIENTS_PARSED = 200;
@@ -55,16 +81,16 @@ function deduplicateText(text: string): string {
     const trimmedLine = line.trim();
 
     // Preserve empty lines for paragraph spacing
-    if (trimmedLine === '') {
-      processedLines.push('');
+    if (trimmedLine === "") {
+      processedLines.push("");
       continue;
     }
 
-    const normalizedLine = trimmedLine.toLowerCase().replace(/\s+/g, ' ');
+    const normalizedLine = trimmedLine.toLowerCase().replace(/\s+/g, " ");
 
     // Skip if we've seen this exact line
     if (normalizedLine.length > 15 && seenLines.has(normalizedLine)) {
-      console.log("Removed duplicate line (content redacted)");
+      safeLog("info", "Parse handoff duplicate line removed");
       continue;
     }
 
@@ -73,9 +99,11 @@ function deduplicateText(text: string): string {
     for (const existing of seenLines) {
       if (normalizedLine.length > 20 && existing.length > 20) {
         // Check if one contains the other
-        if (normalizedLine.includes(existing) || existing.includes(normalizedLine)) {
+        if (
+          normalizedLine.includes(existing) || existing.includes(normalizedLine)
+        ) {
           isDuplicate = true;
-          console.log("Removed overlapping content (redacted)");
+          safeLog("info", "Parse handoff overlapping line removed");
           break;
         }
       }
@@ -88,7 +116,7 @@ function deduplicateText(text: string): string {
   }
 
   // Rejoin with newlines to preserve original structure
-  return processedLines.join('\n').trim();
+  return processedLines.join("\n").trim();
 }
 
 /**
@@ -113,8 +141,8 @@ function removeRepeatedPhrases(text: string): string {
   const processedLines: string[] = [];
 
   for (const line of lines) {
-    if (line.trim() === '') {
-      processedLines.push('');
+    if (line.trim() === "") {
+      processedLines.push("");
       continue;
     }
 
@@ -136,22 +164,23 @@ function removeRepeatedPhrases(text: string): string {
       const maxPatternLen = Math.min(10, Math.floor((words.length - i) / 2));
 
       for (let patternLen = 3; patternLen <= maxPatternLen; patternLen++) {
-        const pattern = words.slice(i, i + patternLen).join(' ');
-        const nextPattern = words.slice(i + patternLen, i + patternLen * 2).join(' ');
+        const pattern = words.slice(i, i + patternLen).join(" ");
+        const nextPattern = words.slice(i + patternLen, i + patternLen * 2)
+          .join(" ");
 
         if (pattern.length > 10 && pattern === nextPattern) {
           // Found a repeat - add pattern once and skip the duplicate
           result.push(...words.slice(i, i + patternLen));
           i += patternLen * 2;
           foundRepeat = true;
-          console.log("Removed repeated phrase (redacted)");
+          safeLog("info", "Parse handoff repeated phrase removed");
 
           // Continue checking for more repeats of the same pattern
           while (i + patternLen <= words.length) {
-            const checkPattern = words.slice(i, i + patternLen).join(' ');
+            const checkPattern = words.slice(i, i + patternLen).join(" ");
             if (checkPattern === pattern) {
               i += patternLen;
-              console.log("Removed additional repeated phrase (redacted)");
+              safeLog("info", "Parse handoff repeated phrase removed");
             } else {
               break;
             }
@@ -166,10 +195,10 @@ function removeRepeatedPhrases(text: string): string {
       }
     }
 
-    processedLines.push(result.join(' '));
+    processedLines.push(result.join(" "));
   }
 
-  return processedLines.join('\n');
+  return processedLines.join("\n");
 }
 
 /**
@@ -177,14 +206,14 @@ function removeRepeatedPhrases(text: string): string {
  * Preserves HTML formatting tags and original line breaks
  */
 function cleanPatientText(text: string): string {
-  if (!text) return '';
-  if (typeof text !== 'string') return String(text);
+  if (!text) return "";
+  if (typeof text !== "string") return String(text);
 
   let cleaned = text;
 
   try {
     // Step 1: Normalize escaped newlines to actual newlines
-    cleaned = cleaned.replace(/\\n/g, '\n');
+    cleaned = cleaned.replace(/\\n/g, "\n");
 
     // Step 2: Remove repeated phrases (OCR stuttering)
     cleaned = removeRepeatedPhrases(cleaned);
@@ -193,21 +222,23 @@ function cleanPatientText(text: string): string {
     cleaned = deduplicateText(cleaned);
 
     // Step 4: Clean up horizontal whitespace but PRESERVE newlines
-    cleaned = cleaned.replace(/[ \t]+/g, ' ');
+    cleaned = cleaned.replace(/[ \t]+/g, " ");
 
     // Step 5: Normalize multiple consecutive blank lines to max 2
-    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+    cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
 
     // Step 6: Convert newlines to <br> for HTML compatibility but respect block tags
     // First convert all newlines to <br>
-    cleaned = cleaned.replace(/\n/g, '<br>');
+    cleaned = cleaned.replace(/\n/g, "<br>");
     // Remove <br> immediately surrounding block elements to prevent double spacing
-    cleaned = cleaned.replace(/<br>\s*(<(?:ul|ol|li|p|div|h[1-6]))/gi, '$1');
-    cleaned = cleaned.replace(/(<\/(?:ul|ol|li|p|div|h[1-6])>)\s*<br>/gi, '$1');
-  } catch (e) {
-    console.error("Error cleaning text:", e);
+    cleaned = cleaned.replace(/<br>\s*(<(?:ul|ol|li|p|div|h[1-6]))/gi, "$1");
+    cleaned = cleaned.replace(/(<\/(?:ul|ol|li|p|div|h[1-6])>)\s*<br>/gi, "$1");
+  } catch (error) {
+    safeLog("warn", "Parse handoff text cleanup failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     // Fallback: return marginally cleaned text
-    return text.replace(/\\n/g, '\n');
+    return text.replace(/\\n/g, "\n");
   }
 
   return cleaned.trim();
@@ -218,7 +249,7 @@ function cleanPatientText(text: string): string {
  */
 function mergeMedications(
   a: MedicationCategories | undefined,
-  b: MedicationCategories | undefined
+  b: MedicationCategories | undefined,
 ): MedicationCategories {
   const mergeArrays = (arr1: string[] = [], arr2: string[] = []): string[] => {
     const combined = [...arr1, ...arr2];
@@ -242,7 +273,7 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
     const normalizedBed = patient.bed.trim().toLowerCase();
 
     if (!normalizedBed) {
-      console.log("Skipping patient with empty bed (redacted)");
+      safeLog("warn", "Parse handoff record without bed skipped");
       continue;
     }
 
@@ -252,7 +283,7 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
       bedMap.set(normalizedBed, patient);
     } else {
       // Merge: keep the version with more content, combine if needed
-      console.log("Merging duplicate bed (redacted): existing vs new");
+      safeLog("info", "Parse handoff duplicate record merged");
 
       const merged: ParsedPatient = {
         bed: patient.bed || existing.bed,
@@ -260,25 +291,32 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
         mrn: patient.mrn || existing.mrn,
         age: patient.age || existing.age,
         sex: patient.sex || existing.sex,
-        handoffSummary: (patient.handoffSummary?.length || 0) > (existing.handoffSummary?.length || 0)
+        handoffSummary: (patient.handoffSummary?.length || 0) >
+            (existing.handoffSummary?.length || 0)
           ? patient.handoffSummary
           : existing.handoffSummary,
-        intervalEvents: (patient.intervalEvents?.length || 0) > (existing.intervalEvents?.length || 0)
+        intervalEvents: (patient.intervalEvents?.length || 0) >
+            (existing.intervalEvents?.length || 0)
           ? patient.intervalEvents
           : existing.intervalEvents,
         bedStatus: patient.bedStatus || existing.bedStatus,
-        medications: mergeMedications(patient.medications, existing.medications),
+        medications: mergeMedications(
+          patient.medications,
+          existing.medications,
+        ),
         systems: {
-          neuro: patient.systems?.neuro || existing.systems?.neuro || '',
-          cv: patient.systems?.cv || existing.systems?.cv || '',
-          resp: patient.systems?.resp || existing.systems?.resp || '',
-          renalGU: patient.systems?.renalGU || existing.systems?.renalGU || '',
-          gi: patient.systems?.gi || existing.systems?.gi || '',
-          endo: patient.systems?.endo || existing.systems?.endo || '',
-          heme: patient.systems?.heme || existing.systems?.heme || '',
-          infectious: patient.systems?.infectious || existing.systems?.infectious || '',
-          skinLines: patient.systems?.skinLines || existing.systems?.skinLines || '',
-          dispo: patient.systems?.dispo || existing.systems?.dispo || '',
+          neuro: patient.systems?.neuro || existing.systems?.neuro || "",
+          cv: patient.systems?.cv || existing.systems?.cv || "",
+          resp: patient.systems?.resp || existing.systems?.resp || "",
+          renalGU: patient.systems?.renalGU || existing.systems?.renalGU || "",
+          gi: patient.systems?.gi || existing.systems?.gi || "",
+          endo: patient.systems?.endo || existing.systems?.endo || "",
+          heme: patient.systems?.heme || existing.systems?.heme || "",
+          infectious: patient.systems?.infectious ||
+            existing.systems?.infectious || "",
+          skinLines: patient.systems?.skinLines ||
+            existing.systems?.skinLines || "",
+          dispo: patient.systems?.dispo || existing.systems?.dispo || "",
         },
       };
 
@@ -287,7 +325,10 @@ function deduplicatePatientsByBed(patients: ParsedPatient[]): ParsedPatient[] {
   }
 
   const result = Array.from(bedMap.values());
-  console.log(`Deduplication: ${patients.length} patients -> ${result.length} unique beds`);
+  safeLog("info", "Parse handoff records deduplicated", {
+    patientCount: patients.length,
+    uniquePatientCount: result.length,
+  });
 
   return result;
 }
@@ -300,45 +341,103 @@ Deno.serve(async (req: Request) => {
   try {
     // Authenticate the request
     const authResult = await authenticateRequest(req);
-    if ('error' in authResult) {
+    if ("error" in authResult) {
       return authResult.error;
     }
-    safeLog('info', `Authenticated request from user: ${authResult.userId}`);
+    safeLog("info", "Parse handoff request authenticated");
 
     // Rate limiting check
-    const rateLimit = checkRateLimit(req, RATE_LIMITS.parse, authResult.userId);
+    const rateLimit = await checkRateLimit(
+      req,
+      RATE_LIMITS.parse,
+      authResult.userId,
+    );
     if (!rateLimit.allowed) {
-      return rateLimit.response ?? jsonResponse(req, { error: 'Rate limit exceeded' }, 429);
+      return rateLimit.response ??
+        jsonResponse(req, { error: "Rate limit exceeded" }, 429);
     }
 
-    const bodyResult = await parseAndValidateBody<{ pdfContent?: string; images?: string[]; model?: string }>(req, { maxBytes: MAX_MEDIA_PAYLOAD_BYTES });
+    const bodyResult = await parseAndValidateBody<
+      { pdfContent?: unknown; images?: unknown; model?: unknown }
+    >(req, { maxBytes: MAX_MEDIA_PAYLOAD_BYTES });
     if (!bodyResult.valid) {
       return bodyResult.response;
     }
-    const { pdfContent, images, model: requestedModel } = bodyResult.data;
+    const {
+      pdfContent: unvalidatedPdfContent,
+      images: unvalidatedImages,
+      model: requestedModel,
+    } = bodyResult.data;
 
-    if (!pdfContent && (!images || images.length === 0)) {
-      return jsonResponse(req, { success: false, error: "PDF content or images are required" }, 400);
+    const modelResult = resolveRequestedModel(requestedModel);
+    if (!modelResult.valid) {
+      return jsonResponse(req, {
+        success: false,
+        error: modelResult.error,
+      }, 400);
     }
 
-    if (images && images.length > MAX_IMAGES_PER_REQUEST) {
-      return jsonResponse(req, { success: false, error: `Too many pages for OCR. Limit is ${MAX_IMAGES_PER_REQUEST} pages per import.` }, 413);
+    if (
+      unvalidatedPdfContent !== undefined &&
+      typeof unvalidatedPdfContent !== "string"
+    ) {
+      return jsonResponse(req, {
+        success: false,
+        error: "PDF content must be text",
+      }, 400);
+    }
+    const pdfContent = unvalidatedPdfContent as string | undefined;
+
+    let images: string[] | undefined;
+    if (unvalidatedImages !== undefined) {
+      const imageResult = validateImageArray(
+        unvalidatedImages,
+        MAX_IMAGES_PER_REQUEST,
+      );
+      if (!Array.isArray(imageResult)) {
+        return jsonResponse(req, {
+          success: false,
+          error: imageResult.error,
+        }, imageResult.status);
+      }
+      images = imageResult;
+    }
+
+    if (
+      (!pdfContent || !pdfContent.trim()) && (!images || images.length === 0)
+    ) {
+      return jsonResponse(req, {
+        success: false,
+        error: "PDF content or images are required",
+      }, 400);
     }
 
     if (pdfContent && pdfContent.length > MAX_TEXT_CHARS) {
-      return jsonResponse(req, { success: false, error: "Document too large to parse in one request. Please split into smaller sections." }, 413);
+      return jsonResponse(req, {
+        success: false,
+        error:
+          "Document too large to parse in one request. Please split into smaller sections.",
+      }, 413);
     }
 
-    const llmConfig = getLLMConfig();
+    const llmConfig = getLLMConfig(providerForModel(modelResult.model));
     if (!llmConfig.apiKey) {
-      safeLog('error', "No LLM API key configured");
-      return jsonResponse(req, { success: false, error: "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets." }, 500);
+      safeLog("error", "No LLM API key configured");
+      return jsonResponse(req, {
+        success: false,
+        error:
+          "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets.",
+      }, 500);
     }
     const OPENAI_API_KEY = llmConfig.apiKey;
 
-    safeLog('info', "Parsing Epic handoff content..." + (images ? `(${images.length} images)` : "(text)"));
+    safeLog("info", "Parse handoff processing started", {
+      imageCount: images?.length ?? 0,
+      hasText: Boolean(pdfContent),
+    });
 
-    const systemPrompt = `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data with system-based organization.
+    const systemPrompt =
+      `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data with system-based organization.
 
 Given the content from an Epic Handoff (either as text or scanned page images), extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient in the document.
 
@@ -480,19 +579,23 @@ SYSTEM MAPPING GUIDANCE:
 - Include relevant imaging and labs WITHIN each system section, not separately`;
 
     // Build message content based on whether we have images or text
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let userContent: any;
+    let userContent: LLMUserContent;
     if (images && images.length > 0) {
       // Vision-based OCR: send images to the model
       userContent = [
-        { type: "text", text: "Parse these Epic Handoff document pages and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Preserve formatting with HTML tags. Parse content into the appropriate system categories (neuro, cv, resp, renalGU, gi, endo, heme, infectious, skinLines, dispo):" },
-        ...images.map((img: string, idx: number) => ({
-          type: "image_url",
-          image_url: { url: img }
-        }))
+        {
+          type: "text",
+          text:
+            "Parse these Epic Handoff document pages and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Preserve formatting with HTML tags. Parse content into the appropriate system categories (neuro, cv, resp, renalGU, gi, endo, heme, infectious, skinLines, dispo):",
+        },
+        ...images.map((img: string) => ({
+          type: "image_url" as const,
+          image_url: { url: img },
+        })),
       ];
     } else {
-      userContent = `Parse the following Epic Handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Parse content into the appropriate system categories:\n\n${pdfContent}`;
+      userContent =
+        `Parse the following Epic Handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Parse content into the appropriate system categories:\n\n${pdfContent}`;
     }
 
     const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {
@@ -502,31 +605,43 @@ SYSTEM MAPPING GUIDANCE:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: requestedModel || llmConfig.defaultModel,
+        model: selectModelForConfig(modelResult.model, llmConfig),
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
-        max_tokens: 16000,
+        max_tokens: normalizeOutputTokenLimit(8_000),
       }),
     });
 
     if (!response.ok) {
       if (response.status === 429) {
-        return jsonResponse(req, { success: false, error: "Rate limit exceeded. Please try again later." }, 429);
+        return jsonResponse(req, {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+        }, 429);
       }
       if (response.status === 402) {
-        return jsonResponse(req, { success: false, error: "AI credits exhausted. Please add funds." }, 402);
+        return jsonResponse(req, {
+          success: false,
+          error: "AI credits exhausted. Please add funds.",
+        }, 402);
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return jsonResponse(req, { success: false, error: "AI processing failed" }, 500);
+      safeLog("error", "Parse handoff provider request failed", {
+        statusCode: response.status,
+      });
+      return jsonResponse(req, {
+        success: false,
+        error: "AI processing failed",
+      }, 500);
     }
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content || "";
 
-    console.log("AI response received, length:", content.length, "chars (content redacted to avoid PHI)");
+    safeLog("info", "Parse handoff response received", {
+      outputChars: content.length,
+    });
 
     // Extract and repair JSON from the response
     let parsedData: { patients: ParsedPatient[] };
@@ -534,7 +649,7 @@ SYSTEM MAPPING GUIDANCE:
       let jsonStr = content;
 
       // Remove markdown code blocks if present
-      jsonStr = jsonStr.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+      jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```\s*/g, "");
 
       // Find the JSON object
       const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
@@ -547,35 +662,30 @@ SYSTEM MAPPING GUIDANCE:
       // Try to parse as-is first
       try {
         parsedData = JSON.parse(jsonStr);
-      } catch (initialError) {
-        console.log("Initial parse failed, attempting repair...");
+      } catch {
+        safeLog("warn", "Parse handoff response repair started", {
+          stage: "initial-parse",
+        });
 
         // Repair Strategy 1: Fix unescaped quotes in strings
         let repaired = jsonStr;
 
         // Replace unescaped newlines and tabs inside strings
-        repaired = repaired.replace(/(?<!\\)\\n/g, '\\n');
-        repaired = repaired.replace(/(?<!\\)\\t/g, '\\t');
+        repaired = repaired.replace(/(?<!\\)\\n/g, "\\n");
+        repaired = repaired.replace(/(?<!\\)\\t/g, "\\t");
 
         // Attempt to repair truncated JSON
-        const openBraces = (repaired.match(/\{/g) || []).length;
-        const closeBraces = (repaired.match(/\}/g) || []).length;
-        const openBrackets = (repaired.match(/\[/g) || []).length;
-        const closeBrackets = (repaired.match(/\]/g) || []).length;
-
-        console.log(`Braces: ${openBraces} open, ${closeBraces} close. Brackets: ${openBrackets} open, ${closeBrackets} close`);
-
         // Remove any trailing incomplete content more aggressively
         // Remove incomplete string at end
-        repaired = repaired.replace(/,\s*"[^"]*$/, '');
+        repaired = repaired.replace(/,\s*"[^"]*$/, "");
         // Remove incomplete property value
-        repaired = repaired.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, '');
+        repaired = repaired.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, "");
         // Remove incomplete object
-        repaired = repaired.replace(/,\s*\{[^}]*$/, '');
+        repaired = repaired.replace(/,\s*\{[^}]*$/, "");
         // Remove incomplete array item
-        repaired = repaired.replace(/,\s*\[[^\]]*$/, '');
+        repaired = repaired.replace(/,\s*\[[^\]]*$/, "");
         // Remove trailing comma before closing
-        repaired = repaired.replace(/,(\s*[\]}])/g, '$1');
+        repaired = repaired.replace(/,(\s*[\]}])/g, "$1");
 
         // Calculate missing closers after cleanup
         const finalOpenBraces = (repaired.match(/\{/g) || []).length;
@@ -586,18 +696,20 @@ SYSTEM MAPPING GUIDANCE:
         const missingBrackets = finalOpenBrackets - finalCloseBrackets;
         const missingBraces = finalOpenBraces - finalCloseBraces;
 
-        console.log(`After cleanup - Braces: ${finalOpenBraces} open, ${finalCloseBraces} close. Brackets: ${finalOpenBrackets} open, ${finalCloseBrackets} close`);
-
         // Close unclosed structures in correct order (brackets then braces)
-        repaired += ']'.repeat(Math.max(0, missingBrackets));
-        repaired += '}'.repeat(Math.max(0, missingBraces));
+        repaired += "]".repeat(Math.max(0, missingBrackets));
+        repaired += "}".repeat(Math.max(0, missingBraces));
 
-        console.log("Attempting bracket repair...");
+        safeLog("info", "Parse handoff response repair attempted", {
+          stage: "bracket-repair",
+        });
 
         try {
           parsedData = JSON.parse(repaired);
         } catch (repairError1) {
-          console.log("Repair attempt 1 failed, trying alternative strategy...");
+          safeLog("warn", "Parse handoff response repair retried", {
+            stage: "object-extraction",
+          });
 
           // Repair Strategy 2: Try to extract just the patients array
           const patientsMatch = jsonStr.match(/"patients"\s*:\s*\[([\s\S]*)/);
@@ -611,10 +723,10 @@ SYSTEM MAPPING GUIDANCE:
 
             for (let i = 0; i < patientsContent.length; i++) {
               const char = patientsContent[i];
-              if (char === '{') {
+              if (char === "{") {
                 if (depth === 0) start = i;
                 depth++;
-              } else if (char === '}') {
+              } else if (char === "}") {
                 depth--;
                 if (depth === 0 && start !== -1) {
                   try {
@@ -622,7 +734,7 @@ SYSTEM MAPPING GUIDANCE:
                     const patient = JSON.parse(patientStr);
                     patients.push(patient);
                   } catch {
-                    console.log("Skipping malformed patient object");
+                    safeLog("warn", "Parse handoff malformed record skipped");
                   }
                   start = -1;
                 }
@@ -630,7 +742,9 @@ SYSTEM MAPPING GUIDANCE:
             }
 
             if (patients.length > 0) {
-              console.log(`Extracted ${patients.length} complete patient objects`);
+              safeLog("info", "Parse handoff complete records extracted", {
+                patientCount: patients.length,
+              });
               parsedData = { patients };
             } else {
               throw new Error("Could not extract any valid patient objects");
@@ -641,27 +755,45 @@ SYSTEM MAPPING GUIDANCE:
         }
       }
     } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError);
-      console.log("Raw content length:", content.length, "chars (content redacted to avoid PHI)");
-      return jsonResponse(req, { success: false, error: "Failed to parse AI response. The document may be too complex. Try splitting into smaller sections." }, 500);
+      safeLog("error", "Parse handoff response parse failed", {
+        errorType: parseError instanceof Error
+          ? parseError.name
+          : "UnknownError",
+        outputChars: content.length,
+      });
+      return jsonResponse(req, {
+        success: false,
+        error:
+          "Failed to parse AI response. The document may be too complex. Try splitting into smaller sections.",
+      }, 500);
     }
 
-    console.log(`Initial parse: ${parsedData.patients?.length || 0} patients`);
+    safeLog("info", "Parse handoff response parsed", {
+      patientCount: parsedData.patients?.length || 0,
+    });
 
     if (!Array.isArray(parsedData.patients)) {
-      return jsonResponse(req, { success: false, error: "Malformed AI response. Please retry with a smaller section." }, 500);
+      return jsonResponse(req, {
+        success: false,
+        error: "Malformed AI response. Please retry with a smaller section.",
+      }, 500);
     }
 
     if (parsedData.patients.length > MAX_PATIENTS_PARSED) {
-      return jsonResponse(req, { success: false, error: "Parsed too many patient records. Please split the document and retry." }, 413);
+      return jsonResponse(req, {
+        success: false,
+        error:
+          "Parsed too many patient records. Please split the document and retry.",
+      }, 413);
     }
 
     // POST-PROCESSING: Apply deduplication and ensure systems/medications structure
     if (parsedData.patients && parsedData.patients.length > 0) {
       // Step 1: Clean text within each patient's fields and ensure systems/medications structure
-      parsedData.patients = parsedData.patients.map(patient => {
+      parsedData.patients = parsedData.patients.map((patient) => {
         const systems = patient.systems || {};
-        const medications = patient.medications || { infusions: [], scheduled: [], prn: [] };
+        const medications = patient.medications ||
+          { infusions: [], scheduled: [], prn: [] };
         return {
           ...patient,
           handoffSummary: cleanPatientText(patient.handoffSummary),
@@ -673,16 +805,16 @@ SYSTEM MAPPING GUIDANCE:
             prn: medications.prn || [],
           },
           systems: {
-            neuro: cleanPatientText(systems.neuro || ''),
-            cv: cleanPatientText(systems.cv || ''),
-            resp: cleanPatientText(systems.resp || ''),
-            renalGU: cleanPatientText(systems.renalGU || ''),
-            gi: cleanPatientText(systems.gi || ''),
-            endo: cleanPatientText(systems.endo || ''),
-            heme: cleanPatientText(systems.heme || ''),
-            infectious: cleanPatientText(systems.infectious || ''),
-            skinLines: cleanPatientText(systems.skinLines || ''),
-            dispo: cleanPatientText(systems.dispo || ''),
+            neuro: cleanPatientText(systems.neuro || ""),
+            cv: cleanPatientText(systems.cv || ""),
+            resp: cleanPatientText(systems.resp || ""),
+            renalGU: cleanPatientText(systems.renalGU || ""),
+            gi: cleanPatientText(systems.gi || ""),
+            endo: cleanPatientText(systems.endo || ""),
+            heme: cleanPatientText(systems.heme || ""),
+            infectious: cleanPatientText(systems.infectious || ""),
+            skinLines: cleanPatientText(systems.skinLines || ""),
+            dispo: cleanPatientText(systems.dispo || ""),
           },
         };
       });
@@ -691,14 +823,22 @@ SYSTEM MAPPING GUIDANCE:
       parsedData.patients = deduplicatePatientsByBed(parsedData.patients);
     }
 
-    console.log(`After deduplication: ${parsedData.patients?.length || 0} patients`);
+    safeLog("info", "Parse handoff processing completed", {
+      patientCount: parsedData.patients?.length || 0,
+    });
 
     return jsonResponse(req, { success: true, data: parsedData });
   } catch (error) {
-    console.error("Parse handoff error:", error);
+    safeLog("error", "Parse handoff request failed", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     if (error instanceof MissingAPIKeyError) {
       return jsonResponse(req, { success: false, error: error.message }, 503);
     }
-    return createErrorResponse(req, safeErrorMessage(error, 'Failed to parse handoff document'), 500);
+    return createErrorResponse(
+      req,
+      safeErrorMessage(error, "Failed to parse handoff document"),
+      500,
+    );
   }
 });

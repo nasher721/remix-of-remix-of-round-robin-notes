@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckCircle2, XCircle, Clock, RefreshCw, AlertCircle, Database, HardDrive, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { safeLocalStorage } from "@/utils/safeStorage";
 
 export type SyncStatus = "success" | "error" | "pending";
 
@@ -19,8 +20,12 @@ export interface SyncEvent {
   details?: string;
 }
 
-const STORAGE_KEY = "sync-history";
 const MAX_EVENTS = 10;
+let inMemoryHistory: SyncEvent[] = [];
+
+// Earlier builds stored raw error text and details here. Those strings can
+// contain patient identifiers, so remove the unscoped browser copy.
+safeLocalStorage.removeItem("sync-history");
 
 const dataSourceLabels: Record<SyncDataSource, string> = {
   supabase: "Supabase",
@@ -72,32 +77,23 @@ function formatRelativeTime(timestamp: string): string {
 }
 
 function loadSyncHistory(): SyncEvent[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return Array.isArray(parsed) ? parsed.slice(0, MAX_EVENTS) : [];
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return [];
+  return [...inMemoryHistory];
 }
 
 function saveSyncHistory(events: SyncEvent[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(events.slice(0, MAX_EVENTS)));
-  } catch {
-    // Ignore storage errors
-  }
+  inMemoryHistory = events.slice(0, MAX_EVENTS);
 }
 
 export function addSyncEvent(event: Omit<SyncEvent, "id" | "timestamp">): void {
   const events = loadSyncHistory();
   const newEvent: SyncEvent = {
-    ...event,
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
+    status: event.status,
+    dataSource: event.dataSource,
+    errorMessage: event.status === "error"
+      ? "Sync failed. Retry or check your connection."
+      : undefined,
   };
   saveSyncHistory([newEvent, ...events]);
 }
@@ -274,5 +270,3 @@ export function SyncHistoryPanel({
     </Sheet>
   );
 }
-
-

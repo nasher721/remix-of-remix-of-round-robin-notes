@@ -16,11 +16,8 @@ import { FieldHistoryViewer } from "./FieldHistoryViewer";
 import { SystemsConfigManager } from "./SystemsConfigManager";
 import { MedicationList } from "./MedicationList";
 import { LabFishbone } from "./labs";
-import { PatientAcuityBadge } from "./PatientAcuityBadge";
 import { LengthOfStayBadge } from "./LengthOfStayBadge";
 import { QuickActionsPanel } from "./QuickActionsPanel";
-import { SmartProtocolSuggestions, ProtocolBadge } from "./SmartProtocolSuggestions";
-import { LabTrendBadge } from "./LabTrendingPanel";
 import { AppleAIAssistant } from "./AppleAIAssistant";
 import { PatientSystemsReview } from "./PatientSystemsReview";
 import { ActivityFeed } from "./patient/ActivityFeed";
@@ -37,6 +34,7 @@ import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useTeam } from "@/contexts/TeamContext";
 import { DashboardFocusTarget, SystemsReviewMode } from "@/lib/dashboardPrefs";
 import { cn } from "@/lib/utils";
+import { extractPatientImageObjectKeyList } from "@/lib/patientImages";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -116,7 +114,7 @@ const PatientCardComponent = ({
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
   const imagingImageCount = React.useMemo(() => {
     if (!patient.imaging) return 0;
-    return (patient.imaging.match(/<img[^>]+src=["'][^"']+["'][^>]*>/gi) || []).length;
+    return extractPatientImageObjectKeyList(patient.imaging).length;
   }, [patient.imaging]);
 
   const handleGenerateIntervalEvents = async () => {
@@ -307,10 +305,7 @@ const PatientCardComponent = ({
             </div>
             {/* Patient Status Badges */}
             <div className="flex items-center gap-1.5 no-print">
-              <PatientAcuityBadge patient={patient} size="sm" />
               <LengthOfStayBadge createdAt={patient.createdAt} />
-              <LabTrendBadge labText={patient.labs} />
-              <ProtocolBadge patient={patient} />
             </div>
             {/* Assignment Dropdown */}
             {teamMembers.length > 0 && (
@@ -469,7 +464,6 @@ const PatientCardComponent = ({
         <div className="flex items-center gap-0.5 no-print">
           {/* Quick Actions & Protocol Tools */}
           <QuickActionsPanel patient={patient} onUpdatePatient={onUpdate} />
-          <SmartProtocolSuggestions patient={patient} />
           <AppleAIAssistant patient={patient} onUpdatePatient={onUpdate} compact />
           <div className="w-px h-4 bg-border/40 mx-1" />
           <FieldHistoryViewer

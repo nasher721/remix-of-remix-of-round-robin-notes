@@ -36,6 +36,8 @@ export const supabaseUrl = "http://test";
 export const resolvedKey = "test-key";
 const insertCapture = (globalThis.__supabaseInsertCapture = globalThis.__supabaseInsertCapture || []);
 const updateCapture = (globalThis.__supabaseUpdateCapture = globalThis.__supabaseUpdateCapture || []);
+const rpcCapture = (globalThis.__supabaseRpcCapture = globalThis.__supabaseRpcCapture || []);
+const storageRemoveCapture = (globalThis.__supabaseStorageRemoveCapture = globalThis.__supabaseStorageRemoveCapture || []);
 const fixture = ${JSON.stringify(PATIENT_FIXTURE)};
 
 function resolveSelect(query) {
@@ -78,6 +80,13 @@ function createSelectQuery(table, columns) {
         return { data, error: result?.error ?? null };
       });
     },
+    maybeSingle() {
+      query.singleResult = true;
+      return resolveSelect(query).then((result) => {
+        const data = Array.isArray(result?.data) ? (result.data[0] ?? null) : result?.data ?? null;
+        return { data, error: result?.error ?? null };
+      });
+    },
     then(resolve, reject) {
       return resolveSelect(query).then(resolve, reject);
     },
@@ -92,11 +101,42 @@ function createSelectQuery(table, columns) {
 }
 
 export const supabase = {
+  storage: {
+    from(bucket) {
+      return {
+        async upload(path) {
+          return { data: { path }, error: null };
+        },
+        async createSignedUrl(path) {
+          return {
+            data: { signedUrl: \`http://test/storage/v1/object/sign/\${bucket}/\${path}?token=test\` },
+            error: null,
+          };
+        },
+        async remove(paths) {
+          storageRemoveCapture.push({ bucket, paths });
+          const handler = globalThis.__SUPABASE_STORAGE_REMOVE_MOCK__;
+          if (typeof handler === "function") {
+            return Promise.resolve(handler({ bucket, paths }));
+          }
+          return { data: paths.map((name) => ({ name })), error: null };
+        },
+      };
+    },
+  },
   functions: {
     invoke: async (name, payload) => (
       globalThis.__SUPABASE_FUNCTIONS_INVOKE_MOCK__?.(name, payload)
       ?? { data: { success: true, data: { patients: [] } }, error: null }
     ),
+  },
+  async rpc(name, args) {
+    rpcCapture.push({ name, args });
+    const handler = globalThis.__SUPABASE_RPC_MOCK__;
+    if (typeof handler === "function") {
+      return handler({ name, args });
+    }
+    return { data: true, error: null };
   },
   from(table) {
     return {
@@ -105,7 +145,36 @@ export const supabase = {
       },
       insert(rows) {
         insertCapture.push({ table, rows });
-        return { select: () => ({ single: () => Promise.resolve({ data: fixture, error: null }) }) };
+        const resolveInsert = () => {
+          const handler = globalThis.__SUPABASE_INSERT_MOCK__;
+          return Promise.resolve(
+            typeof handler === "function"
+              ? handler({ table, rows })
+              : { data: table === "patients" ? fixture : null, error: null },
+          );
+        };
+        const builder = {
+          select() {
+            return {
+              single: () => resolveInsert().then((result) => ({
+                data: result?.data ?? fixture,
+                error: result?.error ?? null,
+              })),
+            };
+          },
+          then(resolve, reject) { return resolveInsert().then(resolve, reject); },
+          catch(reject) { return resolveInsert().catch(reject); },
+          finally(onFinally) { return resolveInsert().finally(onFinally); },
+        };
+        return builder;
+      },
+      upsert(rows) {
+        const handler = globalThis.__SUPABASE_UPSERT_MOCK__;
+        return Promise.resolve(
+          typeof handler === "function"
+            ? handler({ table, rows })
+            : { data: null, error: null },
+        );
       },
       update(data) {
         updateCapture.push({ table, data });
@@ -120,7 +189,25 @@ export const supabase = {
         };
       },
       delete() {
-        return { eq: () => Promise.resolve({ error: null }) };
+        const filters = [];
+        const resolveDelete = () => {
+          const handler = globalThis.__SUPABASE_DELETE_MOCK__;
+          return Promise.resolve(
+            typeof handler === "function"
+              ? handler({ table, filters })
+              : { data: null, error: null },
+          );
+        };
+        const builder = {
+          eq(column, value) {
+            filters.push({ op: "eq", column, value });
+            return builder;
+          },
+          then(resolve, reject) { return resolveDelete().then(resolve, reject); },
+          catch(reject) { return resolveDelete().catch(reject); },
+          finally(onFinally) { return resolveDelete().finally(onFinally); },
+        };
+        return builder;
       },
     };
   },
@@ -138,7 +225,9 @@ export const supabase = {
     },
     signInWithPassword: async (opts) => (globalThis.__SUPABASE_AUTH_MOCK__?.signInWithPassword?.(opts) ?? { error: null }),
     signUp: async (opts) => (globalThis.__SUPABASE_AUTH_MOCK__?.signUp?.(opts) ?? { error: null }),
-    signOut: async () => { await (globalThis.__SUPABASE_AUTH_MOCK__?.signOut?.() ?? Promise.resolve()); },
+    signOut: async () => (
+      (await globalThis.__SUPABASE_AUTH_MOCK__?.signOut?.()) ?? { error: null }
+    ),
   },
 };
 `;

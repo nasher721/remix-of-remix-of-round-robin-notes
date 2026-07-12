@@ -17,41 +17,39 @@ const Security: React.FC = () => {
       </header>
       <main className="max-w-3xl mx-auto px-6 py-12 space-y-8">
         <div>
-          <h1 className="text-3xl font-extrabold font-heading mb-2">Security & Compliance</h1>
+          <h1 className="text-3xl font-extrabold font-heading mb-2">Security deployment guidance</h1>
           <p className="text-muted-foreground text-sm leading-[1.5]">
-            Last updated: March 27, 2026.
+            Last reviewed: July 11, 2026. This overview describes application behavior, not a certification or compliance determination for a particular deployment.
           </p>
         </div>
 
         <section className="space-y-3 leading-[1.5] text-muted-foreground">
-          <h2 className="text-xl font-semibold text-foreground">Data Handling</h2>
+          <h2 className="text-xl font-semibold text-foreground">Deployment responsibility</h2>
           <p>
-            Patient data you enter is stored securely in our cloud database and synced across your devices in real time.
-            We follow industry-standard practices for handling sensitive information, and access is restricted to authenticated users within your organization.
+            The deployment operator is responsible for validating hosting, authentication, authorization policies, administrative access, backups, monitoring, incident response, provider agreements, and device controls before sensitive data is used.
           </p>
           <p>
-            Data is stored in the United States by default. If your organization requires data residency in a specific region, please contact us to discuss options.
-          </p>
-        </section>
-
-        <section className="space-y-3 leading-[1.5] text-muted-foreground">
-          <h2 className="text-xl font-semibold text-foreground">Encryption</h2>
-          <p>
-            All data is encrypted both in transit and at rest. In transit, communications between your device and our servers are protected using TLS encryption.
-            At rest, your data is encrypted using industry-standard encryption provided by our hosting infrastructure.
-          </p>
-          <p>
-            Our authentication service uses secure, battle-tested protocols and does not store passwords in plain text.
+            Clinical content is stored in the configured backend and may be synchronized to authenticated clients. Authentication alone does not prove that authorization is correctly configured; each deployment must test its database and storage policies for its intended roles.
           </p>
         </section>
 
         <section className="space-y-3 leading-[1.5] text-muted-foreground">
-          <h2 className="text-xl font-semibold text-foreground">Audit Trail</h2>
+          <h2 className="text-xl font-semibold text-foreground">Transport, hosting, and browser storage</h2>
           <p>
-            Changes to patient records are tracked with timestamps and user attribution, enabling organizations to maintain an audit trail of who changed what and when.
+            When deployed behind HTTPS, traffic is encrypted in transit between the browser and configured services. This transport protection is not end-to-end encryption. At-rest encryption, backup encryption, key management, and data residency depend on the selected hosting and storage configuration and must be confirmed by the deployment operator.
           </p>
           <p>
-            The audit trail helps support compliance requirements and accountability within your care team. Contact your administrator for access to audit log data within your organization.
+            The application may cache clinical content in browser storage for application and offline features. Use managed-device controls and operating-system protections, restrict shared-device use, and sign out when a session is complete. Authentication and password handling depend on the configured identity provider.
+          </p>
+        </section>
+
+        <section className="space-y-3 leading-[1.5] text-muted-foreground">
+          <h2 className="text-xl font-semibold text-foreground">Change history and audit coverage</h2>
+          <p>
+            Some record fields preserve change timestamps and user attribution where the feature is enabled and an authenticated identity is available.
+          </p>
+          <p>
+            This is not a comprehensive access audit log and should not be presented as one. The deployment operator must add, retain, protect, and review any audit logging required by its policies or applicable law.
           </p>
         </section>
 
@@ -68,9 +66,7 @@ const Security: React.FC = () => {
               {CONTACT_EMAIL}
             </a>
           </p>
-          <p className="text-sm italic">
-            We take security seriously and aim to respond to inquiries promptly.
-          </p>
+          <p className="text-sm italic">The deployment operator should publish its own security contact and response process before production.</p>
         </section>
       </main>
     </div>

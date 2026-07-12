@@ -1,56 +1,64 @@
--- Add _modified and _deleted columns for RxDB Supabase replication
--- Run this migration in Supabase SQL Editor
+-- Add fields used by RxDB replication.
+--
+-- This migration predates the migration that creates public.patients. Fresh
+-- database replays therefore defer the table-specific work to the later
+-- catch-up migration instead of failing before the base schema is created.
 
--- Add _modified timestamp column (required for replication)
-ALTER TABLE patients 
-ADD COLUMN IF NOT EXISTS _modified BIGINT DEFAULT EXTRACT(EPOCH FROM NOW()) * 1000;
-
--- Add _deleted soft-delete column (required for replication)
-ALTER TABLE patients 
-ADD COLUMN IF NOT EXISTS _deleted BOOLEAN DEFAULT FALSE;
-
--- Create index on _modified for efficient replication queries
-CREATE INDEX IF NOT EXISTS idx_patients_modified ON patients(_modified);
-
--- Create index on user_id + _modified for user-scoped replication
-CREATE INDEX IF NOT EXISTS idx_patients_user_modified ON patients(user_id, _modified);
-
--- Create function to auto-update _modified timestamp
-CREATE OR REPLACE FUNCTION update_modified_timestamp()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION public.update_modified_timestamp()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 BEGIN
-  NEW._modified := EXTRACT(EPOCH FROM NOW()) * 1000;
+  NEW._modified := FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
--- Create trigger to auto-update _modified on INSERT and UPDATE
-DROP TRIGGER IF EXISTS trigger_patients_modified ON patients;
-CREATE TRIGGER trigger_patients_modified
-  BEFORE INSERT OR UPDATE ON patients
-  FOR EACH ROW
-  EXECUTE FUNCTION update_modified_timestamp();
+DO $migration$
+BEGIN
+  IF to_regclass('public.patients') IS NULL THEN
+    RAISE NOTICE 'Deferring RxDB patient replication fields until public.patients exists';
+    RETURN;
+  END IF;
 
--- Enable Realtime for patients table (for Supabase Realtime integration)
--- Run: ALTER publication supabase_realtime ADD TABLE patients;
--- Or enable via Supabase Dashboard > Database > Replication
+  ALTER TABLE public.patients
+    ADD COLUMN IF NOT EXISTS _modified bigint
+      DEFAULT FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint,
+    ADD COLUMN IF NOT EXISTS _deleted boolean DEFAULT false;
 
--- Create RLS policies for user-scoped data access (if not exists)
--- These ensure users can only access their own patients
+  CREATE INDEX IF NOT EXISTS idx_patients_modified
+    ON public.patients (_modified);
 
--- Policy: Users can view their own patients
-CREATE POLICY "Users can view own patients" ON patients
-  FOR SELECT USING (auth.uid()::text = user_id);
+  CREATE INDEX IF NOT EXISTS idx_patients_user_modified
+    ON public.patients (user_id, _modified);
 
--- Policy: Users can insert their own patients
-CREATE POLICY "Users can insert own patients" ON patients
-  FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+  DROP TRIGGER IF EXISTS trigger_patients_modified ON public.patients;
+  CREATE TRIGGER trigger_patients_modified
+    BEFORE INSERT OR UPDATE ON public.patients
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_modified_timestamp();
 
--- Policy: Users can update their own patients
-CREATE POLICY "Users can update own patients" ON patients
-  FOR UPDATE USING (auth.uid()::text = user_id)
-  WITH CHECK (auth.uid()::text = user_id);
+  ALTER TABLE public.patients ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can delete their own patients (soft delete via _deleted)
-CREATE POLICY "Users can delete own patients" ON patients
-  FOR DELETE USING (auth.uid()::text = user_id);
+  DROP POLICY IF EXISTS "Users can view own patients" ON public.patients;
+  CREATE POLICY "Users can view own patients" ON public.patients
+    FOR SELECT USING (auth.uid() = user_id);
+
+  DROP POLICY IF EXISTS "Users can insert own patients" ON public.patients;
+  CREATE POLICY "Users can insert own patients" ON public.patients
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+  DROP POLICY IF EXISTS "Users can update own patients" ON public.patients;
+  CREATE POLICY "Users can update own patients" ON public.patients
+    FOR UPDATE USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+  DROP POLICY IF EXISTS "Users can delete own patients" ON public.patients;
+  CREATE POLICY "Users can delete own patients" ON public.patients
+    FOR DELETE USING (auth.uid() = user_id);
+END;
+$migration$;
+
+-- Realtime publication membership remains an environment-level choice. Enable
+-- it through the Supabase dashboard or a deployment-specific migration.

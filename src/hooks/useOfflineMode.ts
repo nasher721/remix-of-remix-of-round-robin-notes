@@ -1,7 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { offlineQueue, QueuedMutation } from '@/lib/offline/offlineQueue';
-import { syncService, SyncProgress } from '@/lib/offline/syncService';
+import {
+  indexedDBQueue,
+  type QueuedMutation,
+  type QueuedMutationInput,
+} from '@/lib/offline/indexedDBQueue';
+import { syncEngine } from '@/lib/offline/syncEngine';
 import { useOnlineStatus } from './useOnlineStatus';
+
+export interface SyncProgress {
+  total: number;
+  completed: number;
+  failed: number;
+  skipped: number;
+  current: string;
+}
+
+interface SkippedMutation {
+  id: string;
+  mutation: QueuedMutation;
+  reason: string;
+  serverTimestamp?: string;
+}
 
 export interface OfflineState {
   isOnline: boolean;
@@ -10,12 +29,17 @@ export interface OfflineState {
   isSyncing: boolean;
   syncProgress: SyncProgress | null;
   lastSyncTime: number | null;
-  skippedMutations: Array<{
-    id: string;
-    mutation: QueuedMutation;
-    reason: string;
-    serverTimestamp?: string;
-  }>;
+  skippedMutations: SkippedMutation[];
+}
+
+function getRetainedConflicts(queue: QueuedMutation[]): SkippedMutation[] {
+  return queue
+    .filter(mutation => mutation.status === 'conflict')
+    .map(mutation => ({
+      id: mutation.id,
+      mutation,
+      reason: 'Conflict detected - manual review required',
+    }));
 }
 
 export function useOfflineMode() {
@@ -24,115 +48,111 @@ export function useOfflineMode() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
-  const [skippedMutations, setSkippedMutations] = useState<Array<{
-    id: string;
-    mutation: QueuedMutation;
-    reason: string;
-    serverTimestamp?: string;
-  }>>([]);
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [skippedMutations, setSkippedMutations] = useState<SkippedMutation[]>([]);
+  const syncInProgressRef = useRef(false);
 
-  // Trigger manual sync (declared before useEffect that references it)
+  const updateQueueState = useCallback((queue: QueuedMutation[]) => {
+    setPendingMutations(queue);
+    setSkippedMutations(getRetainedConflicts(queue));
+  }, []);
+
   const triggerSync = useCallback(async () => {
-    if (!isOnline || isSyncing) return;
+    if (!navigator.onLine || syncInProgressRef.current) return;
 
+    const queuedBeforeSync = await indexedDBQueue.getQueue();
+    const pendingBeforeSync = queuedBeforeSync.filter(
+      mutation => !mutation.status || mutation.status === 'pending',
+    );
+    if (pendingBeforeSync.length === 0) {
+      updateQueueState(queuedBeforeSync);
+      return;
+    }
+
+    syncInProgressRef.current = true;
     setIsSyncing(true);
-    setSyncProgress(null);
-    // Clear skipped mutations on new sync attempt
-    setSkippedMutations([]);
+    setSyncProgress({
+      total: pendingBeforeSync.length,
+      completed: 0,
+      failed: 0,
+      skipped: 0,
+      current: 'Preparing queued changes',
+    });
 
     try {
-      const result = await syncService.syncAll((progress) => {
-        setSyncProgress(progress);
+      const result = await syncEngine.sync();
+      const queuedAfterSync = await indexedDBQueue.getQueue();
+      updateQueueState(queuedAfterSync);
+      setSyncProgress({
+        total: pendingBeforeSync.length,
+        completed: result.success,
+        failed: result.failed,
+        skipped: result.conflicts.length,
+        current: '',
       });
-
-      if (result.completed > 0) {
-        setLastSyncTime(Date.now());
-      }
-
-      // Capture skipped/conflicted mutations from sync results
-      const skipped = result.results
-        .filter(r => r.skipped)
-        .map(r => {
-          const mutation = pendingMutations.find(m => m.id === r.mutationId);
-          return {
-            id: r.mutationId,
-            mutation: mutation!,
-            reason: 'Conflict detected - server data is newer',
-          };
-        })
-        .filter(s => s.mutation);
-
-      if (skipped.length > 0) {
-        setSkippedMutations(skipped);
-      }
-    } catch (err) {
-      console.error('[OfflineSync] Sync failed:', err);
+      setLastSyncTime(Date.now());
+    } catch (error) {
+      console.error('[OfflineSync] Sync failed:', error);
     } finally {
+      syncInProgressRef.current = false;
       setIsSyncing(false);
     }
-  }, [isOnline, isSyncing, pendingMutations]);
+  }, [updateQueueState]);
 
-  // Auto-sync when coming back online
+  // Sync persisted same-user work after reload and on later reconnections.
   useEffect(() => {
-    if (isOnline) {
-      // Debounce sync to avoid rapid reconnection issues
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-      syncTimeoutRef.current = setTimeout(() => {
-        triggerSync();
-      }, 1000);
-    } else {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-    }
-
-    return () => {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-      }
-    };
+    if (!isOnline) return;
+    const timeout = setTimeout(() => {
+      void triggerSync();
+    }, 1000);
+    return () => clearTimeout(timeout);
   }, [isOnline, triggerSync]);
 
-  // Subscribe to queue changes
   useEffect(() => {
-    // Initial load
-    setPendingMutations(offlineQueue.getQueue());
-
-    const unsubscribe = offlineQueue.subscribe((queue) => {
-      setPendingMutations(queue);
+    const unsubscribeQueue = indexedDBQueue.subscribe(updateQueueState);
+    const unsubscribeStatus = syncEngine.on('status-change', status => {
+      const syncing = status === 'syncing';
+      syncInProgressRef.current = syncing;
+      setIsSyncing(syncing);
+    });
+    const unsubscribeProgress = syncEngine.on('progress', ({ processed, total }) => {
+      setSyncProgress(previous => ({
+        total,
+        completed: processed,
+        failed: previous?.failed ?? 0,
+        skipped: previous?.skipped ?? 0,
+        current: processed < total ? 'Processing queued changes' : '',
+      }));
+    });
+    const unsubscribeComplete = syncEngine.on('complete', result => {
+      setLastSyncTime(Date.now());
+      setSyncProgress(previous => ({
+        total: previous?.total ?? result.success + result.failed + result.conflicts.length,
+        completed: result.success,
+        failed: result.failed,
+        skipped: result.conflicts.length,
+        current: '',
+      }));
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeQueue();
+      unsubscribeStatus();
+      unsubscribeProgress();
+      unsubscribeComplete();
+    };
+  }, [updateQueueState]);
+
+  const queueMutation = useCallback((mutation: QueuedMutationInput): Promise<string> => {
+    return indexedDBQueue.enqueue(mutation);
   }, []);
 
-  // Subscribe to sync progress
-  useEffect(() => {
-    const unsubscribe = syncService.subscribeProgress((progress) => {
-      setSyncProgress(progress);
-    });
-
-    return unsubscribe;
+  const clearQueue = useCallback(async (): Promise<void> => {
+    await indexedDBQueue.clear();
   }, []);
 
-  // Queue a mutation
-  const queueMutation = useCallback((
-    mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'retryCount' | 'maxRetries'>
-  ): string => {
-    return offlineQueue.enqueue(mutation);
-  }, []);
-
-  // Clear pending mutations
-  const clearQueue = useCallback(() => {
-    offlineQueue.clear();
-  }, []);
-
-  // Check if a specific entity has pending changes
   const hasPendingChanges = useCallback((entityId: string, table: string): boolean => {
     return pendingMutations.some(
-      m => m.entityId === entityId && m.table === table
+      mutation => mutation.entityId === entityId && mutation.table === table,
     );
   }, [pendingMutations]);
 

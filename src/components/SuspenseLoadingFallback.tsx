@@ -23,7 +23,7 @@ export function SuspenseLoadingFallback(): React.ReactElement {
         opacity: { from: 0.35, to: 1 },
         scale: { from: 0.65, to: 1 },
         duration: 420,
-        delay: stagger(120, { from: "start" }),
+        delay: stagger(120, { from: "first" }),
       })
       return tl
     },

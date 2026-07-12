@@ -13,6 +13,7 @@ globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.self = dom.window;
 globalThis.HTMLElement = dom.window.HTMLElement;
+globalThis.HTMLFormElement = dom.window.HTMLFormElement;
 globalThis.localStorage = dom.window.localStorage;
 globalThis.DOMParser = dom.window.DOMParser;
 globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);

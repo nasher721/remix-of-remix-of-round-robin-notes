@@ -1,12 +1,123 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+export type ScoreType = "bmi" | "anion_gap" | "corrected_calcium";
+
+export interface CalculationParams {
+    weight_kg?: number;
+    height_cm?: number;
+    sodium?: number;
+    chloride?: number;
+    bicarbonate?: number;
+    measured_calcium?: number;
+    albumin?: number;
+}
+
+export interface CalculationResult {
+    text: string;
+    structuredContent: Record<string, number | string>;
+}
+
+const CALCULATION_WARNING = "Formula output only. Verify units, input accuracy, formula applicability, and local reference ranges before clinical use.";
+
+function requireFinite(
+    value: number | undefined,
+    name: string,
+    minimum: number,
+    minimumInclusive: boolean
+): number {
+    if (value === undefined) {
+        throw new Error(`Missing ${name}`);
+    }
+
+    if (!Number.isFinite(value)) {
+        throw new Error(`${name} must be a finite number`);
+    }
+
+    const belowMinimum = minimumInclusive ? value < minimum : value <= minimum;
+    if (belowMinimum) {
+        const comparison = minimumInclusive ? "greater than or equal to" : "greater than";
+        throw new Error(`${name} must be ${comparison} ${minimum}`);
+    }
+
+    return value;
+}
+
+function requireFiniteResult(value: number, name: string): number {
+    if (!Number.isFinite(value)) {
+        throw new Error(`${name} is outside the supported numeric range`);
+    }
+    return value;
+}
+
+export function calculateScore(scoreType: ScoreType, params: CalculationParams): CalculationResult {
+    switch (scoreType) {
+        case "bmi": {
+            const weightKg = requireFinite(params.weight_kg, "weight_kg", 0, false);
+            const heightCm = requireFinite(params.height_cm, "height_cm", 0, false);
+            const heightM = heightCm / 100;
+            const bmi = requireFiniteResult(weightKg / (heightM * heightM), "BMI result");
+            const category = bmi < 18.5 ? "Underweight" :
+                bmi < 25 ? "Normal weight" :
+                    bmi < 30 ? "Overweight" : "Obese";
+
+            return {
+                text: `BMI: ${bmi.toFixed(1)} (${category})\n\nWarning: ${CALCULATION_WARNING}`,
+                structuredContent: {
+                    bmi,
+                    category,
+                    formula: "weight_kg / height_m^2",
+                    disclaimer: CALCULATION_WARNING
+                }
+            };
+        }
+
+        case "anion_gap": {
+            const sodium = requireFinite(params.sodium, "sodium", 0, false);
+            const chloride = requireFinite(params.chloride, "chloride", 0, false);
+            const bicarbonate = requireFinite(params.bicarbonate, "bicarbonate", 0, true);
+            const anionGap = requireFiniteResult(sodium - (chloride + bicarbonate), "Anion Gap result");
+            const interpretation = anionGap > 12 ? "High" : anionGap < 8 ? "Low" : "Normal";
+
+            return {
+                text: `Anion Gap: ${anionGap.toFixed(1)} mEq/L (${interpretation})\n\nWarning: ${CALCULATION_WARNING}`,
+                structuredContent: {
+                    anion_gap: anionGap,
+                    interpretation,
+                    formula: "sodium - (chloride + bicarbonate)",
+                    disclaimer: CALCULATION_WARNING
+                }
+            };
+        }
+
+        case "corrected_calcium": {
+            const measuredCalcium = requireFinite(params.measured_calcium, "measured_calcium", 0, true);
+            const albumin = requireFinite(params.albumin, "albumin", 0, true);
+            const correctedCalcium = requireFiniteResult(
+                measuredCalcium + 0.8 * (4 - albumin),
+                "Corrected Calcium result"
+            );
+
+            return {
+                text: `Corrected Calcium: ${correctedCalcium.toFixed(2)} mg/dL\n\nWarning: ${CALCULATION_WARNING}`,
+                structuredContent: {
+                    corrected_calcium: correctedCalcium,
+                    formula: "measured_calcium + 0.8 * (4 - albumin)",
+                    disclaimer: CALCULATION_WARNING
+                }
+            };
+        }
+    }
+}
+
+const finiteOptionalNumber = z.number().finite().optional();
+
 export function registerCalculationsTools(server: McpServer) {
     server.registerTool(
         "clinical_calculate_score",
         {
             title: "Calculate Clinical Score",
-            description: `Calculates various clinical scores based on input parameters.
+            description: `Calculates one of the supported formulas after validating that required inputs are finite and non-negative (strictly positive where zero would make the formula invalid).
 Currently supports:
 - BMI (Body Mass Index)
 - Anion Gap
@@ -20,17 +131,17 @@ Args:
     - For Corrected Calcium: { measured_calcium, albumin }
 
 Returns:
-  A structured object with the calculated result and interpretation.`,
+  A structured object with the calculated result and interpretation. Calculations do not replace clinical judgment or source verification.`,
             inputSchema: z.object({
                 score_type: z.enum(["bmi", "anion_gap", "corrected_calcium"]),
                 params: z.object({
-                    weight_kg: z.number().optional(),
-                    height_cm: z.number().optional(),
-                    sodium: z.number().optional(),
-                    chloride: z.number().optional(),
-                    bicarbonate: z.number().optional(),
-                    measured_calcium: z.number().optional(),
-                    albumin: z.number().optional()
+                    weight_kg: finiteOptionalNumber,
+                    height_cm: finiteOptionalNumber,
+                    sodium: finiteOptionalNumber,
+                    chloride: finiteOptionalNumber,
+                    bicarbonate: finiteOptionalNumber,
+                    measured_calcium: finiteOptionalNumber,
+                    albumin: finiteOptionalNumber
                 })
             }),
             annotations: {
@@ -41,54 +152,19 @@ Returns:
             }
         },
         async ({ score_type, params }) => {
-            let resultStr = "";
-            let output: Record<string, unknown> = {};
-
             try {
-                switch (score_type) {
-                    case "bmi": {
-                        if (!params.weight_kg || !params.height_cm) {
-                            throw new Error("Missing weight_kg or height_cm for BMI calculation");
-                        }
-                        const height_m = params.height_cm / 100;
-                        const bmi = params.weight_kg / (height_m * height_m);
-                        const category = bmi < 18.5 ? "Underweight" :
-                            bmi < 25 ? "Normal weight" :
-                                bmi < 30 ? "Overweight" : "Obese";
-                        output = { bmi, category };
-                        resultStr = `BMI: ${bmi.toFixed(1)} (${category})`;
-                        break;
-                    }
-
-                    case "anion_gap": {
-                        if (!params.sodium || !params.chloride || !params.bicarbonate) {
-                            throw new Error("Missing parameters for Anion Gap");
-                        }
-                        const ag = params.sodium - (params.chloride + params.bicarbonate);
-                        const ag_interpretation = ag > 12 ? "High" : ag < 8 ? "Low" : "Normal";
-                        output = { anion_gap: ag, interpretation: ag_interpretation };
-                        resultStr = `Anion Gap: ${ag.toFixed(1)} mEq/L (${ag_interpretation})`;
-                        break;
-                    }
-
-                    case "corrected_calcium": {
-                        if (!params.measured_calcium || !params.albumin) {
-                            throw new Error("Missing parameters for Corrected Calcium");
-                        }
-                        const corrected = params.measured_calcium + 0.8 * (4.0 - params.albumin);
-                        output = { corrected_calcium: corrected };
-                        resultStr = `Corrected Calcium: ${corrected.toFixed(2)} mg/dL`;
-                        break;
-                    }
-                }
-
+                const result = calculateScore(score_type, params);
                 return {
-                    content: [{ type: "text", text: resultStr }],
-                    structuredContent: output
+                    content: [{ type: "text", text: result.text }],
+                    structuredContent: result.structuredContent
                 };
-            } catch (e: unknown) {
+            } catch (error: unknown) {
                 return {
-                    content: [{ type: "text", text: `Error calculating score: ${e instanceof Error ? e.message : String(e)}` }]
+                    isError: true,
+                    content: [{
+                        type: "text",
+                        text: `Error calculating score: ${error instanceof Error ? error.message : String(error)}`
+                    }]
                 };
             }
         }

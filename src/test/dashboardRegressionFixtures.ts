@@ -87,6 +87,7 @@ export function makeDashboardPatients(count: 8 | 20): Patient[] {
 
 export const dashboardPatients8 = makeDashboardPatients(8);
 export const dashboardPatients20 = makeDashboardPatients(20);
+export const dashboardPatients3 = dashboardPatients8.slice(0, 3);
 
 export function makeDashboardTodosMap(patients: Patient[]): Record<string, PatientTodo[]> {
   return Object.fromEntries(

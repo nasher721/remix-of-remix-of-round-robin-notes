@@ -48,7 +48,7 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
           if (fields.length === 0) {
             const expanded = expandPhrase(selectedPhrase, [], {}, patient);
             onInsert?.(expanded.content);
-            logUsage(selectedPhrase.id, patient?.id, context?.section, {}, expanded.content);
+            logUsage(selectedPhrase.id, patient?.id, context?.section);
             setSelectedPhrase(null);
           } else {
             setShowForm(true);
@@ -147,9 +147,9 @@ export const usePhraseExpansion = (options: UsePhraseExpansionOptions = {}) => {
   }, [onInsert]);
 
   // Log usage from form
-  const handleLogUsage = React.useCallback((values: Record<string, unknown>, content: string) => {
+  const handleLogUsage = React.useCallback(() => {
     if (selectedPhrase) {
-      logUsage(selectedPhrase.id, patient?.id, context?.section, values, content);
+      logUsage(selectedPhrase.id, patient?.id, context?.section);
     }
   }, [selectedPhrase, patient?.id, context?.section, logUsage]);
 

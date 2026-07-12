@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { getSafeAuthErrorMessage, type AuthProviderLabel } from "@/lib/auth/authErrorMessage";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 
 const authSchema = z.object({
@@ -15,7 +16,6 @@ const authSchema = z.object({
 });
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +23,7 @@ const Auth = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -75,40 +75,19 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const { error } = await signIn(email, password);
-        if (error) {
-          toast({
-            title: "Login failed",
-            description: error.message.includes("Invalid login credentials")
-              ? "Invalid email or password. Please try again."
-              : error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Welcome back",
-            description: "You have successfully logged in.",
-          });
-          navigate("/");
-        }
+      const { error } = await signIn(email, password);
+      if (error) {
+        toast({
+          title: "Login failed",
+          description: getSafeAuthErrorMessage(error),
+          variant: "destructive",
+        });
       } else {
-        const { error } = await signUp(email, password);
-        if (error) {
-          toast({
-            title: "Sign up failed",
-            description: error.message.includes("already registered")
-              ? "This email is already registered. Please sign in instead."
-              : error.message,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Account created",
-            description: "You can now sign in with your credentials.",
-          });
-          navigate("/");
-        }
+        toast({
+          title: "Welcome back",
+          description: "You have successfully logged in.",
+        });
+        navigate("/");
       }
     } catch (error) {
       toast({
@@ -123,7 +102,7 @@ const Auth = () => {
 
   const handleOAuthSignIn = async (provider: "google" | "apple") => {
     const setProviderLoading = provider === "google" ? setGoogleLoading : setAppleLoading;
-    const label = provider === "google" ? "Google" : "Apple";
+    const label: AuthProviderLabel = provider === "google" ? "Google" : "Apple";
     setProviderLoading(true);
     try {
       const { supabase } = await import("@/integrations/supabase/client");
@@ -136,7 +115,7 @@ const Auth = () => {
       if (error) {
         toast({
           title: `${label} sign-in failed`,
-          description: error.message || `Could not sign in with ${label}. Please try again.`,
+          description: getSafeAuthErrorMessage(error, { providerLabel: label }),
           variant: "destructive",
         });
       }
@@ -194,12 +173,10 @@ const Auth = () => {
         <section className="mx-auto w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgb(15_23_42_/_0.08)] sm:p-8">
           <div className="mb-7">
             <h2 id="auth-heading" className="text-2xl font-semibold tracking-tight text-slate-950">
-              {isLogin ? "Welcome back" : "Create your account"}
+              Welcome back
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              {isLogin
-                ? "Use your email and password to open the workspace."
-                : "Create an account to start a workspace."}
+              Use your provisioned email and password to open the workspace.
             </p>
           </div>
 
@@ -269,12 +246,10 @@ const Auth = () => {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isLogin ? "Signing in" : "Creating account"}
+                  Signing in
                 </>
-              ) : isLogin ? (
-                "Sign in"
               ) : (
-                "Create account"
+                "Sign in"
               )}
             </Button>
           </form>
@@ -309,21 +284,9 @@ const Auth = () => {
             </Button>
           </div>
 
-          <div className="mt-6 text-center text-sm">
-            <span className="text-slate-600">
-              {isLogin ? "Need an account? " : "Already have an account? "}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setErrors({});
-              }}
-              className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              {isLogin ? "Sign up" : "Sign in"}
-            </button>
-          </div>
+          <p className="mt-6 text-center text-sm text-slate-600">
+            Access is restricted to accounts provisioned by your administrator.
+          </p>
         </section>
       </div>
     </main>
