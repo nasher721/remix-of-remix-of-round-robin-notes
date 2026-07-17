@@ -160,10 +160,22 @@ export const ImagePasteEditor = ({
   >>(null);
   const annotationUploadSessionRef = React.useRef<number | null>(null);
 
+  // ── Apple Pencil / stylus support ──────────────────────────────────────
+  /** Tracks active pointer IDs and their types so we can reject touch while pen is active */
+  const activePointersRef = React.useRef<Map<number, string>>(new Map());
+  /** True when at least one pen pointer is down this annotation session */
+  const penActiveRef = React.useRef(false);
+  /** For the auto-hide "pen detected" indicator */
+  const [penDetected, setPenDetected] = React.useState(false);
+  const penIndicatorTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Previous canvas point for quadratic-curve stroke smoothing */
+  const lastStrokePointRef = React.useRef<{ x: number; y: number } | null>(null);
+
   React.useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      if (penIndicatorTimerRef.current) clearTimeout(penIndicatorTimerRef.current);
     };
   }, []);
 
@@ -881,6 +893,20 @@ export const ImagePasteEditor = ({
     const context = canvas.getContext("2d");
     if (!context) return;
 
+    activePointersRef.current.set(event.pointerId, event.pointerType);
+
+    const penDown = event.pointerType === "pen";
+    if (penDown && !penActiveRef.current) {
+      penActiveRef.current = true;
+      setPenDetected(true);
+      if (penIndicatorTimerRef.current) clearTimeout(penIndicatorTimerRef.current);
+      penIndicatorTimerRef.current = setTimeout(() => setPenDetected(false), 2000);
+    }
+
+    if (event.pointerType === "touch" && penActiveRef.current) {
+      return;
+    }
+
     canvas.setPointerCapture(event.pointerId);
     const point = getCanvasPoint(event);
 
@@ -900,6 +926,7 @@ export const ImagePasteEditor = ({
     isDrawingRef.current = true;
     startPointRef.current = point;
     snapshotRef.current = context.getImageData(0, 0, canvas.width, canvas.height);
+    lastStrokePointRef.current = point;
 
     if (annotationTool === "pen" || annotationTool === "highlighter" || annotationTool === "eraser") {
       context.beginPath();
@@ -913,23 +940,49 @@ export const ImagePasteEditor = ({
     if (!canvas) return;
     const context = canvas.getContext("2d");
     if (!context) return;
+
+    if (event.pointerType === "touch" && penActiveRef.current) {
+      return;
+    }
+
     const point = getCanvasPoint(event);
+    const isPen = event.pointerType === "pen";
+    const pressure = isPen ? Math.max(0.1, event.pressure) : 1;
+    const tilt = isPen ? Math.sqrt(event.tiltX ** 2 + event.tiltY ** 2) : 0;
 
     if (annotationTool === "pen" || annotationTool === "highlighter" || annotationTool === "eraser") {
       context.save();
       if (annotationTool === "eraser") {
         context.globalCompositeOperation = "destination-out";
         context.strokeStyle = "rgba(0,0,0,1)";
+        context.lineWidth = annotationWidth;
+        context.globalAlpha = 1;
+      } else if (annotationTool === "highlighter") {
+        context.strokeStyle = annotationColor;
+        context.lineWidth = annotationWidth;
+        context.globalAlpha = 0.3;
       } else {
         context.strokeStyle = annotationColor;
+        context.lineWidth = isPen ? annotationWidth * (0.3 + pressure * 0.7) : annotationWidth;
+        context.globalAlpha = isPen && tilt > 0 ? Math.max(0.5, 1 - tilt / 45 * 0.5) : 1;
       }
-      context.lineWidth = annotationWidth;
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.globalAlpha = annotationTool === "highlighter" ? 0.3 : 1;
-      context.lineTo(point.x, point.y);
+
+      const prev = lastStrokePointRef.current;
+      if (prev) {
+        const midX = (prev.x + point.x) / 2;
+        const midY = (prev.y + point.y) / 2;
+        context.moveTo(prev.x, prev.y);
+        context.quadraticCurveTo(prev.x, prev.y, midX, midY);
+      } else {
+        context.moveTo(point.x, point.y);
+        context.lineTo(point.x, point.y);
+      }
       context.stroke();
       context.restore();
+
+      lastStrokePointRef.current = point;
       return;
     }
 
@@ -1002,6 +1055,12 @@ export const ImagePasteEditor = ({
     isDrawingRef.current = false;
     startPointRef.current = null;
     snapshotRef.current = null;
+    lastStrokePointRef.current = null;
+
+    activePointersRef.current.delete(event.pointerId);
+    if (activePointersRef.current.size === 0) {
+      penActiveRef.current = false;
+    }
   };
 
   const handleAnnotationUndo = () => {
@@ -1928,6 +1987,12 @@ export const ImagePasteEditor = ({
                 />
                 <span className="text-xs font-medium w-6">{annotationWidth}px</span>
               </div>
+              {penDetected && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/40 dark:text-green-300 animate-in fade-in">
+                  <Pencil className="h-3 w-3" />
+                  Pen detected — touch rejected
+                </span>
+              )}
               <div className="flex items-center gap-2">
                 <Button type="button" size="sm" variant="outline" onClick={handleAnnotationUndo} disabled={historySize <= 1}>
                   Undo

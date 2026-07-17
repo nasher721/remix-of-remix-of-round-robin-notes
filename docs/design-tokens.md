@@ -27,8 +27,8 @@ Single source of truth for spacing, radius, typography, and shadows. Use these a
 
 | Token | Value | Use |
 |-------|--------|-----|
-| `--radius` | 0.75rem (12px) | Cards, panels, modals |
-| `--radius-sm` | 0.5rem (8px) | Inputs, buttons, chips |
+| `--radius` | 0.5rem (8px) | Cards, panels, modals |
+| `--radius-sm` | 0.375rem (6px) | Inputs, buttons, chips |
 
 **Tailwind:** `rounded-lg` → `var(--radius)`, `rounded-md` → `var(--radius) - 2px`, `rounded-sm` → `var(--radius-sm)`.
 
@@ -44,8 +44,22 @@ Single source of truth for spacing, radius, typography, and shadows. Use these a
 |-------|-----|
 | `--shadow-card` | Cards, dropdowns, utility panels |
 | `--shadow-modal` | Modals, dialogs, popovers |
+| `--shadow-elevated` | Elevated cards, hover states |
+| `--shadow-floating` | Floating panels, toolbars |
 
-**Tailwind:** `shadow-card`, `shadow-modal` in theme.
+**Tailwind:** `shadow-card`, `shadow-modal`, `shadow-elevated`, `shadow-floating` in theme.
+
+## Surface Elevation (Light Mode)
+
+| Token | Value | Use |
+|-------|--------|-----|
+| `--surface-0` | `240 100% 100%` | Base background |
+| `--surface-1` | `220 14% 96%` | Card background, subtle borders |
+| `--surface-2` | `220 14% 94%` | Dropdowns, secondary surfaces |
+| `--surface-3` | `220 14% 92%` | Elevated cards, hover states |
+| `--surface-4` | `220 14% 90%` | Floating panels, modal backgrounds |
+
+**Dark mode:** `--surface-0` through `--surface-4` scale from `11%` to `22%` lightness (deeper navy).
 
 ## Color
 

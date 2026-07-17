@@ -1,6 +1,5 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from 'framer-motion';
 import { useAuth } from "@/hooks/useAuth";
 import { usePatients } from "@/hooks/usePatients";
 import { useCloudAutotexts } from "@/hooks/useAutotexts";
@@ -256,32 +255,37 @@ function IndexContent(): React.ReactElement | null {
 
   if (authLoading || patientsLoading) {
     return (
-      <motion.div
+      <div
         className="min-h-screen bg-background"
         role="status"
         aria-live="polite"
         aria-busy="true"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
       >
-        <div className="border-b border-border/20 bg-card/90">
-          <div className="container mx-auto px-4 md:px-6 lg:px-8 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="h-8 w-44 rounded-lg bg-secondary/70 animate-pulse" />
-              <div className="flex gap-2">
-                <div className="h-9 w-24 rounded-lg bg-secondary/70 animate-pulse" />
-                <div className="h-9 w-16 rounded-lg bg-secondary/70 animate-pulse" />
-              </div>
+        {/* Header skeleton */}
+        <div className="border-b border-border/15 bg-card">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-6 lg:px-8">
+            <div className="flex items-center gap-3">
+              <div className="h-7 w-7 rounded-lg bg-muted animate-pulse" />
+              <div className="h-4 w-32 rounded-md bg-muted animate-pulse" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-28 rounded-xl bg-muted animate-pulse" />
+              <div className="h-9 w-9 rounded-xl bg-muted animate-pulse" />
             </div>
           </div>
         </div>
-        <div className="container mx-auto px-4 md:px-6 lg:px-8 py-4">
-          <div className="mb-4 h-10 rounded-lg border border-border/25 bg-card/60 animate-pulse" />
+        {/* Content skeleton */}
+        <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 lg:px-8">
+          <div className="mb-5 h-11 w-full rounded-xl border border-border/15 bg-card animate-pulse" />
+          <div className="mb-6 flex gap-2">
+            <div className="h-8 w-20 rounded-lg bg-muted animate-pulse" />
+            <div className="h-8 w-20 rounded-lg bg-muted animate-pulse" />
+            <div className="h-8 w-20 rounded-lg bg-muted animate-pulse" />
+          </div>
           <PatientListSkeleton count={3} />
           <p className="sr-only">Loading workspace. Preparing your rounds.</p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 

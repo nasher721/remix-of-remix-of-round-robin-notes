@@ -86,15 +86,19 @@ export default {
 				'gradient-header': 'var(--gradient-header)',
 				'gradient-success': 'var(--gradient-success)'
 			},
-			boxShadow: {
-				sm: '0 2px 4px 0 rgba(0, 0, 0, 0.02)',
-				md: '0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-				lg: '0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02)',
-				xl: '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02)',
-				'glow': '0 0 20px rgba(var(--primary-rgb), 0.15)',
-				card: 'var(--shadow-card)',
-				modal: 'var(--shadow-modal)',
-			},
+		boxShadow: {
+			'2xs': '0 1px 2px 0 rgba(0, 0, 0, 0.03)',
+			sm: '0 2px 4px 0 rgba(0, 0, 0, 0.04)',
+			md: '0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.04)',
+			lg: '0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -2px rgba(0, 0, 0, 0.03)',
+			xl: '0 20px 25px -5px rgba(0, 0, 0, 0.07), 0 10px 10px -5px rgba(0, 0, 0, 0.03)',
+			'2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.12)',
+			'glow': '0 0 20px rgba(var(--primary-rgb), 0.15)',
+			card: '0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.06)',
+			'card-hover': '0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04)',
+			modal: '0 18px 50px -24px rgba(15, 23, 42, 0.35), 0 8px 20px -18px rgba(15, 23, 42, 0.2)',
+			'float': '0 12px 36px -8px rgba(15, 23, 42, 0.18), 0 4px 12px -4px rgba(15, 23, 42, 0.08)',
+		},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
@@ -194,39 +198,39 @@ export default {
 				'glow-pulse': 'glow-pulse 3s ease-in-out infinite'
 			},
 			fontFamily: {
-				sans: [
-					'Space Grotesk',
-					'ui-sans-serif',
-					'system-ui',
-					'-apple-system',
-					'BlinkMacSystemFont',
-					'Segoe UI',
-					'Roboto',
-					'Helvetica Neue',
-					'Arial',
-					'Noto Sans',
-					'sans-serif'
-				],
-				serif: [
-					'Lora',
-					'ui-serif',
-					'Georgia',
-					'Cambria',
-					'Times New Roman',
-					'Times',
-					'serif'
-				],
-				mono: [
-					'Space Mono',
-					'ui-monospace',
-					'SFMono-Regular',
-					'Menlo',
-					'Monaco',
-					'Consolas',
-					'Liberation Mono',
-					'Courier New',
-					'monospace'
-				]
+			sans: [
+				'DM Sans',
+				'ui-sans-serif',
+				'system-ui',
+				'-apple-system',
+				'BlinkMacSystemFont',
+				'Segoe UI',
+				'Roboto',
+				'Helvetica Neue',
+				'Arial',
+				'Noto Sans',
+				'sans-serif'
+			],
+			serif: [
+				'Outfit',
+				'ui-serif',
+				'Georgia',
+				'Cambria',
+				'Times New Roman',
+				'Times',
+				'serif'
+			],
+			mono: [
+				'SF Mono',
+				'ui-monospace',
+				'SFMono-Regular',
+				'Menlo',
+				'Monaco',
+				'Consolas',
+				'Liberation Mono',
+				'Courier New',
+				'monospace'
+			]
 			},
 			fontSize: {
 				xs: [
@@ -248,48 +252,48 @@ export default {
 						letterSpacing: '0'
 					}
 				],
-				lg: [
-					'1.125rem',
-					{
-						lineHeight: '1.75rem',
-						letterSpacing: '0'
-					}
-				],
-				xl: [
-					'1.25rem',
-					{
-						lineHeight: '1.75rem',
-						letterSpacing: '0'
-					}
-				],
-				'2xl': [
-					'1.5rem',
-					{
-						lineHeight: '2rem',
-						letterSpacing: '0'
-					}
-				],
-				'3xl': [
-					'1.875rem',
-					{
-						lineHeight: '2.25rem',
-						letterSpacing: '0'
-					}
-				],
-				'4xl': [
-					'2.25rem',
-					{
-						lineHeight: '2.5rem',
-						letterSpacing: '0'
-					}
-				],
-				'5xl': [
-					'3rem',
-					{
-						lineHeight: '1.2',
-						letterSpacing: '0'
-					}
-				]
+			lg: [
+				'1.125rem',
+				{
+					lineHeight: '1.75rem',
+					letterSpacing: '-0.01em'
+				}
+			],
+			xl: [
+				'1.25rem',
+				{
+					lineHeight: '1.75rem',
+					letterSpacing: '-0.01em'
+				}
+			],
+			'2xl': [
+				'1.5rem',
+				{
+					lineHeight: '2rem',
+					letterSpacing: '-0.02em'
+				}
+			],
+			'3xl': [
+				'1.875rem',
+				{
+					lineHeight: '2.25rem',
+					letterSpacing: '-0.02em'
+				}
+			],
+			'4xl': [
+				'2.25rem',
+				{
+					lineHeight: '2.5rem',
+					letterSpacing: '-0.03em'
+				}
+			],
+			'5xl': [
+				'3rem',
+				{
+					lineHeight: '1.2',
+					letterSpacing: '-0.03em'
+				}
+			]
 			},
 			spacing: {
 				'18': '4.5rem',

@@ -8,6 +8,10 @@ import {
   X,
   Sparkles,
   AlertTriangle,
+  ShieldCheck,
+  FileText,
+  Activity,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -39,6 +43,20 @@ interface MobileHandoffProps {
   onComplete: () => void;
   className?: string;
 }
+
+const CODE_STATUS_COLORS: Record<string, string> = {
+  full: "bg-emerald-500/10 text-emerald-700 border-emerald-200",
+  dnr: "bg-amber-500/10 text-amber-700 border-amber-200",
+  dni: "bg-red-500/10 text-red-700 border-red-200",
+  comfort: "bg-slate-500/10 text-slate-600 border-slate-200",
+};
+
+const CODE_STATUS_LABELS: Record<string, string> = {
+  full: "Full Code",
+  dnr: "DNR",
+  dni: "DNI",
+  comfort: "Comfort Care",
+};
 
 export function MobileHandoff({
   patient,
@@ -101,36 +119,49 @@ export function MobileHandoff({
   };
 
   const isSBARComplete = handoff.sbar.situation && handoff.sbar.assessment;
+  const codeStatus = handoff.codeStatus || 'full';
+  const codeStatusColor = CODE_STATUS_COLORS[codeStatus] || CODE_STATUS_COLORS.full;
+  const codeStatusLabel = CODE_STATUS_LABELS[codeStatus] || CODE_STATUS_LABELS.full;
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Patient Header */}
-      <div className="p-4 border-b bg-secondary/30">
+      <div className="px-4 py-4 border-b border-border/50 bg-card/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+          <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
             <ArrowRightLeft className="h-5 w-5 text-primary" />
           </div>
-          <div className="flex-1">
-            <h2 className="font-semibold">{patient.name}</h2>
-            <p className="text-sm text-muted-foreground">Bed: {patient.bed}</p>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-base tracking-tight truncate">{patient.name}</h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="secondary" className="rounded-lg text-xs font-medium px-2 py-0.5">
+                {patient.bed}
+              </Badge>
+              {isSBARComplete && (
+                <Badge variant="outline" className="rounded-lg text-xs font-medium px-2 py-0.5 bg-emerald-500/10 text-emerald-700 border-emerald-200">
+                  <Check className="h-3 w-3 mr-1" />
+                  Ready
+                </Badge>
+              )}
+            </div>
           </div>
-          {isSBARComplete && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              <Check className="h-3 w-3 mr-1" />
-              Ready
-            </Badge>
-          )}
         </div>
 
         {/* Code Status & One-Liner */}
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 space-y-2.5">
           <div className="flex gap-2">
             <Select
-              value={handoff.codeStatus || 'full'}
+              value={codeStatus}
               onValueChange={(v) => updateHandoff({ codeStatus: v })}
             >
-              <SelectTrigger className="w-32 h-9">
-                <SelectValue />
+              <SelectTrigger className={cn(
+                "flex-1 h-11 rounded-xl border font-medium",
+                codeStatusColor
+              )}>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  <SelectValue>{codeStatusLabel}</SelectValue>
+                </div>
               </SelectTrigger>
               <SelectContent>
                 {CODE_STATUS_OPTIONS.map(opt => (
@@ -144,17 +175,17 @@ export function MobileHandoff({
               variant="outline"
               size="sm"
               onClick={autoGenerate}
-              className="gap-1"
+              className="h-11 rounded-xl gap-1.5 shrink-0"
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              Auto-fill
+              <Sparkles className="h-4 w-4" />
+              <span className="text-sm">Auto-fill</span>
             </Button>
           </div>
           <Input
             value={handoff.oneLiner}
             onChange={(e) => updateHandoff({ oneLiner: e.target.value })}
             placeholder="One-liner summary..."
-            className="h-9"
+            className="h-11 rounded-xl text-sm"
           />
         </div>
       </div>
@@ -167,24 +198,27 @@ export function MobileHandoff({
             open={expandedSection === 'sbar'}
             onOpenChange={(open) => setExpandedSection(open ? 'sbar' : null)}
           >
-            <Card>
+            <Card className="rounded-2xl border-border/50 overflow-hidden">
               <CollapsibleTrigger asChild>
-                <button className="w-full p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">SBAR</span>
+                <button className="w-full px-4 py-3.5 flex items-center justify-between min-h-[48px]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <span className="text-xs font-bold text-primary">S</span>
+                    </div>
+                    <span className="font-semibold text-sm tracking-tight">SBAR</span>
                     {isSBARComplete && (
-                      <Check className="h-4 w-4 text-green-500" />
+                      <Check className="h-4 w-4 text-emerald-600" />
                     )}
                   </div>
                   {expandedSection === 'sbar' ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   )}
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <CardContent className="pt-0 space-y-4">
+                <CardContent className="pt-0 px-4 pb-4 space-y-4">
                   <SBARField
                     letter="S"
                     label="Situation"
@@ -227,56 +261,62 @@ export function MobileHandoff({
             open={expandedSection === 'ifthen'}
             onOpenChange={(open) => setExpandedSection(open ? 'ifthen' : null)}
           >
-            <Card>
+            <Card className="rounded-2xl border-border/50 overflow-hidden">
               <CollapsibleTrigger asChild>
-                <button className="w-full p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">If-Then Plans</span>
+                <button className="w-full px-4 py-3.5 flex items-center justify-between min-h-[48px]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Activity className="h-3.5 w-3.5 text-primary" />
+                    </div>
+                    <span className="font-semibold text-sm tracking-tight">If-Then Plans</span>
                     {handoff.ifThenPlans.length > 0 && (
-                      <Badge variant="secondary">{handoff.ifThenPlans.length}</Badge>
+                      <Badge variant="secondary" className="rounded-lg text-xs font-medium">
+                        {handoff.ifThenPlans.length}
+                      </Badge>
                     )}
                   </div>
                   {expandedSection === 'ifthen' ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   )}
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <CardContent className="pt-0 space-y-3">
+                <CardContent className="pt-0 px-4 pb-4 space-y-3">
                   {handoff.ifThenPlans.map((plan) => (
                     <div
                       key={plan.id}
-                      className="p-3 bg-secondary/30 rounded-lg space-y-2"
+                      className="p-3.5 rounded-xl border border-border/50 bg-muted/30 space-y-2.5"
                     >
                       <div className="flex items-center justify-between">
                         <Badge
-                          variant={plan.priority === 'urgent' ? 'destructive' : 'outline'}
-                          className="text-xs"
+                          variant={plan.priority === 'urgent' ? 'destructive' : 'secondary'}
+                          className="rounded-lg text-xs font-medium"
                         >
                           {plan.priority}
                         </Badge>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
+                          className="h-7 w-7 rounded-lg"
                           onClick={() => removeIfThenPlan(plan.id)}
+                          aria-label="Remove plan"
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                       <Input
                         value={plan.condition}
                         onChange={(e) => updateIfThenPlan(plan.id, { condition: e.target.value })}
                         placeholder="If..."
-                        className="h-9"
+                        className="h-10 rounded-xl text-sm"
                       />
                       <Input
                         value={plan.action}
                         onChange={(e) => updateIfThenPlan(plan.id, { action: e.target.value })}
                         placeholder="Then..."
-                        className="h-9"
+                        className="h-10 rounded-xl text-sm"
                       />
                     </div>
                   ))}
@@ -284,9 +324,9 @@ export function MobileHandoff({
                     variant="outline"
                     size="sm"
                     onClick={addIfThenPlan}
-                    className="w-full"
+                    className="w-full h-11 rounded-xl gap-1.5"
                   >
-                    <Plus className="h-4 w-4 mr-1" />
+                    <Plus className="h-4 w-4" />
                     Add If-Then Plan
                   </Button>
                 </CardContent>
@@ -299,27 +339,30 @@ export function MobileHandoff({
             open={expandedSection === 'guidance'}
             onOpenChange={(open) => setExpandedSection(open ? 'guidance' : null)}
           >
-            <Card>
+            <Card className="rounded-2xl border-border/50 overflow-hidden">
               <CollapsibleTrigger asChild>
-                <button className="w-full p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    <span className="font-semibold">Anticipatory Guidance</span>
+                <button className="w-full px-4 py-3.5 flex items-center justify-between min-h-[48px]">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                    </div>
+                    <span className="font-semibold text-sm tracking-tight">Anticipatory Guidance</span>
                   </div>
                   {expandedSection === 'guidance' ? (
-                    <ChevronDown className="h-4 w-4" />
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   ) : (
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   )}
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <CardContent className="pt-0">
+                <CardContent className="pt-0 px-4 pb-4">
                   <Textarea
                     value={handoff.anticipatoryGuidance}
                     onChange={(e) => updateHandoff({ anticipatoryGuidance: e.target.value })}
                     placeholder="What might happen and what to do about it..."
                     rows={4}
+                    className="rounded-xl text-sm resize-none"
                   />
                 </CardContent>
               </CollapsibleContent>
@@ -329,21 +372,22 @@ export function MobileHandoff({
       </ScrollArea>
 
       {/* Footer Actions */}
-      <div className="p-4 border-t bg-background/80 backdrop-blur-xl safe-area-bottom">
+      <div className="px-4 py-3 border-t border-border/50 bg-background/90 backdrop-blur-xl safe-area-bottom">
         <div className="flex gap-3">
           <Button
             variant="outline"
-            className="flex-1"
+            className="flex-1 h-11 rounded-xl font-medium"
             onClick={() => onSave(handoff)}
           >
             Save Draft
           </Button>
           <Button
-            className="flex-1"
+            className="flex-1 h-11 rounded-xl font-medium gap-1.5"
             onClick={onComplete}
             disabled={!isSBARComplete}
           >
-            Complete Handoff
+            <Send className="h-4 w-4" />
+            Complete
           </Button>
         </div>
       </div>
@@ -362,35 +406,34 @@ interface SBARFieldProps {
 
 function SBARField({ letter, label, value, onChange, placeholder, color }: SBARFieldProps) {
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-700',
-    green: 'bg-green-100 text-green-700',
-    amber: 'bg-amber-100 text-amber-700',
-    purple: 'bg-purple-100 text-purple-700',
+    blue: 'bg-blue-500/10 text-blue-700',
+    green: 'bg-emerald-500/10 text-emerald-700',
+    amber: 'bg-amber-500/10 text-amber-700',
+    purple: 'bg-purple-500/10 text-purple-700',
   };
 
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
         <span className={cn(
-          "w-6 h-6 rounded flex items-center justify-center text-xs font-bold",
+          "w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold",
           colorClasses[color]
         )}>
           {letter}
         </span>
-        <span className="text-sm font-medium">{label}</span>
+        <span className="text-sm font-medium tracking-tight">{label}</span>
       </div>
       <Textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={3}
-        className="resize-none"
+        className="rounded-xl text-sm resize-none"
       />
     </div>
   );
 }
 
-// Compact handoff summary for patient list
 interface HandoffSummaryProps {
   handoff?: HandoffData;
   onClick?: () => void;
@@ -403,7 +446,7 @@ export function HandoffSummary({ handoff, onClick }: HandoffSummaryProps) {
         variant="outline"
         size="sm"
         onClick={onClick}
-        className="w-full justify-start gap-2 h-9"
+        className="w-full justify-start gap-2 h-11 rounded-xl"
       >
         <ArrowRightLeft className="h-4 w-4" />
         Create Handoff
@@ -416,23 +459,23 @@ export function HandoffSummary({ handoff, onClick }: HandoffSummaryProps) {
   return (
     <button
       onClick={onClick}
-      className="w-full p-3 bg-purple-50/50 rounded-lg border border-purple-200/50 text-left active:bg-purple-100/50 transition-colors"
+      className="w-full p-3.5 rounded-xl border border-purple-200/50 bg-purple-500/5 text-left active:bg-purple-500/10 transition-colors"
     >
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-purple-700">Handoff</span>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-semibold text-purple-700">Handoff</span>
         {isComplete ? (
-          <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
+          <Badge variant="outline" className="rounded-lg text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-200">
             Ready
           </Badge>
         ) : (
-          <Badge variant="outline" className="text-[10px]">Draft</Badge>
+          <Badge variant="outline" className="rounded-lg text-[10px]">Draft</Badge>
         )}
       </div>
       {handoff.oneLiner && (
         <p className="text-sm line-clamp-2">{handoff.oneLiner}</p>
       )}
       {handoff.ifThenPlans.length > 0 && (
-        <p className="text-xs text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground mt-1.5">
           {handoff.ifThenPlans.length} if-then plan{handoff.ifThenPlans.length > 1 ? 's' : ''}
         </p>
       )}

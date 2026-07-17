@@ -55,6 +55,13 @@
     --shadow-elevated: 0 8px 28px -20px rgba(15, 23, 42, 0.32);
     --shadow-floating: 0 20px 48px -26px rgba(15, 23, 42, 0.42);
 
+    /* Surface elevation: 4 levels for depth hierarchy (base→card→panel→overlay) */
+    --surface-0: 0 0% 100%;
+    --surface-1: 0 0% 99%;
+    --surface-2: 0 0% 97%;
+    --surface-3: 0 0% 94%;
+    --surface-4: 210 20% 90%;
+
     /* Functional surfaces: keep legacy utility names, remove decorative mesh by default */
     --gradient-header-mesh: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
     --gradient-empty-state: linear-gradient(180deg, hsl(var(--muted) / 0.7) 0%, hsl(var(--background)) 100%);
@@ -113,9 +120,26 @@
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
+    --success: 150 55% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 40 80% 60%;
+    --warning-foreground: 30 80% 8%;
+
     --border: 217 33% 17%;
     --input: 217 33% 17%;
     --ring: 198 70% 60%;
+
+    --surface-0: 222 47% 11%;
+    --surface-1: 222 40% 13%;
+    --surface-2: 222 35% 15%;
+    --surface-3: 222 30% 18%;
+    --surface-4: 222 25% 22%;
+
+    --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
+    --shadow-modal: 0 18px 50px -24px rgba(0, 0, 0, 0.6), 0 8px 20px -18px rgba(0, 0, 0, 0.4);
+    --shadow-elevated: 0 8px 28px -20px rgba(0, 0, 0, 0.55);
+    --shadow-floating: 0 20px 48px -26px rgba(0, 0, 0, 0.65);
   }
 
   /* High contrast: stronger text, borders, and focus (WCAG-friendly) — stacks with .light / .dark on html */

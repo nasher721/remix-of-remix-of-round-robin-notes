@@ -35,7 +35,9 @@ import {
   Loader2,
   History,
   Eraser,
-  Activity
+  Activity,
+  User,
+  Stethoscope
 } from "lucide-react";
 import { useIntervalEventsGenerator } from "@/hooks/useIntervalEventsGenerator";
 import {
@@ -193,32 +195,31 @@ export const MobilePatientDetail = ({
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 safe-area-top shadow-sm">
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 safe-area-top">
         <div className="flex items-center justify-between h-14 px-2">
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 -ml-2">
+          <div className="flex items-center gap-1 min-w-0">
+            <Button variant="ghost" size="icon" onClick={onBack} className="h-11 w-11 shrink-0">
               <ArrowLeft className="h-5 w-5" />
-              <span>Back</span>
             </Button>
 
             {/* Quick Navigation */}
-            <div className="flex items-center bg-secondary/50 rounded-full border border-border/50 ml-2">
+            <div className="flex items-center bg-secondary/50 rounded-full border border-border/50">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onPrevious}
                 disabled={!hasPrevious}
-                className="h-8 w-8 rounded-l-full hover:bg-secondary"
+                className="h-9 w-9 rounded-l-full hover:bg-secondary"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div className="w-px h-4 bg-border/50"></div>
+              <div className="w-px h-4 bg-border/50" />
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onNext}
                 disabled={!hasNext}
-                className="h-8 w-8 rounded-r-full hover:bg-secondary"
+                className="h-9 w-9 rounded-r-full hover:bg-secondary"
               >
                 <ArrowLeft className="h-4 w-4 rotate-180" />
               </Button>
@@ -275,10 +276,10 @@ export const MobilePatientDetail = ({
       </header>
 
       {/* Patient Info */}
-      <div className="px-4 py-4 border-b border-border bg-secondary/30">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <span className="text-xl">👤</span>
+      <div className="px-4 py-3 border-b border-border bg-card/50">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <User className="h-5 w-5 text-primary/70" />
           </div>
           <div className="flex-1 min-w-0">
             <Input
@@ -324,7 +325,7 @@ export const MobilePatientDetail = ({
                 key={chip.id}
                 variant={openSections.includes(chip.id) ? "default" : "outline"}
                 size="sm"
-                className="h-8 rounded-full px-3 text-xs shrink-0"
+                className="h-9 rounded-full px-3 text-xs shrink-0"
                 onClick={() => handleJumpToSection(chip.id)}
               >
                 <Icon className="h-3.5 w-3.5 mr-1" />
@@ -596,7 +597,7 @@ export const MobilePatientDetail = ({
         <AccordionItem value="systems" className="border-b" id="section-systems">
           <AccordionTrigger className="py-4">
             <div className="flex items-center gap-2">
-              <span className="text-primary text-sm">⚕️</span>
+              <Stethoscope className="h-4 w-4 text-primary" />
               <span className="font-medium">Systems Review</span>
             </div>
           </AccordionTrigger>

@@ -28,6 +28,7 @@ import { NavigationBreadcrumbTracker } from "@/components/observability/Navigati
 import { LazyPanelErrorBoundary } from "@/components/LazyPanelErrorBoundary";
 import { AnnouncerProvider, useAnnouncerContext, LiveRegion } from "@/hooks/useAnnouncer";
 import { MotionConfig } from "framer-motion";
+import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 
 // Auth, FHIR callback, and print test are static imports so route modules always load
 // with the app graph. Lazy route chunks can fail to resolve (e.g. stale SW caches in prod,
@@ -73,9 +74,37 @@ function AppRoutesShell(): React.ReactElement {
   );
 }
 
+function AuthLoadingScreen(): React.ReactElement {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-5">
+        <img
+          src={rollingRoundsLogo}
+          alt="Rolling Rounds"
+          className="h-11 w-auto opacity-90"
+        />
+        <div className="loading" aria-hidden="true">
+          <svg viewBox="0 0 48 48" width="28" height="28">
+            <polyline id="back" points="24,4 44,24 24,44 4,24" />
+            <polyline id="front" points="24,4 44,24 24,44 4,24" />
+          </svg>
+        </div>
+        <p className="text-xs font-medium tracking-wide text-muted-foreground">
+          Loading workspace
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function AppContent(): React.ReactElement {
   const { announce } = useAnnouncerContext();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return <AuthLoadingScreen />;
+  }
+
   return (
     <>
       <LiveRegionWrapper />
@@ -97,14 +126,14 @@ function AppContent(): React.ReactElement {
 function LiveRegionWrapper(): React.ReactElement {
   const { announce } = useAnnouncerContext();
   const [message, setMessage] = React.useState("");
-  
+
   React.useEffect(() => {
     (window as unknown as { __announce?: typeof announce }).__announce = (msg: string) => setMessage(msg);
     return () => {
       delete (window as unknown as { __announce?: typeof announce }).__announce;
     };
   }, [announce]);
-  
+
   return <LiveRegion message={message} priority="polite" />;
 }
 
