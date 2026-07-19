@@ -21,6 +21,10 @@ import { QuickActionsPanel } from "./QuickActionsPanel";
 import { AppleAIAssistant } from "./AppleAIAssistant";
 import { PatientSystemsReview } from "./PatientSystemsReview";
 import { ActivityFeed } from "./patient/ActivityFeed";
+import { SectionFooterChrome } from "./patient/SectionFooterChrome";
+import { AIDraftPreviewDialog } from "./dashboard/AIDraftPreviewDialog";
+import { toast } from "sonner";
+import { AVAILABLE_MODELS } from "@/services/llm";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -75,6 +79,13 @@ interface PatientCardProps {
   systemsCustomCombineKeys?: string[];
   onSystemsReviewModeChange?: (mode: SystemsReviewMode) => void;
   onSystemsCustomCombineKeysChange?: (keys: string[]) => void;
+  /**
+   * "card" (default): standalone card with its own header — used by the legacy
+   * stacked list. "workspace": hides the internal header, always renders the
+   * body, defaults advanced sections open, and consolidates per-section
+   * chrome (timestamp / AI actions / clear) into a single footer row.
+   */
+  chrome?: "card" | "workspace";
 }
 
 const PatientCardComponent = ({
@@ -95,16 +106,31 @@ const PatientCardComponent = ({
   systemsCustomCombineKeys,
   onSystemsReviewModeChange,
   onSystemsCustomCombineKeysChange,
+  chrome = "card",
 }: PatientCardProps) => {
-  const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
+  const isWorkspace = chrome === "workspace";
+  const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility, aiProvider, aiModel } = useSettings();
   const changeTracking = useChangeTracking();
   const { teamMembers } = useTeam();
+  const activeAiModelLabel = React.useMemo(() => {
+    const m = AVAILABLE_MODELS.find((x) => x.provider === aiProvider && x.model === aiModel);
+    return m?.label ?? aiModel ?? "Default";
+  }, [aiProvider, aiModel]);
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
   const [pendingClearField, setPendingClearField] = React.useState<string | null>(null);
   const [showClearSystemsDialog, setShowClearSystemsDialog] = React.useState(false);
-  const [showAdvancedSections, setShowAdvancedSections] = React.useState(false);
+  // Workspace chrome: advanced sections are peers (no gate), so default them open.
+  const [showAdvancedSections, setShowAdvancedSections] = React.useState(() => chrome === "workspace");
+  // AI draft preview (mockup artboard C): generated content waits here until inserted.
+  const [aiDraft, setAiDraft] = React.useState<{
+    title: string;
+    draft: string;
+    meta: string;
+    previousValue: string;
+    mode: "append" | "replace";
+  } | null>(null);
   React.useEffect(() => {
     const revealAdvanced = () => setShowAdvancedSections(true);
     window.addEventListener("rr:reveal-advanced-documentation", revealAdvanced);
@@ -129,19 +155,55 @@ const PatientCardComponent = ({
       patient.name
     );
     if (result) {
-      // Append to existing interval events with a newline separator
-      const newValue = patient.intervalEvents
-        ? `${patient.intervalEvents}\n\n${result}`
-        : result;
-      onUpdate(patient.id, 'intervalEvents', newValue);
+      // Gate the final write behind the AI draft preview modal (artboard C).
+      setAiDraft({
+        title: "AI draft — Interval Events",
+        draft: result,
+        meta: `Sources: Systems review, existing interval events · ${activeAiModelLabel}`,
+        previousValue: patient.intervalEvents,
+        mode: "append",
+      });
     }
   };
 
   const handleGenerateDailySummary = async () => {
-    await generateDailySummary(patient, (newValue) => {
-      onUpdate(patient.id, 'intervalEvents', newValue);
-    }, todos.length ? todos : undefined);
+    // Pass no onUpdate callback so the hook returns the summary without writing;
+    // the preview modal decides whether it lands in the chart.
+    const result = await generateDailySummary(
+      patient,
+      undefined,
+      todos.length ? todos : undefined,
+    );
+    if (result) {
+      setAiDraft({
+        title: "AI draft — Interval Events",
+        draft: result,
+        meta: `Sources: Summary, events, labs, imaging, systems, medications, todos · ${activeAiModelLabel}`,
+        previousValue: patient.intervalEvents,
+        mode: "replace",
+      });
+    }
   };
+
+  const handleInsertAiDraft = React.useCallback(() => {
+    if (!aiDraft) return;
+    // Same write paths as before the preview gate: generate → append, summarize → replace.
+    const newValue =
+      aiDraft.mode === "append"
+        ? aiDraft.previousValue
+          ? `${aiDraft.previousValue}\n\n${aiDraft.draft}`
+          : aiDraft.draft
+        : aiDraft.draft;
+    const previousValue = aiDraft.previousValue;
+    onUpdate(patient.id, "intervalEvents", newValue);
+    setAiDraft(null);
+    toast.success("Draft inserted — Interval Events updated", {
+      action: {
+        label: "Undo",
+        onClick: () => onUpdate(patient.id, "intervalEvents", previousValue),
+      },
+    });
+  }, [aiDraft, onUpdate, patient.id]);
 
   const addTimestamp = (field: string) => {
     const timestamp = new Date().toLocaleString('en-US', {
@@ -248,7 +310,10 @@ const PatientCardComponent = ({
   return (
     <motion.article
       className={cn(
-        "print-avoid-break bg-card rounded-lg border border-border/40 shadow-card hover:shadow-md transition-all duration-300 overflow-hidden relative group",
+        "print-avoid-break relative group",
+        isWorkspace
+          ? "bg-transparent"
+          : "bg-card rounded-lg border border-border/40 shadow-card hover:shadow-md transition-all duration-300 overflow-hidden",
         dashboardFocusModeEnabled && "ring-1 ring-primary/30 shadow-lg",
       )}
       aria-label={`Patient: ${patient.name || 'Unnamed'}`}
@@ -257,7 +322,8 @@ const PatientCardComponent = ({
       whileHover="hover"
       whileTap="tap"
     >
-      {/* Header */}
+      {/* Header — hidden in workspace chrome: PatientWorkspace provides the patient header */}
+      {!isWorkspace && (
       <div className="flex justify-between items-center gap-4 px-4 py-3 bg-secondary/30 border-b border-border/30 transition-colors group-hover:bg-secondary/40">
         <div className="flex items-center gap-3 flex-1 min-w-0 flex-wrap">
           <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
@@ -525,9 +591,10 @@ const PatientCardComponent = ({
           </div>
         </div>
       </div>
+      )}
 
       <AnimatePresence initial={false}>
-        {!patient.collapsed && (
+        {(!patient.collapsed || isWorkspace) && (
           <motion.div
             key="card-body"
             id={`patient-body-${patient.id}`}
@@ -590,23 +657,27 @@ const PatientCardComponent = ({
                         onDeleteTodo={deleteTodo}
                         onGenerateTodos={generateTodos}
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => addTimestamp('clinicalSummary')}
-                        className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
-                        aria-label="Add timestamp to clinical summary"
-                      >
-                        <Clock className="h-3 w-3" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => clearSection('clinicalSummary')}
-                        className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
-                      >
-                        Clear
-                      </Button>
+                      {!isWorkspace && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => addTimestamp('clinicalSummary')}
+                            className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
+                            aria-label="Add timestamp to clinical summary"
+                          >
+                            <Clock className="h-3 w-3" aria-hidden="true" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => clearSection('clinicalSummary')}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                          >
+                            Clear
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div
@@ -628,6 +699,15 @@ const PatientCardComponent = ({
                     </div>
                     <FieldTimestamp timestamp={patient.fieldTimestamps?.clinicalSummary} className="pl-1" />
                   </div>
+                  {isWorkspace && (
+                    <SectionFooterChrome
+                      fieldLabel="clinical summary"
+                      timestamp={patient.fieldTimestamps?.clinicalSummary}
+                      onAddTimestamp={() => addTimestamp('clinicalSummary')}
+                      onClearSection={() => clearSection('clinicalSummary')}
+                      modelLabel={activeAiModelLabel}
+                    />
+                  )}
                 </div>
               )}
 
@@ -647,45 +727,49 @@ const PatientCardComponent = ({
                       )}
                     </div>
                     <div className="flex gap-1 no-print">
-                      {isGeneratingEvents || isGeneratingSummary ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={isGeneratingEvents ? cancelGeneration : cancelSummary}
-                          className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          aria-label="Cancel generation"
-                        >
-                          <X className="h-3 w-3" aria-hidden="true" />
-                          <span className="ml-1 text-xs">Cancel</span>
-                        </Button>
-                      ) : (
+                      {!isWorkspace && (
                         <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleGenerateIntervalEvents}
-                            className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                            aria-label="Generate interval events from systems using AI"
-                          >
-                            <Sparkles className="h-3 w-3" aria-hidden="true" />
-                            <span className="ml-1 text-xs">Generate</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleGenerateDailySummary}
-                            className="h-7 px-2 text-warning hover:text-warning hover:bg-warning/10"
-                            aria-label="Summarize today's changes and todos using AI"
-                          >
-                            <ClipboardList className="h-3 w-3" aria-hidden="true" />
-                            <span className="ml-1 text-xs">Summary</span>
-                          </Button>
+                          {isGeneratingEvents || isGeneratingSummary ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={isGeneratingEvents ? cancelGeneration : cancelSummary}
+                              className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              aria-label="Cancel generation"
+                            >
+                              <X className="h-3 w-3" aria-hidden="true" />
+                              <span className="ml-1 text-xs">Cancel</span>
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleGenerateIntervalEvents}
+                                className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                                aria-label="Generate interval events from systems using AI"
+                              >
+                                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                                <span className="ml-1 text-xs">Generate</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleGenerateDailySummary}
+                                className="h-7 px-2 text-warning hover:text-warning hover:bg-warning/10"
+                                aria-label="Summarize today's changes and todos using AI"
+                              >
+                                <ClipboardList className="h-3 w-3" aria-hidden="true" />
+                                <span className="ml-1 text-xs">Summary</span>
+                              </Button>
+                            </>
+                          )}
+                          {(isGeneratingEvents || isGeneratingSummary) && (
+                            <div className="flex items-center h-7 px-2">
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                            </div>
+                          )}
                         </>
-                      )}
-                      {(isGeneratingEvents || isGeneratingSummary) && (
-                        <div className="flex items-center h-7 px-2">
-                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                        </div>
                       )}
                       <PatientTodos
                         todos={todos}
@@ -697,23 +781,27 @@ const PatientCardComponent = ({
                         onDeleteTodo={deleteTodo}
                         onGenerateTodos={generateTodos}
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => addTimestamp('intervalEvents')}
-                        className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
-                        aria-label="Add timestamp to interval events"
-                      >
-                        <Clock className="h-3 w-3" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => clearSection('intervalEvents')}
-                        className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
-                      >
-                        Clear
-                      </Button>
+                      {!isWorkspace && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => addTimestamp('intervalEvents')}
+                            className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
+                            aria-label="Add timestamp to interval events"
+                          >
+                            <Clock className="h-3 w-3" aria-hidden="true" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => clearSection('intervalEvents')}
+                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                          >
+                            Clear
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div
@@ -734,26 +822,53 @@ const PatientCardComponent = ({
                     </div>
                     <FieldTimestamp timestamp={patient.fieldTimestamps?.intervalEvents} className="pl-1" />
                   </div>
+                  {isWorkspace && (
+                    <SectionFooterChrome
+                      fieldLabel="interval events"
+                      timestamp={patient.fieldTimestamps?.intervalEvents}
+                      onAddTimestamp={() => addTimestamp('intervalEvents')}
+                      onClearSection={() => clearSection('intervalEvents')}
+                      aiActions={[
+                        {
+                          key: "draft-systems",
+                          label: "Draft from systems review",
+                          icon: <Sparkles className="h-3.5 w-3.5" />,
+                          onSelect: handleGenerateIntervalEvents,
+                        },
+                        {
+                          key: "summarize-today",
+                          label: "Summarize today's changes",
+                          icon: <ClipboardList className="h-3.5 w-3.5" />,
+                          onSelect: handleGenerateDailySummary,
+                        },
+                      ]}
+                      aiBusy={isGeneratingEvents || isGeneratingSummary}
+                      onCancelAI={isGeneratingEvents ? cancelGeneration : cancelSummary}
+                      modelLabel={activeAiModelLabel}
+                    />
+                  )}
                 </div>
               )}
 
               {/* Imaging & Labs Row */}
               {(sectionVisibility.imaging || sectionVisibility.labs) && (
                 <div className="space-y-2 scroll-mt-28" data-documentation-section="results">
-                  <div className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 px-3 py-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Advanced sections
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => setShowAdvancedSections((prev) => !prev)}
-                    >
-                      {showAdvancedSections ? "Hide" : "Show"}
-                    </Button>
-                  </div>
+                  {!isWorkspace && (
+                    <div className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Advanced sections
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setShowAdvancedSections((prev) => !prev)}
+                      >
+                        {showAdvancedSections ? "Hide" : "Show"}
+                      </Button>
+                    </div>
+                  )}
                   {showAdvancedSections && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Imaging */}
@@ -987,6 +1102,17 @@ const PatientCardComponent = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AIDraftPreviewDialog
+        open={aiDraft !== null}
+        onOpenChange={(open) => {
+          if (!open) setAiDraft(null);
+        }}
+        title={aiDraft?.title ?? ""}
+        draft={aiDraft?.draft ?? ""}
+        meta={aiDraft?.meta}
+        onInsert={handleInsertAiDraft}
+      />
     </motion.article>
   );
 };
@@ -995,6 +1121,7 @@ const PatientCardComponent = ({
 // React Query provides stable patient references when data hasn't changed,
 // so reference comparison is sufficient for the patient object
 export const PatientCard = React.memo(PatientCardComponent, (prevProps, nextProps) => {
+  if (prevProps.chrome !== nextProps.chrome) return false;
   if (prevProps.hidePatientWideTodos !== nextProps.hidePatientWideTodos) return false;
   if (prevProps.dashboardFocusModeEnabled !== nextProps.dashboardFocusModeEnabled) return false;
   if (prevProps.dashboardFocusTarget !== nextProps.dashboardFocusTarget) return false;

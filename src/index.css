@@ -641,3 +641,210 @@
   72.5% { opacity: 0; }
   to { stroke-dashoffset: 0; }
 }
+
+/* ============================================================================
+   Rolling Rounds workspace ("rr-ws") — scoped design tokens for the two-pane
+   desktop documentation workspace. Values mirror the approved mockups in
+   design-mockups/patient-documentation-mockups.html (Kimi design tokens).
+   Dark mode derives from the app's existing surface variables so the workspace
+   stays sane under .dark.
+   ============================================================================ */
+.rr-ws {
+  --rr-bg-primary: #ffffff;
+  --rr-bg-secondary: #f5f5f5;
+  --rr-bg-ground: #f9fbfc;
+  --rr-label-1: rgba(0, 0, 0, 0.9);
+  --rr-label-2: rgba(0, 0, 0, 0.6);
+  --rr-label-3: rgba(0, 0, 0, 0.45);
+  --rr-label-4: rgba(0, 0, 0, 0.3);
+  --rr-f1: rgba(0, 0, 0, 0.03);
+  --rr-f2: rgba(0, 0, 0, 0.05);
+  --rr-f3: rgba(0, 0, 0, 0.15);
+  --rr-sep: rgba(0, 0, 0, 0.13);
+  --rr-danger: #ff3849;
+  --rr-green: #16c456;
+  --rr-orange: #ff9500;
+  --rr-blue: #1783ff;
+  --rr-light-red-bg: rgba(255, 77, 77, 0.1);
+  --rr-light-orange-bg: rgba(255, 149, 0, 0.1);
+  --rr-light-green-bg: rgba(22, 196, 86, 0.1);
+  --rr-light-blue-bg: #e8f3ff;
+  --rr-badge-orange-text: #c25e00;
+  --rr-badge-green-text: #0d9440;
+  --rr-shadow-input: 0 5px 16px -4px rgba(0, 0, 0, 0.07);
+  --rr-shadow-small: 0 4px 16.4px rgba(0, 0, 0, 0.1);
+  --rr-r-xxs: 4px;
+  --rr-r-sm: 8px;
+  --rr-r-md: 10px;
+  --rr-r-lg: 12px;
+  --rr-r-xl: 16px;
+}
+
+.dark .rr-ws {
+  --rr-bg-primary: hsl(var(--card));
+  --rr-bg-secondary: hsl(var(--secondary) / 0.55);
+  --rr-bg-ground: hsl(var(--background));
+  --rr-label-1: rgba(255, 255, 255, 0.92);
+  --rr-label-2: rgba(255, 255, 255, 0.62);
+  --rr-label-3: rgba(255, 255, 255, 0.48);
+  --rr-label-4: rgba(255, 255, 255, 0.34);
+  --rr-f1: rgba(255, 255, 255, 0.05);
+  --rr-f2: rgba(255, 255, 255, 0.09);
+  --rr-f3: rgba(255, 255, 255, 0.28);
+  --rr-sep: rgba(255, 255, 255, 0.16);
+  --rr-light-red-bg: rgba(255, 77, 77, 0.16);
+  --rr-light-orange-bg: rgba(255, 149, 0, 0.16);
+  --rr-light-green-bg: rgba(22, 196, 86, 0.16);
+  --rr-light-blue-bg: rgba(23, 131, 255, 0.18);
+  --rr-badge-orange-text: #ffb340;
+  --rr-badge-green-text: #3ddc74;
+  --rr-shadow-input: 0 5px 16px -4px rgba(0, 0, 0, 0.4);
+  --rr-shadow-small: 0 4px 16.4px rgba(0, 0, 0, 0.5);
+}
+
+/* Buttons (32px default / 44px sign-off primary; radius 10/12) */
+.rr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 32px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--rr-r-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  background: transparent;
+  color: var(--rr-label-1);
+}
+.rr-btn:disabled { opacity: 0.5; cursor: default; }
+.rr-btn-primary { background: var(--rr-label-1); color: var(--rr-bg-primary); }
+.rr-btn-secondary { background: var(--rr-f1); color: var(--rr-label-1); }
+.rr-btn-secondary:hover:not(:disabled) { background: var(--rr-f2); }
+.rr-btn-outline { background: transparent; border: 0.5px solid var(--rr-sep); color: var(--rr-label-1); }
+.rr-btn-outline:hover:not(:disabled) { background: var(--rr-f1); }
+.rr-btn-44 { height: 44px; border-radius: var(--rr-r-lg); font-size: 16px; line-height: 24px; padding: 10px 14px; gap: 6px; }
+
+.rr-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--rr-r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rr-label-2);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+.rr-icon-btn:hover { background: var(--rr-f1); }
+.rr-icon-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Badges — semantic colors on 10% light backgrounds; neutral facts stay gray */
+.rr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  padding: 1px 6px;
+  border-radius: var(--rr-r-xxs);
+  white-space: nowrap;
+}
+.rr-badge-orange { background: var(--rr-light-orange-bg); color: var(--rr-badge-orange-text); }
+.rr-badge-red { background: var(--rr-light-red-bg); color: var(--rr-danger); }
+.rr-badge-neutral { background: var(--rr-f2); color: var(--rr-label-2); }
+.rr-badge-green { background: var(--rr-light-green-bg); color: var(--rr-badge-green-text); }
+.rr-badge-blue { background: var(--rr-light-blue-bg); color: var(--rr-blue); }
+
+/* Status dots & roster progress segments */
+.rr-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.rr-st-ready { background: var(--rr-green); }
+.rr-st-prog { background: var(--rr-orange); }
+.rr-st-todo { background: var(--rr-f3); }
+.rr-seg { width: 20px; height: 3px; border-radius: 2px; }
+
+/* Roster rail items */
+.rr-roster-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--rr-r-md);
+  padding: 10px 10px 10px 12px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--rr-label-1);
+}
+.rr-roster-item:hover { background: var(--rr-f1); }
+.rr-roster-item.rr-sel { background: var(--rr-f2); }
+.rr-bed-chip {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  color: var(--rr-label-2);
+  background: var(--rr-f2);
+  border-radius: var(--rr-r-xxs);
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.rr-sel .rr-bed-chip { color: var(--rr-label-1); }
+
+/* Section tabs (derived component: fills.f2 active fill, radius 8, 32px) */
+.rr-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 6px 10px;
+  border-radius: var(--rr-r-sm);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--rr-label-2);
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rr-tab:hover { background: var(--rr-f1); }
+.rr-tab.rr-active { background: var(--rr-f2); color: var(--rr-label-1); font-weight: 500; }
+
+/* Editor surface (white card, 0.5px separator edge, radius 12, input shadow) */
+.rr-editor {
+  background: var(--rr-bg-primary);
+  border: 0.5px solid var(--rr-sep);
+  border-radius: var(--rr-r-lg);
+  box-shadow: var(--rr-shadow-input);
+}
+
+/* Sign-off readiness footer bar */
+.rr-signoff {
+  background: var(--rr-bg-primary);
+  border-top: 0.5px solid var(--rr-sep);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.rr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 4px 10px;
+  border-radius: var(--rr-r-sm);
+  background: var(--rr-f1);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--rr-label-2);
+  white-space: nowrap;
+}
+.rr-chip .rr-dot { width: 6px; height: 6px; }

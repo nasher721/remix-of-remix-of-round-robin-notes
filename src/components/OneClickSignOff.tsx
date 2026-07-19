@@ -101,11 +101,30 @@ interface OneClickSignOffProps {
   patients: Patient[];
   todosMap: Record<string, PatientTodo[]>;
   onSignOff: (patientIds: string[], signature: string) => void;
+  /** Optional replacement for the built-in trigger button. */
+  trigger?: React.ReactNode;
+  /** Render no trigger at all (use together with open/onOpenChange). */
+  hideTrigger?: boolean;
+  /** Controlled open state; falls back to internal state when omitted. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Patients pre-selected when the dialog opens (e.g. the focused chart). */
+  initialSelectedIds?: string[];
 }
 
-export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignOffProps) {
-  const [open, setOpen] = React.useState(false);
-  const [selectedPatients, setSelectedPatients] = React.useState<Set<string>>(new Set());
+export function OneClickSignOff({ patients, todosMap, onSignOff, trigger, hideTrigger = false, open: controlledOpen, onOpenChange, initialSelectedIds }: OneClickSignOffProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = React.useCallback(
+    (next: boolean) => {
+      if (controlledOpen === undefined) setInternalOpen(next);
+      onOpenChange?.(next);
+    },
+    [controlledOpen, onOpenChange],
+  );
+  const [selectedPatients, setSelectedPatients] = React.useState<Set<string>>(
+    () => new Set(initialSelectedIds ?? []),
+  );
   const [signatures, setSignatures] = React.useState<Record<string, string>>({});
   const [completedSections, setCompletedSections] = React.useState<Record<string, Set<string>>>({});
   const [isSigning, setIsSigning] = React.useState(false);
@@ -113,6 +132,13 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
   const [pendingUnsatisfiedPatients, setPendingUnsatisfiedPatients] = React.useState<string[]>([]);
   const [pendingPatientSignatures, setPendingPatientSignatures] = React.useState<Record<string, string>>({});
   const [signOffHistory, setSignOffHistory] = React.useState<Array<{ patientId: string; timestamp: string; signature: string }>>([]);
+
+  // Keep the pre-selection in sync when the focused patient changes while mounted.
+  const initialSelectedKey = (initialSelectedIds ?? []).join(",");
+  React.useEffect(() => {
+    if (initialSelectedIds) setSelectedPatients(new Set(initialSelectedIds));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSelectedKey]);
 
   const handlePatientToggle = (patientId: string) => {
     setSelectedPatients(prev => {
@@ -315,17 +341,21 @@ export function OneClickSignOff({ patients, todosMap, onSignOff }: OneClickSignO
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Sign Off</span>
-          {progress.percentage > 0 && (
-            <Badge variant="secondary" className="ml-1 text-xs">
-              {progress.percentage}%
-            </Badge>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign Off</span>
+              {progress.percentage > 0 && (
+                <Badge variant="secondary" className="ml-1 text-xs">
+                  {progress.percentage}%
+                </Badge>
+              )}
+            </Button>
           )}
-        </Button>
-      </DialogTrigger>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>End of Shift Sign-Off</DialogTitle>

@@ -9,7 +9,8 @@ import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
 import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
-import { VirtualizedPatientList } from "./VirtualizedPatientList";
+import { PatientRosterRail } from "./PatientRosterRail";
+import { PatientWorkspace } from "./PatientWorkspace";
 import { ProfileCoachingBanner } from "./ProfileCoachingBanner";
 import { getPatientProfileCoaching } from "@/lib/patientProfileCoaching";
 import { AutotextManager } from "@/components/AutotextManager";
@@ -34,7 +35,6 @@ import { TrustIndicators } from "@/components/trust/TrustIndicators";
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
 import { KeyboardShortcutHelp, useKeyboardShortcutHelp } from "@/components/KeyboardShortcutHelp";
-import { LiveRegion } from "@/components/LiveRegion";
 import { SyncHistoryPanel } from "@/components/sync/SyncHistoryPanel";
 import { useAICommandPalette } from "@/components/tools/AICommandPalette";
 import type { ChangeTrackingStyles } from "@/types/changeTracking";
@@ -52,7 +52,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AVAILABLE_MODELS } from "@/services/llm";
-import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -68,45 +67,28 @@ import {
 import {
   Plus,
   Printer,
-  Search,
   Clock,
-  Users,
   LogOut,
   ListTodo,
   FileText,
-  ChevronsUpDown,
   Sparkles,
   ChevronDown,
   SlidersHorizontal,
-  Filter,
-  RefreshCw,
   Minimize2,
   Maximize2,
   CheckCircle2,
   Upload,
+  PanelLeftOpen,
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SectionVisibilityContent } from "@/components/SectionVisibilityPanel";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PatientFilterType, MIN_GLOBAL_FONT_SIZE_PX, MAX_GLOBAL_FONT_SIZE_PX } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
@@ -344,6 +326,7 @@ export const DesktopDashboard = () => {
     panelRightCollapsed,
     toggleLeftPanel,
     toggleRightPanel,
+    setLeftPanelCollapsed,
     focusModeActive,
     patientRosterLayoutMode,
     setPatientRosterLayoutMode,
@@ -398,6 +381,81 @@ export const DesktopDashboard = () => {
       </TooltipProvider>
     );
   };
+
+  /** Shared empty-roster / filtered-empty recovery panel (zero state + checklist). */
+  const renderRecoveryState = () => (
+    <motion.div
+      className="flex flex-col items-center justify-start pt-6 pb-12 text-center gradient-mesh-empty rounded-xl"
+      variants={shouldReduceMotion ? undefined : scaleIn}
+      initial="hidden"
+      animate="visible"
+      transition={{ ...transitions.spring, delay: 0.15 }}
+    >
+      <div className="mb-8 relative flex items-center justify-center">
+        <div className="bg-secondary/30 rounded-3xl p-8 border border-border/40 shadow-sm depth-shadow-hover">
+          <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto opacity-60" />
+        </div>
+      </div>
+      <h3 className="text-3xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+        {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
+      </h3>
+      <p className="text-muted-foreground text-base mb-6 max-w-sm leading-relaxed">
+        {patients.length === 0
+          ? "Add your first patient to begin documenting rounds with your team."
+          : "Try adjusting your search or filter criteria."}
+      </p>
+      {patients.length === 0 && (
+        <div className="w-full max-w-xl rounded-xl border border-border/40 bg-card/70 p-5 text-left shadow-sm">
+          <p className="text-sm font-semibold text-foreground mb-3">Quick start checklist</p>
+          <div className="space-y-2 text-sm">
+            <div className="flex items-start gap-2 text-foreground/90">
+              <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+              <span>Add your first patient to build today&apos;s roster</span>
+            </div>
+            <div className="flex items-start gap-2 text-foreground/90">
+              <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+              <span>Share rounds with your team using synced notes</span>
+            </div>
+            <div className="flex items-start gap-2 text-foreground/90">
+              <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
+              <span>Try the AI assistant for drafts and interval updates</span>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button onClick={onAddPatient} size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add First Patient
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setOpenToolsRequestToken((prev) => prev + 1)}
+            >
+              <Upload className="h-4 w-4" />
+              Import from CSV/EHR
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSamplePreview((prev) => !prev)}
+            >
+              {showSamplePreview ? "Hide sample preview" : "Preview example structure"}
+            </Button>
+          </div>
+          {showSamplePreview ? (
+            <div className="mt-4 rounded-lg border border-border/50 bg-background p-3 text-xs text-left">
+              <p className="font-semibold text-foreground">Example structure</p>
+              <p className="mt-1 text-muted-foreground">Bed 12A · De-identified ICU admission · Shock improving</p>
+              <p className="mt-2 text-foreground/90">CV: pressor dose decreasing, MAP goal met. Resp: low-flow oxygen, wean as tolerated.</p>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </motion.div>
+  );
 
   return (
     <div
@@ -594,325 +652,53 @@ export const DesktopDashboard = () => {
 
       <div ref={dashListRef} style={{ opacity: 0 }} className="h-[calc(100vh-10rem)] w-full no-print pb-4">
         <div className="container mx-auto px-4 md:px-6 lg:px-8 h-full">
-          <div className="flex flex-col h-full bg-background relative z-10 border-y border-border/25">
-            <div className="p-3 md:p-4 pb-0">
-              <div
-                className="mb-3 rounded-lg border border-border/25 bg-card/55 p-2.5"
-                data-testid="dashboard-control-band"
-              >
-                <div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between">
-                <div className="relative flex-1 max-w-md" role="search">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="relative w-full">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/60 pointer-events-none" aria-hidden="true" />
-                        <Input
-                          ref={searchInputRef}
-                          id="desktop-patient-search"
-                          placeholder={patients.length === 0 ? "Add a patient to enable search" : "Search patients..."}
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          aria-label="Search patients"
-                          autoComplete="off"
-                          autoFocus={patients.length > 0}
-                          disabled={patients.length === 0}
-                          className="pl-10 h-10 md:h-9 bg-card/60 border-border/40 focus-visible:ring-1 focus-visible:ring-primary/30 rounded-lg text-sm min-h-[44px] md:min-h-0"
-                        />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="font-medium">Search patients</p>
-                      <p className="text-xs text-muted-foreground">Shortcut: / or ⌘K</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2 h-10 md:h-9 min-h-[44px] md:min-h-0 rounded-lg border-border/60 text-muted-foreground hover:text-foreground"
-                      aria-label="Filter and sort patients"
-                      aria-haspopup="menu"
-                      title="Filter by status, sort order, and section visibility"
-                    >
-                      <Filter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">Filter & sort</span>
-                      {activeFilterCount > 0 ? (
-                        <Badge
-                          variant="secondary"
-                          className="h-5 min-w-5 px-1.5 text-[10px] font-semibold tabular-nums"
-                          aria-label={`${activeFilterCount} active filters`}
-                        >
-                          {activeFilterCount}
-                        </Badge>
-                      ) : null}
-                      <ChevronDown className="h-3 w-3 opacity-60 shrink-0" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-lg shadow-modal">
-                    <DropdownMenuLabel className="text-xs text-muted-foreground">Filter</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-                      <DropdownMenuRadioItem value={PatientFilterType.All}>All patients</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value={PatientFilterType.Filled}>With notes</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value={PatientFilterType.Empty}>Empty notes</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value={PatientFilterType.MyPatients}>My patients</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuLabel className="text-xs text-muted-foreground">Sort</DropdownMenuLabel>
-                    <DropdownMenuRadioGroup value={sortBy} onValueChange={(v) => setSortBy(v as "number" | "room" | "name")}>
-                      <DropdownMenuRadioItem value="number">Order added</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="room">Room</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="name">Name</DropdownMenuRadioItem>
-                    </DropdownMenuRadioGroup>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger>Sections</DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent className="w-72 rounded-lg shadow-modal p-3" sideOffset={4}>
-                        <SectionVisibilityContent />
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => { setShowComparisonModal(true); }}>
-                      <Users className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                      Compare patients
-                    </DropdownMenuItem>
-                    {patients.length > 0 && (
-                      <DropdownMenuItem onClick={onCollapseAll}>
-                        <ChevronsUpDown className="h-3.5 w-3.5 mr-2" aria-hidden="true" />
-                        {patients.every((p) => p.collapsed) ? "Expand all" : "Collapse all"}
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground">View</span>
-                  <Select
-                    value={patientListViewMode}
-                    onValueChange={(value) => setPatientListViewMode(value as "rich" | "compact")}
-                  >
-                    <SelectTrigger aria-label="Patient list view" className="h-10 md:h-9 w-[120px] rounded-lg border-border/60">
-                      <SelectValue placeholder="View mode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rich">Rich</SelectItem>
-                      <SelectItem value="compact">Compact</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        onClick={() => setShowComparisonModal(true)}
-                        disabled={patients.length < 2}
-                      >
-                        Compare
-                      </Button>
-                    </TooltipTrigger>
-                    {patients.length < 2 && (
-                      <TooltipContent side="bottom">
-                        Add at least 2 patients to compare
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setAICommandPaletteOpen(true)}>
-                    AI
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleSyncNow} disabled={syncingList}>
-                    Sync
-                  </Button>
-                </div>
+          {patients.length === 0 ? (
+            <div className="flex flex-col h-full bg-background relative z-10 border-y border-border/25">
+              <div className="p-3 md:p-4 pb-0">
+                <span className="font-medium text-foreground/80 min-w-0 text-xs leading-snug">
+                  No patients on your roster yet
+                </span>
               </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {filterLabel}
-                  </Badge>
-                  {searchQuery.trim() ? (
-                    <Badge variant="secondary" className="text-xs">
-                      Search: {searchQuery}
-                    </Badge>
-                  ) : null}
-                  {activeFilterCount > 0 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs text-muted-foreground"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setFilter(PatientFilterType.All);
-                      }}
-                    >
-                      Clear filters
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-2 pb-3 border-b border-border/20 space-y-1.5">
-                <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between min-[480px]:gap-3">
-                  <span className="font-medium text-foreground/80 min-w-0 text-xs leading-snug">
-                    {patients.length === 0 ? (
-                      <>No patients on your roster yet</>
-                    ) : isDefaultListScope ? (
-                      <>All patients</>
-                    ) : (
-                      <>
-                        {filteredPatients.length}
-                        {patients.length !== filteredPatients.length ? ` of ${patients.length}` : ""} patient
-                        {filteredPatients.length === 1 ? "" : "s"}
-                        {searchQuery.trim() ? (
-                          <span className="text-muted-foreground font-normal">
-                            {" "}
-                            · &ldquo;
-                            <span className="inline-block max-w-[min(12rem,40vw)] truncate align-bottom">
-                              {searchQuery}
-                            </span>
-                            &rdquo;
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </span>
-                  <div className="flex items-center gap-2 sm:gap-2.5 justify-end shrink-0 flex-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => setShowSyncHistory(true)}
-                      className="text-left"
-                      aria-label="View sync history"
-                    >
-                      <Badge variant="secondary" className="text-[11px] font-medium gap-1.5 hover:bg-secondary/80 transition-colors">
-                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" aria-hidden="true" />
-                        <time
-                          dateTime={lastSaved.toISOString()}
-                          title={`Last sync at ${lastSaved.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`}
-                        >
-                          History
-                        </time>
-                      </Badge>
-                    </button>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7 border-border/60 shrink-0"
-                          onClick={handleSyncNow}
-                          disabled={syncingList}
-                          aria-busy={syncingList}
-                          aria-label="Retry sync and refresh patient list"
-                        >
-                          <RefreshCw className={cn("h-3 w-3", syncingList && "animate-spin")} aria-hidden="true" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">Retry sync now</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-                <p
-                  className="text-[10px] leading-tight text-muted-foreground/90 hidden md:block"
-                  aria-hidden="true"
-                >
-                  Use keyboard help for shortcuts and command details.
-                </p>
-                <LiveRegion
-                  message={
-                    searchQuery
-                      ? `Search results: ${filteredPatients.length} patient${filteredPatients.length === 1 ? "" : "s"} found.`
-                      : `Showing ${filterLabel.toLowerCase()}: ${filteredPatients.length} patient${filteredPatients.length === 1 ? "" : "s"}.`
-                  }
-                  politeness="polite"
-                />
-              </div>
+              <ScrollArea className="flex-1 px-4 md:px-6 py-4">
+                {renderRecoveryState()}
+              </ScrollArea>
             </div>
-
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              {filteredPatients.length === 0 ? (
-                <ScrollArea className="flex-1 px-4 md:px-6 py-4">
-                  <motion.div
-                    className="flex flex-col items-center justify-start pt-6 pb-12 text-center gradient-mesh-empty rounded-xl"
-                    variants={shouldReduceMotion ? undefined : scaleIn}
-                    initial="hidden"
-                    animate="visible"
-                    transition={{ ...transitions.spring, delay: 0.15 }}
-                  >
-                    <div className="mb-8 relative flex items-center justify-center">
-                      <div className="bg-secondary/30 rounded-3xl p-8 border border-border/40 shadow-sm depth-shadow-hover">
-                        <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto opacity-60" />
-                      </div>
-                    </div>
-                    <h3 className="text-3xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
-                      {patients.length === 0 ? "Ready to Start Rounds" : "No patients match your filter"}
-                    </h3>
-                    <p className="text-muted-foreground text-base mb-6 max-w-sm leading-relaxed">
-                      {patients.length === 0
-                        ? "Add your first patient to begin documenting rounds with your team."
-                        : "Try adjusting your search or filter criteria."}
-                    </p>
-                    {patients.length === 0 && (
-                      <div className="w-full max-w-xl rounded-xl border border-border/40 bg-card/70 p-5 text-left shadow-sm">
-                        <p className="text-sm font-semibold text-foreground mb-3">Quick start checklist</p>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-start gap-2 text-foreground/90">
-                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
-                            <span>Add your first patient to build today&apos;s roster</span>
-                          </div>
-                          <div className="flex items-start gap-2 text-foreground/90">
-                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
-                            <span>Share rounds with your team using synced notes</span>
-                          </div>
-                          <div className="flex items-start gap-2 text-foreground/90">
-                            <CheckCircle2 className="h-4 w-4 mt-0.5 text-primary" aria-hidden="true" />
-                            <span>Try the AI assistant for drafts and interval updates</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <Button onClick={onAddPatient} size="sm" className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Add First Patient
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => setOpenToolsRequestToken((prev) => prev + 1)}
-                          >
-                            <Upload className="h-4 w-4" />
-                            Import from CSV/EHR
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowSamplePreview((prev) => !prev)}
-                          >
-                            {showSamplePreview ? "Hide sample preview" : "Preview example structure"}
-                          </Button>
-                        </div>
-                        {showSamplePreview ? (
-                          <div className="mt-4 rounded-lg border border-border/50 bg-background p-3 text-xs text-left">
-                            <p className="font-semibold text-foreground">Example structure</p>
-                            <p className="mt-1 text-muted-foreground">Bed 12A · De-identified ICU admission · Shock improving</p>
-                            <p className="mt-2 text-foreground/90">CV: pressor dose decreasing, MAP goal met. Resp: low-flow oxygen, wean as tolerated.</p>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-                  </motion.div>
-                </ScrollArea>
+          ) : (
+            <div className="flex h-full bg-background relative z-10 border-y border-border/25">
+              {!panelLeftCollapsed ? (
+                <PatientRosterRail
+                  searchInputRef={searchInputRef}
+                  onOpenCompare={() => setShowComparisonModal(true)}
+                  onRequestClearAll={handleClearAll}
+                  onOpenSyncHistory={() => setShowSyncHistory(true)}
+                  syncingList={syncingList}
+                  onSyncNow={handleSyncNow}
+                />
               ) : (
-                <div className="flex-1 min-h-0 px-4 md:px-6 py-4">
-                  <VirtualizedPatientList />
+                <div className="hidden lg:flex w-11 flex-none flex-col items-center border-r border-border/25 py-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground"
+                    onClick={() => setLeftPanelCollapsed(false)}
+                    aria-label="Expand patient list"
+                    title="Expand patient list"
+                    aria-expanded={false}
+                  >
+                    <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+                  </Button>
                 </div>
               )}
+              {filteredPatients.length === 0 ? (
+                <ScrollArea className="flex-1 px-4 md:px-6 py-4">
+                  {renderRecoveryState()}
+                </ScrollArea>
+              ) : (
+                <PatientWorkspace onOpenAIPalette={() => setAICommandPaletteOpen(true)} />
+              )}
             </div>
-          </div>
+          )}
         </div>
       </div>
 

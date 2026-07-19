@@ -111,3 +111,49 @@ export function getPatientDocumentationSummary(patient: DocumentationPatient): D
 
 /** @deprecated Use getPatientDocumentationSummary for patient-list and workspace UI. */
 export const getDocumentationProgress = getPatientDocumentationSummary;
+
+export interface SystemsDocumentationCount {
+  filled: number;
+  total: number;
+}
+
+/**
+ * Count documented systems for a patient. `systemKeys` lets callers scope the
+ * count to their enabled systems config; defaults to the keys present on the
+ * patient object (the 10 built-in systems).
+ */
+export function getSystemsDocumentationCount(
+  patient: DocumentationPatient,
+  systemKeys?: readonly string[],
+): SystemsDocumentationCount {
+  const keys =
+    systemKeys && systemKeys.length > 0
+      ? systemKeys
+      : Object.keys(patient.systems);
+  const values = patient.systems as unknown as Record<string, string>;
+  const filled = keys.filter((key) => hasDocumentedText(values[key])).length;
+  return { filled, total: keys.length };
+}
+
+/**
+ * Per-section 3-state status for workspace tabs, roster segments and sign-off
+ * chips. Blob sections (summary/events/results/medications) are binary:
+ * content ⇔ ready. Systems is graded: all enabled systems documented → ready,
+ * some → in-progress, none → not-started. The aggregate model from
+ * getPatientDocumentationSummary is unchanged; this is an additive refinement.
+ */
+export function getDocumentationSectionStatus(
+  patient: DocumentationPatient,
+  sectionId: DocumentationSectionId,
+  systemKeys?: readonly string[],
+): DocumentationStatus {
+  if (sectionId === "systems") {
+    const { filled, total } = getSystemsDocumentationCount(patient, systemKeys);
+    if (total > 0 && filled === total) return "ready";
+    if (filled > 0) return "in-progress";
+    return "not-started";
+  }
+  const section = DOCUMENTATION_SECTIONS.find((s) => s.id === sectionId);
+  if (!section) return "not-started";
+  return section.isComplete(patient) ? "ready" : "not-started";
+}
