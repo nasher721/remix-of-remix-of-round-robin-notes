@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Home, Plus, BookOpen, Settings } from "lucide-react";
+import { Home, Plus, BookOpen, Settings, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,7 +21,7 @@ export const MobileNavigation = ({
   const tabs: {
     id: MobileTab;
     label: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: LucideIcon;
     badge?: number;
   }[] = [
     {

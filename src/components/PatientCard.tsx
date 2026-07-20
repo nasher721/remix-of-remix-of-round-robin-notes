@@ -343,7 +343,7 @@ const PatientCardComponent = ({
                 onChange={(e) => onUpdate(patient.id, 'name', e.target.value)}
                 aria-label="Patient name"
                 title="Legal name or label used on rounds"
-                className="max-w-[220px] font-semibold bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm tracking-tight"
+                className="max-w-[220px] font-semibold bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-base text-foreground shadow-none tracking-tight"
               />
             </div>
             <div className="relative">
@@ -357,7 +357,7 @@ const PatientCardComponent = ({
                 onChange={(e) => onUpdate(patient.id, 'mrn', e.target.value)}
                 aria-label="Medical record number"
                 title="Hospital MRN or account number"
-                className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+                className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal shadow-none"
               />
             </div>
             <div className="relative">
@@ -371,7 +371,7 @@ const PatientCardComponent = ({
                 onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
                 aria-label="Bed or room number"
                 title="Unit and room or bay"
-                className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal transition-all duration-200 shadow-none hover:shadow-sm focus:shadow-sm"
+                className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal shadow-none"
               />
             </div>
             {/* Patient Status Badges */}
@@ -686,7 +686,7 @@ const PatientCardComponent = ({
                     onFocusCapture={() => handleEditorFocusIntent("clinicalSummary")}
                     data-editor-type="clinical-summary"
                   >
-                    <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                    <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                       <RichTextEditor
                         value={patient.clinicalSummary}
                         onChange={(value) => onUpdate(patient.id, 'clinicalSummary', value)}
@@ -809,7 +809,7 @@ const PatientCardComponent = ({
                     ref={bindFocusContainer("intervalEvents")}
                     onFocusCapture={() => handleEditorFocusIntent("intervalEvents")}
                   >
-                    <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                    <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                       <RichTextEditor
                         value={patient.intervalEvents}
                         onChange={(value) => onUpdate(patient.id, 'intervalEvents', value)}
@@ -926,7 +926,7 @@ const PatientCardComponent = ({
                         ref={bindFocusContainer("imaging")}
                         onFocusCapture={() => handleEditorFocusIntent("imaging")}
                       >
-                        <div className="bg-background/50 rounded-lg border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                        <div className="bg-background/50 rounded-lg border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                           <ImagePasteEditor
                             value={patient.imaging}
                             onChange={(value) => onUpdate(patient.id, 'imaging', value)}
@@ -991,7 +991,7 @@ const PatientCardComponent = ({
                         ref={bindFocusContainer("labs")}
                         onFocusCapture={() => handleEditorFocusIntent("labs")}
                       >
-                        <div className="bg-background/50 rounded-lg p-3 border border-border/40 transition-all duration-200 focus-within:border-primary/40 focus-within:bg-background focus-within:shadow-sm">
+                        <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                           <RichTextEditor
                             value={patient.labs}
                             onChange={(value) => onUpdate(patient.id, 'labs', value)}

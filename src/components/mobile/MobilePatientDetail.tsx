@@ -198,8 +198,8 @@ export const MobilePatientDetail = ({
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-xl border-b border-border/40 safe-area-top">
         <div className="flex items-center justify-between h-14 px-2">
           <div className="flex items-center gap-1 min-w-0">
-            <Button variant="ghost" size="icon" onClick={onBack} className="h-11 w-11 shrink-0">
-              <ArrowLeft className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={onBack} className="h-11 w-11 shrink-0" aria-label="Back to patient list">
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </Button>
 
             {/* Quick Navigation */}
@@ -210,8 +210,9 @@ export const MobilePatientDetail = ({
                 onClick={onPrevious}
                 disabled={!hasPrevious}
                 className="h-9 w-9 rounded-l-full hover:bg-secondary"
+                aria-label="Previous patient"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
               </Button>
               <div className="w-px h-4 bg-border/50" />
               <Button
@@ -220,16 +221,17 @@ export const MobilePatientDetail = ({
                 onClick={onNext}
                 disabled={!hasNext}
                 className="h-9 w-9 rounded-r-full hover:bg-secondary"
+                aria-label="Next patient"
               >
-                <ArrowLeft className="h-4 w-4 rotate-180" />
+                <ArrowLeft className="h-4 w-4 rotate-180" aria-hidden="true" />
               </Button>
             </div>
           </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10">
-                <MoreHorizontal className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="More patient actions">
+                <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">

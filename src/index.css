@@ -184,13 +184,12 @@
     font-weight: 600;
   }
 
-  /* Refined clinical focus states */
+  /* Refined clinical focus states (static — no transition, per focus-first motion policy) */
   :focus-visible {
     outline: none;
     box-shadow:
       0 0 0 2px hsl(var(--background)),
       0 0 0 4px hsl(var(--primary) / 0.6);
-    transition: all 200ms;
   }
 
   .high-contrast :focus-visible {
@@ -198,7 +197,6 @@
     box-shadow:
       0 0 0 2px hsl(var(--background)),
       0 0 0 4px hsl(var(--ring));
-    transition: all 200ms;
   }
 
   /* Smooth scrolling */
@@ -384,10 +382,13 @@
  * spinners remain animated because they communicate active progress; other
  * pulses, entrances, transforms, and hover transitions are decorative and can
  * make a dense clinical workspace harder to scan.
+ *
+ * Scoped at `body` (not `#root`) so portal-mounted content — Radix dialogs,
+ * popovers, selects, listboxes, cmdk menus — is covered as well.
  */
-#root *:not(.animate-spin),
-#root *:not(.animate-spin)::before,
-#root *:not(.animate-spin)::after {
+body *:not(.animate-spin),
+body *:not(.animate-spin)::before,
+body *:not(.animate-spin)::after {
   animation-duration: 0.01ms !important;
   animation-delay: 0ms !important;
   animation-iteration-count: 1 !important;

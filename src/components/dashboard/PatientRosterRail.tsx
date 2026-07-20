@@ -3,6 +3,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   Filter,
+  PanelLeftClose,
   RefreshCw,
   Search,
   Trash2,
@@ -40,6 +41,7 @@ import { LiveRegion } from "@/components/LiveRegion";
 import { SectionVisibilityContent } from "@/components/SectionVisibilityPanel";
 import { useDashboard } from "@/contexts/DashboardContext";
 import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
+import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { PatientFilterType } from "@/constants/config";
 import {
@@ -112,6 +114,7 @@ export const PatientRosterRail = ({
   } = useDashboard();
   const todosMap = useDashboardTodos();
   const { sortBy, setSortBy } = useSettings();
+  const { setLeftPanelCollapsed } = useDashboardLayout();
 
   const activeFilterCount =
     (searchQuery.trim() ? 1 : 0) + (filter !== PatientFilterType.All ? 1 : 0);
@@ -160,6 +163,16 @@ export const PatientRosterRail = ({
             · {patients.length}
           </span>
         </h2>
+        <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="rr-icon-btn"
+          aria-label="Collapse patient list"
+          title="Collapse patient list"
+          onClick={() => setLeftPanelCollapsed(true)}
+        >
+          <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -230,6 +243,7 @@ export const PatientRosterRail = ({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
       {/* Search */}

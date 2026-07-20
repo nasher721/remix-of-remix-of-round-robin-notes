@@ -192,7 +192,13 @@ const Auth = () => {
                   type="email"
                   placeholder="doctor@hospital.org"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    // Re-validate while typing so a resolved error clears before
+                    // the user reaches for the mouse; clearing on blur shifts the
+                    // layout mid-click and can swallow the submit click.
+                    if (errors.email) validateField("email", e.target.value);
+                  }}
                   onBlur={(e) => e.target.value && validateField("email", e.target.value)}
                   disabled={loading}
                   startIcon={<Mail className="h-4 w-4" />}
@@ -217,7 +223,10 @@ const Auth = () => {
                   type={showPassword ? "text" : "password"}
                   placeholder="Password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (errors.password) validateField("password", e.target.value);
+                  }}
                   onBlur={(e) => e.target.value && validateField("password", e.target.value)}
                   disabled={loading}
                   startIcon={<Lock className="h-4 w-4" />}

@@ -16,7 +16,7 @@ describe("application motion policy", () => {
     const styles = readSource("src/index.css");
 
     assert.match(app, /<MotionConfig reducedMotion="always">/);
-    assert.match(styles, /#root \*:not\(\.animate-spin\)/);
+    assert.match(styles, /body \*:not\(\.animate-spin\)/);
     assert.match(styles, /animation-duration: 0\.01ms !important/);
     assert.match(styles, /transition-duration: 0\.01ms !important/);
   });

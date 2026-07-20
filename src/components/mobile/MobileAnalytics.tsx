@@ -65,7 +65,7 @@ export function MobileAnalytics({
               <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
                 <BarChart3 className="h-7 w-7 text-muted-foreground/40" />
               </div>
-              <p className="font-semibold text-sm">No analytics data</p>
+              <p className="font-semibold text-sm">No analytics data available</p>
               <p className="mt-1.5 text-xs text-muted-foreground max-w-[240px] leading-relaxed">
                 Connect or refresh unit metrics to populate this dashboard.
               </p>

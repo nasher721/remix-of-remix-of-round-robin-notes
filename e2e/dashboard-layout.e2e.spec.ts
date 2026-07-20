@@ -73,6 +73,9 @@ test.describe("Dashboard Controls", () => {
 
     await page.getByRole("button", { name: /filter and sort patients/i }).click();
     await expect(page.getByRole("menuitemradio", { name: /with notes/i })).toBeVisible();
+    // Dismiss the menu before continuing: Radix's modal dropdown overlay
+    // otherwise swallows the next pointer click.
+    await page.keyboard.press("Escape");
 
     await page.getByRole("button", { name: /open workspace tools/i }).click();
     await expect(page.getByRole("tab", { name: /resources/i })).toBeVisible();

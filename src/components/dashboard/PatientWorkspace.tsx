@@ -57,6 +57,7 @@ import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { useTeam } from "@/contexts/TeamContext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
+import { usePatientActivity } from "@/hooks/usePatientActivity";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { toLayoutMode, toPrefsMode } from "@/lib/dashboardLayoutModes";
 import {
@@ -155,6 +156,20 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
   const sharedPatientTodos = usePatientTodos(patient?.id ?? null, {
     initialTodos: patient ? (todosMap[patient.id] ?? []) : undefined,
   });
+
+  const { addActivity } = usePatientActivity(patient?.id ?? "");
+
+  // Record sign-offs in the per-patient activity feed (uses the existing
+  // 'updated' action since the DB CHECK constraint only allows a fixed set).
+  const handleSignOff = React.useCallback(
+    (_patientIds: string[], _signature: string) => {
+      void addActivity("updated", {
+        fieldName: "signoff",
+        summary: "Chart signed off",
+      });
+    },
+    [addActivity],
+  );
 
   const handleRemoveRequest = React.useCallback(() => {
     removeTriggerRef.current =
@@ -536,7 +551,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
         initialSelectedIds={[patient.id]}
         patients={[patient]}
         todosMap={todosMap}
-        onSignOff={() => {}}
+        onSignOff={handleSignOff}
       />
 
       {/* Remove confirmation */}
