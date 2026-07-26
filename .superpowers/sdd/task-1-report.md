@@ -83,3 +83,26 @@ npm test -- src/components/dashboard/__tests__/rosterVisibility.layout.test.ts
 Observed result:
 
 - TAP summary reported `pass 342`, `fail 0`.
+
+## Review-finding follow-up (ScrollArea scoping)
+
+### Fix
+
+- Scoped the ScrollArea assertion in `src/components/dashboard/__tests__/rosterVisibility.layout.test.ts` to the patient-list scroll container with `id="desktop-patient-list-content"`, so the test no longer matches the two other `ScrollArea` instances in `VirtualizedPatientList.tsx`.
+
+### Verification
+
+Command run:
+
+```bash
+npm test -- src/components/dashboard/__tests__/rosterVisibility.layout.test.ts
+```
+
+Observed result:
+
+- Subtest `desktop sidebar roster fills workspace height without a 42vh clamp`: **ok**
+- TAP summary reported `pass 342`, `fail 0`.
+
+### Commit
+
+- `a001fde` — `test(dashboard): scope roster ScrollArea assertion to patient list container`
