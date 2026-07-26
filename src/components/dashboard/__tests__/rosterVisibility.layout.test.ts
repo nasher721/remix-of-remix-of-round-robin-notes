@@ -27,6 +27,9 @@ test("desktop sidebar roster fills workspace height without a 42vh clamp", () =>
     [true, true, true],
   );
   assert.deepEqual(desktopMaxHeightClasses, ["lg:max-h-none"]);
-  assert.match(source, /<ScrollArea className="flex-1 min-h-0"/);
+  assert.match(
+    source,
+    /<ScrollArea className="flex-1 min-h-0" id="desktop-patient-list-content">/,
+  );
   assert.doesNotMatch(source, /max-h-\[42vh\]/);
 });
