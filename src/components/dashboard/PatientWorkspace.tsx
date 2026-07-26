@@ -9,6 +9,7 @@ import {
   History,
   Loader2,
   MoreHorizontal,
+  PanelLeftOpen,
   Sparkles,
   User,
 } from "lucide-react";
@@ -128,6 +129,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
     focusModeEditorId,
     enterFocusMode,
     exitFocusMode,
+    setLeftPanelCollapsed,
     systemsLayoutMode,
     customSystemsGroupIds,
     setSystemsLayoutMode,
@@ -255,6 +257,18 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
           <LengthOfStayBadge createdAt={patient.createdAt} />
 
           <div className="ml-auto flex flex-wrap items-center gap-1.5 no-print">
+            {focusModeActive ? (
+              <button
+                type="button"
+                className="rr-btn rr-btn-outline"
+                onClick={() => setLeftPanelCollapsed(false)}
+                aria-label="Show patient list"
+                title="Show patient list (Esc)"
+              >
+                <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+                Patients
+              </button>
+            ) : null}
             <QuickActionsPanel patient={patient} onUpdatePatient={onUpdatePatient} />
             <AppleAIAssistant patient={patient} onUpdatePatient={onUpdatePatient} compact />
             <button type="button" className="rr-btn rr-btn-outline" onClick={onOpenAIPalette}>

@@ -237,15 +237,15 @@ export const VirtualizedPatientList = React.memo(() => {
               </ScrollArea>
             </aside>
           ) : (
-            <div className="hidden lg:flex flex-col shrink-0 w-11 border border-border/30 rounded-lg bg-card/60 items-center py-2">
+            <div className="flex flex-col shrink-0 w-11 border border-border/30 rounded-lg bg-card/60 items-center py-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 text-muted-foreground"
                 onClick={() => setLeftPanelCollapsed(false)}
-                aria-label="Expand patient list"
-                title="Expand patient list"
+                aria-label={focusModeActive ? "Show patient list" : "Expand patient list"}
+                title={focusModeActive ? "Show patient list" : "Expand patient list"}
                 aria-expanded={false}
               >
                 <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />

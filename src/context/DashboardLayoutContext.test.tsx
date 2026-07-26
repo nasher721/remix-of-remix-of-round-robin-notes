@@ -238,7 +238,28 @@ describe("DashboardLayoutContext", () => {
       assert.equal(result.current.panelRightCollapsed, true);
     });
 
-    it("ignores panel toggles while focus mode is active", () => {
+    it("reopens the patient list and exits focus mode when expand is requested", () => {
+      const { result } = renderHook(() => useDashboardLayout(), {
+        wrapper: DashboardLayoutProvider,
+      });
+
+      act(() => {
+        result.current.enterFocusMode("clinicalSummary");
+      });
+
+      assert.equal(result.current.focusModeActive, true);
+      assert.equal(result.current.panelLeftCollapsed, true);
+
+      act(() => {
+        result.current.setLeftPanelCollapsed(false);
+      });
+
+      assert.equal(result.current.focusModeActive, false);
+      assert.equal(result.current.focusModeEditorId, null);
+      assert.equal(result.current.panelLeftCollapsed, false);
+    });
+
+    it("exits focus mode when the left panel is toggled open", () => {
       const { result } = renderHook(() => useDashboardLayout(), {
         wrapper: DashboardLayoutProvider,
       });
@@ -249,11 +270,31 @@ describe("DashboardLayoutContext", () => {
 
       act(() => {
         result.current.toggleLeftPanel();
-        result.current.toggleRightPanel();
       });
 
-      assert.equal(result.current.panelLeftCollapsed, true);
-      assert.equal(result.current.panelRightCollapsed, true);
+      assert.equal(result.current.focusModeActive, false);
+      assert.equal(result.current.panelLeftCollapsed, false);
+    });
+
+    it("does not restore focus mode from persisted preferences", async () => {
+      localStorageMock.setItem(
+        DASHBOARD_PREFS_STORAGE_KEY,
+        JSON.stringify({
+          ...DEFAULT_DASHBOARD_PREFS,
+          focusModeEnabled: true,
+          leftPatientListOpen: false,
+          rightTasksPanelOpen: false,
+        }),
+      );
+
+      const { result } = renderHook(() => useDashboardLayout(), {
+        wrapper: DashboardLayoutProvider,
+      });
+
+      await waitFor(() => {
+        assert.equal(result.current.focusModeActive, false);
+        assert.equal(result.current.panelLeftCollapsed, false);
+      });
     });
 
     it("Escape exits focus mode", async () => {
