@@ -13,7 +13,7 @@ import { Sparkles, Stethoscope, FileText, ListChecks, ClipboardCheck, Brain, Cal
 import { useStreamingAI } from '@/hooks/useStreamingAI';
 import { useToast } from '@/hooks/use-toast';
 import { AITransparencyPanel } from '@/components/ai/AITransparencyPanel';
-import type { AIFeature, ClinicalContext } from '@/lib/openai-config';
+import type { AIFeature } from '@/lib/openai-config';
 import type { Patient } from '@/types/patient';
 import { Button } from '@/components/ui/button';
 
@@ -64,6 +64,7 @@ interface AICommand {
   icon: React.ReactNode;
   feature: AIFeature;
   requiresTextInput?: boolean;
+  requiresPatient?: boolean;
   placeholder?: string;
 }
 
@@ -75,6 +76,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'Generate AI-powered differential diagnoses',
     icon: <Stethoscope className="mr-2 h-4 w-4" />,
     feature: 'differential_diagnosis',
+    requiresPatient: true,
   },
   {
     id: 'documentation-check',
@@ -82,6 +84,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'Check documentation completeness',
     icon: <ClipboardCheck className="mr-2 h-4 w-4" />,
     feature: 'documentation_check',
+    requiresPatient: true,
   },
   {
     id: 'soap-format',
@@ -89,6 +92,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'Convert notes to SOAP format',
     icon: <FileText className="mr-2 h-4 w-4" />,
     feature: 'soap_format',
+    requiresPatient: true,
   },
   {
     id: 'assessment-plan',
@@ -96,6 +100,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'Create assessment and plan from clinical data',
     icon: <ListChecks className="mr-2 h-4 w-4" />,
     feature: 'assessment_plan',
+    requiresPatient: true,
   },
   {
     id: 'clinical-summary',
@@ -103,6 +108,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'Generate a concise clinical summary',
     icon: <Brain className="mr-2 h-4 w-4" />,
     feature: 'clinical_summary',
+    requiresPatient: true,
   },
   
   // Advanced Features
@@ -112,6 +118,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'Neuro ICU template output',
     icon: <Activity className="mr-2 h-4 w-4" />,
     feature: 'system_based_rounds',
+    requiresPatient: true,
   },
   {
     id: 'date-organizer',
@@ -128,6 +135,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'Fellow-style Neuro ICU A&P',
     icon: <ListChecks className="mr-2 h-4 w-4" />,
     feature: 'problem_list',
+    requiresPatient: true,
   },
   {
     id: 'interval-events',
@@ -188,6 +196,7 @@ const AI_COMMANDS: AICommand[] = [
     description: 'AI-assisted note drafting',
     icon: <Lightbulb className="mr-2 h-4 w-4" />,
     feature: 'smart_draft',
+    requiresPatient: true,
   },
 ];
 
@@ -218,6 +227,9 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
   const [textInput, setTextInput] = React.useState('');
   const [transparencyOpen, setTransparencyOpen] = React.useState(false);
   const [selectedExample, setSelectedExample] = React.useState<string | null>(null);
+  const patientScopeLabel = patient?.name
+    ? `Selected: ${patient.name}`
+    : 'Select a patient to run clinical AI actions';
 
   const contextualSuggestions = getContextualSuggestions(patient);
 
@@ -323,6 +335,36 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
     onOpenChange(isOpen);
   };
 
+  const renderCommandItem = (cmd: AICommand) => {
+    const requiresPatient = Boolean(cmd.requiresPatient);
+    const isPatientUnavailable = requiresPatient && !patient;
+    const isDisabled = isStreaming || isPatientUnavailable;
+
+    return (
+      <CommandItem
+        key={cmd.id}
+        onSelect={() => handleCommandSelect(cmd)}
+        disabled={isDisabled}
+      >
+        {cmd.icon}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span>{cmd.name}</span>
+          <span className="text-xs text-muted-foreground">{cmd.description}</span>
+          {isPatientUnavailable && (
+            <span className="text-xs text-amber-700 dark:text-amber-400">
+              Select a patient
+            </span>
+          )}
+        </div>
+        {cmd.requiresTextInput && (
+          <CommandShortcut>
+            {isPatientUnavailable ? 'Patient required' : 'Input'}
+          </CommandShortcut>
+        )}
+      </CommandItem>
+    );
+  };
+
   return (
     <>
       <CommandDialog
@@ -335,6 +377,11 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
           placeholder={selectedCommand?.placeholder || "Type an AI command or search..."} 
           disabled={isStreaming}
         />
+        <div className="border-b px-3 py-2 text-sm">
+          <span className={patient ? 'font-medium text-foreground' : 'text-muted-foreground'}>
+            {patientScopeLabel}
+          </span>
+        </div>
         <CommandList>
           <CommandEmpty>
             {isStreaming ? (
@@ -460,58 +507,19 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
             // Normal command mode
             <>
               <CommandGroup heading="Clinical Assistant">
-                {AI_COMMANDS.slice(0, 5).map((cmd) => (
-                  <CommandItem
-                    key={cmd.id}
-                    onSelect={() => handleCommandSelect(cmd)}
-                    disabled={isStreaming}
-                  >
-                    {cmd.icon}
-                    <div className="flex flex-col">
-                      <span>{cmd.name}</span>
-                      <span className="text-xs text-muted-foreground">{cmd.description}</span>
-                    </div>
-                  </CommandItem>
-                ))}
+                {AI_COMMANDS.slice(0, 5).map(renderCommandItem)}
               </CommandGroup>
 
               <CommandSeparator />
 
               <CommandGroup heading="Advanced Features">
-                {AI_COMMANDS.slice(5, 11).map((cmd) => (
-                  <CommandItem
-                    key={cmd.id}
-                    onSelect={() => handleCommandSelect(cmd)}
-                    disabled={isStreaming}
-                  >
-                    {cmd.icon}
-                    <div className="flex flex-col">
-                      <span>{cmd.name}</span>
-                      <span className="text-xs text-muted-foreground">{cmd.description}</span>
-                    </div>
-                    {cmd.requiresTextInput && (
-                      <CommandShortcut>Input</CommandShortcut>
-                    )}
-                  </CommandItem>
-                ))}
+                {AI_COMMANDS.slice(5, 11).map(renderCommandItem)}
               </CommandGroup>
 
               <CommandSeparator />
 
               <CommandGroup heading="Text & Transcription">
-                {AI_COMMANDS.slice(11).map((cmd) => (
-                  <CommandItem
-                    key={cmd.id}
-                    onSelect={() => handleCommandSelect(cmd)}
-                    disabled={isStreaming}
-                  >
-                    {cmd.icon}
-                    <div className="flex flex-col">
-                      <span>{cmd.name}</span>
-                      <span className="text-xs text-muted-foreground">{cmd.description}</span>
-                    </div>
-                  </CommandItem>
-                ))}
+                {AI_COMMANDS.slice(11).map(renderCommandItem)}
               </CommandGroup>
 
               <CommandSeparator />
