@@ -3,6 +3,10 @@
 Generated from extensive code review (security, performance, architecture, simplicity, code quality).  
 **Date:** 2026-03-14
 
+## Status note: 2026-07-26 balanced app improvements
+
+A focused follow-up on roster visibility, bulk import, safe storage hardening, dialog accessibility, and AI patient-scope polish shipped on branch `cursor/balanced-app-improvements-fb58`. See `docs/superpowers/plans/2026-07-26-balanced-app-improvements.md` for the task-by-task implementation plan and verification sweep.
+
 ---
 
 ## Phase 1: Critical correctness & security (P0)
