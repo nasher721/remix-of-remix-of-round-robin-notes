@@ -2,7 +2,11 @@ import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { DashboardLayoutProvider, useDashboardLayout } from "@/context/DashboardLayoutContext";
-import { DASHBOARD_PREFS_STORAGE_KEY, DEFAULT_DASHBOARD_PREFS } from "@/lib/dashboardPrefs";
+import {
+  DASHBOARD_PREFS_STORAGE_KEY,
+  DEFAULT_DASHBOARD_PREFS,
+  saveDashboardPrefs,
+} from "@/lib/dashboardPrefs";
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -107,7 +111,14 @@ describe("DashboardLayoutContext", () => {
       });
     });
 
-    it("keeps default layout state when dashboard preference reads throw", async () => {
+    it("keeps the last in-memory layout state when dashboard preference reads throw", async () => {
+      saveDashboardPrefs({
+        ...DEFAULT_DASHBOARD_PREFS,
+        leftPatientListOpen: false,
+        rightTasksPanelOpen: true,
+        patientRosterLayoutMode: "topbar",
+      });
+
       Object.defineProperty(window, "localStorage", {
         configurable: true,
         value: {
@@ -126,9 +137,9 @@ describe("DashboardLayoutContext", () => {
         });
 
         await waitFor(() => {
-          assert.equal(result.current.panelLeftCollapsed, false);
+          assert.equal(result.current.panelLeftCollapsed, true);
           assert.equal(result.current.panelRightCollapsed, false);
-          assert.equal(result.current.patientRosterLayoutMode, DEFAULT_DASHBOARD_PREFS.patientRosterLayoutMode);
+          assert.equal(result.current.patientRosterLayoutMode, "topbar");
         });
       } finally {
         Object.defineProperty(window, "localStorage", { configurable: true, value: localStorageMock });

@@ -5,7 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { AICommandPalette } from "@/components/tools/AICommandPalette";
-import type { Patient } from "@/types/patient";
+import { defaultMedications, defaultSystems, type Patient } from "@/types/patient";
 
 declare global {
   var __SUPABASE_AUTH_MOCK__: unknown;
@@ -51,8 +51,8 @@ function buildPatient(overrides: Partial<Patient> = {}): Patient {
     intervalEvents: "No acute events overnight.",
     imaging: "Stable head CT.",
     labs: "Na 140",
-    systems: {},
-    medications: {},
+    systems: defaultSystems,
+    medications: defaultMedications,
     fieldTimestamps: {},
     collapsed: false,
     createdAt: "2026-07-26T00:00:00.000Z",

@@ -191,7 +191,7 @@ test('theme provider falls back to defaults and in-memory updates when storage m
 
   await withMockLocalStorage(storage, async () => {
     const wrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(ThemeProvider, { defaultTheme: 'light' }, children);
+      React.createElement(ThemeProvider, { defaultTheme: 'light', children });
 
     const { result } = renderHook(() => useTheme(), { wrapper });
 
