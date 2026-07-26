@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export interface SystemConfig {
   key: string;
@@ -34,7 +35,7 @@ const STORAGE_KEY = 'handoff-systems-config';
 export const useSystemsConfig = () => {
   const [systems, setSystems] = useState<SystemConfig[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = safeLocalStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
         // Merge with defaults to ensure new default systems are added
@@ -55,11 +56,7 @@ export const useSystemsConfig = () => {
 
   // Persist to localStorage when systems change
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(systems));
-    } catch (e) {
-      console.error('Failed to save systems config:', e);
-    }
+    safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(systems));
   }, [systems]);
 
   // Get only enabled systems, sorted
