@@ -2,6 +2,7 @@ import * as React from "react";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -62,6 +63,9 @@ export function MultiPatientComparison({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[95vw] w-full h-[90vh] flex flex-col p-0 gap-0 rounded-lg shadow-modal">
                 <DialogHeader className="px-6 py-4 border-b border-border/50">
+                    <DialogDescription className="sr-only">
+                        Compare patient notes, labs, systems, medications, and active todos side by side.
+                    </DialogDescription>
                     <div className="flex items-center justify-between">
                         <DialogTitle>Patient Comparison</DialogTitle>
                         <div className="flex items-center gap-2">

@@ -1,5 +1,6 @@
 import { motion, useReducedMotion, type HTMLMotionProps } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 /**
  * Hook to detect user's motion preference
@@ -13,7 +14,7 @@ export function useMotionPreference() {
     if (typeof window === 'undefined') return;
 
     const syncPreference = () => {
-      const stored = localStorage.getItem('motion-preference');
+      const stored = safeLocalStorage.getItem('motion-preference');
       setStoredPreference(stored === 'reduced' || stored === 'enabled' ? stored : null);
     };
 
@@ -37,9 +38,9 @@ export function useMotionPreference() {
     setPreference: (pref: 'reduced' | 'enabled' | 'system') => {
       if (typeof window !== 'undefined') {
         if (pref === 'system') {
-          localStorage.removeItem('motion-preference');
+          safeLocalStorage.removeItem('motion-preference');
         } else {
-          localStorage.setItem('motion-preference', pref);
+          safeLocalStorage.setItem('motion-preference', pref);
         }
         // Trigger state sync across hook instances/tabs
         window.dispatchEvent(new Event('motion-preference-change'));

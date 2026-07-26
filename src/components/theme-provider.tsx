@@ -1,4 +1,5 @@
 import * as React from "react"
+import { safeLocalStorage } from "@/utils/safeStorage"
 
 type Theme = "dark" | "light" | "system"
 
@@ -37,11 +38,11 @@ export function ThemeProvider({
     storageKey = "vite-ui-theme",
 }: ThemeProviderProps) {
     const [theme, setTheme] = React.useState<Theme>(
-        () => (typeof window !== "undefined" ? localStorage.getItem(storageKey) as Theme : null) || defaultTheme
+        () => (safeLocalStorage.getItem(storageKey) as Theme | null) || defaultTheme
     )
 
     const [highContrast, setHighContrastState] = React.useState<boolean>(() =>
-        typeof window !== "undefined" ? localStorage.getItem(HIGH_CONTRAST_KEY) === "true" : false
+        safeLocalStorage.getItem(HIGH_CONTRAST_KEY) === "true"
     )
 
     React.useEffect(() => {
@@ -73,12 +74,12 @@ export function ThemeProvider({
     const value = React.useMemo(() => ({
         theme,
         setTheme: (t: Theme) => {
-            localStorage.setItem(storageKey, t)
+            safeLocalStorage.setItem(storageKey, t)
             setTheme(t)
         },
         highContrast,
         setHighContrast: (v: boolean) => {
-            localStorage.setItem(HIGH_CONTRAST_KEY, v ? "true" : "false")
+            safeLocalStorage.setItem(HIGH_CONTRAST_KEY, v ? "true" : "false")
             setHighContrastState(v)
         },
     }), [theme, storageKey, highContrast])

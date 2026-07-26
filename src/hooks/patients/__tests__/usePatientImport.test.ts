@@ -89,6 +89,7 @@ function installPatientImportSupabaseMock(options: {
   const supabaseWithMutableFrom = supabase as unknown as { from: (table: string) => unknown };
   const originalFrom = supabaseWithMutableFrom.from.bind(supabase);
   const insertPayloads: Record<string, unknown>[] = [];
+  const insertPayloadBatches: Record<string, unknown>[][] = [];
   const latestNumberSelects: unknown[] = [];
   const conflictedNumbers = new Set(options.conflictNumbers ?? []);
 
@@ -121,13 +122,14 @@ function installPatientImportSupabaseMock(options: {
         return builder;
       },
       insert(rows: unknown[]) {
-        const payload = rows[0] as Record<string, unknown>;
-        insertPayloads.push(payload);
-        const shouldConflict = conflictedNumbers.delete(Number(payload.patient_number));
+        const payloadBatch = rows as Record<string, unknown>[];
+        insertPayloadBatches.push(payloadBatch);
+        insertPayloads.push(...payloadBatch);
+        const shouldConflict = payloadBatch.some((payload) => conflictedNumbers.delete(Number(payload.patient_number)));
 
         return {
-          select: () => ({
-            single: async () => {
+          select: () => {
+            const selectResult = (async () => {
               if (shouldConflict) {
                 return {
                   data: null,
@@ -140,11 +142,24 @@ function installPatientImportSupabaseMock(options: {
               }
 
               return {
-                data: rowFromPayload(payload, `inserted-${payload.patient_number}`),
+                data: payloadBatch.map((payload) => rowFromPayload(payload, `inserted-${payload.patient_number}`)),
                 error: null,
               };
-            },
-          }),
+            })();
+
+            return {
+              single: async () => {
+                const { data, error } = await selectResult;
+                return {
+                  data: Array.isArray(data) ? data[0] ?? null : null,
+                  error,
+                };
+              },
+              then(resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) {
+                return selectResult.then(resolve, reject);
+              },
+            };
+          },
         };
       },
     };
@@ -152,6 +167,7 @@ function installPatientImportSupabaseMock(options: {
 
   return {
     insertPayloads,
+    insertPayloadBatches,
     latestNumberSelects,
     restore() {
       supabaseWithMutableFrom.from = originalFrom;
@@ -209,45 +225,50 @@ test("usePatientImport addPatientWithData calls supabase insert and maps correct
   assert.equal(payload.mrn, "");
 });
 
-test("usePatientImport importPatients calls supabase insert per patient and maps correctly", async () => {
+test("usePatientImport importPatients performs a single multi-row insert on the happy path", async () => {
   setupAuthMock();
   const patientsRef: React.MutableRefObject<Patient[]> = { current: [] };
   const setPatients = (fn: React.SetStateAction<Patient[]>) => {
     if (typeof fn === "function") (fn as (prev: Patient[]) => Patient[])([]);
   };
+  const supabaseMock = installPatientImportSupabaseMock();
 
-  const { result } = renderHook(
-    () =>
-      usePatientImport({
-        patientsRef,
-        setPatients,
-      }),
-    { wrapper: authWrapper }
-  );
+  try {
+    const { result } = renderHook(
+      () =>
+        usePatientImport({
+          patientsRef,
+          setPatients,
+        }),
+      { wrapper: authWrapper }
+    );
 
-  const initialCaptureLen = ((globalThis as unknown as { __supabaseInsertCapture?: unknown[] }).__supabaseInsertCapture || []).length;
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    await act(async () => {
+      await result.current.importPatients([
+        { name: "Imported One", bed: "C1", clinicalSummary: "S1", intervalEvents: "" },
+        { name: "Imported Two", bed: "C2", clinicalSummary: "S2", intervalEvents: "" },
+      ]);
+    });
 
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 20));
-  });
-  await act(async () => {
-    await result.current.importPatients([
-      { name: "Imported One", bed: "C1", clinicalSummary: "S1", intervalEvents: "" },
-      { name: "Imported Two", bed: "C2", clinicalSummary: "S2", intervalEvents: "" },
-    ]);
-  });
-
-  const capture = (globalThis as unknown as { __supabaseInsertCapture?: { table: string; rows: unknown[] }[] }).__supabaseInsertCapture;
-  assert.ok(capture, "insert capture should exist");
-  assert.equal(capture.length - initialCaptureLen, 2, "insert should have been called twice");
-  const firstPayload = (capture[initialCaptureLen].rows[0] as Record<string, unknown>);
-  const secondPayload = (capture[initialCaptureLen + 1].rows[0] as Record<string, unknown>);
-  assert.equal(firstPayload.name, "Imported One");
-  assert.equal(firstPayload.bed, "C1");
-  assert.equal(firstPayload.patient_number, 1);
-  assert.equal(secondPayload.name, "Imported Two");
-  assert.equal(secondPayload.bed, "C2");
-  assert.equal(secondPayload.patient_number, 2);
+    assert.deepEqual(
+      supabaseMock.insertPayloadBatches.map((batch) => batch.map((payload) => payload.patient_number)),
+      [[1, 2]],
+      "insert should include both patients in one multi-row payload"
+    );
+    const firstPayload = supabaseMock.insertPayloadBatches[0][0];
+    const secondPayload = supabaseMock.insertPayloadBatches[0][1];
+    assert.equal(firstPayload.name, "Imported One");
+    assert.equal(firstPayload.bed, "C1");
+    assert.equal(firstPayload.patient_number, 1);
+    assert.equal(secondPayload.name, "Imported Two");
+    assert.equal(secondPayload.bed, "C2");
+    assert.equal(secondPayload.patient_number, 2);
+  } finally {
+    supabaseMock.restore();
+  }
 });
 
 test("usePatientImport importPatients commits a multi-patient roster once with immediate cache visibility", async () => {
@@ -290,6 +311,11 @@ test("usePatientImport importPatients commits a multi-patient roster once with i
     assert.equal(cachedPatients.length, 8, "cache should expose at least eight patients immediately");
     assert.equal(patientsRef.current.length, 8, "patientsRef should be immediately current for follow-on actions");
     assert.deepEqual(cachedPatients.slice(-5).map((patient) => patient.patientNumber), [4, 5, 6, 7, 8]);
+    assert.deepEqual(
+      supabaseMock.insertPayloadBatches.map((batch) => batch.map((payload) => payload.patient_number)),
+      [[4, 5, 6, 7, 8]],
+      "happy-path imports should batch all patients into one insert"
+    );
     assert.equal(supabaseMock.latestNumberSelects.length, 0, "successful imports should not perform conflict/latest-number selects");
   } finally {
     supabaseMock.restore();
@@ -331,9 +357,9 @@ test("usePatientImport importPatients preserves patient-number conflict retry wi
     });
 
     assert.deepEqual(
-      supabaseMock.insertPayloads.map((payload) => payload.patient_number),
-      [1, 43, 44],
-      "conflict retry should use latest patient number and continue sequentially"
+      supabaseMock.insertPayloadBatches.map((batch) => batch.map((payload) => payload.patient_number)),
+      [[1, 2], [43], [44]],
+      "conflict recovery should retry sequential numbers after a bulk conflict"
     );
     assert.equal(supabaseMock.latestNumberSelects.length, 1, "latest-number lookup should run only for the conflict");
     assert.equal(setPatientsCalls, 1, "conflict recovery should still consolidate the cache update");

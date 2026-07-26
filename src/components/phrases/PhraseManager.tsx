@@ -6,6 +6,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -500,6 +501,9 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
             <DialogTitle>
               {editingPhrase ? 'Edit Phrase' : 'New Phrase'}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Create or update a reusable clinical phrase and its shortcuts.
+            </DialogDescription>
           </DialogHeader>
 
           <ScrollArea className="flex-1 pr-4">
@@ -664,6 +668,9 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
             <DialogTitle>
               {editingFolder ? 'Edit Folder' : 'New Folder'}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Organize related clinical phrases into folders.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -735,6 +742,9 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
               <History className="h-5 w-5" />
               Version History: {versionPhrase.name}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Review earlier phrase versions and restore a prior draft if needed.
+            </DialogDescription>
           </DialogHeader>
 
           <ScrollArea className="flex-1">
@@ -814,9 +824,9 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
       <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border/50">
           <DialogTitle>Clinical Phrase Manager</DialogTitle>
-          <p className="text-sm text-muted-foreground font-normal pt-1">
+          <DialogDescription className="text-sm text-muted-foreground font-normal pt-1">
             Folders and placeholders for reusable blocks. Short inline shorthand lives under Autotexts &amp; Templates in settings.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-1 overflow-hidden">

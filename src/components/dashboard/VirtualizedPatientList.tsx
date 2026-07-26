@@ -152,7 +152,7 @@ export const VirtualizedPatientList = React.memo(() => {
         {patientRosterLayoutMode === "sidebar" && !focusModeActive && (
           !panelLeftCollapsed ? (
             <aside
-              className="flex-shrink-0 w-full lg:w-[min(100%,280px)] lg:max-w-[320px] border border-border/30 rounded-lg bg-card/60 flex flex-col min-h-[260px] max-h-[42vh] lg:h-full lg:min-h-0 lg:max-h-none"
+              className="flex-shrink-0 w-full lg:w-[min(100%,280px)] lg:max-w-[320px] border border-border/30 rounded-lg bg-card/60 flex flex-col min-h-[260px] max-h-[60vh] lg:h-full lg:min-h-0 lg:max-h-none"
               aria-label="Patient list"
               role="region"
               aria-labelledby="desktop-patient-list-heading"

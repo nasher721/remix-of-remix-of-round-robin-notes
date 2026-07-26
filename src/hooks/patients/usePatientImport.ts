@@ -10,7 +10,7 @@ import {
     mapPatientRecord,
 } from "@/services/patientService";
 import { parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
-import type { Json } from "@/integrations/supabase/types";
+import type { Json, TablesInsert } from "@/integrations/supabase/types";
 
 export interface PatientImportDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
@@ -93,72 +93,127 @@ export function usePatientImport({
         }
 
         try {
-            let currentCounter = getNextPatientCounter(patientsRef.current);
+            type PreparedImportRow = {
+                name: string;
+                payload: TablesInsert<"patients">;
+            };
+
+            const mapInsertedRows = (rows: Array<Parameters<typeof mapPatientRecord>[0]>): Patient[] =>
+                [...rows]
+                    .sort((left, right) => left.patient_number - right.patient_number)
+                    .map(mapPatientRecord);
+
+            const insertPreparedRowsIndividually = async (
+                preparedRows: PreparedImportRow[],
+                startingNumber: number,
+                newPatients: Patient[],
+                failedPatients: { name: string; error: unknown }[],
+            ): Promise<boolean> => {
+                let nextPatientNumber = startingNumber;
+
+                for (const preparedRow of preparedRows) {
+                    let rowPayload = {
+                        ...preparedRow.payload,
+                        patient_number: nextPatientNumber,
+                    };
+                    let attemptsRemaining = 2;
+
+                    while (attemptsRemaining > 0) {
+                        const { data, error } = await supabase
+                            .from("patients")
+                            .insert([rowPayload])
+                            .select()
+                            .single();
+
+                        if (!isCurrentOwner(requestOwnerId)) return false;
+
+                        if (error && isPatientNumberConflict(error) && attemptsRemaining > 1) {
+                            const latestNumber = await getLatestPatientNumber();
+                            if (!isCurrentOwner(requestOwnerId)) return false;
+                            rowPayload = {
+                                ...rowPayload,
+                                patient_number: latestNumber + 1,
+                            };
+                            attemptsRemaining -= 1;
+                            continue;
+                        }
+
+                        if (error) {
+                            failedPatients.push({ name: preparedRow.name, error });
+                        } else if (data == null) {
+                            failedPatients.push({ name: preparedRow.name, error: new Error("No data returned from insert") });
+                        } else {
+                            newPatients.push(mapPatientRecord(data));
+                        }
+
+                        nextPatientNumber = Number(rowPayload.patient_number ?? nextPatientNumber) + 1;
+                        break;
+                    }
+                }
+
+                return true;
+            };
+
+            const nextPatientNumber = getNextPatientCounter(patientsRef.current);
+            const preparedRows = patientsToImport.map((patientToImport, index): PreparedImportRow => {
+                const systems = parseSystemsJson({
+                    ...defaultSystemsValue,
+                    ...(patientToImport.systems ?? {}),
+                } as unknown as Json);
+                const medications = parseMedicationsJson(
+                    (patientToImport.medications ?? null) as unknown as Json,
+                );
+
+                return {
+                    name: patientToImport.name,
+                    payload: buildPatientInsertPayload({
+                        userId: requestOwnerId,
+                        patientNumber: nextPatientNumber + index,
+                        name: patientToImport.name,
+                        bed: patientToImport.bed,
+                        clinicalSummary: patientToImport.clinicalSummary,
+                        intervalEvents: patientToImport.intervalEvents || "",
+                        systems,
+                        medications,
+                    }),
+                };
+            });
+            const payloads = preparedRows.map((preparedRow) => preparedRow.payload);
             const newPatients: Patient[] = [];
             const failedPatients: { name: string; error: unknown }[] = [];
 
-            for (const p of patientsToImport) {
-                const systems = parseSystemsJson({
-                    ...defaultSystemsValue,
-                    ...(p.systems ?? {}),
-                } as unknown as Json);
-                const medications = parseMedicationsJson(
-                    (p.medications ?? null) as unknown as Json,
-                );
-                let insertNumber = currentCounter;
-                let { data, error } = await supabase
+            if (payloads.length > 0) {
+                const { data, error } = await supabase
                     .from("patients")
-                    .insert([buildPatientInsertPayload({
-                        userId: requestOwnerId,
-                        patientNumber: insertNumber,
-                        name: p.name,
-                        bed: p.bed,
-                        clinicalSummary: p.clinicalSummary,
-                        intervalEvents: p.intervalEvents || "",
-                        systems,
-                        medications,
-                    })])
-                    .select()
-                    .single();
-
+                    .insert(payloads)
+                    .select();
                 if (!isCurrentOwner(requestOwnerId)) return;
+
                 if (error && isPatientNumberConflict(error)) {
                     const latestNumber = await getLatestPatientNumber();
                     if (!isCurrentOwner(requestOwnerId)) return;
-                    insertNumber = latestNumber + 1;
-                    const retryResult = await supabase
-                        .from("patients")
-                        .insert([buildPatientInsertPayload({
-                            userId: requestOwnerId,
-                            patientNumber: insertNumber,
-                            name: p.name,
-                            bed: p.bed,
-                            clinicalSummary: p.clinicalSummary,
-                            intervalEvents: p.intervalEvents || "",
-                            systems,
-                            medications,
-                        })])
-                        .select()
-                        .single();
-                    if (!isCurrentOwner(requestOwnerId)) return;
-                    data = retryResult.data;
-                    error = retryResult.error;
+                    // A bulk patient-number collision is recovered with bounded single-row retries.
+                    const recovered = await insertPreparedRowsIndividually(
+                        preparedRows,
+                        latestNumber + 1,
+                        newPatients,
+                        failedPatients,
+                    );
+                    if (!recovered) return;
+                } else if (error) {
+                    failedPatients.push(...preparedRows.map((preparedRow) => ({
+                        name: preparedRow.name,
+                        error,
+                    })));
+                } else if (data == null) {
+                    const noDataError = new Error("No data returned from insert");
+                    failedPatients.push(...preparedRows.map((preparedRow) => ({
+                        name: preparedRow.name,
+                        error: noDataError,
+                    })));
+                } else {
+                    newPatients.push(...mapInsertedRows(data));
                 }
-
-                if (error) {
-                    failedPatients.push({ name: p.name, error });
-                    currentCounter = insertNumber + 1;
-                    continue;
-                }
-                if (data == null) {
-                    failedPatients.push({ name: p.name, error: new Error("No data returned from insert") });
-                    currentCounter = insertNumber + 1;
-                    continue;
-                }
-
-                newPatients.push(mapPatientRecord(data));
-
-                currentCounter = insertNumber + 1;
             }
 
             appendPatients(requestOwnerId, newPatients);

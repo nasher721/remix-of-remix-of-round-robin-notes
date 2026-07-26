@@ -14,6 +14,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { getLLMRouter, AVAILABLE_MODELS, type ModelOption } from '@/services/llm';
 import type { LLMProviderName } from '@/services/llm';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 interface UseLLMModelSelectionReturn {
   /** Currently selected provider */
@@ -42,10 +43,10 @@ interface StoredSelection {
 }
 
 export function useLLMModelSelection(): UseLLMModelSelectionReturn {
-  // Load saved preference from localStorage
+  // Load saved preference through the safe storage wrapper.
   const savedSelection = useMemo((): StoredSelection | null => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = safeLocalStorage.getItem(STORAGE_KEY);
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -79,23 +80,14 @@ export function useLLMModelSelection(): UseLLMModelSelectionReturn {
     setSelectedProvider(provider);
     setSelectedModel(model);
 
-    // Persist to localStorage
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ provider, model }));
-    } catch {
-      // Storage unavailable
-    }
+    safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify({ provider, model }));
   }, []);
 
   const resetToDefault = useCallback(() => {
     setSelectedProvider('openai');
     setSelectedModel('gpt-4o-mini');
 
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // Storage unavailable
-    }
+    safeLocalStorage.removeItem(STORAGE_KEY);
   }, []);
 
   const checkHealth = useCallback(async () => {

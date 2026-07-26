@@ -1,3 +1,5 @@
+import { safeLocalStorage } from "@/utils/safeStorage";
+
 export type SystemsReviewMode = "split" | "combine_all" | "combine_custom";
 
 export type PatientRosterLayoutMode = "sidebar" | "topbar";
@@ -102,7 +104,7 @@ export const loadDashboardPrefs = (): DashboardPrefs => {
   }
 
   try {
-    const raw = window.localStorage.getItem(DASHBOARD_PREFS_STORAGE_KEY);
+    const raw = safeLocalStorage.getItem(DASHBOARD_PREFS_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_DASHBOARD_PREFS };
     return sanitizeDashboardPrefs(JSON.parse(raw));
   } catch {
@@ -112,9 +114,8 @@ export const loadDashboardPrefs = (): DashboardPrefs => {
 
 export const saveDashboardPrefs = (prefs: DashboardPrefs): void => {
   if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(DASHBOARD_PREFS_STORAGE_KEY, JSON.stringify(sanitizeDashboardPrefs(prefs)));
-  } catch {
-    // ignore storage quota/private mode errors; app state still works in-memory
-  }
+  safeLocalStorage.setItem(
+    DASHBOARD_PREFS_STORAGE_KEY,
+    JSON.stringify(sanitizeDashboardPrefs(prefs)),
+  );
 };
