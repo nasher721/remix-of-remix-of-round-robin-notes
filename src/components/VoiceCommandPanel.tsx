@@ -24,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -31,6 +32,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -304,6 +306,9 @@ function VoiceSettingsDialog({ settings, onUpdateSettings }: VoiceSettingsDialog
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Voice Command Settings</DialogTitle>
+          <DialogDescription>
+            Adjust voice recognition, confirmations, and spoken feedback.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -406,6 +411,9 @@ function VoiceCommandHelp() {
             <Mic className="h-5 w-5" />
             Voice Commands
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            Review supported voice commands for navigation, patient management, and note editing.
+          </SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="h-[calc(100vh-120px)] mt-6">

@@ -14,6 +14,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -404,6 +405,9 @@ export const UnifiedAIDropdown = ({
               <MessageSquarePlus className="h-5 w-5" />
               Custom AI prompt
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Enter instructions to transform the selected clinical text.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Textarea
@@ -442,6 +446,9 @@ export const UnifiedAIDropdown = ({
         <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col gap-3">
           <DialogHeader>
             <DialogTitle>Review AI result</DialogTitle>
+            <DialogDescription className="sr-only">
+              Review the generated note text before inserting it into the chart.
+            </DialogDescription>
             <p className="text-xs text-muted-foreground">
               {aiPreview ? (
                 <>
@@ -477,6 +484,9 @@ export const UnifiedAIDropdown = ({
               <Plus className="h-5 w-5" />
               Save custom prompt
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Save reusable AI instructions for future note transformations.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
