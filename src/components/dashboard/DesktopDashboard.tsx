@@ -328,11 +328,17 @@ export const DesktopDashboard = () => {
     toggleRightPanel,
     setLeftPanelCollapsed,
     focusModeActive,
+    exitFocusMode,
     patientRosterLayoutMode,
     setPatientRosterLayoutMode,
   } = useDashboardLayout();
 
   const handleTogglePanels = React.useCallback(() => {
+    // Focus mode collapses both panels; treat "expand panels" as exiting focus.
+    if (focusModeActive) {
+      exitFocusMode();
+      return;
+    }
     const bothCollapsed = panelLeftCollapsed && panelRightCollapsed;
     const anyCollapsed = panelLeftCollapsed || panelRightCollapsed;
     if (bothCollapsed) {
@@ -347,7 +353,14 @@ export const DesktopDashboard = () => {
     }
     toggleLeftPanel();
     toggleRightPanel();
-  }, [panelLeftCollapsed, panelRightCollapsed, toggleLeftPanel, toggleRightPanel]);
+  }, [
+    focusModeActive,
+    exitFocusMode,
+    panelLeftCollapsed,
+    panelRightCollapsed,
+    toggleLeftPanel,
+    toggleRightPanel,
+  ]);
 
   const TogglePanelsButton = () => {
     const bothCollapsed = panelLeftCollapsed && panelRightCollapsed;
@@ -361,9 +374,10 @@ export const DesktopDashboard = () => {
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
-              disabled={focusModeActive}
               onClick={handleTogglePanels}
-              aria-label={bothCollapsed ? "Expand panels" : "Collapse panels"}
+              aria-label={
+                focusModeActive || bothCollapsed ? "Expand panels" : "Collapse panels"
+              }
             >
               {bothCollapsed ? (
                 <Maximize2 className="h-4 w-4" />
@@ -594,8 +608,10 @@ export const DesktopDashboard = () => {
                       {user?.email ?? ""}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleTogglePanels} disabled={focusModeActive}>
-                      {panelLeftCollapsed && panelRightCollapsed ? "Expand panels" : "Collapse panels"}
+                    <DropdownMenuItem onClick={handleTogglePanels}>
+                      {focusModeActive || (panelLeftCollapsed && panelRightCollapsed)
+                        ? "Show patient list"
+                        : "Collapse panels"}
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <a href="#desktop-patient-search">Jump to search</a>
@@ -675,15 +691,15 @@ export const DesktopDashboard = () => {
                   onSyncNow={handleSyncNow}
                 />
               ) : (
-                <div className="hidden lg:flex w-11 flex-none flex-col items-center border-r border-border/25 py-2">
+                <div className="flex w-11 flex-none flex-col items-center border-r border-border/25 py-2">
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9 text-muted-foreground"
                     onClick={() => setLeftPanelCollapsed(false)}
-                    aria-label="Expand patient list"
-                    title="Expand patient list"
+                    aria-label={focusModeActive ? "Show patient list" : "Expand patient list"}
+                    title={focusModeActive ? "Show patient list" : "Expand patient list"}
                     aria-expanded={false}
                   >
                     <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />

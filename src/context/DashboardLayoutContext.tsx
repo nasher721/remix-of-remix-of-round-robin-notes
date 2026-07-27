@@ -65,57 +65,130 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const preFocusLayoutRef = useRef<{ leftPatientListOpen: boolean; rightTasksPanelOpen: boolean } | null>(null)
 
-  // Load prefs on mount
+  // Load prefs on mount. Focus mode is session-only — never restore it, because it
+  // collapses the patient list and previously blocked every UI control that reopens it.
   useEffect(() => {
     const loaded = loadDashboardPrefs()
-    setPrefs(loaded)
-    setFocusModeActive(loaded.focusModeEnabled)
+    const leftPatientListOpen = loaded.focusModeEnabled
+      ? true
+      : loaded.leftPatientListOpen
+    setPrefs({
+      ...loaded,
+      focusModeEnabled: false,
+      leftPatientListOpen,
+    })
+    setFocusModeActive(false)
     setSystemsLayoutModeState(toLayoutMode(loaded.systemsReviewMode))
     setCustomSystemsGroupIdsState(loaded.systemsCustomCombineKeys)
     setIsInitialized(true)
   }, [])
 
-  // Persist when state changes
+  // Persist when state changes (focus mode stays session-only)
   useEffect(() => {
     if (!isInitialized) return
     const newPrefs: DashboardPrefs = {
       ...prefs,
-      focusModeEnabled: focusModeActive,
+      focusModeEnabled: false,
       systemsReviewMode: toPrefsMode(systemsLayoutMode),
       systemsCustomCombineKeys: customSystemsGroupIds,
     }
     saveDashboardPrefs(newPrefs)
   }, [isInitialized, prefs, focusModeActive, systemsLayoutMode, customSystemsGroupIds])
 
+  const clearFocusModeState = useCallback(() => {
+    setFocusModeActive(false)
+    setFocusModeEditorId(null)
+  }, [])
+
+  /** Exit focus mode and force the patient list open (used by expand controls). */
+  const revealLeftPanel = useCallback(() => {
+    clearFocusModeState()
+    setPrefs((prev) => {
+      const restore = prev.focusModeEnabled ? preFocusLayoutRef.current : null
+      if (prev.focusModeEnabled) {
+        preFocusLayoutRef.current = null
+      }
+      return {
+        ...prev,
+        focusModeEnabled: false,
+        leftPatientListOpen: true,
+        rightTasksPanelOpen: prev.focusModeEnabled
+          ? (restore?.rightTasksPanelOpen ?? prev.rightTasksPanelOpen)
+          : prev.rightTasksPanelOpen,
+      }
+    })
+  }, [clearFocusModeState])
+
   const toggleLeftPanel = useCallback(() => {
+    // Opening the list must always work, even from focus mode.
+    clearFocusModeState()
     setPrefs((p) => {
-      // In focus mode, keep the writing surface uncluttered.
-      if (p.focusModeEnabled) return p
+      if (p.focusModeEnabled) {
+        const restore = preFocusLayoutRef.current
+        preFocusLayoutRef.current = null
+        return {
+          ...p,
+          focusModeEnabled: false,
+          leftPatientListOpen: true,
+          rightTasksPanelOpen: restore?.rightTasksPanelOpen ?? p.rightTasksPanelOpen,
+        }
+      }
       return { ...p, leftPatientListOpen: !p.leftPatientListOpen }
     })
-  }, [])
+  }, [clearFocusModeState])
 
   const toggleRightPanel = useCallback(() => {
+    clearFocusModeState()
     setPrefs((p) => {
-      // In focus mode, keep the writing surface uncluttered.
-      if (p.focusModeEnabled) return p
+      if (p.focusModeEnabled) {
+        const restore = preFocusLayoutRef.current
+        preFocusLayoutRef.current = null
+        return {
+          ...p,
+          focusModeEnabled: false,
+          leftPatientListOpen: restore?.leftPatientListOpen ?? true,
+          rightTasksPanelOpen: true,
+        }
+      }
       return { ...p, rightTasksPanelOpen: !p.rightTasksPanelOpen }
     })
-  }, [])
+  }, [clearFocusModeState])
 
   const setLeftPanelCollapsed = useCallback((collapsed: boolean) => {
+    if (!collapsed) {
+      revealLeftPanel()
+      return
+    }
     setPrefs((p) => {
       if (p.focusModeEnabled) return p
-      return { ...p, leftPatientListOpen: !collapsed }
+      return { ...p, leftPatientListOpen: false }
     })
-  }, [])
+  }, [revealLeftPanel])
 
   const setRightPanelCollapsed = useCallback((collapsed: boolean) => {
+    if (!collapsed) {
+      clearFocusModeState()
+      setPrefs((p) => {
+        const restore = p.focusModeEnabled ? preFocusLayoutRef.current : null
+        if (p.focusModeEnabled) {
+          preFocusLayoutRef.current = null
+        }
+        return {
+          ...p,
+          focusModeEnabled: false,
+          leftPatientListOpen: p.focusModeEnabled
+            ? (restore?.leftPatientListOpen ?? true)
+            : p.leftPatientListOpen,
+          rightTasksPanelOpen: true,
+        }
+      })
+      return
+    }
     setPrefs((p) => {
       if (p.focusModeEnabled) return p
-      return { ...p, rightTasksPanelOpen: !collapsed }
+      return { ...p, rightTasksPanelOpen: false }
     })
-  }, [])
+  }, [clearFocusModeState])
 
   const enterFocusMode = useCallback((editorId: DashboardFocusTarget) => {
     setFocusModeActive(true)
@@ -136,8 +209,7 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const exitFocusMode = useCallback(() => {
-    setFocusModeActive(false)
-    setFocusModeEditorId(null)
+    clearFocusModeState()
     setPrefs((prev) => {
       if (!prev.focusModeEnabled) return prev
       const restore = preFocusLayoutRef.current
@@ -149,7 +221,7 @@ export function DashboardLayoutProvider({ children }: { children: ReactNode }) {
         rightTasksPanelOpen: restore?.rightTasksPanelOpen ?? true,
       }
     })
-  }, [])
+  }, [clearFocusModeState])
 
   const setSystemsLayoutMode = useCallback((mode: SystemsLayoutMode) => {
     setSystemsLayoutModeState(mode)
