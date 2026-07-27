@@ -8,7 +8,7 @@ import { IBCCPanel } from "@/components/ibcc";
 import { GuidelinesPanel } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, Plus, ArrowUpDown, Printer } from "lucide-react";
+import { ChevronsUpDown, Plus, ArrowUpDown, Printer, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -207,6 +207,19 @@ export const MobileDashboard = () => {
                         aria-label={patients.every(p => p.collapsed) ? 'Expand All' : 'Collapse All'}
                       >
                         <ChevronsUpDown className="h-5 w-5" />
+                      </Button>
+                    )}
+                    {patients.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleClearAll}
+                        className="h-11 w-11 text-destructive hover:text-destructive"
+                        title="Clear all patients"
+                        aria-label="Clear all patients"
+                        data-testid="clear-all-patients"
+                      >
+                        <Trash2 className="h-5 w-5" />
                       </Button>
                     )}
                   </div>
