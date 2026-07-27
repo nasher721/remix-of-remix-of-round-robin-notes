@@ -625,7 +625,7 @@ export const RichTextEditor = ({
           aria-label={section ? `${section} notes` : placeholder}
           contentEditable
           className={cn(
-            "p-3 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 transition-all prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
+            "p-3 rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
             isPopOutInstance ? "min-h-[55vh]" : "min-h-[120px]"
           )}
           style={{ fontSize: `${fontSizeRef.current}px`, minHeight }}

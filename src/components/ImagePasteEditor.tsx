@@ -1896,7 +1896,7 @@ export const ImagePasteEditor = ({
           aria-multiline="true"
           aria-label={section ? `${section} notes` : placeholder}
           contentEditable
-          className="p-3 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-0 transition-all prose prose-sm max-w-none min-h-[120px] relative text-foreground"
+          className="p-3 rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none min-h-[120px] relative text-foreground"
           style={{ fontSize: `${fontSize}px`, minHeight }}
           onInput={handleInput}
           onKeyDown={handleKeyDown}

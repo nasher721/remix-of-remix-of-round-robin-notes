@@ -164,6 +164,18 @@ export const PatientRosterRail = ({
           </span>
         </h2>
         <div className="flex items-center gap-1">
+        {patients.length > 0 ? (
+          <button
+            type="button"
+            className="rr-icon-btn text-destructive hover:text-destructive"
+            aria-label="Clear all patients"
+            title="Clear all patients"
+            onClick={onRequestClearAll}
+            data-testid="clear-all-patients"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : null}
         <button
           type="button"
           className="rr-icon-btn"
