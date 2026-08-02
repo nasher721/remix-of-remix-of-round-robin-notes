@@ -106,6 +106,22 @@ export function normalizeGlobalFontSizeToPx(raw: unknown): number {
   return Math.min(MAX_GLOBAL_FONT_SIZE_PX, Math.max(MIN_GLOBAL_FONT_SIZE_PX, Math.round(n)));
 }
 
+/** iOS Safari zooms the page when focused editable text is under 16px. */
+const IOS_FOCUS_ZOOM_MIN_PX = 16;
+
+function isWebKitTouchDevice(): boolean {
+  return typeof CSS !== "undefined" && typeof CSS.supports === "function"
+    ? CSS.supports("-webkit-touch-callout", "none")
+    : false;
+}
+
+/** Clamp editor px size so iOS focus does not zoom; preserves larger preferences. */
+export function resolveEditorFontSizePx(fontSizePx: number): number {
+  const normalized = normalizeGlobalFontSizeToPx(fontSizePx);
+  if (!isWebKitTouchDevice()) return normalized;
+  return Math.max(normalized, IOS_FOCUS_ZOOM_MIN_PX);
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
 // AI feature categories for per-feature model customization

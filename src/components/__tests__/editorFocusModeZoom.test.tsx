@@ -44,4 +44,11 @@ describe("editor click must not trigger focus-mode layout zoom", () => {
     assert.equal(list.includes("enterFocusMode"), false);
     assert.equal(workspace.includes("enterFocusMode"), false);
   });
+
+  it("note editors resolve font size through the iOS zoom floor helper", () => {
+    const rich = readSource("src/components/RichTextEditor.tsx");
+    const imaging = readSource("src/components/ImagePasteEditor.tsx");
+    assert.match(rich, /resolveEditorFontSizePx/);
+    assert.match(imaging, /resolveEditorFontSizePx/);
+  });
 });
