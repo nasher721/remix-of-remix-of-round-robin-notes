@@ -127,7 +127,6 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
   const {
     focusModeActive,
     focusModeEditorId,
-    enterFocusMode,
     exitFocusMode,
     setLeftPanelCollapsed,
     systemsLayoutMode,
@@ -496,7 +495,6 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
           hidePatientWideTodos={false}
           dashboardFocusModeEnabled={focusModeActive}
           dashboardFocusTarget={focusModeEditorId}
-          onRequestDashboardFocusMode={enterFocusMode}
           onExitDashboardFocusMode={exitFocusMode}
           systemsReviewMode={toPrefsMode(systemsLayoutMode)}
           systemsCustomCombineKeys={customSystemsGroupIds}

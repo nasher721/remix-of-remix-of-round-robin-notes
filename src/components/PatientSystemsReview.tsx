@@ -44,7 +44,6 @@ interface PatientSystemsReviewProps {
   systemsCustomCombineKeys?: string[];
   onSystemsReviewModeChange?: (mode: SystemsReviewMode) => void;
   onSystemsCustomCombineKeysChange?: (keys: string[]) => void;
-  onAnyEditorFocus?: () => void;
 }
 
 const SYSTEM_ACCENT: Record<string, { bg: string; border: string; dot: string }> = {
@@ -92,7 +91,6 @@ export const PatientSystemsReview = ({
   systemsCustomCombineKeys,
   onSystemsReviewModeChange,
   onSystemsCustomCombineKeysChange,
-  onAnyEditorFocus,
 }: PatientSystemsReviewProps) => {
   const { enabledSystems } = useSystemsConfig();
 
@@ -200,7 +198,6 @@ export const PatientSystemsReview = ({
   return (
     <div
       className="space-y-3"
-      onFocusCapture={onAnyEditorFocus}
       data-systems-combined={systemsReviewMode === "combine_all" ? "true" : undefined}
       data-systems-custom={systemsReviewMode === "combine_custom" ? "true" : undefined}
     >

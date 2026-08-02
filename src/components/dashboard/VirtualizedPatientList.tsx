@@ -48,7 +48,6 @@ export const VirtualizedPatientList = React.memo(() => {
     panelRightCollapsed,
     focusModeActive,
     focusModeEditorId,
-    enterFocusMode,
     exitFocusMode,
     setLeftPanelCollapsed,
     setRightPanelCollapsed,
@@ -386,7 +385,6 @@ export const VirtualizedPatientList = React.memo(() => {
                   hidePatientWideTodos={panelRightCollapsed}
                   dashboardFocusModeEnabled={focusModeActive}
                   dashboardFocusTarget={focusModeEditorId}
-                  onRequestDashboardFocusMode={enterFocusMode}
                   onExitDashboardFocusMode={exitFocusMode}
                   systemsReviewMode={toPrefsMode(systemsLayoutMode)}
                   systemsCustomCombineKeys={customSystemsGroupIds}
