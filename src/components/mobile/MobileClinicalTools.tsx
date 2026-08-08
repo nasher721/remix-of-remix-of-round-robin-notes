@@ -8,7 +8,6 @@ import {
   BarChart3,
   ChevronRight,
   AlertTriangle,
-  TrendingUp,
   Users,
   Mic,
   Sparkles,
@@ -18,20 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
 import type { ClinicalAlert } from "@/types/clinicalAlerts";
 import type { Patient } from "@/types/patient";
 import type { PatientProtocol } from "@/types/protocols";
@@ -58,7 +43,7 @@ interface ToolCardProps {
   badge?: string | number;
   badgeVariant?: "default" | "destructive" | "warning";
   onClick: () => void;
-  color: string;
+  iconClassName: string;
 }
 
 function ToolCard({
@@ -68,21 +53,19 @@ function ToolCard({
   badge,
   badgeVariant = "default",
   onClick,
-  color,
+  iconClassName,
 }: ToolCardProps) {
   return (
     <button
+      type="button"
       onClick={onClick}
-      className="w-full text-left active:scale-[0.98] transition-transform"
+      className="w-full text-left"
     >
-      <Card className="border-l-4 hover:bg-muted/50 transition-colors" style={{ borderLeftColor: color }}>
+      <Card className="transition-colors hover:bg-muted/50">
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
-            <div
-              className="p-3 rounded-xl"
-              style={{ backgroundColor: `${color}15` }}
-            >
-              <Icon className="h-6 w-6" style={{ color }} />
+            <div className="rounded-lg bg-muted p-2.5">
+              <Icon className={cn("h-5 w-5", iconClassName)} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -135,26 +118,27 @@ export function MobileClinicalTools({
           label="Patients"
           value={patients.length}
           icon={Users}
-          color="#3b82f6"
+          iconClassName="text-primary"
         />
         <QuickStat
           label="Alerts"
           value={unacknowledgedAlerts.length}
           icon={Bell}
-          color={criticalAlerts.length > 0 ? "#ef4444" : "#f59e0b"}
+          iconClassName={criticalAlerts.length > 0 ? "text-destructive" : "text-amber-600"}
           highlight={criticalAlerts.length > 0}
         />
         <QuickStat
           label="Protocols"
           value={pendingProtocols.length}
           icon={FileCheck}
-          color="#22c55e"
+          iconClassName="text-emerald-600"
         />
       </div>
 
       {/* Critical Alerts Banner */}
       {criticalAlerts.length > 0 && (
         <button
+          type="button"
           onClick={onOpenAlerts}
           className="w-full p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 active:bg-red-100 transition-colors"
         >
@@ -186,7 +170,7 @@ export function MobileClinicalTools({
           badge={unacknowledgedAlerts.length > 0 ? unacknowledgedAlerts.length : undefined}
           badgeVariant={criticalAlerts.length > 0 ? "destructive" : "warning"}
           onClick={onOpenAlerts}
-          color="#ef4444"
+          iconClassName="text-destructive"
         />
 
         <ToolCard
@@ -194,7 +178,7 @@ export function MobileClinicalTools({
           label="Lab Trends"
           description="View lab value trends over time"
           onClick={onOpenLabTrends}
-          color="#06b6d4"
+          iconClassName="text-cyan-600"
         />
 
         <ToolCard
@@ -202,7 +186,7 @@ export function MobileClinicalTools({
           label="Shift Handoff"
           description="SBAR documentation for handoffs"
           onClick={onOpenHandoff}
-          color="#8b5cf6"
+          iconClassName="text-violet-600"
         />
 
         <ToolCard
@@ -211,7 +195,7 @@ export function MobileClinicalTools({
           description="Evidence-based clinical checklists"
           badge={pendingProtocols.length > 0 ? pendingProtocols.length : undefined}
           onClick={onOpenProtocols}
-          color="#22c55e"
+          iconClassName="text-emerald-600"
         />
 
         <ToolCard
@@ -219,7 +203,7 @@ export function MobileClinicalTools({
           label="Timeline"
           description="Patient event history"
           onClick={onOpenTimeline}
-          color="#f59e0b"
+          iconClassName="text-amber-600"
         />
 
         <ToolCard
@@ -227,48 +211,31 @@ export function MobileClinicalTools({
           label="Analytics"
           description="Unit metrics and quality data"
           onClick={onOpenAnalytics}
-          color="#3b82f6"
+          iconClassName="text-primary"
         />
       </div>
 
-      {/* AI Tools Section */}
-      <div className="space-y-3 relative">
+      <div className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide px-1">
-          Apple Intelligence
+          AI tools
         </h2>
 
-        <button
+        <ToolCard
+          icon={Sparkles}
+          label="Batch course generator"
+          description="Draft patient-course summaries in batches"
+          badge="AI"
           onClick={onOpenBatchCourse}
-          className="w-full text-left active:scale-[0.98] transition-all duration-300 relative group overflow-hidden rounded-2xl p-[1px]"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-60 group-hover:opacity-100 transition-opacity rounded-2xl" />
-          <div className="relative bg-background/90 backdrop-blur-xl border border-white/10 dark:border-white/5 rounded-[15px] p-4 h-full">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 shadow-inner">
-                <Sparkles className="h-6 w-6 text-purple-500 group-hover:scale-110 transition-transform duration-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
-                    Batch Course Generator
-                  </h3>
-                  <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary border-primary/20">AI</Badge>
-                </div>
-                <p className="text-sm text-foreground/70">
-                  Generate courses for multiple patients magically
-                </p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-purple-500 opacity-50 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </div>
-        </button>
+          iconClassName="text-violet-600"
+        />
       </div>
 
       {/* Voice Commands */}
       <div className="pt-4 border-t">
         <button
+          type="button"
           onClick={onOpenVoice}
-          className="w-full p-4 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl flex items-center gap-3 active:bg-primary/15 transition-colors"
+          className="w-full p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center gap-3 active:bg-primary/10 transition-colors"
         >
           <div className="p-2 bg-primary/20 rounded-full">
             <Mic className="h-5 w-5 text-primary" />
@@ -288,11 +255,11 @@ interface QuickStatProps {
   label: string;
   value: number;
   icon: React.ElementType;
-  color: string;
+  iconClassName: string;
   highlight?: boolean;
 }
 
-function QuickStat({ label, value, icon: Icon, color, highlight }: QuickStatProps) {
+function QuickStat({ label, value, icon: Icon, iconClassName, highlight }: QuickStatProps) {
   return (
     <div
       className={cn(
@@ -301,8 +268,7 @@ function QuickStat({ label, value, icon: Icon, color, highlight }: QuickStatProp
       )}
     >
       <Icon
-        className="h-5 w-5 mx-auto mb-1"
-        style={{ color: highlight ? "#ef4444" : color }}
+        className={cn("h-5 w-5 mx-auto mb-1", highlight ? "text-destructive" : iconClassName)}
       />
       <div className={cn(
         "text-2xl font-bold",
@@ -382,6 +348,7 @@ function MobileAlertCard({ alert, onAcknowledge, onDismiss, onNavigate }: Mobile
           </div>
           <div className="flex-1 min-w-0">
             <button
+              type="button"
               onClick={onNavigate}
               className="font-semibold hover:underline text-left"
             >
