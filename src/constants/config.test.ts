@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { GATEWAY_MODELS } from '@/constants/config'
+import { GATEWAY_MODELS, resolveEditorFontSizePx } from '@/constants/config'
 
 describe('GATEWAY_MODELS', () => {
   it('offers only completion models accepted by the Edge allowlist', () => {
@@ -17,5 +17,30 @@ describe('GATEWAY_MODELS', () => {
         'grok-2-mini',
       ],
     )
+  })
+})
+
+describe('resolveEditorFontSizePx', () => {
+  it('preserves configured sizes on non-WebKit-touch environments', () => {
+    assert.equal(resolveEditorFontSizePx(11), 11)
+    assert.equal(resolveEditorFontSizePx(18), 18)
+  })
+
+  it('floors below 16px when WebKit touch callout is supported', () => {
+    const previous = (globalThis as { CSS?: typeof CSS }).CSS
+    ;(globalThis as { CSS: { supports: (property: string, value?: string) => boolean } }).CSS = {
+      supports: (property: string, value?: string) =>
+        property === '-webkit-touch-callout' && value === 'none',
+    }
+    try {
+      assert.equal(resolveEditorFontSizePx(11), 16)
+      assert.equal(resolveEditorFontSizePx(20), 20)
+    } finally {
+      if (previous === undefined) {
+        delete (globalThis as { CSS?: typeof CSS }).CSS
+      } else {
+        ;(globalThis as { CSS: typeof CSS }).CSS = previous
+      }
+    }
   })
 })

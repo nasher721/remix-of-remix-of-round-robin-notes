@@ -43,6 +43,7 @@ import { EditorStatusBar } from "./EditorStatusBar";
 import type { Patient } from "@/types/patient";
 import { QuickModelSwitcher } from "./settings/QuickModelSwitcher";
 import { createSafeLinkHtml, sanitizeHtml, sanitizePastedHtml } from "@/lib/sanitize";
+import { resolveEditorFontSizePx } from "@/constants/config";
 
 const textColors = [
   { name: "Default", value: "" },
@@ -628,7 +629,7 @@ export const RichTextEditor = ({
             "p-3 rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
             isPopOutInstance ? "min-h-[55vh]" : "min-h-[120px]"
           )}
-          style={{ fontSize: `${fontSizeRef.current}px`, minHeight }}
+          style={{ fontSize: `${resolveEditorFontSizePx(fontSizeRef.current)}px`, minHeight }}
           onInput={handleInput}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}

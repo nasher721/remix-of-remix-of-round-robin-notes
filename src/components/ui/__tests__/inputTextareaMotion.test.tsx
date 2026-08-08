@@ -65,4 +65,12 @@ describe("shared text control focus motion", () => {
       "ImagePasteEditor should use static focus-visible treatment",
     );
   });
+
+  it("prevents iOS Safari focus zoom from sub-16px form controls", () => {
+    const styles = readSource("src/index.css");
+    assert.match(styles, /@supports \(-webkit-touch-callout: none\)/);
+    assert.match(styles, /font-size:\s*16px !important/);
+    assert.match(styles, /input:not\(\[type="checkbox"\]\)/);
+    assert.match(styles, /textarea/);
+  });
 });

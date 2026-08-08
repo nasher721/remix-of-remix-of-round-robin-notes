@@ -38,6 +38,7 @@ import type { Patient } from "@/types/patient";
 import { Slider } from "@/components/ui/slider";
 import { createSafeLinkHtml, sanitizeHtml, sanitizePastedHtml } from "@/lib/sanitize";
 import { getUserFacingErrorMessage, UserFacingError } from "@/lib/userFacingErrors";
+import { resolveEditorFontSizePx } from "@/constants/config";
 import {
   PATIENT_IMAGE_KEY_ATTRIBUTE,
   PATIENT_IMAGE_SIGNED_URL_TTL_SECONDS,
@@ -1897,7 +1898,7 @@ export const ImagePasteEditor = ({
           aria-label={section ? `${section} notes` : placeholder}
           contentEditable
           className="p-3 rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none min-h-[120px] relative text-foreground"
-          style={{ fontSize: `${fontSize}px`, minHeight }}
+          style={{ fontSize: `${resolveEditorFontSizePx(fontSize)}px`, minHeight }}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
