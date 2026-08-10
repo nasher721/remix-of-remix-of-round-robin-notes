@@ -79,6 +79,9 @@ export function usePatientImport({
         bed: string;
         clinicalSummary: string;
         intervalEvents: string;
+        mrn?: string;
+        imaging?: string;
+        labs?: string;
         systems?: PatientSystems;
         medications?: PatientMedications;
     }>) => {
@@ -170,9 +173,12 @@ export function usePatientImport({
                         userId: requestOwnerId,
                         patientNumber: nextPatientNumber + index,
                         name: patientToImport.name,
+                        mrn: patientToImport.mrn ?? "",
                         bed: patientToImport.bed,
                         clinicalSummary: patientToImport.clinicalSummary,
                         intervalEvents: patientToImport.intervalEvents || "",
+                        imaging: patientToImport.imaging || "",
+                        labs: patientToImport.labs || "",
                         systems,
                         medications,
                     }),
@@ -233,7 +239,7 @@ export function usePatientImport({
             } else {
                 notifications.success({
                     title: "Import Complete",
-                    description: `${newPatients.length} patient(s) imported from Epic handoff.`,
+                    description: `${newPatients.length} patient(s) imported into the chart.`,
                 });
             }
         } catch (error) {

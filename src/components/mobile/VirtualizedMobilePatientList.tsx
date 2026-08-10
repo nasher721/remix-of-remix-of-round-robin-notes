@@ -148,7 +148,7 @@ export const VirtualizedMobilePatientList = React.memo(({
               Add patient
             </Button>
             <Button variant="outline" onClick={onOpenImport} className="min-h-11 w-full border-border/40" disabled={!onOpenImport}>
-              Import from Epic
+              Import Patient List
             </Button>
           </div>
         )}

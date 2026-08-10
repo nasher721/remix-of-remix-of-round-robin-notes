@@ -12,33 +12,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileUp, Loader2, FileText, Users, AlertCircle, Settings2, Info } from "lucide-react";
-import { extractPdfText, extractPdfAsImages, OCR_HARD_PAGE_LIMIT } from "@/lib/import-utils";
+import { OCR_HARD_PAGE_LIMIT } from "@/lib/import-utils";
+import { extractPatientListContent } from "@/lib/import/extractImportContent";
+import {
+  PATIENT_LIST_ACCEPT_ATTRIBUTE,
+} from "@/lib/import/patientListImportSafety";
+import { organizeImportedPatient } from "@/lib/import/organizeImportedPatient";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
 import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
 import { getUserFacingErrorMessage, UserFacingError } from "@/lib/userFacingErrors";
 import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
-
-interface PatientSystems {
-  neuro: string;
-  cv: string;
-  resp: string;
-  renalGU: string;
-  gi: string;
-  endo: string;
-  heme: string;
-  infectious: string;
-  skinLines: string;
-  dispo: string;
-}
-
-interface PatientMedications {
-  infusions: string[];
-  scheduled: string[];
-  prn: string[];
-  rawText?: string;
-}
+import type { PatientMedications, PatientSystems } from "@/types/patient";
 
 interface ParsedPatient {
   bed: string;
@@ -48,6 +34,8 @@ interface ParsedPatient {
   sex: string;
   handoffSummary: string;
   intervalEvents: string;
+  imaging?: string;
+  labs?: string;
   systems: PatientSystems;
   medications?: PatientMedications;
 }
@@ -57,8 +45,11 @@ interface EpicHandoffImportProps {
   onImportPatients: (patients: Array<{
     name: string;
     bed: string;
+    mrn?: string;
     clinicalSummary: string;
     intervalEvents: string;
+    imaging?: string;
+    labs?: string;
     systems: PatientSystems;
     medications?: PatientMedications;
   }>) => Promise<void>;
@@ -119,15 +110,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.txt') && !file.type.includes('text')) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a text file from Epic. PDF import is disabled until its processor is bundled securely.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (!assertBackendReady()) {
       return;
     }
@@ -138,97 +120,56 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     setSelectedPatients(new Set());
 
     try {
-      let content: string = "";
-      let useOcr = false;
+      setStatusMessage("Extracting content...");
+      const extracted = await extractPatientListContent(file);
 
-      if (file.name.endsWith('.pdf')) {
-        if (settings.forceOcr) {
-          useOcr = true;
-          setStatusMessage("Preparing document for OCR...");
-        } else {
-          try {
-            setStatusMessage("Extracting text from PDF...");
-            content = await extractPdfText(file);
-            console.log("Extracted PDF text length:", content.length);
-
-            // Check if meaningful content was extracted
-            const meaningfulContent = content.replace(/--- Page Break ---/g, '').trim();
-            if (meaningfulContent.length < 50) {
-              useOcr = true;
-              toast({
-                title: "Text extraction insufficient",
-                description: "PDF appears scanned. Switching to OCR mode.",
-              });
-            }
-          } catch {
-            console.error("PDF text extraction failed");
-            useOcr = true;
-          }
+      if (extracted.mode === "images") {
+        if (!settings.ocrEnabled) {
+          throw new UserFacingError(
+            "Image import needs OCR. Enable OCR in import settings, or upload a text/Word/Excel export.",
+          );
         }
 
-        if (useOcr) {
-          if (!settings.ocrEnabled) {
-            throw new UserFacingError("Text extraction failed and OCR is disabled. Enable OCR in settings to process this document.");
-          }
-
-          const safePageLimit = getSafePageLimit();
-          if (settings.pageLimit > OCR_HARD_PAGE_LIMIT) {
-            toast({
-              title: "Page limit reduced",
-              description: `For reliability, OCR is limited to ${OCR_HARD_PAGE_LIMIT} pages per import.`,
-            });
-          }
-
-          setStatusMessage(`Converting PDF to images (Quality: ${settings.imageScale}x, up to ${safePageLimit} pages)...`);
-          const images = await extractPdfAsImages(file, settings.imageScale, safePageLimit);
-
-          if (images.length === 0) {
-            throw new UserFacingError("Could not extract any content from the PDF.");
-          }
-
-          setStatusMessage("Analyzing images with AI (this may take a couple minutes)...");
-          const { data, error } = await tryInvokeParseHandoff({ images, model: getModelForFeature('parsing') });
-
-          if (error) {
-            console.error("Edge Function invocation failed (OCR path)");
-            throw error;
-          }
-          if (!data.success) throw new Error("Failed to parse handoff");
-
-          finalizeImport(data.data?.patients || []);
-          return;
-        }
-      } else {
-        // Text file
-        setStatusMessage("Reading text file...");
-        content = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsText(file);
+        setStatusMessage("Analyzing image with AI...");
+        const { data, error } = await tryInvokeParseHandoff({
+          images: extracted.images.slice(0, getSafePageLimit()),
+          model: getModelForFeature("parsing"),
         });
+
+        if (error) {
+          console.error("Edge Function invocation failed (image path)");
+          throw error;
+        }
+        if (!data.success) throw new Error("Failed to parse patient list");
+
+        finalizeImport(data.data?.patients || []);
+        return;
       }
 
-      if (!useOcr && content.length < 50) {
-        throw new UserFacingError("Could not extract text from the file. Try copying and pasting the handoff text directly or enabling 'Force OCR'.");
+      if (extracted.text.trim().length < 20) {
+        throw new UserFacingError(
+          "Could not extract enough text from the file. Try another format or paste the list directly.",
+        );
       }
 
-      setStatusMessage("Parsing extracted text...");
-      const { data, error } = await tryInvokeParseHandoff({ pdfContent: content, model: getModelForFeature('parsing') });
+      setStatusMessage("Parsing patients and chart sections...");
+      const { data, error } = await tryInvokeParseHandoff({
+        pdfContent: extracted.text,
+        model: getModelForFeature("parsing"),
+      });
 
       if (error) {
         console.error("Edge Function invocation failed");
         throw error;
       }
-      if (!data.success) throw new Error("Failed to parse handoff");
+      if (!data.success) throw new Error("Failed to parse patient list");
 
       finalizeImport(data.data?.patients || []);
-
     } catch (error) {
-      console.error("Error parsing handoff");
+      console.error("Error parsing patient list");
       toast({
         title: "Parsing failed",
-        description: getUserFacingErrorMessage(error, "Unable to parse the handoff document right now."),
+        description: getUserFacingErrorMessage(error, "Unable to parse the patient list right now."),
         variant: "destructive",
       });
       setIsLoading(false);
@@ -337,20 +278,20 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   };
 
   const handleImport = async () => {
-    const defaultSystems: PatientSystems = {
-      neuro: '', cv: '', resp: '', renalGU: '', gi: '',
-      endo: '', heme: '', infectious: '', skinLines: '', dispo: '',
-    };
-
     const patientsToImport = parsedPatients
       .filter((_, i) => selectedPatients.has(i))
-      .map(p => ({
-        name: `${p.name}${p.mrn ? ` (${p.mrn})` : ''}${p.age ? ` ${p.age}` : ''}${p.sex ? p.sex : ''}`,
-        bed: p.bed,
-        clinicalSummary: p.handoffSummary,
-        intervalEvents: p.intervalEvents || '',
-        systems: p.systems || defaultSystems,
-        medications: p.medications || { infusions: [], scheduled: [], prn: [] },
+      .map((patient) => organizeImportedPatient({
+        bed: patient.bed,
+        name: patient.name,
+        mrn: patient.mrn,
+        age: patient.age,
+        sex: patient.sex,
+        handoffSummary: patient.handoffSummary,
+        intervalEvents: patient.intervalEvents,
+        imaging: patient.imaging,
+        labs: patient.labs,
+        systems: patient.systems,
+        medications: patient.medications,
       }));
 
     if (patientsToImport.length === 0) {
@@ -400,12 +341,12 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
             {noDialog ? (
               <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
                 <FileText className="h-5 w-5" aria-hidden="true" />
-                Import Epic Handoff
+                Import Patient List
               </h2>
             ) : (
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" aria-hidden="true" />
-                Import Epic Handoff
+                Import Patient List
               </DialogTitle>
             )}
 
@@ -486,8 +427,9 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
               <div className="rounded-md bg-muted/50 p-4 text-sm text-muted-foreground flex gap-3">
                 <Info className="h-5 w-5 flex-shrink-0 text-blue-500" />
                 <p>
-                  Upload a text handoff from Epic or paste the handoff text.
-                  The AI will automatically identify patients, beds, and clinical details.
+                  Upload almost any patient list export (Word, Excel/CSV, HTML, JSON, RTF, images, or text)
+                  or paste the list. AI identifies each patient/room and organizes details into chart sections.
+                  PDF is temporarily unavailable for secure bundling reasons.
                 </p>
               </div>
 
@@ -495,25 +437,25 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
                 <Card className="p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors border-dashed border-2 flex flex-col justify-center items-center h-48"
                   role="button"
                   tabIndex={0}
-                  aria-label="Upload handoff text file"
+                  aria-label="Upload patient list file"
                   onKeyDown={(event) => activateWithKeyboard(event, () => fileInputRef.current?.click())}
                   onClick={() => fileInputRef.current?.click()}>
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".txt,text/plain"
+                    accept={PATIENT_LIST_ACCEPT_ATTRIBUTE}
                     onChange={handleFileUpload}
                     className="hidden"
                   />
                   <FileUp className="h-10 w-10 mb-4 text-primary/60" />
                   <p className="font-medium text-lg">Upload File</p>
-                  <p className="text-sm text-muted-foreground mt-1">Text File</p>
+                  <p className="text-sm text-muted-foreground mt-1">Word, Excel, CSV, image, text…</p>
                 </Card>
 
                 <Card className="p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors border-dashed border-2 flex flex-col justify-center items-center h-48"
                   role="button"
                   tabIndex={0}
-                  aria-label="Paste handoff content from clipboard"
+                  aria-label="Paste patient list content from clipboard"
                   onKeyDown={(event) => activateWithKeyboard(event, handleTextPaste)}
                   onClick={handleTextPaste}>
                   <FileText className="h-10 w-10 mb-4 text-primary/60" />
@@ -647,7 +589,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       <DialogTrigger asChild>
         <Button type="button" variant="outline" className="w-full justify-start gap-2">
           <FileUp className="h-4 w-4" />
-          Import Epic Handoff
+          Import Patient List
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">

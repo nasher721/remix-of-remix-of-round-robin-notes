@@ -64,7 +64,7 @@ export const MobilePatientList = ({
               size="lg"
             >
               <FileDown className="h-4 w-4 mr-2" />
-              Import from Epic
+              Import Patient List
             </Button>
           </div>
         )}

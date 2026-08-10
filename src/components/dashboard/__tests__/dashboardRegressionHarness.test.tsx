@@ -641,7 +641,7 @@ describe("production dashboard roster regression harness", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => {
-      assert.ok(screen.getByRole("button", { name: "Import Epic Handoff - Upload PDF or paste handoff text" }));
+      assert.ok(screen.getByRole("button", { name: "Import Patient List - Upload a list file or paste patient text" }));
     });
   });
 });
