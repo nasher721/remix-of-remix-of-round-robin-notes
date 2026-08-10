@@ -1,7 +1,7 @@
 import * as React from "react";
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { animate, stagger } from 'animejs';
-import { cardHover, collapseVariants } from '@/lib/animations';
+import { collapseVariants } from '@/lib/animations';
 import { durations, ease, staggers } from '@/lib/anime-presets';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +73,6 @@ interface PatientCardProps {
   hidePatientWideTodos?: boolean;
   dashboardFocusModeEnabled?: boolean;
   dashboardFocusTarget?: DashboardFocusTarget | null;
-  onRequestDashboardFocusMode?: (target: DashboardFocusTarget) => void;
   onExitDashboardFocusMode?: () => void;
   systemsReviewMode?: SystemsReviewMode;
   systemsCustomCombineKeys?: string[];
@@ -100,7 +99,6 @@ const PatientCardComponent = ({
   hidePatientWideTodos = false,
   dashboardFocusModeEnabled = false,
   dashboardFocusTarget = null,
-  onRequestDashboardFocusMode,
   onExitDashboardFocusMode,
   systemsReviewMode,
   systemsCustomCombineKeys,
@@ -253,13 +251,6 @@ const PatientCardComponent = ({
     [],
   );
 
-  const handleEditorFocusIntent = React.useCallback(
-    (target: DashboardFocusTarget) => {
-      onRequestDashboardFocusMode?.(target);
-    },
-    [onRequestDashboardFocusMode],
-  );
-
   React.useEffect(() => {
     const wasCollapsed = prevCollapsed.current;
     prevCollapsed.current = patient.collapsed;
@@ -317,10 +308,6 @@ const PatientCardComponent = ({
         dashboardFocusModeEnabled && "ring-1 ring-primary/30 shadow-lg",
       )}
       aria-label={`Patient: ${patient.name || 'Unnamed'}`}
-      variants={shouldReduceMotion ? undefined : cardHover}
-      initial="rest"
-      whileHover="hover"
-      whileTap="tap"
     >
       {/* Header — hidden in workspace chrome: PatientWorkspace provides the patient header */}
       {!isWorkspace && (
@@ -683,7 +670,6 @@ const PatientCardComponent = ({
                   <div
                     className="space-y-1"
                     ref={bindFocusContainer("clinicalSummary")}
-                    onFocusCapture={() => handleEditorFocusIntent("clinicalSummary")}
                     data-editor-type="clinical-summary"
                   >
                     <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
@@ -807,7 +793,6 @@ const PatientCardComponent = ({
                   <div
                     className="space-y-1"
                     ref={bindFocusContainer("intervalEvents")}
-                    onFocusCapture={() => handleEditorFocusIntent("intervalEvents")}
                   >
                     <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                       <RichTextEditor
@@ -924,7 +909,6 @@ const PatientCardComponent = ({
                       <div
                         className="space-y-1"
                         ref={bindFocusContainer("imaging")}
-                        onFocusCapture={() => handleEditorFocusIntent("imaging")}
                       >
                         <div className="bg-background/50 rounded-lg border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                           <ImagePasteEditor
@@ -989,7 +973,6 @@ const PatientCardComponent = ({
                       <div
                         className="space-y-1"
                         ref={bindFocusContainer("labs")}
-                        onFocusCapture={() => handleEditorFocusIntent("labs")}
                       >
                         <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                           <RichTextEditor
@@ -1026,7 +1009,6 @@ const PatientCardComponent = ({
               {sectionVisibility.systemsReview && (
                 <div
                   ref={bindFocusContainer("systemsReview")}
-                  onFocusCapture={() => handleEditorFocusIntent("systemsReview")}
                   data-editor-type="systems-review"
                   data-documentation-section="systems"
                   className="scroll-mt-28"
@@ -1049,7 +1031,6 @@ const PatientCardComponent = ({
                     systemsCustomCombineKeys={systemsCustomCombineKeys}
                     onSystemsReviewModeChange={onSystemsReviewModeChange}
                     onSystemsCustomCombineKeysChange={onSystemsCustomCombineKeysChange}
-                    onAnyEditorFocus={() => handleEditorFocusIntent("systemsReview")}
                   />
                 </div>
               )}
@@ -1127,7 +1108,6 @@ export const PatientCard = React.memo(PatientCardComponent, (prevProps, nextProp
   if (prevProps.dashboardFocusTarget !== nextProps.dashboardFocusTarget) return false;
   if (prevProps.systemsReviewMode !== nextProps.systemsReviewMode) return false;
   if (prevProps.systemsCustomCombineKeys !== nextProps.systemsCustomCombineKeys) return false;
-  if (prevProps.onRequestDashboardFocusMode !== nextProps.onRequestDashboardFocusMode) return false;
   if (prevProps.onExitDashboardFocusMode !== nextProps.onExitDashboardFocusMode) return false;
   if (prevProps.onSystemsReviewModeChange !== nextProps.onSystemsReviewModeChange) return false;
   if (prevProps.onSystemsCustomCombineKeysChange !== nextProps.onSystemsCustomCombineKeysChange) return false;

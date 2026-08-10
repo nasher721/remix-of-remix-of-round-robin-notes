@@ -52,14 +52,15 @@ test.describe("Focus Mode", () => {
     await loginToDashboard(page);
   });
 
-  test("clicking clinical summary enters focus mode and Escape exits", async ({ page }) => {
+  test("clicking clinical summary does not enter focus mode layout zoom", async ({ page }) => {
     const dashboard = page.getByTestId("dashboard");
+    await expect(dashboard).toHaveAttribute("data-focus-mode", "false");
+
     await page.locator('[data-editor-type="clinical-summary"]').first().click();
 
-    await expect(dashboard).toHaveAttribute("data-focus-mode", "true");
-
-    await page.keyboard.press("Escape");
+    // Typing/clicking note fields must stay visually still — no panel-collapse "zoom".
     await expect(dashboard).toHaveAttribute("data-focus-mode", "false");
+    await expect(dashboard).toHaveAttribute("data-left-panel-collapsed", "false");
   });
 });
 
