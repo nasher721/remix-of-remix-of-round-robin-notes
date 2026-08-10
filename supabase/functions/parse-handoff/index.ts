@@ -437,14 +437,15 @@ Deno.serve(async (req: Request) => {
     });
 
     const systemPrompt =
-      `You are an expert medical data extraction assistant. Your task is to parse Epic Handoff documents and extract structured patient data with system-based organization.
+      `You are an expert medical data extraction assistant. Your task is to parse patient lists / handoff documents from nearly any clinical export format and extract structured patient data with system-based organization.
 
-Given the content from an Epic Handoff (either as text or scanned page images), extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient in the document.
+Given content from Epic handoffs, census lists, Excel/CSV exports, Word notes, HTML printouts, JSON dumps, or scanned page images, extract ALL patients into a structured JSON format. This is critical - you must find EVERY patient/room in the document.
 
 PATIENT IDENTIFICATION:
-- Look for bed/room numbers like "15-ED", "G054-02", "H022-01", or similar patterns
-- Each patient section typically starts with a bed number followed by patient name
+- Look for bed/room numbers like "15-ED", "G054-02", "H022-01", "ICU-12", "Room 4", "Bed 7", or similar patterns
+- Each patient section typically starts with a bed/room number followed by patient name
 - Names are often followed by MRN in parentheses and age/sex
+- Spreadsheet/CSV rows labeled "Patient/Row N" are usually one patient each
 - Look for repeating patterns that indicate separate patient entries
 - Page breaks may separate patients but one patient may span multiple pages
 
@@ -586,7 +587,7 @@ SYSTEM MAPPING GUIDANCE:
         {
           type: "text",
           text:
-            "Parse these Epic Handoff document pages and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE in the output. Merge content from multiple pages for the same patient. Preserve formatting with HTML tags. Parse content into the appropriate system categories (neuro, cv, resp, renalGU, gi, endo, heme, infectious, skinLines, dispo):",
+            "Parse these patient-list / handoff pages and extract all patient data with system-based organization. CRITICAL: Each patient/bed/room should appear only ONCE in the output. Merge content from multiple pages for the same patient. Preserve formatting with HTML tags. Parse content into the appropriate system categories (neuro, cv, resp, renalGU, gi, endo, heme, infectious, skinLines, dispo):",
         },
         ...images.map((img: string) => ({
           type: "image_url" as const,
@@ -595,7 +596,7 @@ SYSTEM MAPPING GUIDANCE:
       ];
     } else {
       userContent =
-        `Parse the following Epic Handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Parse content into the appropriate system categories:\n\n${pdfContent}`;
+        `Parse the following patient list / handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed/room should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Place clinical details into the correct chart sections/systems:\n\n${pdfContent}`;
     }
 
     const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {

@@ -16,6 +16,7 @@ import { getPatientProfileCoaching } from "@/lib/patientProfileCoaching";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { CSVColumnMapper } from "@/components/import/CSVColumnMapper";
+import { organizeImportedPatient } from "@/lib/import/organizeImportedPatient";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
@@ -948,12 +949,64 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   }, [openToolsRequestToken, setMenuOpen]);
 
   const handleCsvImport = React.useCallback(async (records: Record<string, string>[]) => {
-    await onImportPatients(records.map((record) => ({
-      name: record.name ?? "",
-      bed: record.bed || record.room || "",
-      clinicalSummary: record.diagnosis ?? "",
-      intervalEvents: "",
-    })));
+    await onImportPatients(records.map((record) => {
+      const {
+        name,
+        bed,
+        room,
+        mrn,
+        diagnosis,
+        clinicalSummary,
+        intervalEvents,
+        imaging,
+        labs,
+        neuro,
+        cv,
+        resp,
+        pulm,
+        renalGU,
+        renal,
+        gi,
+        endo,
+        heme,
+        infectious,
+        id,
+        skinLines,
+        access,
+        dispo,
+        medications,
+        ...extraFields
+      } = record;
+
+      return organizeImportedPatient({
+        name: name ?? "",
+        bed: bed || room || "",
+        mrn,
+        clinicalSummary: diagnosis ?? clinicalSummary ?? "",
+        intervalEvents: intervalEvents ?? "",
+        imaging,
+        labs,
+        systems: {
+          neuro: neuro ?? "",
+          cv: cv ?? "",
+          resp: resp ?? pulm ?? "",
+          renalGU: renalGU ?? renal ?? "",
+          gi: gi ?? "",
+          endo: endo ?? "",
+          heme: heme ?? "",
+          infectious: infectious ?? id ?? "",
+          skinLines: skinLines ?? access ?? "",
+          dispo: dispo ?? "",
+        },
+        medications: {
+          infusions: [],
+          scheduled: [],
+          prn: [],
+          rawText: medications ?? "",
+        },
+        ...extraFields,
+      });
+    }));
   }, [onImportPatients]);
 
   return (

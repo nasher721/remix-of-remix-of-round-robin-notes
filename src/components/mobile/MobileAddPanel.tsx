@@ -70,16 +70,16 @@ export const MobileAddPanel = ({ onAddPatient, onOpenImport, onSmartImport }: Mo
             onOpenImport();
           }
         }}
-        aria-label="Import Epic Handoff - Upload PDF or paste handoff text"
+        aria-label="Import Patient List - Upload a list file or paste patient text"
       >
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-2xl bg-blue-500/10 flex items-center justify-center">
             <FileUp className="h-7 w-7 text-blue-500" />
           </div>
           <div>
-            <h3 className="font-semibold text-lg">Import Epic Handoff</h3>
+            <h3 className="font-semibold text-lg">Import Patient List</h3>
             <p className="text-sm text-muted-foreground">
-              Upload PDF or paste handoff text (multiple patients)
+              Word, Excel, CSV, image, or paste (multiple patients)
             </p>
           </div>
         </div>
