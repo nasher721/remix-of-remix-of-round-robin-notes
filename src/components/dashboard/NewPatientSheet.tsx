@@ -145,6 +145,8 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
   const [bed, setBed] = React.useState("");
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const nameInputRef = React.useRef<HTMLInputElement | null>(null);
+  const canSubmit = name.trim().length > 0 && !submitting;
 
   // Template selection state
   const [selectedTemplate, setSelectedTemplate] = React.useState<string>(NEW_PATIENT_TEMPLATE_SCRATCH);
@@ -212,6 +214,7 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
     const trimmed = name.trim();
     if (!trimmed) {
       setNameError("Patient name is required");
+      nameInputRef.current?.focus();
       return;
     }
     setNameError(null);
@@ -294,6 +297,7 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
             </Label>
             <Input
               id="new-patient-name"
+              ref={nameInputRef}
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
@@ -505,7 +509,7 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={!canSubmit} aria-disabled={!canSubmit}>
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" aria-hidden="true" />

@@ -3,6 +3,8 @@
  * Handles CSV parsing, field mapping, and validation
  */
 
+import { safeLocalStorage } from "@/utils/safeStorage";
+
 export interface CSVColumn {
   header: string;
   sampleValues: string[];
@@ -288,7 +290,7 @@ export function saveMappingPreset(mapping: ImportMapping): void {
     presets.push(mapping);
   }
   
-  localStorage.setItem('csvImportPresets', JSON.stringify(presets));
+  safeLocalStorage.setItem('csvImportPresets', JSON.stringify(presets));
 }
 
 /**
@@ -296,7 +298,7 @@ export function saveMappingPreset(mapping: ImportMapping): void {
  */
 export function getMappingPresets(): ImportMapping[] {
   try {
-    const stored = localStorage.getItem('csvImportPresets');
+    const stored = safeLocalStorage.getItem('csvImportPresets');
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
@@ -308,5 +310,5 @@ export function getMappingPresets(): ImportMapping[] {
  */
 export function deleteMappingPreset(id: string): void {
   const presets = getMappingPresets().filter(p => p.id !== id);
-  localStorage.setItem('csvImportPresets', JSON.stringify(presets));
+  safeLocalStorage.setItem('csvImportPresets', JSON.stringify(presets));
 }

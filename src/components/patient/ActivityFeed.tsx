@@ -58,11 +58,11 @@ export function ActivityFeed({
   className,
 }: ActivityFeedProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const { activities, loading, error, fetchActivities, retry } = usePatientActivity(patientId);
+  const { activities, loading, error, errorDetail, fetchActivities, retry } = usePatientActivity(patientId);
 
   React.useEffect(() => {
     if (isOpen && patientId) {
-      fetchActivities(10);
+      void fetchActivities(10);
     }
   }, [isOpen, patientId, fetchActivities]);
 
@@ -75,17 +75,20 @@ export function ActivityFeed({
         <Button
           variant="ghost"
           size="sm"
-          className={cn("flex items-center gap-1.5 text-muted-foreground hover:text-foreground", className)}
+          className={cn(
+            "flex min-h-11 items-center gap-1.5 px-3 text-muted-foreground hover:text-foreground",
+            className,
+          )}
         >
           {isOpen ? (
-            <ChevronDown className="h-3.5 w-3.5" />
+            <ChevronDown className="h-4 w-4" aria-hidden />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-4 w-4" aria-hidden />
           )}
-          <Clock className="h-3.5 w-3.5" />
+          <Clock className="h-4 w-4" aria-hidden />
           <span className="text-xs">Activity</span>
           {activities.length > 0 && (
-            <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded-full">
+            <span className="text-xs bg-muted px-1.5 py-0.5 rounded-full">
               {activities.length}
             </span>
           )}
@@ -95,15 +98,28 @@ export function ActivityFeed({
       <CollapsibleContent>
         <div className="mt-2">
           {error && (
-            <div role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs">
+            <div role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
               <div className="flex items-start gap-2">
-                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">Could not load {patientName ? `${patientName}'s ` : ""}activity</p>
-                  <p className="mt-0.5 text-muted-foreground">{error}</p>
+                  <p className="font-medium">
+                    Could not load {patientName ? `${patientName}'s ` : ""}activity
+                  </p>
+                  <p className="mt-1 text-muted-foreground">{error}</p>
+                  {errorDetail && (
+                    <p className="mt-1 text-xs text-muted-foreground/90 break-words">
+                      Details: {errorDetail}
+                    </p>
+                  )}
                 </div>
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => void retry()}>
-                  Retry
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11 min-w-[4.5rem] shrink-0 text-xs"
+                  onClick={() => void retry()}
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : "Retry"}
                 </Button>
               </div>
             </div>
@@ -156,7 +172,7 @@ export function ActivityFeed({
                             {activity.summary}
                           </p>
                         )}
-                        <span className="text-[10px] text-muted-foreground/70">
+                        <span className="text-xs text-muted-foreground">
                           {formatRelativeTime(activity.createdAt)}
                         </span>
                       </div>
@@ -167,8 +183,8 @@ export function ActivityFeed({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-full text-xs text-muted-foreground"
-                    onClick={() => fetchActivities(20)}
+                    className="min-h-11 w-full text-xs text-muted-foreground"
+                    onClick={() => void fetchActivities(20)}
                   >
                     Show more ({activities.length - maxItems} more)
                   </Button>

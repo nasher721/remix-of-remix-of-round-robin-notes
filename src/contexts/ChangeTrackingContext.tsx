@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import type { ChangeTrackingState, ChangeTrackingStyles, DaySettings } from "@/types/changeTracking";
 import { DEFAULT_TRACKING_COLOR, DEFAULT_STYLES } from "@/types/changeTracking";
+import { safeLocalStorage } from "@/utils/safeStorage";
 
 interface ChangeTrackingContextValue {
   enabled: boolean;
@@ -25,7 +26,7 @@ const getTodayDate = () => new Date().toISOString().split("T")[0];
 
 const loadDaySettings = (date: string): DaySettings | null => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = safeLocalStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
     const allSettings: Record<string, DaySettings> = JSON.parse(stored);
     return allSettings[date] || null;
@@ -36,14 +37,14 @@ const loadDaySettings = (date: string): DaySettings | null => {
 
 const saveDaySettings = (settings: DaySettings) => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = safeLocalStorage.getItem(STORAGE_KEY);
     const allSettings: Record<string, DaySettings> = stored ? JSON.parse(stored) : {};
     allSettings[settings.date] = settings;
     // Keep only last 30 days
     const dates = Object.keys(allSettings).sort().reverse();
     const trimmed: Record<string, DaySettings> = {};
     dates.slice(0, 30).forEach(d => { trimmed[d] = allSettings[d]; });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   } catch (e) {
     console.error("Failed to save change tracking settings:", e);
   }

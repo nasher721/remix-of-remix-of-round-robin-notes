@@ -215,6 +215,44 @@ export type Database = {
           },
         ]
       }
+      patient_activity: {
+        Row: {
+          id: string
+          patient_id: string
+          user_id: string | null
+          action: string
+          field_name: string | null
+          summary: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          patient_id: string
+          user_id?: string | null
+          action: string
+          field_name?: string | null
+          summary?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          patient_id?: string
+          user_id?: string | null
+          action?: string
+          field_name?: string | null
+          summary?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_activity_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           bed: string

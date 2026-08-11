@@ -216,7 +216,11 @@ export const PatientSystemsReview = ({
             value={systemsReviewMode}
             onValueChange={(mode) => onSystemsReviewModeChange?.(mode as SystemsReviewMode)}
           >
-            <SelectTrigger className="h-7 w-[148px] text-xs" data-systems-mode-selector>
+            <SelectTrigger
+              className="h-11 min-h-11 w-[148px] text-xs"
+              data-systems-mode-selector
+              aria-label="Systems review layout"
+            >
               <SelectValue placeholder="View mode" />
             </SelectTrigger>
             <SelectContent>

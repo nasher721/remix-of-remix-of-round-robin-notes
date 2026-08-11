@@ -118,12 +118,15 @@ export const VirtualizedPatientList = React.memo(() => {
     if (sectionId === "results" || sectionId === "medications") {
       window.dispatchEvent(new Event("rr:reveal-advanced-documentation"));
     }
+    const delay = sectionId === "results" || sectionId === "medications" ? 120 : 0;
     window.setTimeout(() => {
       const section = document.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`);
       if (!section) return;
       section.scrollIntoView({ behavior: "smooth", block: "start" });
-      section.querySelector<HTMLElement>("[contenteditable='true'], textarea, input, button")?.focus();
-    }, sectionId === "results" || sectionId === "medications" ? 50 : 0);
+      section
+        .querySelector<HTMLElement>("[contenteditable='true'], textarea, input, button")
+        ?.focus({ preventScroll: true });
+    }, delay);
   }, []);
 
   const sharedPatientTodos = usePatientTodos(selectedPatient?.id ?? null, {

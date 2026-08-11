@@ -6,6 +6,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import type { IBCCChapter } from '@/types/ibcc';
 import { useLazyData } from '@/lib/lazyData';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 const BOOKMARKS_KEY = 'ibcc_bookmarks';
 const RECENT_KEY = 'ibcc_recent';
@@ -20,7 +21,7 @@ export function useIBCCBookmarks() {
 
   const [bookmarkIds, setBookmarkIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(BOOKMARKS_KEY);
+      const saved = safeLocalStorage.getItem(BOOKMARKS_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -29,7 +30,7 @@ export function useIBCCBookmarks() {
 
   const [recentIds, setRecentIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(RECENT_KEY);
+      const saved = safeLocalStorage.getItem(RECENT_KEY);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -38,12 +39,12 @@ export function useIBCCBookmarks() {
 
   // Persist bookmarks
   useEffect(() => {
-    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarkIds));
+    safeLocalStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarkIds));
   }, [bookmarkIds]);
 
   // Persist recently viewed
   useEffect(() => {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(recentIds));
+    safeLocalStorage.setItem(RECENT_KEY, JSON.stringify(recentIds));
   }, [recentIds]);
 
   const toggleBookmark = useCallback((chapterId: string) => {

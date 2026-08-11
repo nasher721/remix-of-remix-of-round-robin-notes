@@ -1,14 +1,18 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { IBCCPanel } from "@/components/ibcc";
-import { GuidelinesPanel } from "@/components/guidelines";
+import { GuidelinesPanelLazy } from "@/components/guidelines";
 import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, Plus, ArrowUpDown, Printer, Trash2 } from "lucide-react";
+import { ChevronsUpDown, Plus, ArrowUpDown, Printer, Trash2, Loader2 } from "lucide-react";
+import type { Patient } from "@/types/patient";
+import type { MobileTab } from "@/components/layout";
+import { useIBCCState } from "@/contexts/IBCCContext";
+import { useClinicalGuidelinesState } from "@/contexts/ClinicalGuidelinesContext";
 import {
   Dialog,
   DialogContent,
@@ -85,6 +89,8 @@ export const MobileDashboard = () => {
 
   const { globalFontSize, setGlobalFontSize, todosAlwaysVisible, setTodosAlwaysVisible, sortBy, setSortBy, showLabFishbones, setShowLabFishbones, editorToolbarMode, setEditorToolbarMode } = useSettings();
   const changeTracking = useChangeTracking();
+  const { closePanel: closeIbccPanel } = useIBCCState();
+  const { closePanel: closeGuidelinesPanel } = useClinicalGuidelinesState();
 
   const outstandingTodosCount = useMemo(() => {
     return Object.values(todosMap).reduce((total, patientTodos) => {
@@ -99,6 +105,41 @@ export const MobileDashboard = () => {
   const [showBatchCourse, setShowBatchCourse] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
+  const [isPatientTransitioning, setIsPatientTransitioning] = useState(false);
+
+  const resetWindowScroll = useCallback(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPatient) {
+      setIsPatientTransitioning(false);
+      return;
+    }
+    resetWindowScroll();
+    setIsPatientTransitioning(true);
+    const timer = window.setTimeout(() => {
+      setIsPatientTransitioning(false);
+      resetWindowScroll();
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [selectedPatient?.id, resetWindowScroll, selectedPatient]);
+
+  const handlePatientSelect = useCallback((patient: Patient | null) => {
+    resetWindowScroll();
+    if (patient) {
+      closeIbccPanel();
+      closeGuidelinesPanel();
+    }
+    onPatientSelect(patient);
+  }, [onPatientSelect, resetWindowScroll, closeIbccPanel, closeGuidelinesPanel]);
+
+  const handleTabChange = useCallback((tab: MobileTab) => {
+    resetWindowScroll();
+    setMobileTab(tab);
+  }, [resetWindowScroll, setMobileTab]);
 
   const handlePrint = useCallback(() => {
     setShowPrintModal(true);
@@ -111,10 +152,10 @@ export const MobileDashboard = () => {
   const handleConfirmRemove = useCallback(() => {
     if (pendingRemoveId) {
       onRemovePatient(pendingRemoveId);
-      onPatientSelect(null);
+      handlePatientSelect(null);
       setPendingRemoveId(null);
     }
-  }, [pendingRemoveId, onRemovePatient, onPatientSelect]);
+  }, [pendingRemoveId, onRemovePatient, handlePatientSelect]);
 
   const handleClearAll = useCallback(() => {
     setShowClearAllDialog(true);
@@ -145,9 +186,35 @@ export const MobileDashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Patient Detail View */}
       {selectedPatient ? (
+        isPatientTransitioning ? (
+          <div
+            className="min-h-screen bg-background safe-area-top"
+            role="status"
+            aria-live="polite"
+            aria-label={`Loading ${selectedPatient.name || "patient"}`}
+          >
+            <div className="sticky top-0 z-40 border-b border-border/40 bg-background/95 px-4 py-3 backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold">
+                    {selectedPatient.name || "Unnamed patient"}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Opening chart…</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3 p-4">
+              <div className="h-11 animate-pulse rounded-lg bg-muted/60" />
+              <div className="h-28 animate-pulse rounded-lg bg-muted/50" />
+              <div className="h-28 animate-pulse rounded-lg bg-muted/40" />
+            </div>
+          </div>
+        ) : (
         <MobilePatientDetail
+          key={selectedPatient.id}
           patient={selectedPatient}
-          onBack={() => onPatientSelect(null)}
+          onBack={() => handlePatientSelect(null)}
           onUpdate={onUpdatePatient}
           onRemove={(id) => {
             handleRemovePatient(id);
@@ -161,18 +228,19 @@ export const MobileDashboard = () => {
           onNext={() => {
             const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
             if (currentIndex < filteredPatients.length - 1) {
-              onPatientSelect(filteredPatients[currentIndex + 1]);
+              handlePatientSelect(filteredPatients[currentIndex + 1]);
             }
           }}
           onPrevious={() => {
             const currentIndex = filteredPatients.findIndex(p => p.id === selectedPatient.id);
             if (currentIndex > 0) {
-              onPatientSelect(filteredPatients[currentIndex - 1]);
+              handlePatientSelect(filteredPatients[currentIndex - 1]);
             }
           }}
           hasNext={filteredPatients.findIndex(p => p.id === selectedPatient.id) < filteredPatients.length - 1}
           hasPrevious={filteredPatients.findIndex(p => p.id === selectedPatient.id) > 0}
         />
+        )
       ) : (
         <>
           {/* Tab Content */}
@@ -289,7 +357,7 @@ export const MobileDashboard = () => {
               <div className="pb-mobile-nav">
                 <VirtualizedMobilePatientList
                   patients={filteredPatients}
-                  onPatientSelect={onPatientSelect}
+                  onPatientSelect={handlePatientSelect}
                   onPatientDelete={handleRemovePatient}
                   onPatientDuplicate={onDuplicatePatient}
                   searchQuery={searchQuery}
@@ -363,7 +431,7 @@ export const MobileDashboard = () => {
           {/* Bottom Navigation */}
           <MobileNavBar
             activeTab={mobileTab}
-            onTabChange={setMobileTab}
+            onTabChange={handleTabChange}
             patientCount={patients.length}
           />
         </>
@@ -420,8 +488,9 @@ export const MobileDashboard = () => {
         onOpenChange={setShowBatchCourse}
       />
 
-      <IBCCPanel />
-      <GuidelinesPanel />
+      {/* Overlay-only panels — never stack into document flow under other tabs */}
+      <IBCCPanel variant="overlay" />
+      <GuidelinesPanelLazy />
 
       {/* Remove patient confirmation */}
       <AlertDialog open={pendingRemoveId !== null} onOpenChange={(open) => !open && setPendingRemoveId(null)}>

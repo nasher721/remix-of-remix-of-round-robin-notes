@@ -7,6 +7,7 @@ import { Patient } from "@/types/patient";
 import { Input } from "@/components/ui/input";
 
 import { useDashboard } from "@/contexts/DashboardContext";
+import { safeLocalStorage } from "@/utils/safeStorage";
 
 interface PatientNavigatorProps {
     onScrollToPatient: (id: string) => void;
@@ -18,7 +19,7 @@ const NAVIGATOR_OPEN_KEY = 'patientNavigatorOpen';
 export function PatientNavigator({ onScrollToPatient, className }: PatientNavigatorProps) {
     const { filteredPatients: patients } = useDashboard();
     const [isOpen, setIsOpen] = React.useState(() => {
-        const saved = localStorage.getItem(NAVIGATOR_OPEN_KEY);
+        const saved = safeLocalStorage.getItem(NAVIGATOR_OPEN_KEY);
         return saved !== null ? saved === 'true' : true;
     });
     const [filter, setFilter] = React.useState("");
@@ -26,7 +27,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
     const handleToggleOpen = React.useCallback(() => {
         setIsOpen(prev => {
             const next = !prev;
-            localStorage.setItem(NAVIGATOR_OPEN_KEY, String(next));
+            safeLocalStorage.setItem(NAVIGATOR_OPEN_KEY, String(next));
             return next;
         });
     }, []);

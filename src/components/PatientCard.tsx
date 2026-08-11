@@ -604,7 +604,7 @@ const PatientCardComponent = ({
             exit="closed"
             className="overflow-hidden"
           >
-            <div ref={bodyRef} className="p-4 space-y-4">
+            <div ref={bodyRef} className={isWorkspace ? "px-1 pt-1 pb-3 space-y-3" : "p-4 space-y-4"}>
               {/* Patient-Wide Todos (hidden when desktop parent renders them in the tasks rail) */}
               {!hidePatientWideTodos && (
                 <div
@@ -633,7 +633,7 @@ const PatientCardComponent = ({
 
               {/* Clinical Summary */}
               {sectionVisibility.clinicalSummary && (
-                <div className="space-y-1.5 scroll-mt-28" data-documentation-section="summary">
+                <div className="space-y-1.5 scroll-mt-32" data-documentation-section="summary">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
@@ -697,7 +697,9 @@ const PatientCardComponent = ({
                         changeTracking={changeTracking}
                       />
                     </div>
-                    <FieldTimestamp timestamp={patient.fieldTimestamps?.clinicalSummary} className="pl-1" />
+                    {!isWorkspace && (
+                      <FieldTimestamp timestamp={patient.fieldTimestamps?.clinicalSummary} className="pl-1" />
+                    )}
                   </div>
                   {isWorkspace && (
                     <SectionFooterChrome
@@ -713,7 +715,7 @@ const PatientCardComponent = ({
 
               {/* Interval Events */}
               {sectionVisibility.intervalEvents && (
-                <div className="space-y-1.5 scroll-mt-28" data-documentation-section="events">
+                <div className="space-y-1.5 scroll-mt-32" data-documentation-section="events">
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
@@ -820,7 +822,9 @@ const PatientCardComponent = ({
                         changeTracking={changeTracking}
                       />
                     </div>
-                    <FieldTimestamp timestamp={patient.fieldTimestamps?.intervalEvents} className="pl-1" />
+                    {!isWorkspace && (
+                      <FieldTimestamp timestamp={patient.fieldTimestamps?.intervalEvents} className="pl-1" />
+                    )}
                   </div>
                   {isWorkspace && (
                     <SectionFooterChrome
@@ -852,7 +856,7 @@ const PatientCardComponent = ({
 
               {/* Imaging & Labs Row */}
               {(sectionVisibility.imaging || sectionVisibility.labs) && (
-                <div className="space-y-2 scroll-mt-28" data-documentation-section="results">
+                <div className="space-y-2 scroll-mt-32" data-documentation-section="results">
                   {!isWorkspace && (
                     <div className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 px-3 py-2">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1013,7 +1017,7 @@ const PatientCardComponent = ({
 
               {/* Medications */}
               {sectionVisibility.medications && showAdvancedSections && (
-                <div className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60 scroll-mt-28" data-documentation-section="medications">
+                <div className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60 scroll-mt-32" data-documentation-section="medications">
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                     onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
@@ -1029,7 +1033,7 @@ const PatientCardComponent = ({
                   onFocusCapture={() => handleEditorFocusIntent("systemsReview")}
                   data-editor-type="systems-review"
                   data-documentation-section="systems"
-                  className="scroll-mt-28"
+                  className="scroll-mt-32"
                 >
                   <PatientSystemsReview
                     patient={patient}

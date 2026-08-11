@@ -13,11 +13,12 @@ export const ProfileCoachingBanner = ({ message, className }: ProfileCoachingBan
     <div
       role="status"
       className={cn(
-        "flex items-start gap-2 rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-foreground",
+        "flex items-start gap-2 rounded-lg border border-amber-600/50 bg-amber-500/15 px-3 py-2 text-sm text-foreground",
+        "dark:border-amber-400/55 dark:bg-amber-500/25 dark:text-amber-50",
         className,
       )}
     >
-      <Info className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden="true" />
+      <Info className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-200 mt-0.5" aria-hidden="true" />
       <p className="leading-snug">{message}</p>
     </div>
   );

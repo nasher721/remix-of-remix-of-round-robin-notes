@@ -654,10 +654,10 @@ body *:not(.animate-spin)::after {
   --rr-bg-primary: #ffffff;
   --rr-bg-secondary: #f5f5f5;
   --rr-bg-ground: #f9fbfc;
-  --rr-label-1: rgba(0, 0, 0, 0.9);
-  --rr-label-2: rgba(0, 0, 0, 0.6);
-  --rr-label-3: rgba(0, 0, 0, 0.45);
-  --rr-label-4: rgba(0, 0, 0, 0.3);
+  --rr-label-1: rgba(0, 0, 0, 0.92);
+  --rr-label-2: rgba(0, 0, 0, 0.72);
+  --rr-label-3: rgba(0, 0, 0, 0.62);
+  --rr-label-4: rgba(0, 0, 0, 0.5);
   --rr-f1: rgba(0, 0, 0, 0.03);
   --rr-f2: rgba(0, 0, 0, 0.05);
   --rr-f3: rgba(0, 0, 0, 0.15);
@@ -685,10 +685,10 @@ body *:not(.animate-spin)::after {
   --rr-bg-primary: hsl(var(--card));
   --rr-bg-secondary: hsl(var(--secondary) / 0.55);
   --rr-bg-ground: hsl(var(--background));
-  --rr-label-1: rgba(255, 255, 255, 0.92);
-  --rr-label-2: rgba(255, 255, 255, 0.62);
-  --rr-label-3: rgba(255, 255, 255, 0.48);
-  --rr-label-4: rgba(255, 255, 255, 0.34);
+  --rr-label-1: rgba(255, 255, 255, 0.95);
+  --rr-label-2: rgba(255, 255, 255, 0.78);
+  --rr-label-3: rgba(255, 255, 255, 0.68);
+  --rr-label-4: rgba(255, 255, 255, 0.55);
   --rr-f1: rgba(255, 255, 255, 0.05);
   --rr-f2: rgba(255, 255, 255, 0.09);
   --rr-f3: rgba(255, 255, 255, 0.28);
@@ -703,14 +703,15 @@ body *:not(.animate-spin)::after {
   --rr-shadow-small: 0 4px 16.4px rgba(0, 0, 0, 0.5);
 }
 
-/* Buttons (32px default / 44px sign-off primary; radius 10/12) */
+/* Buttons (40px default / 44px primary; radius 10/12) */
 .rr-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 32px;
-  padding: 6px 10px;
+  min-height: 40px;
+  height: 40px;
+  padding: 8px 12px;
   border: none;
   border-radius: var(--rr-r-md);
   font-family: inherit;
@@ -728,11 +729,13 @@ body *:not(.animate-spin)::after {
 .rr-btn-secondary:hover:not(:disabled) { background: var(--rr-f2); }
 .rr-btn-outline { background: transparent; border: 0.5px solid var(--rr-sep); color: var(--rr-label-1); }
 .rr-btn-outline:hover:not(:disabled) { background: var(--rr-f1); }
-.rr-btn-44 { height: 44px; border-radius: var(--rr-r-lg); font-size: 16px; line-height: 24px; padding: 10px 14px; gap: 6px; }
+.rr-btn-44 { min-height: 44px; height: 44px; border-radius: var(--rr-r-lg); font-size: 16px; line-height: 24px; padding: 10px 14px; gap: 6px; }
 
 .rr-icon-btn {
-  width: 28px;
-  height: 28px;
+  min-width: 40px;
+  min-height: 40px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--rr-r-sm);
   display: inline-flex;
   align-items: center;
@@ -744,7 +747,25 @@ body *:not(.animate-spin)::after {
   font-family: inherit;
 }
 .rr-icon-btn:hover { background: var(--rr-f1); }
+.rr-icon-btn:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
 .rr-icon-btn:disabled { opacity: 0.5; cursor: default; }
+
+@media (pointer: fine) and (min-width: 1024px) {
+  .rr-btn {
+    min-height: 32px;
+    height: 32px;
+    padding: 6px 10px;
+  }
+  .rr-icon-btn {
+    min-width: 28px;
+    min-height: 28px;
+    width: 28px;
+    height: 28px;
+  }
+}
 
 /* Badges — semantic colors on 10% light backgrounds; neutral facts stay gray */
 .rr-badge {
@@ -798,13 +819,14 @@ body *:not(.animate-spin)::after {
 }
 .rr-sel .rr-bed-chip { color: var(--rr-label-1); }
 
-/* Section tabs (derived component: fills.f2 active fill, radius 8, 32px) */
+/* Section tabs (derived component: fills.f2 active fill, radius 8) */
 .rr-tab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 6px 10px;
+  min-height: 40px;
+  height: 40px;
+  padding: 8px 12px;
   border-radius: var(--rr-r-sm);
   font-size: 14px;
   line-height: 20px;
@@ -816,7 +838,19 @@ body *:not(.animate-spin)::after {
   white-space: nowrap;
 }
 .rr-tab:hover { background: var(--rr-f1); }
+.rr-tab:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
 .rr-tab.rr-active { background: var(--rr-f2); color: var(--rr-label-1); font-weight: 500; }
+
+@media (pointer: fine) and (min-width: 1024px) {
+  .rr-tab {
+    min-height: 32px;
+    height: 32px;
+    padding: 6px 10px;
+  }
+}
 
 /* Editor surface (white card, 0.5px separator edge, radius 12, input shadow) */
 .rr-editor {
@@ -834,12 +868,22 @@ body *:not(.animate-spin)::after {
   display: flex;
   align-items: center;
   gap: 16px;
+  /* Leave room for the floating AI FAB on tablet/desktop */
+  padding-right: max(16px, calc(4.5rem + env(safe-area-inset-right, 0px)));
+}
+@media (max-width: 1023px) {
+  .rr-signoff {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
 }
 .rr-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 26px;
+  min-height: 32px;
+  height: 32px;
   padding: 4px 10px;
   border-radius: var(--rr-r-sm);
   background: var(--rr-f1);

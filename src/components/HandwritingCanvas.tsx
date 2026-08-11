@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useStylus, StylusTool } from "@/hooks/useStylus";
 import { cn } from "@/lib/utils";
+import { safeLocalStorage } from "@/utils/safeStorage";
 
 export interface HandwritingCanvasProps {
   width?: number;
@@ -65,7 +66,7 @@ export function HandwritingCanvas({
     try {
       const dataURL = exportPNG();
       if (dataURL) {
-        localStorage.setItem(`handwriting-${noteId}`, dataURL);
+        safeLocalStorage.setItem(`handwriting-${noteId}`, dataURL);
         setLastSaved(new Date());
         if (onAutoSave) onAutoSave(dataURL);
       }
@@ -76,7 +77,7 @@ export function HandwritingCanvas({
 
   // Load from localStorage on mount
   useEffect(() => {
-    const saved = localStorage.getItem(`handwriting-${noteId}`);
+    const saved = safeLocalStorage.getItem(`handwriting-${noteId}`);
     if (saved && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");

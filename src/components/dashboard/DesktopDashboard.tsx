@@ -93,6 +93,7 @@ import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { PatientFilterType, MIN_GLOBAL_FONT_SIZE_PX, MAX_GLOBAL_FONT_SIZE_PX } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
+import { safeLocalStorage } from "@/utils/safeStorage";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -724,7 +725,7 @@ export const DesktopDashboard = () => {
           <TooltipTrigger asChild>
             <Button
               onClick={() => setAICommandPaletteOpen(true)}
-              className="fixed bottom-6 right-6 z-50 h-13 w-13 rounded-xl shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-primary/40 p-3"
+              className="fixed bottom-24 right-6 z-50 h-13 w-13 rounded-xl shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-primary/40 p-3 max-md:bottom-24 md:bottom-24 lg:bottom-6"
               aria-label={`Open AI command palette — model ${activeAiModelLabel}`}
               title={`AI workspace — ${activeAiModelLabel}`}
               style={{ height: "3.25rem", width: "3.25rem" }}
@@ -884,20 +885,12 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
 
   const [menuOpen, setMenuOpenState] = React.useState(() => {
     if (typeof window === "undefined") return false;
-    try {
-      return window.localStorage.getItem(MENU_OPEN_STORAGE_KEY) === "1";
-    } catch {
-      return false;
-    }
+    return safeLocalStorage.getItem(MENU_OPEN_STORAGE_KEY) === "1";
   });
   const setMenuOpen = React.useCallback((value: boolean | ((prev: boolean) => boolean)) => {
     setMenuOpenState((prev) => {
       const next = typeof value === "function" ? value(prev) : value;
-      try {
-        window.localStorage.setItem(MENU_OPEN_STORAGE_KEY, next ? "1" : "0");
-      } catch {
-        /* ignore quota / private mode */
-      }
+      safeLocalStorage.setItem(MENU_OPEN_STORAGE_KEY, next ? "1" : "0");
       return next;
     });
   }, []);

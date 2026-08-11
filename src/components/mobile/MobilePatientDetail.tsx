@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { MedicationList } from "@/components/MedicationList";
 import { Button } from "@/components/ui/button";
@@ -112,6 +112,13 @@ export const MobilePatientDetail = ({
     return patient.imaging.replace(/<[^>]*>/g, "").trim().length;
   }, [patient.imaging]);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    setOpenSections(["summary", "events"]);
+  }, [patient.id]);
+
   const sectionChips = [
     { id: "summary", label: "Summary", icon: FileText },
     { id: "events", label: "Events", icon: Calendar },
@@ -123,10 +130,10 @@ export const MobilePatientDetail = ({
 
   const handleJumpToSection = (sectionId: string) => {
     setOpenSections((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
-    requestAnimationFrame(() => {
+    window.setTimeout(() => {
       const target = document.getElementById(`section-${sectionId}`);
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    }, 50);
   };
 
   const handleGenerateIntervalEvents = async () => {

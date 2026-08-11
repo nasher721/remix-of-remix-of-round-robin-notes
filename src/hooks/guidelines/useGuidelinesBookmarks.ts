@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ClinicalGuideline } from '@/types/clinicalGuidelines';
 import { useLazyData } from '@/lib/lazyData';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 const BOOKMARKS_KEY = 'clinical-guidelines-bookmarks';
 const RECENT_KEY = 'clinical-guidelines-recent';
@@ -31,7 +32,7 @@ export function useGuidelinesBookmarks(): UseGuidelinesBookmarksReturn {
 
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem(BOOKMARKS_KEY);
+      const stored = safeLocalStorage.getItem(BOOKMARKS_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -40,7 +41,7 @@ export function useGuidelinesBookmarks(): UseGuidelinesBookmarksReturn {
 
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem(RECENT_KEY);
+      const stored = safeLocalStorage.getItem(RECENT_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -50,7 +51,7 @@ export function useGuidelinesBookmarks(): UseGuidelinesBookmarksReturn {
   // Persist bookmarks to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarks));
+      safeLocalStorage.setItem(BOOKMARKS_KEY, JSON.stringify(bookmarks));
     } catch (e) {
       console.warn('Failed to save guidelines bookmarks:', e);
     }
@@ -59,7 +60,7 @@ export function useGuidelinesBookmarks(): UseGuidelinesBookmarksReturn {
   // Persist recent to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(RECENT_KEY, JSON.stringify(recentlyViewed));
+      safeLocalStorage.setItem(RECENT_KEY, JSON.stringify(recentlyViewed));
     } catch (e) {
       console.warn('Failed to save recent guidelines:', e);
     }

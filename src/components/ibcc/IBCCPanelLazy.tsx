@@ -1,35 +1,64 @@
 /**
  * Lazy IBCC Panel Wrapper
- * Only renders the full panel when opened for better performance
+ * Embedded: always renders (desktop resources tab).
+ * Overlay: only when open — fixed shell so it never stacks into document flow.
  */
 
 import React, { Suspense, memo } from "react";
 import { Loader2 } from "lucide-react";
 import { useIBCCState } from "@/contexts/IBCCContext";
 import { LazyPanelErrorBoundary } from "@/components/LazyPanelErrorBoundary";
+import { cn } from "@/lib/utils";
 
 const IBCCPanelContent = React.lazy(() => import("./IBCCPanelContent"));
 
-function IBCCPanelComponent() {
-  useIBCCState();
+export type IBCCPanelVariant = "embedded" | "overlay";
+
+type IBCCPanelProps = {
+  variant?: IBCCPanelVariant;
+};
+
+function IBCCPanelComponent({ variant = "embedded" }: IBCCPanelProps) {
+  const { isOpen } = useIBCCState();
+
+  if (variant === "overlay" && !isOpen) return null;
+
+  const isOverlay = variant === "overlay";
 
   return (
     <LazyPanelErrorBoundary
       title="Failed to load IBCC Reference"
-      fallbackClassName="h-full w-full bg-card flex items-center justify-center p-6"
+      fallbackClassName={cn(
+        "bg-card flex items-center justify-center p-6",
+        isOverlay
+          ? "fixed inset-0 z-50"
+          : "h-full w-full",
+      )}
     >
-      <Suspense
-        fallback={
-          <div className="h-full w-full bg-card flex items-center justify-center">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" aria-hidden />
-              <p className="text-sm text-muted-foreground">Loading Clinical Reference…</p>
-            </div>
-          </div>
-        }
+      <div
+        className={cn(
+          "bg-card flex flex-col",
+          isOverlay
+            ? "fixed inset-0 z-50"
+            : "h-full w-full",
+        )}
+        role={isOverlay ? "dialog" : undefined}
+        aria-modal={isOverlay ? true : undefined}
+        aria-label={isOverlay ? "Clinical Reference" : undefined}
       >
-        <IBCCPanelContent />
-      </Suspense>
+        <Suspense
+          fallback={
+            <div className="h-full w-full flex items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" aria-hidden />
+                <p className="text-sm text-muted-foreground">Loading Clinical Reference…</p>
+              </div>
+            </div>
+          }
+        >
+          <IBCCPanelContent />
+        </Suspense>
+      </div>
     </LazyPanelErrorBoundary>
   );
 }

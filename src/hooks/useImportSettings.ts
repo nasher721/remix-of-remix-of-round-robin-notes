@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { safeLocalStorage } from '@/utils/safeStorage';
 
 export interface ImportSettings {
     ocrEnabled: boolean;
@@ -20,7 +21,7 @@ export const useImportSettings = () => {
     const [settings, setSettings] = useState<ImportSettings>(DEFAULT_IMPORT_SETTINGS);
 
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
+        const saved = safeLocalStorage.getItem(STORAGE_KEY);
         if (saved) {
             try {
                 setSettings({ ...DEFAULT_IMPORT_SETTINGS, ...JSON.parse(saved) });
@@ -33,14 +34,14 @@ export const useImportSettings = () => {
     const updateSettings = (newSettings: Partial<ImportSettings>) => {
         setSettings((prev) => {
             const updated = { ...prev, ...newSettings };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+            safeLocalStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
             return updated;
         });
     };
 
     const resetSettings = () => {
         setSettings(DEFAULT_IMPORT_SETTINGS);
-        localStorage.removeItem(STORAGE_KEY);
+        safeLocalStorage.removeItem(STORAGE_KEY);
     };
 
     return {
