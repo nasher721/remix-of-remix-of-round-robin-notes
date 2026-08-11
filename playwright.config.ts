@@ -1,4 +1,28 @@
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+
+/**
+ * Load local env files for credential-gated E2E without adding a dotenv dependency.
+ * Existing process.env wins (CI secrets / shell exports).
+ */
+const loadEnvFile = (fileName: string): void => {
+  const filePath = resolve(process.cwd(), fileName);
+  if (!existsSync(filePath)) return;
+
+  for (const line of readFileSync(filePath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+    const separatorIndex = trimmed.indexOf("=");
+    const key = trimmed.slice(0, separatorIndex).trim();
+    const value = trimmed.slice(separatorIndex + 1).trim();
+    if (!key || process.env[key] !== undefined) continue;
+    process.env[key] = value;
+  }
+};
+
+loadEnvFile(".env");
+loadEnvFile(".env.local");
 
 /**
  * Playwright E2E config for Round Robin Notes.
