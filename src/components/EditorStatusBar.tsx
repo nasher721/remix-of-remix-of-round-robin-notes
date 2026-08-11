@@ -28,7 +28,7 @@ export const EditorStatusBar = React.memo(({ html }: EditorStatusBarProps) => {
     }, [wordCount]);
 
     return (
-        <div className="flex items-center gap-3 px-3 py-1 border-t border-border bg-muted/30 text-[10px] text-muted-foreground select-none">
+        <div className="flex items-center gap-3 px-3 py-1.5 border-t border-border bg-muted/30 text-[11px] text-foreground/75 select-none">
             <span>{wordCount} word{wordCount !== 1 ? "s" : ""}</span>
             <span className="w-px h-3 bg-border" />
             <span>{charCount} char{charCount !== 1 ? "s" : ""}</span>

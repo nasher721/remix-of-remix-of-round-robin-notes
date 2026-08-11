@@ -643,9 +643,9 @@ const PatientCardComponent = ({
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                         <FileText className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Clinical Summary</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Clinical Summary</h3>
                       {patient.clinicalSummary && (
-                        <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                        <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
                           {(patient.clinicalSummary ?? "").length}
                         </span>
                       )}
@@ -729,9 +729,9 @@ const PatientCardComponent = ({
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                         <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Interval Events</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Interval Events</h3>
                       {patient.intervalEvents && (
-                        <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                        <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
                           {patient.intervalEvents.length}
                         </span>
                       )}
@@ -895,14 +895,14 @@ const PatientCardComponent = ({
                           <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                             <ImageIcon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                           </div>
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Imaging</h3>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Imaging</h3>
                           {patient.imaging && (
-                            <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                            <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
                               {patient.imaging.replace(/<[^>]*>/g, '').length}
                             </span>
                           )}
                           {imagingImageCount > 0 && (
-                            <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                            <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
                               {imagingImageCount} img
                             </span>
                           )}
@@ -968,9 +968,9 @@ const PatientCardComponent = ({
                           <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                             <TestTube className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                           </div>
-                          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Labs</h3>
+                          <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Labs</h3>
                           {patient.labs && (
-                            <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                            <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
                               {patient.labs.length}
                             </span>
                           )}

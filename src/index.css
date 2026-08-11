@@ -869,13 +869,15 @@ body *:not(.animate-spin)::after {
   align-items: center;
   gap: 16px;
   /* Leave room for the floating AI FAB on tablet/desktop */
-  padding-right: max(16px, calc(4.5rem + env(safe-area-inset-right, 0px)));
+  padding-right: max(16px, calc(5.5rem + env(safe-area-inset-right, 0px)));
 }
 @media (max-width: 1023px) {
   .rr-signoff {
     flex-wrap: wrap;
     gap: 10px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    /* Extra bottom clearance so the FAB does not cover Handoff / Sign off */
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    padding-right: max(16px, calc(5.5rem + env(safe-area-inset-right, 0px)));
   }
 }
 .rr-chip {

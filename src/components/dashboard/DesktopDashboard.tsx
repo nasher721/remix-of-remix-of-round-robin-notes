@@ -725,7 +725,7 @@ export const DesktopDashboard = () => {
           <TooltipTrigger asChild>
             <Button
               onClick={() => setAICommandPaletteOpen(true)}
-              className="fixed bottom-24 right-6 z-50 h-13 w-13 rounded-xl shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-primary/40 p-3 max-md:bottom-24 md:bottom-24 lg:bottom-6"
+              className="fixed bottom-32 right-6 z-50 h-13 w-13 rounded-xl shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-primary/40 p-3 max-md:bottom-32 md:bottom-32 lg:bottom-6"
               aria-label={`Open AI command palette — model ${activeAiModelLabel}`}
               title={`AI workspace — ${activeAiModelLabel}`}
               style={{ height: "3.25rem", width: "3.25rem" }}
@@ -735,7 +735,7 @@ export const DesktopDashboard = () => {
                 variant="secondary"
                 aria-hidden
                 title={activeAiModelLabel}
-                className="pointer-events-none absolute -bottom-1 -right-1 max-w-[5rem] truncate border border-white/40 bg-background/95 px-1 py-0 text-[9px] font-medium leading-tight text-foreground shadow-md backdrop-blur-sm"
+                className="pointer-events-none absolute -bottom-1 -right-1 max-w-[5rem] truncate border border-white/40 bg-background/95 px-1 py-0 text-[11px] font-medium leading-tight text-foreground shadow-md backdrop-blur-sm"
               >
                 {fabModelBadgeText}
               </Badge>
