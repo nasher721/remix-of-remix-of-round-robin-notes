@@ -13,6 +13,7 @@
 
 import { logError, logWarn, logInfo, type LogContext } from "@/lib/observability/logger";
 import { getBreadcrumbTrail } from "@/lib/observability/breadcrumbs";
+import { safeSessionStorage } from "@/utils/safeStorage";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,10 +71,10 @@ const MAX_EXPORT_EVENTS = 200;
 function getSessionId(): string {
   if (typeof window === 'undefined') return 'server';
   try {
-    const existing = window.sessionStorage.getItem('observability.sessionId');
+    const existing = safeSessionStorage.getItem('observability.sessionId');
     if (existing) return existing;
     const generated = globalThis.crypto?.randomUUID?.() ?? `session_${Date.now()}`;
-    window.sessionStorage.setItem('observability.sessionId', generated);
+    safeSessionStorage.setItem('observability.sessionId', generated);
     return generated;
   } catch {
     return `session_${Date.now()}`;

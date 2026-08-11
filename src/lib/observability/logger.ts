@@ -1,4 +1,5 @@
 import { push as collect } from './collector';
+import { safeSessionStorage } from '@/utils/safeStorage';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -29,11 +30,11 @@ function getSessionId(): string {
   }
 
   try {
-    const existing = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const existing = safeSessionStorage.getItem(SESSION_STORAGE_KEY);
     if (existing) return existing;
 
     const generated = globalThis.crypto?.randomUUID?.() ?? `session_${Date.now()}`;
-    window.sessionStorage.setItem(SESSION_STORAGE_KEY, generated);
+    safeSessionStorage.setItem(SESSION_STORAGE_KEY, generated);
     return generated;
   } catch {
     return `session_${Date.now()}`;

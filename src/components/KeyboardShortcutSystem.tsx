@@ -11,6 +11,7 @@ import { Keyboard, Command, Plus, X, Save, Search, Copy, HelpCircle } from "luci
 import { toast } from "sonner";
 import { useMotionPreference } from "@/hooks/useReducedMotion";
 import { shouldRunAnime, useAnimeTimeline } from "@/lib/anime";
+import { safeLocalStorage } from "@/utils/safeStorage";
 
 interface Shortcut {
   id: string;
@@ -398,7 +399,7 @@ export function KeyboardShortcutSystem() {
           </Button>
           <Button
             onClick={() => {
-              localStorage.setItem('customShortcuts', JSON.stringify(customShortcuts));
+              safeLocalStorage.setItem('customShortcuts', JSON.stringify(customShortcuts));
               toast.success('Shortcuts saved');
               setOpen(false);
             }}

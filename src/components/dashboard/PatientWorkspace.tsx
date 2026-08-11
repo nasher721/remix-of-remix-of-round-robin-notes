@@ -63,6 +63,7 @@ import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { toLayoutMode, toPrefsMode } from "@/lib/dashboardLayoutModes";
 import {
   DOCUMENTATION_SECTIONS,
+  DOCUMENTATION_STATUS_LABELS,
   getDocumentationSectionStatus,
   getSystemsDocumentationCount,
   type DocumentationSectionId,
@@ -151,15 +152,36 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
   const [pendingRemove, setPendingRemove] = React.useState(false);
   const removeTriggerRef = React.useRef<HTMLElement | null>(null);
+  const chartBodyRef = React.useRef<HTMLDivElement | null>(null);
   const [signOffOpen, setSignOffOpen] = React.useState(false);
   const [handoffOpen, setHandoffOpen] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<DocumentationSectionId>("summary");
+  const [isSwitchingPatient, setIsSwitchingPatient] = React.useState(false);
+  const previousPatientIdRef = React.useRef<string | null>(null);
 
   const sharedPatientTodos = usePatientTodos(patient?.id ?? null, {
     initialTodos: patient ? (todosMap[patient.id] ?? []) : undefined,
   });
 
   const { addActivity } = usePatientActivity(patient?.id ?? "");
+
+  React.useEffect(() => {
+    const nextId = patient?.id ?? null;
+    if (!nextId) {
+      previousPatientIdRef.current = null;
+      setIsSwitchingPatient(false);
+      return;
+    }
+    if (previousPatientIdRef.current && previousPatientIdRef.current !== nextId) {
+      setIsSwitchingPatient(true);
+      setActiveTab("summary");
+      if (chartBodyRef.current) chartBodyRef.current.scrollTop = 0;
+      const timer = window.setTimeout(() => setIsSwitchingPatient(false), 180);
+      previousPatientIdRef.current = nextId;
+      return () => window.clearTimeout(timer);
+    }
+    previousPatientIdRef.current = nextId;
+  }, [patient?.id]);
 
   // Record sign-offs in the per-patient activity feed (uses the existing
   // 'updated' action since the DB CHECK constraint only allows a fixed set).
@@ -189,18 +211,20 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
     if (sectionId === "results" || sectionId === "medications") {
       window.dispatchEvent(new Event("rr:reveal-advanced-documentation"));
     }
+    const delay = sectionId === "results" || sectionId === "medications" ? 120 : 0;
     window.setTimeout(() => {
-      const section = document.querySelector<HTMLElement>(
-        `[data-documentation-section="${sectionId}"]`,
-      );
+      const root = chartBodyRef.current;
+      const section =
+        root?.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`) ??
+        document.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`);
       if (!section) return;
       if (typeof section.scrollIntoView === "function") {
         section.scrollIntoView({ behavior: "smooth", block: "start" });
       }
       section
         .querySelector<HTMLElement>("[contenteditable='true'], textarea, input, button")
-        ?.focus();
-    }, sectionId === "results" || sectionId === "medications" ? 50 : 0);
+        ?.focus({ preventScroll: true });
+    }, delay);
   }, []);
 
   const sectionStatuses = React.useMemo(() => {
@@ -219,6 +243,12 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
   if (!patient || !sectionStatuses) return null;
 
   const readyCount = sectionStatuses.filter((s) => s.status === "ready").length;
+  const incompleteSections = sectionStatuses.filter((s) => s.status !== "ready");
+  const incompleteLabels = incompleteSections.map((s) => TAB_LABELS[s.id]).join(", ");
+  const readinessSummary =
+    incompleteSections.length === 0
+      ? `All ${sectionStatuses.length} sections ready`
+      : `${readyCount} of ${sectionStatuses.length} sections ready. Remaining: ${incompleteLabels}`;
   const saveState = patientSaveStates[patient.id] ?? "idle";
   const savedTime = lastSaved.toLocaleTimeString(undefined, {
     hour: "2-digit",
@@ -226,15 +256,49 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
     hour12: false,
   });
 
+  if (isSwitchingPatient) {
+    return (
+      <section
+        className="rr-ws flex min-w-0 flex-1 flex-col"
+        style={{ background: "var(--rr-bg-ground)" }}
+        aria-busy="true"
+        aria-label={`Loading workspace: ${patient.name || "Unnamed patient"}`}
+      >
+        <header
+          className="border-b px-5 py-3"
+          style={{ borderColor: "var(--rr-sep)", background: "var(--rr-bg-primary)" }}
+        >
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+            <div>
+              <p className="text-[17px] font-semibold" style={{ color: "var(--rr-label-1)" }}>
+                {patient.name || "Unnamed patient"}
+              </p>
+              <p className="text-sm" style={{ color: "var(--rr-label-2)" }}>
+                Switching patient…
+              </p>
+            </div>
+          </div>
+        </header>
+        <div className="space-y-3 px-5 py-4">
+          <div className="h-10 animate-pulse rounded-lg" style={{ background: "var(--rr-f2)" }} />
+          <div className="h-32 animate-pulse rounded-lg" style={{ background: "var(--rr-f1)" }} />
+          <div className="h-32 animate-pulse rounded-lg" style={{ background: "var(--rr-f1)" }} />
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
+      key={patient.id}
       className="rr-ws flex min-w-0 flex-1 flex-col"
       style={{ background: "var(--rr-bg-ground)" }}
       aria-label={`Workspace: ${patient.name || "Unnamed patient"}`}
     >
       {/* Patient header */}
       <header
-        className="border-b px-5 pb-0 pt-4"
+        className="border-b px-5 pb-0 pt-2"
         style={{ borderColor: "var(--rr-sep)", background: "var(--rr-bg-primary)" }}
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -432,22 +496,44 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
         {/* Documentation tabs */}
         <nav className="mt-3 flex items-center gap-1 overflow-x-auto" aria-label="Documentation sections">
-          {sectionStatuses.map(({ id, status }) => (
+          {sectionStatuses.map(({ id, status }) => {
+            const statusLabel = DOCUMENTATION_STATUS_LABELS[status];
+            const tabLabel = `${TAB_LABELS[id]}, ${statusLabel}`;
+            return (
             <button
               key={id}
               type="button"
               className={cn("rr-tab", activeTab === id && "rr-active")}
               onClick={() => jumpToSection(id)}
               aria-pressed={activeTab === id}
+              aria-label={tabLabel}
+              title={tabLabel}
             >
               <span className={cn("rr-dot", STATUS_DOT_CLASS[status])} aria-hidden="true" />
               {TAB_LABELS[id]}
+              <span className="sr-only">{statusLabel}</span>
             </button>
-          ))}
+            );
+          })}
           <div className="ml-auto flex shrink-0 items-center gap-3 pl-2">
-            <span className="text-[12px] leading-[18px]" style={{ color: "var(--rr-label-3)" }}>
-              {readyCount} of 5 sections ready
-            </span>
+            <button
+              type="button"
+              className="text-left text-xs leading-[18px] underline-offset-2 hover:underline"
+              style={{ color: "var(--rr-label-2)" }}
+              title={readinessSummary}
+              aria-label={readinessSummary}
+              onClick={() => {
+                const nextIncomplete = incompleteSections[0];
+                if (nextIncomplete) jumpToSection(nextIncomplete.id);
+              }}
+            >
+              {readyCount} of {sectionStatuses.length} sections ready
+              {incompleteSections.length > 0 ? (
+                <span className="block text-[11px] no-underline" style={{ color: "var(--rr-label-3)" }}>
+                  Remaining: {incompleteLabels}
+                </span>
+              ) : null}
+            </button>
             <div
               className="flex items-center gap-1.5 text-[12px] leading-[18px]"
               style={{ color: "var(--rr-label-3)" }}
@@ -482,7 +568,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
       </header>
 
       {/* Scrollable chart body */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+      <div ref={chartBodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 pt-2 pb-4">
         <PatientCard
           key={patient.id}
           chrome="workspace"
@@ -507,23 +593,28 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
       {/* Pinned sign-off readiness bar */}
       <div className="rr-signoff">
-        <span className="text-[12px] font-medium" style={{ color: "var(--rr-label-2)" }}>
+        <span className="text-xs font-medium" style={{ color: "var(--rr-label-2)" }}>
           Documentation
         </span>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {sectionStatuses.map(({ id, status }) => (
-            <span key={id} className="rr-chip">
-              <span className={cn("rr-dot", STATUS_DOT_CLASS[status])} aria-hidden="true" />
-              {id === "systems"
+          {sectionStatuses.map(({ id, status }) => {
+            const label =
+              id === "systems"
                 ? `Systems ${systemsCount.filled}/${systemsCount.total}`
-                : DOCUMENTATION_SECTIONS.find((s) => s.id === id)?.label}
+                : DOCUMENTATION_SECTIONS.find((s) => s.id === id)?.label ?? TAB_LABELS[id];
+            const chipTitle = `${label}: ${DOCUMENTATION_STATUS_LABELS[status]}`;
+            return (
+            <span key={id} className="rr-chip" title={chipTitle} aria-label={chipTitle}>
+              <span className={cn("rr-dot", STATUS_DOT_CLASS[status])} aria-hidden="true" />
+              {label}
             </span>
-          ))}
+            );
+          })}
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-2">
           <button
             type="button"
-            className="rr-btn rr-btn-outline"
+            className="rr-btn rr-btn-outline rr-btn-44"
             onClick={() => setHandoffOpen(true)}
           >
             Preview handoff
