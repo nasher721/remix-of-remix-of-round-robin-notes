@@ -97,6 +97,7 @@ export const MobilePatientDetail = ({
   initialTodos,
 }: MobilePatientDetailProps) => {
   const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
+  const [activeSection, setActiveSection] = useState("summary");
   const [pendingClearField, setPendingClearField] = useState<string | null>(null);
   const [showRemovePatientDialog, setShowRemovePatientDialog] = useState(false);
   const [showClearSystemsDialog, setShowClearSystemsDialog] = useState(false);
@@ -117,6 +118,7 @@ export const MobilePatientDetail = ({
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
     setOpenSections(["summary", "events"]);
+    setActiveSection("summary");
   }, [patient.id]);
 
   const sectionChips = [
@@ -128,7 +130,29 @@ export const MobilePatientDetail = ({
     { id: "systems", label: "Systems", icon: Activity },
   ];
 
+  useEffect(() => {
+    const sections = sectionChips
+      .map((chip) => document.getElementById(`section-${chip.id}`))
+      .filter((el): el is HTMLElement => Boolean(el));
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const top = visible[0];
+        if (!top?.target.id.startsWith("section-")) return;
+        setActiveSection(top.target.id.replace("section-", ""));
+      },
+      { root: null, rootMargin: "-20% 0px -55% 0px", threshold: [0.2, 0.4] },
+    );
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [patient.id, openSections]);
+
   const handleJumpToSection = (sectionId: string) => {
+    setActiveSection(sectionId);
     setOpenSections((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
     window.setTimeout(() => {
       const target = document.getElementById(`section-${sectionId}`);
@@ -307,37 +331,41 @@ export const MobilePatientDetail = ({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 bg-card border border-border/60 rounded-full px-3 py-1">
-            <span className="text-[11px] text-muted-foreground">Room</span>
+          <div className="flex items-center gap-2 bg-card border border-border/60 rounded-full px-3 py-1.5 min-h-11">
+            <span className="text-xs text-muted-foreground">Room</span>
             <Input
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, "bed", e.target.value)}
-              className="w-24 h-7 text-sm bg-transparent border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="w-24 h-8 text-sm bg-transparent border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               autoComplete="off"
               autoCorrect="off"
+              aria-label="Bed or room"
             />
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-card border border-border/60 rounded-full px-3 py-1">
-            <Clock className="h-3 w-3" />
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-card border border-border/60 rounded-full px-3 py-1.5 min-h-11">
+            <Clock className="h-3.5 w-3.5" aria-hidden />
             <span>Updated {new Date(patient.lastModified).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
         </div>
       </div>
 
       <div className="px-4 py-3 border-b border-border bg-background/95">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin" role="tablist" aria-label="Documentation sections">
           {sectionChips.map((chip) => {
             const Icon = chip.icon;
+            const isActive = activeSection === chip.id;
             return (
               <Button
                 key={chip.id}
-                variant={openSections.includes(chip.id) ? "default" : "outline"}
+                role="tab"
+                aria-selected={isActive}
+                variant={isActive ? "default" : "outline"}
                 size="sm"
-                className="h-9 rounded-full px-3 text-xs shrink-0"
+                className="min-h-11 h-11 rounded-full px-3.5 text-xs shrink-0"
                 onClick={() => handleJumpToSection(chip.id)}
               >
-                <Icon className="h-3.5 w-3.5 mr-1" />
+                <Icon className="h-3.5 w-3.5 mr-1" aria-hidden />
                 {chip.label}
               </Button>
             );
@@ -391,7 +419,7 @@ export const MobilePatientDetail = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => addTimestamp("clinicalSummary")}
-                className="h-7 text-xs"
+                className="min-h-11 h-11 text-xs px-3"
               >
                 <Clock className="h-3 w-3 mr-1" />
                 Add Time
@@ -439,7 +467,7 @@ export const MobilePatientDetail = ({
                 size="sm"
                 onClick={handleGenerateIntervalEvents}
                 disabled={isGeneratingEvents}
-                className="h-7 text-xs gap-1"
+                className="min-h-11 h-11 text-xs gap-1 px-3"
                 title="Generate interval events from systems data"
               >
                 {isGeneratingEvents ? (
@@ -453,7 +481,7 @@ export const MobilePatientDetail = ({
                 variant="ghost"
                 size="sm"
                 onClick={() => addTimestamp("intervalEvents")}
-                className="h-7 text-xs"
+                className="min-h-11 h-11 text-xs px-3"
               >
                 <Clock className="h-3 w-3 mr-1" />
                 Add Time
@@ -483,12 +511,12 @@ export const MobilePatientDetail = ({
               <ImageIcon className="h-4 w-4 text-blue-500" />
               <span className="font-medium">Imaging</span>
               {imagingTextCount > 0 && (
-                <span className="text-[10px] text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
                   {imagingTextCount} chars
                 </span>
               )}
               {imagingImageCount > 0 && (
-                <span className="text-[10px] text-blue-600/70 bg-blue-50 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
                   {imagingImageCount} img
                 </span>
               )}
@@ -501,7 +529,7 @@ export const MobilePatientDetail = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => addTimestamp("imaging")}
-                  className="h-7 text-xs"
+                  className="min-h-11 h-11 text-xs px-3"
                 >
                   <Clock className="h-3 w-3 mr-1" />
                   Add Time
@@ -510,7 +538,7 @@ export const MobilePatientDetail = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => clearSection("imaging")}
-                  className="h-7 text-xs text-destructive"
+                  className="min-h-11 h-11 text-xs px-3 text-destructive"
                 >
                   <Eraser className="h-3 w-3 mr-1" />
                   Clear
@@ -616,7 +644,7 @@ export const MobilePatientDetail = ({
                 variant="ghost"
                 size="sm"
                 onClick={clearAllSystems}
-                className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                className="min-h-11 h-11 text-xs px-3 text-muted-foreground hover:text-destructive"
               >
                 <Eraser className="h-3 w-3 mr-1" />
                 Clear All Systems

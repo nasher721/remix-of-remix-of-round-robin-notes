@@ -136,8 +136,8 @@ export const SectionFooterChrome = ({
               {clearItem}
               <DropdownMenuSeparator />
               <div
-                className="px-2 pb-1 pt-1.5 text-[11px] leading-4"
-                style={{ color: "var(--rr-label-3)" }}
+                className="px-2 pb-1 pt-1.5 text-xs leading-4"
+                style={{ color: "var(--rr-label-2)" }}
               >
                 {modelLabel} · drafts are reviewed before inserting
               </div>

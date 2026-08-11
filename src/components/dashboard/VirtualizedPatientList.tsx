@@ -120,7 +120,9 @@ export const VirtualizedPatientList = React.memo(() => {
     }
     const delay = sectionId === "results" || sectionId === "medications" ? 120 : 0;
     window.setTimeout(() => {
-      const section = document.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`);
+      const section =
+        document.querySelector<HTMLElement>(`#documentation-section-${sectionId}`) ??
+        document.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`);
       if (!section) return;
       section.scrollIntoView({ behavior: "smooth", block: "start" });
       section
@@ -206,7 +208,7 @@ export const VirtualizedPatientList = React.memo(() => {
                             {locationLabel.slice(0, 3).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-primary/80 truncate">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary truncate">
                               {locationLabel}
                             </p>
                             <p className={cn(
@@ -217,18 +219,18 @@ export const VirtualizedPatientList = React.memo(() => {
                             </p>
                             <p className={cn(
                               "text-muted-foreground truncate font-mono",
-                              patientListViewMode === "compact" ? "text-[10px] mt-0" : "text-[11px] mt-0.5",
+                              patientListViewMode === "compact" ? "text-[11px] mt-0" : "text-xs mt-0.5",
                             )}>
                               {secondaryLabel}
                             </p>
-                            <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                               <span>{DOCUMENTATION_STATUS_LABELS[documentation.status]}</span>
                               <span aria-hidden="true">·</span>
                               <span>{documentation.completed}/{documentation.total} sections</span>
                             </div>
                           </div>
                           {openTodoCount > 0 ? (
-                            <span className="mt-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
+                            <span className="mt-0.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary tabular-nums">
                               {openTodoCount}
                             </span>
                           ) : null}
@@ -292,8 +294,8 @@ export const VirtualizedPatientList = React.memo(() => {
                             type="button"
                             onClick={() => setDesktopSelectedPatientId(patient.id)}
                             className={cn(
-                              "flex items-center gap-2 rounded-lg border transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                              patientListViewMode === "compact" ? "px-2 py-0.5" : "px-2 py-1",
+                              "flex min-h-11 items-center gap-2 rounded-lg border transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                              patientListViewMode === "compact" ? "px-2 py-1" : "px-2.5 py-1.5",
                               isActive
                                 ? "bg-primary/12 border-primary/35 shadow-sm"
                                 : "border-transparent hover:bg-secondary/70",
@@ -309,13 +311,13 @@ export const VirtualizedPatientList = React.memo(() => {
                               {patient.name ? patient.name.charAt(0).toUpperCase() : "#"}
                             </div>
                             <span className={cn(
-                              "font-medium truncate max-w-[10rem]",
-                              patientListViewMode === "compact" ? "text-[10px]" : "text-[11px]",
+                              "font-medium truncate max-w-[10rem] text-foreground",
+                              patientListViewMode === "compact" ? "text-[11px]" : "text-xs",
                             )}>
                               {locationLabel} · {patient.name || "Unnamed"}
                             </span>
                             {openTodoCount > 0 ? (
-                              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary tabular-nums">
+                              <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-semibold text-primary tabular-nums">
                                 {openTodoCount}
                               </span>
                             ) : null}
@@ -328,7 +330,7 @@ export const VirtualizedPatientList = React.memo(() => {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 shrink-0 text-muted-foreground"
+                    className="min-h-11 min-w-11 h-11 w-11 shrink-0 text-muted-foreground"
                     onClick={() => setLeftPanelCollapsed(true)}
                     aria-label="Collapse patient roster"
                     title="Collapse patient roster"
@@ -347,7 +349,7 @@ export const VirtualizedPatientList = React.memo(() => {
                   <div className="sticky top-0 z-20 mb-3 rounded-lg border border-border/40 bg-background/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85" aria-label="Patient documentation workspace header">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">{selectedPatient.bed || "Unassigned"}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">{selectedPatient.bed || "Unassigned"}</p>
                         <h2 className="truncate text-base font-semibold text-foreground">{selectedPatient.name || "Unnamed patient"}</h2>
                       </div>
                       <div className="flex items-center gap-1">
@@ -358,17 +360,17 @@ export const VirtualizedPatientList = React.memo(() => {
                           {saveState === "error" && <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />}
                           <span>{saveState === "idle" ? "Ready" : saveState === "queued" ? "Offline queued" : saveState === "error" ? "Save failed" : saveState === "saving" ? "Saving" : "Saved"}</span>
                         </div>
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => selectRelativePatient(-1)} disabled={selectedIndex <= 0} aria-label="Previous patient">
+                        <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11 h-11 w-11" onClick={() => selectRelativePatient(-1)} disabled={selectedIndex <= 0} aria-label="Previous patient">
                           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                         </Button>
-                        <Button type="button" variant="outline" size="icon" className="h-9 w-9" onClick={() => selectRelativePatient(1)} disabled={selectedIndex < 0 || selectedIndex >= patients.length - 1} aria-label="Next patient">
+                        <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11 h-11 w-11" onClick={() => selectRelativePatient(1)} disabled={selectedIndex < 0 || selectedIndex >= patients.length - 1} aria-label="Next patient">
                           <ChevronRight className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       </div>
                     </div>
                     <nav className="mt-3 flex gap-1 overflow-x-auto border-t border-border/30 pt-2" aria-label="Documentation sections">
                       {selectedDocumentation.sections.map((section) => (
-                        <button key={section.id} type="button" onClick={() => jumpToSection(section.id)} className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <button key={section.id} type="button" onClick={() => jumpToSection(section.id)} className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                           {section.complete ? <CheckCircle2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> : <Circle className="h-3.5 w-3.5" aria-hidden="true" />}
                           {section.label}
                         </button>
@@ -438,7 +440,7 @@ export const VirtualizedPatientList = React.memo(() => {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 shrink-0 text-muted-foreground"
+                  className="min-h-11 min-w-11 h-11 w-11 shrink-0 text-muted-foreground"
                   onClick={() => setRightPanelCollapsed(true)}
                   aria-label="Collapse tasks panel"
                   title="Collapse tasks panel"

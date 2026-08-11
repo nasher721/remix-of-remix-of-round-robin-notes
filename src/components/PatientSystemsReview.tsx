@@ -236,7 +236,7 @@ export const PatientSystemsReview = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg"
+                  className="min-h-11 h-11 px-3 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg"
                   title="Choose systems to combine"
                 >
                   <Layers3 className="h-3.5 w-3.5 mr-1" />
@@ -267,7 +267,7 @@ export const PatientSystemsReview = ({
             variant="ghost"
             size="sm"
             onClick={onClearAll}
-            className="h-7 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+            className="min-h-11 h-11 px-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
             title="Clear all systems"
           >
             <Eraser className="h-3.5 w-3.5 mr-1" />
@@ -277,7 +277,7 @@ export const PatientSystemsReview = ({
             variant="ghost"
             size="sm"
             onClick={onOpenConfig}
-            className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg"
+            className="min-h-11 h-11 px-3 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg"
             title="Customize systems"
           >
             <Settings2 className="h-3.5 w-3.5 mr-1" />

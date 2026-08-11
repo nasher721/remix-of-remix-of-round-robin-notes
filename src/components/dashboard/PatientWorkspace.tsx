@@ -165,7 +165,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
   const { addActivity } = usePatientActivity(patient?.id ?? "");
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const nextId = patient?.id ?? null;
     if (!nextId) {
       previousPatientIdRef.current = null;
@@ -176,12 +176,50 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
       setIsSwitchingPatient(true);
       setActiveTab("summary");
       if (chartBodyRef.current) chartBodyRef.current.scrollTop = 0;
-      const timer = window.setTimeout(() => setIsSwitchingPatient(false), 180);
+      const timer = window.setTimeout(() => setIsSwitchingPatient(false), 160);
       previousPatientIdRef.current = nextId;
       return () => window.clearTimeout(timer);
     }
     previousPatientIdRef.current = nextId;
   }, [patient?.id]);
+
+  React.useEffect(() => {
+    const root = chartBodyRef.current;
+    if (!root || isSwitchingPatient || !patient) return;
+
+    const sections = Array.from(
+      root.querySelectorAll<HTMLElement>("[data-documentation-section]"),
+    );
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        const top = visible[0];
+        if (!top) return;
+        const sectionId = top.target.getAttribute("data-documentation-section");
+        if (
+          sectionId === "summary" ||
+          sectionId === "events" ||
+          sectionId === "systems" ||
+          sectionId === "results" ||
+          sectionId === "medications"
+        ) {
+          setActiveTab(sectionId);
+        }
+      },
+      {
+        root,
+        rootMargin: "-12% 0px -58% 0px",
+        threshold: [0.15, 0.35, 0.55],
+      },
+    );
+
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, [patient?.id, isSwitchingPatient, patient]);
 
   // Record sign-offs in the per-patient activity feed (uses the existing
   // 'updated' action since the DB CHECK constraint only allows a fixed set).
@@ -215,7 +253,9 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
     window.setTimeout(() => {
       const root = chartBodyRef.current;
       const section =
+        root?.querySelector<HTMLElement>(`#documentation-section-${sectionId}`) ??
         root?.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`) ??
+        document.querySelector<HTMLElement>(`#documentation-section-${sectionId}`) ??
         document.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`);
       if (!section) return;
       if (typeof section.scrollIntoView === "function") {
@@ -307,7 +347,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
             onChange={(e) => onUpdatePatient(patient.id, "name", e.target.value)}
             aria-label="Patient name"
             placeholder="Patient name"
-            className="h-9 w-[220px] rounded-[8px] border-transparent bg-transparent px-2 text-[17px] font-semibold shadow-none hover:bg-black/[0.03] focus-visible:bg-background focus-visible:ring-1"
+            className="min-h-11 h-11 w-[220px] rounded-[8px] border-transparent bg-transparent px-2 text-[17px] font-semibold shadow-none hover:bg-black/[0.03] focus-visible:bg-background focus-visible:ring-1"
             style={{ color: "var(--rr-label-1)" }}
           />
           <Input
@@ -315,8 +355,8 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
             onChange={(e) => onUpdatePatient(patient.id, "bed", e.target.value)}
             aria-label="Bed or room number"
             placeholder="Bed / room"
-            className="h-7 w-[96px] rounded-[6px] border-transparent px-2 text-[12px] font-medium shadow-none focus-visible:ring-1"
-            style={{ background: "var(--rr-f2)", color: "var(--rr-label-2)" }}
+            className="min-h-11 h-11 w-[104px] rounded-[6px] border-transparent px-2 text-xs font-medium shadow-none focus-visible:ring-1"
+            style={{ background: "var(--rr-f2)", color: "var(--rr-label-1)" }}
           />
           <LengthOfStayBadge createdAt={patient.createdAt} />
 
@@ -338,71 +378,68 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
             <button type="button" className="rr-btn rr-btn-outline" onClick={onOpenAIPalette}>
               AI
             </button>
-            <FieldHistoryViewer
-              patientId={patient.id}
-              patientName={patient.name}
-              trigger={
-                <button type="button" className="rr-btn rr-btn-secondary">
-                  <History className="h-4 w-4" aria-hidden="true" />
-                  History
-                </button>
-              }
-            />
-            <ActivityFeed patientId={patient.id} patientName={patient.name} />
-            {teamMembers.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="rr-btn rr-btn-outline"
-                    aria-label="Assign patient to team member"
-                  >
-                    <User className="h-4 w-4" aria-hidden="true" />
-                    Assign
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 rounded-lg">
-                  <DropdownMenuLabel className="text-xs">Assign to</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => onUpdatePatient(patient.id, "assignedTo", null)}
-                    className="text-xs"
-                  >
-                    Unassigned
-                  </DropdownMenuItem>
-                  {teamMembers.map((member) => (
-                    <DropdownMenuItem
-                      key={member.id}
-                      onClick={() => onUpdatePatient(patient.id, "assignedTo", member.id)}
-                      className="cursor-pointer text-xs"
-                    >
-                      <span>{member.name}</span>
-                      {patient.assignedTo === member.id && (
-                        <span className="ml-auto text-primary">✓</span>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="rr-icon-btn"
-                  aria-label={`More actions for ${patient.name || "patient"}`}
+                  className="rr-btn rr-btn-secondary"
+                  aria-label="More patient tools"
                 >
                   <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+                  More
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 rounded-lg">
-                <DropdownMenuItem onClick={() => onDuplicatePatient(patient.id)}>
+              <DropdownMenuContent align="end" className="w-56 rounded-lg p-1.5">
+                <DropdownMenuLabel className="text-xs">Chart tools</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <FieldHistoryViewer
+                  patientId={patient.id}
+                  patientName={patient.name}
+                  trigger={
+                    <DropdownMenuItem
+                      className="cursor-pointer text-xs"
+                      onSelect={(event) => event.preventDefault()}
+                    >
+                      <History className="mr-2 h-4 w-4" aria-hidden="true" />
+                      History
+                    </DropdownMenuItem>
+                  }
+                />
+                <div className="px-1 py-1">
+                  <ActivityFeed patientId={patient.id} patientName={patient.name} className="w-full justify-start" />
+                </div>
+                {teamMembers.length > 0 ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs">Assign to</DropdownMenuLabel>
+                    <DropdownMenuItem
+                      onClick={() => onUpdatePatient(patient.id, "assignedTo", null)}
+                      className="text-xs"
+                    >
+                      <User className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Unassigned
+                    </DropdownMenuItem>
+                    {teamMembers.map((member) => (
+                      <DropdownMenuItem
+                        key={member.id}
+                        onClick={() => onUpdatePatient(patient.id, "assignedTo", member.id)}
+                        className="cursor-pointer text-xs"
+                      >
+                        <span>{member.name}</span>
+                        {patient.assignedTo === member.id && (
+                          <span className="ml-auto text-primary">✓</span>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onDuplicatePatient(patient.id)} className="text-xs">
                   Duplicate
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleRemoveRequest}
-                  className="text-destructive focus:text-destructive"
+                  className="text-xs text-destructive focus:text-destructive"
                 >
                   Remove
                 </DropdownMenuItem>
@@ -421,15 +458,15 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
         {/* Meta row */}
         <div
           className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-[18px]"
-          style={{ color: "var(--rr-label-3)" }}
+          style={{ color: "var(--rr-label-2)" }}
         >
           <Input
             value={patient.mrn ?? ""}
             onChange={(e) => onUpdatePatient(patient.id, "mrn", e.target.value)}
             aria-label="Medical record number"
             placeholder="MRN"
-            className="h-6 w-[110px] rounded-[6px] border-transparent bg-transparent px-1 text-[12px] shadow-none hover:bg-black/[0.03] focus-visible:bg-background focus-visible:ring-1"
-            style={{ color: "var(--rr-label-3)" }}
+            className="min-h-11 h-11 w-[120px] rounded-[6px] border-transparent bg-transparent px-2 text-xs shadow-none hover:bg-black/[0.03] focus-visible:bg-background focus-visible:ring-1"
+            style={{ color: "var(--rr-label-1)" }}
           />
           {patient.age !== undefined && (
             <>
@@ -593,7 +630,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
       {/* Pinned sign-off readiness bar */}
       <div className="rr-signoff">
-        <span className="text-xs font-medium" style={{ color: "var(--rr-label-2)" }}>
+        <span className="hidden text-xs font-medium lg:inline" style={{ color: "var(--rr-label-2)" }}>
           Documentation
         </span>
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -602,11 +639,16 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
               id === "systems"
                 ? `Systems ${systemsCount.filled}/${systemsCount.total}`
                 : DOCUMENTATION_SECTIONS.find((s) => s.id === id)?.label ?? TAB_LABELS[id];
+            const shortLabel =
+              id === "systems"
+                ? `Sys ${systemsCount.filled}/${systemsCount.total}`
+                : TAB_LABELS[id].split(" ")[0] ?? label;
             const chipTitle = `${label}: ${DOCUMENTATION_STATUS_LABELS[status]}`;
             return (
             <span key={id} className="rr-chip" title={chipTitle} aria-label={chipTitle}>
               <span className={cn("rr-dot", STATUS_DOT_CLASS[status])} aria-hidden="true" />
-              {label}
+              <span className="lg:hidden">{shortLabel}</span>
+              <span className="hidden lg:inline">{label}</span>
             </span>
             );
           })}
@@ -617,7 +659,8 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
             className="rr-btn rr-btn-outline rr-btn-44"
             onClick={() => setHandoffOpen(true)}
           >
-            Preview handoff
+            <span className="lg:hidden">Handoff</span>
+            <span className="hidden lg:inline">Preview handoff</span>
           </button>
           <button
             type="button"
@@ -625,7 +668,8 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
             onClick={() => setSignOffOpen(true)}
           >
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Sign off & mark handoff-ready
+            <span className="lg:hidden">Sign off</span>
+            <span className="hidden lg:inline">Sign off & mark handoff-ready</span>
           </button>
         </div>
       </div>
