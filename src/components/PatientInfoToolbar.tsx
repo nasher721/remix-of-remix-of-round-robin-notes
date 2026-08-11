@@ -150,7 +150,7 @@ export const PatientInfoToolbar = ({
               variant="ghost"
               size="sm"
               onClick={() => handleInsert(item.id)}
-              className="h-7 px-2 gap-1 shrink-0"
+              className="min-h-11 h-11 px-3 gap-1.5 shrink-0"
               title={item.label}
             >
               <Icon className={ICON_CLASS} />
@@ -166,7 +166,7 @@ export const PatientInfoToolbar = ({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-7 gap-1 shrink-0"
+                className="min-h-11 h-11 gap-1.5 shrink-0 px-3"
               >
                 <span className="text-xs">More</span>
                 <ChevronDown className="h-3 w-3" />
@@ -200,19 +200,21 @@ export const PatientInfoToolbar = ({
           variant="ghost"
           size="sm"
           onClick={handleReset}
-          className="h-7 w-7 p-0"
+          className="min-h-11 min-w-11 h-11 w-11 p-0"
           title="Reset to default"
+          aria-label="Reset patient info toolbar to default"
         >
-          <RotateCcw className="h-3 w-3" />
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={() => setCustomizeOpen(true)}
-          className="h-7 gap-1 px-2"
+          className="min-h-11 h-11 gap-1.5 px-3"
+          aria-label="Customize patient info toolbar"
         >
-          <Settings className="h-3 w-3" />
+          <Settings className="h-3.5 w-3.5" aria-hidden />
           <span className="text-xs">Customize</span>
         </Button>
       </div>

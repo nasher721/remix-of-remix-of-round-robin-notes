@@ -294,7 +294,7 @@ export const MobileDashboard = () => {
                 }
               />
               <div className="sticky top-14 z-30 bg-background/90 backdrop-blur-xl border-b border-border/20">
-                <div className="flex items-center justify-between px-4 py-1.5 text-[11px] text-muted-foreground/70">
+                <div className="flex items-center justify-between px-4 py-1.5 text-xs text-muted-foreground">
                   <span>
                     {searchQuery ? `Results for "${searchQuery}"` : `${filteredPatients.length} of ${patients.length} patients`}
                   </span>
@@ -305,7 +305,7 @@ export const MobileDashboard = () => {
                   className="flex flex-wrap items-center gap-2 px-3 pb-2.5 overflow-x-hidden"
                 >
                   <div className="flex min-h-11 min-w-0 items-center gap-1.5 bg-secondary/40 rounded-lg px-2">
-                    <span className="text-[10px] text-muted-foreground">View</span>
+                    <span className="text-xs text-muted-foreground">View</span>
                     <Select
                       value={patientListViewMode}
                       onValueChange={(value) => setPatientListViewMode(value as "rich" | "compact")}
@@ -346,7 +346,7 @@ export const MobileDashboard = () => {
                       onClick={() => setFilter(option.id)}
                       className={cn(
                         "h-11 rounded-lg px-2.5 text-xs",
-                        filter === option.id ? "shadow-sm" : "text-muted-foreground/70"
+                        filter === option.id ? "shadow-sm" : "text-muted-foreground"
                       )}
                     >
                       {option.label}

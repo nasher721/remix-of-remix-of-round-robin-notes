@@ -5,7 +5,7 @@ import {
   Indent, Outdent, Palette, Undo2, Redo2, FileText, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Link2, Minus,
   Superscript, Subscript, Search, Table as TableIcon,
-  ChevronDown, Maximize2, Minimize2, Sparkles,
+  ChevronDown, Maximize2, Minimize2, Sparkles, MoreHorizontal,
 } from "lucide-react";
 import {
   Popover,
@@ -133,7 +133,8 @@ export const RichTextEditor = ({
   };
 
   const toolbarIconClass = "min-h-10 min-w-10 h-10 w-10 p-0";
-  const showPatientInfoToolbar = Boolean(patient) && (isEditorFocused || isTablet);
+  // Show patient-field inserts only while the editor is focused to reduce density.
+  const showPatientInfoToolbar = Boolean(patient) && isEditorFocused;
 
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
@@ -753,7 +754,7 @@ export const RichTextEditor = ({
               onChange={(e) => { const val = e.target.value; if (val === "p") execCommand("formatBlock", "<p>"); else execCommand("formatBlock", `<${val}>`); }}
               defaultValue="p"
               aria-label="Heading level"
-              className="h-7 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="min-h-11 h-11 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
               title="Heading level"
             >
               <option value="p">Normal</option>
@@ -812,7 +813,7 @@ export const RichTextEditor = ({
         {effectiveToolbarMode !== 'full' && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1 px-2" aria-label="More formatting options">
+              <Button type="button" variant="ghost" size="sm" className="min-h-11 h-11 gap-1 px-3" aria-label="More formatting options">
                 <span className="text-xs font-medium">More</span>
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>
@@ -1024,7 +1025,7 @@ export const RichTextEditor = ({
           <select
             value={fontSizeRef.current}
             onChange={(e) => handleFontSizeChange([parseInt(e.target.value)])}
-            className="h-7 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="min-h-11 h-11 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
             title="Font size"
             aria-label="Font size"
           >
@@ -1032,127 +1033,165 @@ export const RichTextEditor = ({
               <option key={size} value={size}>{size}px</option>
             ))}
           </select>
-          <Button type="button" variant="outline" size="sm" onClick={applyFontSizeToSelection} title="Apply size to selection" className="h-6 text-xs px-2">
+          <Button type="button" variant="outline" size="sm" onClick={applyFontSizeToSelection} title="Apply size to selection" className="min-h-11 h-11 text-xs px-3">
             Apply
           </Button>
         </div>
         )}
-        <div className="ml-auto flex items-center gap-2">
-          <DocumentImport
-            onImport={(content) => {
-              if (editorRef.current) {
-                // Append imported content to existing content
-                const importedContent = sanitizeHtml(content);
-                const newContent = sanitizeHtml(editorRef.current.innerHTML
-                  ? `${editorRef.current.innerHTML}<br/><br/>${importedContent}`
-                  : importedContent);
-                editorRef.current.innerHTML = newContent;
-                isInternalUpdate.current = true;
-                onChange(newContent);
-              }
-            }}
-          />
-          <QuickModelSwitcher />
-          <UnifiedAIDropdown
-            getSelectedText={() => {
-              const selection = window.getSelection();
-              if (!selection || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
-                return null;
-              }
-              return selection.toString();
-            }}
-            replaceSelectedText={(newText) => {
-              const selection = window.getSelection();
-              if (!selection || selection.rangeCount === 0 || !editorRef.current?.contains(selection.anchorNode)) {
-                return;
-              }
-              const range = selection.getRangeAt(0);
-              range.deleteContents();
+        {(() => {
+          const editorTools = (
+            <>
+              <DocumentImport
+                onImport={(content) => {
+                  if (editorRef.current) {
+                    const importedContent = sanitizeHtml(content);
+                    const newContent = sanitizeHtml(editorRef.current.innerHTML
+                      ? `${editorRef.current.innerHTML}<br/><br/>${importedContent}`
+                      : importedContent);
+                    editorRef.current.innerHTML = newContent;
+                    isInternalUpdate.current = true;
+                    onChange(newContent);
+                  }
+                }}
+              />
+              <QuickModelSwitcher />
+              <UnifiedAIDropdown
+                getSelectedText={() => {
+                  const selection = window.getSelection();
+                  if (!selection || selection.isCollapsed || !editorRef.current?.contains(selection.anchorNode)) {
+                    return null;
+                  }
+                  return selection.toString();
+                }}
+                replaceSelectedText={(newText) => {
+                  const selection = window.getSelection();
+                  if (!selection || selection.rangeCount === 0 || !editorRef.current?.contains(selection.anchorNode)) {
+                    return;
+                  }
+                  const range = selection.getRangeAt(0);
+                  range.deleteContents();
 
-              let content: Node;
-              if (effectiveChangeTracking?.enabled) {
-                const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(newText));
-                const temp = document.createElement('div');
-                temp.innerHTML = markedHtml;
-                content = document.createDocumentFragment();
-                while (temp.firstChild) {
-                  content.appendChild(temp.firstChild);
-                }
-              } else {
-                content = document.createTextNode(newText);
-              }
+                  let content: Node;
+                  if (effectiveChangeTracking?.enabled) {
+                    const markedHtml = sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(newText));
+                    const temp = document.createElement('div');
+                    temp.innerHTML = markedHtml;
+                    content = document.createDocumentFragment();
+                    while (temp.firstChild) {
+                      content.appendChild(temp.firstChild);
+                    }
+                  } else {
+                    content = document.createTextNode(newText);
+                  }
 
-              range.insertNode(content);
-              range.collapse(false);
-              selection.removeAllRanges();
-              selection.addRange(range);
+                  range.insertNode(content);
+                  range.collapse(false);
+                  selection.removeAllRanges();
+                  selection.addRange(range);
 
-              isInternalUpdate.current = true;
-              onChange(editorRef.current!.innerHTML);
-            }}
-            getDocumentText={() => editorRef.current?.innerText ?? null}
-            onDraftNoteGenerated={(draft) => {
-              if (!editorRef.current) return;
-              const isEmpty = editorRef.current.innerText.trim() === "";
-              const separator = isEmpty ? "" : "<br/><br/>";
-              const sanitizedDraft = sanitizeHtml(draft);
-              const newContent = sanitizeHtml(isEmpty
-                ? sanitizedDraft
-                : `${editorRef.current.innerHTML}${separator}${sanitizedDraft}`);
-              editorRef.current.innerHTML = newContent;
-              isInternalUpdate.current = true;
-              onChange(newContent);
-            }}
-            patient={patient}
-          />
-          <DictationButton
-            onTranscript={handleDictationTranscript}
-            size="sm"
-          />
-          <div className="w-px h-5 bg-border" />
-          <PhrasePicker
-            phrases={phrases}
-            folders={folders}
-            trigger={
-              <Button
-                type="button"
-                variant="ghost"
+                  isInternalUpdate.current = true;
+                  onChange(editorRef.current!.innerHTML);
+                }}
+                getDocumentText={() => editorRef.current?.innerText ?? null}
+                onDraftNoteGenerated={(draft) => {
+                  if (!editorRef.current) return;
+                  const isEmpty = editorRef.current.innerText.trim() === "";
+                  const separator = isEmpty ? "" : "<br/><br/>";
+                  const sanitizedDraft = sanitizeHtml(draft);
+                  const newContent = sanitizeHtml(isEmpty
+                    ? sanitizedDraft
+                    : `${editorRef.current.innerHTML}${separator}${sanitizedDraft}`);
+                  editorRef.current.innerHTML = newContent;
+                  isInternalUpdate.current = true;
+                  onChange(newContent);
+                }}
+                patient={patient}
+              />
+              <DictationButton
+                onTranscript={handleDictationTranscript}
                 size="sm"
-                title="Insert clinical phrase from your library"
-                aria-label="Insert clinical phrase from library"
-                className="h-7 px-2 gap-1"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline text-xs">Phrases</span>
-              </Button>
-            }
-            onSelect={selectPhrase}
-            context={{ section }}
-          />
-          {changeTracking?.enabled && (
-            <Button
-              type="button"
-              variant={localMarkingDisabled ? "outline" : "ghost"}
-              size="sm"
-              onClick={() => setLocalMarkingDisabled(!localMarkingDisabled)}
-              title={localMarkingDisabled ? "Enable marking for this field" : "Disable marking for this field"}
-              className={cn(
-                "h-7 px-2 gap-1",
-                !localMarkingDisabled && "text-orange-600 hover:text-orange-700",
-                localMarkingDisabled && "text-muted-foreground"
+              />
+              <PhrasePicker
+                phrases={phrases}
+                folders={folders}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    title="Insert clinical phrase from your library"
+                    aria-label="Insert clinical phrase from library"
+                    className="min-h-11 h-11 px-3 gap-1"
+                  >
+                    <FileText className="h-3.5 w-3.5" aria-hidden />
+                    <span className="text-xs">Phrases</span>
+                  </Button>
+                }
+                onSelect={selectPhrase}
+                context={{ section }}
+              />
+              {changeTracking?.enabled && (
+                <Button
+                  type="button"
+                  variant={localMarkingDisabled ? "outline" : "ghost"}
+                  size="sm"
+                  onClick={() => setLocalMarkingDisabled(!localMarkingDisabled)}
+                  title={localMarkingDisabled ? "Enable marking for this field" : "Disable marking for this field"}
+                  className={cn(
+                    "min-h-11 h-11 px-3 gap-1",
+                    !localMarkingDisabled && "text-orange-600 hover:text-orange-700",
+                    localMarkingDisabled && "text-muted-foreground"
+                  )}
+                >
+                  <Highlighter className="h-3.5 w-3.5" aria-hidden />
+                  <span className="text-xs">
+                    {localMarkingDisabled ? "Marking off" : "Marking on"}
+                  </span>
+                </Button>
               )}
-            >
-              <Highlighter className="h-3 w-3" />
-              <span className="hidden sm:inline text-xs">
-                {localMarkingDisabled ? "Off" : "On"}
-              </span>
-            </Button>
-          )}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Sparkles className="h-3 w-3" />
-            <span className="hidden sm:inline">Autotexts</span>
-          </div>
-        </div>
+            </>
+          );
+
+          return (
+            <div className="ml-auto flex items-center gap-2">
+              {isTablet ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className={cn(toolbarIconClass, "gap-1 px-2 min-w-[2.75rem]")}
+                      aria-label="AI, phrases, and insert tools"
+                      title="Editor tools"
+                    >
+                      <MoreHorizontal className="h-4 w-4" aria-hidden />
+                      <span className="text-xs">Tools</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-64 space-y-2 p-3">
+                    <p className="text-xs font-medium text-muted-foreground">AI & insert</p>
+                    <div className="flex flex-col gap-2 items-stretch">
+                      {editorTools}
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                      Autotexts expand as you type
+                    </p>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <>
+                  {editorTools}
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                    <span className="hidden sm:inline">Autotexts</span>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </>
   );

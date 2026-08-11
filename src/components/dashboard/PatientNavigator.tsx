@@ -58,7 +58,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
                 variant="ghost"
                 size="icon"
                 onClick={handleToggleOpen}
-                className="absolute -left-3 top-4 h-6 w-6 rounded-full bg-card border border-border/40 shadow-card z-50 hover:bg-secondary/60"
+                className="absolute -left-3 top-4 min-h-11 min-w-11 h-11 w-11 rounded-full bg-card border border-border/40 shadow-card z-50 hover:bg-secondary/60"
             >
                 {isOpen ? <ChevronsRight className="h-3 w-3" /> : <ChevronsLeft className="h-3 w-3" />}
             </Button>
@@ -93,7 +93,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
                                     </div>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-medium truncate leading-none mb-0.5 text-foreground">{patient.name || "Unnamed"}</p>
-                                        <p className="text-[10px] text-muted-foreground truncate font-mono">{patient.bed}</p>
+                                        <p className="text-xs text-muted-foreground truncate font-mono">{patient.bed}</p>
                                     </div>
                                     <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>
@@ -105,7 +105,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
                             )}
                         </div>
                     </ScrollArea>
-                    <div className="p-2 border-t border-border/20 text-[10px] text-center text-card-foreground/50 bg-white/[0.03]">
+                    <div className="p-2 border-t border-border/20 text-xs text-center text-card-foreground/80 bg-white/[0.03]">
                         {filteredPatients.length} patients
                     </div>
                 </>
@@ -119,7 +119,7 @@ export function PatientNavigator({ onScrollToPatient, className }: PatientNaviga
                             <button
                                 key={p.id}
                                 onClick={() => onScrollToPatient(p.id)}
-                                className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-[10px] font-medium text-card-foreground/50 hover:text-card-foreground transition-colors"
+                                className="min-h-11 min-w-11 h-11 w-11 rounded-full hover:bg-white/10 flex items-center justify-center text-xs font-medium text-card-foreground/80 hover:text-card-foreground transition-colors"
                                 title={p.name}
                             >
                                 {p.bed.slice(0, 2)}

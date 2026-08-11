@@ -357,7 +357,7 @@ const PatientCardComponent = ({
                 onChange={(e) => onUpdate(patient.id, 'mrn', e.target.value)}
                 aria-label="Medical record number"
                 title="Hospital MRN or account number"
-                className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal shadow-none"
+                className="max-w-[110px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground font-normal shadow-none"
               />
             </div>
             <div className="relative">
@@ -371,7 +371,7 @@ const PatientCardComponent = ({
                 onChange={(e) => onUpdate(patient.id, 'bed', e.target.value)}
                 aria-label="Bed or room number"
                 title="Unit and room or bay"
-                className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground/70 font-normal shadow-none"
+                className="max-w-[120px] bg-transparent border-transparent hover:bg-secondary/40 hover:border-border/50 focus:bg-background focus:border-primary/40 focus:ring-2 focus:ring-primary/20 rounded-lg px-3 h-9 text-xs text-muted-foreground font-normal shadow-none"
               />
             </div>
             {/* Patient Status Badges */}
@@ -386,7 +386,7 @@ const PatientCardComponent = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors gap-1"
+                      className="min-h-11 h-11 px-3 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors gap-1"
                       aria-label="Assign patient to team member"
                     >
                       <User className="h-3 w-3" />
@@ -544,7 +544,7 @@ const PatientCardComponent = ({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+                className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
                 aria-label="View change history"
               >
                 <History className="h-3.5 w-3.5" aria-hidden="true" />
@@ -556,7 +556,7 @@ const PatientCardComponent = ({
             variant="ghost"
             size="icon"
             onClick={() => onToggleCollapse(patient.id)}
-            className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+            className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
             aria-label={patient.collapsed ? "Expand patient card" : "Collapse patient card"}
             aria-expanded={!patient.collapsed}
             aria-controls={`patient-body-${patient.id}`}
@@ -572,7 +572,7 @@ const PatientCardComponent = ({
               variant="ghost"
               size="icon"
               onClick={() => onDuplicate(patient.id)}
-              className="h-8 w-8 text-muted-foreground/60 hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+              className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
               aria-label="Duplicate patient"
               title="Duplicate this patient card"
             >
@@ -582,7 +582,7 @@ const PatientCardComponent = ({
               variant="ghost"
               size="icon"
               onClick={() => onRemove(patient.id)}
-              className="h-8 w-8 text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+              className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
               aria-label="Remove patient from list"
               title="Remove patient from this session"
             >
@@ -633,13 +633,17 @@ const PatientCardComponent = ({
 
               {/* Clinical Summary */}
               {sectionVisibility.clinicalSummary && (
-                <div className="space-y-1.5 scroll-mt-32" data-documentation-section="summary">
+                <div
+                  className="space-y-1.5 scroll-mt-32"
+                  data-documentation-section="summary"
+                  id="documentation-section-summary"
+                >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                         <FileText className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical Summary</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Clinical Summary</h3>
                       {patient.clinicalSummary && (
                         <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                           {(patient.clinicalSummary ?? "").length}
@@ -663,7 +667,7 @@ const PatientCardComponent = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => addTimestamp('clinicalSummary')}
-                            className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
+                            className="min-h-11 min-w-11 h-11 w-11 p-0 text-muted-foreground hover:text-foreground"
                             aria-label="Add timestamp to clinical summary"
                           >
                             <Clock className="h-3 w-3" aria-hidden="true" />
@@ -672,7 +676,7 @@ const PatientCardComponent = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => clearSection('clinicalSummary')}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                            className="min-h-11 h-11 px-2.5 text-xs text-muted-foreground hover:text-destructive"
                           >
                             Clear
                           </Button>
@@ -715,13 +719,17 @@ const PatientCardComponent = ({
 
               {/* Interval Events */}
               {sectionVisibility.intervalEvents && (
-                <div className="space-y-1.5 scroll-mt-32" data-documentation-section="events">
+                <div
+                  className="space-y-1.5 scroll-mt-32"
+                  data-documentation-section="events"
+                  id="documentation-section-events"
+                >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 rounded flex items-center justify-center bg-primary/10 border border-primary/15">
                         <Calendar className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
                       </div>
-                      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Interval Events</h3>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/80">Interval Events</h3>
                       {patient.intervalEvents && (
                         <span className="text-[10px] text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
                           {patient.intervalEvents.length}
@@ -736,7 +744,7 @@ const PatientCardComponent = ({
                               variant="ghost"
                               size="sm"
                               onClick={isGeneratingEvents ? cancelGeneration : cancelSummary}
-                              className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className="min-h-11 h-11 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
                               aria-label="Cancel generation"
                             >
                               <X className="h-3 w-3" aria-hidden="true" />
@@ -748,7 +756,7 @@ const PatientCardComponent = ({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleGenerateIntervalEvents}
-                                className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                                className="min-h-11 h-11 px-3 text-primary hover:text-primary hover:bg-primary/10"
                                 aria-label="Generate interval events from systems using AI"
                               >
                                 <Sparkles className="h-3 w-3" aria-hidden="true" />
@@ -758,7 +766,7 @@ const PatientCardComponent = ({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleGenerateDailySummary}
-                                className="h-7 px-2 text-warning hover:text-warning hover:bg-warning/10"
+                                className="min-h-11 h-11 px-3 text-warning hover:text-warning hover:bg-warning/10"
                                 aria-label="Summarize today's changes and todos using AI"
                               >
                                 <ClipboardList className="h-3 w-3" aria-hidden="true" />
@@ -767,7 +775,7 @@ const PatientCardComponent = ({
                             </>
                           )}
                           {(isGeneratingEvents || isGeneratingSummary) && (
-                            <div className="flex items-center h-7 px-2">
+                            <div className="flex items-center min-h-11 h-11 px-2">
                               <Loader2 className="h-3 w-3 animate-spin text-primary" />
                             </div>
                           )}
@@ -789,7 +797,7 @@ const PatientCardComponent = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => addTimestamp('intervalEvents')}
-                            className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
+                            className="min-h-11 min-w-11 h-11 w-11 p-0 text-muted-foreground hover:text-foreground"
                             aria-label="Add timestamp to interval events"
                           >
                             <Clock className="h-3 w-3" aria-hidden="true" />
@@ -798,7 +806,7 @@ const PatientCardComponent = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => clearSection('intervalEvents')}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                            className="min-h-11 h-11 px-2.5 text-xs text-muted-foreground hover:text-destructive"
                           >
                             Clear
                           </Button>
@@ -856,7 +864,11 @@ const PatientCardComponent = ({
 
               {/* Imaging & Labs Row */}
               {(sectionVisibility.imaging || sectionVisibility.labs) && (
-                <div className="space-y-2 scroll-mt-32" data-documentation-section="results">
+                <div
+                  className="space-y-2 scroll-mt-32"
+                  data-documentation-section="results"
+                  id="documentation-section-results"
+                >
                   {!isWorkspace && (
                     <div className="flex items-center justify-between rounded-lg border border-border/30 bg-muted/20 px-3 py-2">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -866,7 +878,7 @@ const PatientCardComponent = ({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-7 px-2 text-xs"
+                        className="min-h-11 h-11 px-3 text-xs"
                         onClick={() => setShowAdvancedSections((prev) => !prev)}
                       >
                         {showAdvancedSections ? "Hide" : "Show"}
@@ -910,7 +922,7 @@ const PatientCardComponent = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => addTimestamp('imaging')}
-                            className="h-6 w-6 p-0 text-muted-foreground/50 hover:text-foreground"
+                            className="min-h-11 min-w-11 h-11 w-11 p-0 text-muted-foreground hover:text-foreground"
                             aria-label="Add timestamp to imaging"
                           >
                             <Clock className="h-3 w-3" aria-hidden="true" />
@@ -919,7 +931,7 @@ const PatientCardComponent = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => clearSection('imaging')}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                            className="min-h-11 h-11 px-2.5 text-xs text-muted-foreground hover:text-destructive"
                           >
                             Clear
                           </Button>
@@ -978,7 +990,7 @@ const PatientCardComponent = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => clearSection('labs')}
-                            className="h-6 px-1.5 text-[10px] text-muted-foreground/50 hover:text-destructive"
+                            className="min-h-11 h-11 px-2.5 text-xs text-muted-foreground hover:text-destructive"
                           >
                             Clear
                           </Button>
@@ -1017,7 +1029,11 @@ const PatientCardComponent = ({
 
               {/* Medications */}
               {sectionVisibility.medications && showAdvancedSections && (
-                <div className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60 scroll-mt-32" data-documentation-section="medications">
+                <div
+                  className="bg-background/50 rounded-lg p-4 border border-border/40 transition-all duration-200 hover:border-border/60 scroll-mt-32"
+                  data-documentation-section="medications"
+                  id="documentation-section-medications"
+                >
                   <MedicationList
                     medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
                     onMedicationsChange={(meds) => onUpdate(patient.id, 'medications', meds)}
@@ -1033,6 +1049,7 @@ const PatientCardComponent = ({
                   onFocusCapture={() => handleEditorFocusIntent("systemsReview")}
                   data-editor-type="systems-review"
                   data-documentation-section="systems"
+                  id="documentation-section-systems"
                   className="scroll-mt-32"
                 >
                   <PatientSystemsReview
