@@ -181,6 +181,18 @@ export const DesktopDashboard = () => {
     setDesktopSelectedPatientId(filteredPatients[prev].id);
   }, [filteredPatients, desktopSelectedPatientId, setDesktopSelectedPatientId]);
 
+  /** Explicit AI scope: desktop roster selection, never a silent first-patient fallback. */
+  const aiContextPatient = React.useMemo(() => {
+    if (desktopSelectedPatientId) {
+      return (
+        filteredPatients.find((p) => p.id === desktopSelectedPatientId) ??
+        patients.find((p) => p.id === desktopSelectedPatientId) ??
+        undefined
+      );
+    }
+    return selectedPatient ?? undefined;
+  }, [desktopSelectedPatientId, filteredPatients, patients, selectedPatient]);
+
   useKeyboardShortcuts({
     onAddPatient,
     onSearch: () => searchInputRef.current?.focus(),
@@ -420,6 +432,11 @@ export const DesktopDashboard = () => {
           ? "Add your first patient to begin documenting rounds with your team."
           : "Try adjusting your search or filter criteria."}
       </p>
+      {patients.length > 0 ? (
+        <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+          Clear filters from the roster rail, or add a patient if the census is incomplete.
+        </p>
+      ) : null}
       {patients.length === 0 && (
         <div className="w-full max-w-xl rounded-xl border border-border/40 bg-card/70 p-5 text-left shadow-sm">
           <p className="text-sm font-semibold text-foreground mb-3">Quick start checklist</p>
@@ -778,7 +795,7 @@ export const DesktopDashboard = () => {
         <AICommandPalette
           open={isAICommandPaletteOpen}
           onOpenChange={setAICommandPaletteOpen}
-          patient={selectedPatient ?? undefined}
+          patient={aiContextPatient}
         />
       </React.Suspense>
 
@@ -787,7 +804,10 @@ export const DesktopDashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Clear All Patients</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove all patients from rounds? This action cannot be undone.
+              {patients.length > 0
+                ? `Remove all ${patients.length} patients from today's rounds?`
+                : "Remove all patients from today's rounds?"}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1154,6 +1174,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                       onChange={(e) => onPatientRosterLayoutModeChange(e.target.value as "sidebar" | "topbar")}
                       className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                       aria-label="Patient list view mode"
+                      title="Sidebar keeps a compact roster beside the chart; top bar uses a wide roster above"
                     >
                       <option value="sidebar">Sidebar (compact)</option>
                       <option value="topbar">Top bar (wide)</option>
@@ -1211,7 +1232,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                     onRemoveTemplate={onRemoveTemplate}
                     onImportDictionary={onImportDictionary}
                   />
-                  <Button onClick={onOpenPhraseManager} variant="outline" size="sm" className="w-full gap-1.5">
+                  <Button onClick={onOpenPhraseManager} variant="outline" size="sm" className="w-full gap-1.5" title="Reusable clinical phrases for quick insertion" aria-label="Manage Phrases">
                     <FileText className="h-3.5 w-3.5" /> Manage Phrases
                   </Button>
                 </div>

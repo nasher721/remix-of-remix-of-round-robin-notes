@@ -475,7 +475,7 @@ export function ClinicalRiskCalculator({ className }: ClinicalRiskCalculatorProp
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" className={cn("h-8 gap-2", className)}>
           <Calculator className="h-4 w-4" />
-          <span className="hidden sm:inline">Risk Scores</span>
+          <span>Risk Scores</span>
         </Button>
       </SheetTrigger>
       <SheetContent className="w-[420px] overflow-y-auto sm:w-[540px]">

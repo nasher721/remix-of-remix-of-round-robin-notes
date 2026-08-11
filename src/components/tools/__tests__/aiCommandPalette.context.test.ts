@@ -80,7 +80,9 @@ function renderPalette(patient?: Patient) {
 test("shows a visible no-patient reason and disables patient-required commands", async () => {
   renderPalette();
 
-  assert.ok(await screen.findByText("Select a patient to run clinical AI actions"));
+  assert.ok(
+    await screen.findByText("No patient selected — choose a patient on the roster first"),
+  );
 
   const differentialDiagnosisItem = screen
     .getByText("Differential Diagnosis")
@@ -92,12 +94,15 @@ test("shows a visible no-patient reason and disables patient-required commands",
       differentialDiagnosisItem?.getAttribute("data-disabled") === "true",
     true,
   );
-  assert.ok(screen.getAllByText("Select a patient").length > 0);
+  assert.ok(screen.getAllByText(/Unavailable — select a patient first/).length > 0);
 });
 
 test("shows the selected patient name when the palette opens", async () => {
   renderPalette(buildPatient({ name: "Jordan Smith" }));
 
   assert.ok(await screen.findByText("Selected: Jordan Smith"));
-  assert.equal(screen.queryByText("Select a patient to run clinical AI actions"), null);
+  assert.equal(
+    screen.queryByText("No patient selected — choose a patient on the roster first"),
+    null,
+  );
 });

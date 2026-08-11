@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -342,17 +342,16 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     <>
       <DialogHeader className="flex-shrink-0">
           <div className="flex justify-between items-center pr-8">
-            {noDialog ? (
-              <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-                <FileText className="h-5 w-5" aria-hidden="true" />
-                Import Patient List
-              </h2>
-            ) : (
+            <div className="space-y-1.5">
+              {/* DialogTitle works for both owned Dialog and parent Dialog wrappers (noDialog). */}
               <DialogTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" aria-hidden="true" />
                 Import Patient List
               </DialogTitle>
-            )}
+              <DialogDescription>
+                Upload or paste a roster file to parse patients into beds and chart sections.
+              </DialogDescription>
+            </div>
 
             <Popover>
               <PopoverTrigger asChild>

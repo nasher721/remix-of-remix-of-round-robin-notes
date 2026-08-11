@@ -57,5 +57,6 @@ describe("DictationButton", { concurrency: false }, () => {
 
     assert.ok(await screen.findByText(/allow microphone access/i));
     assert.ok(screen.getByRole("button", { name: "Start voice dictation" }));
+    assert.equal(screen.getByRole("button", { name: "Start voice dictation" }).getAttribute("aria-busy"), null);
   });
 });

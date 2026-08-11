@@ -9,10 +9,14 @@ const countMatches = (source: string, pattern: RegExp) => [...source.matchAll(pa
 
 const readSource = (relativePath: string) => readFileSync(fromRoot(relativePath), "utf8");
 
-const titleSignalPattern = /<(DialogTitle|SheetTitle)(?:\s|>)/g;
-const descriptionComponentPattern = /<(DialogDescription|SheetDescription)(?:\s|>)/g;
+const titleSignalPattern = /<(DialogTitle|SheetTitle|AlertDialogTitle)(?:\s|>)/g;
+const descriptionComponentPattern = /<(DialogDescription|SheetDescription|AlertDialogDescription)(?:\s|>)/g;
 const ariaOverridePattern = /aria-describedby=\{undefined\}/g;
 
+/**
+ * High-traffic dialogs from the production-readiness report.
+ * Each file must expose accessible title + description (or documented opt-out).
+ */
 const dialogA11yTargets = [
   {
     file: "src/components/MultiPatientComparison.tsx",
@@ -30,9 +34,69 @@ const dialogA11yTargets = [
     expectedDescriptions: 3,
   },
   {
+    file: "src/components/ui/command.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
     file: "src/components/phrases/PhraseManager.tsx",
     expectedTitles: 4,
     expectedDescriptions: 4,
+  },
+  {
+    file: "src/components/phrases/PhraseFormDialog.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/PatientInfoToolbarCustomizeDialog.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/PrintExportModalFull.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 2,
+  },
+  {
+    file: "src/components/print/CustomCombinationDialog.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/EpicHandoffImport.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/import/CSVColumnMapper.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/DocumentImport.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/SmartPatientImport.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/tools/timeline/TimelineDialog.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/ImageLightbox.tsx",
+    expectedTitles: 1,
+    expectedDescriptions: 1,
+  },
+  {
+    file: "src/components/dashboard/MobileDashboard.tsx",
+    expectedTitles: 3,
+    expectedDescriptions: 3,
   },
 ] as const;
 

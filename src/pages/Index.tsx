@@ -14,6 +14,9 @@ import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardTodosProvider } from "@/contexts/DashboardTodosContext";
 import { useSetCurrentPatients } from "@/contexts/CurrentPatientsContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
+import { DesktopRoundShell, MobileRoundShell } from "@/components/round";
+import { RoundSessionProvider } from "@/contexts/RoundSessionContext";
+import { isRoundRunnerEnabled } from "@/lib/round/isRoundRunnerEnabled";
 import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
 import type { MobileTab } from "@/components/layout";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
@@ -296,13 +299,19 @@ function IndexContent(): React.ReactElement | null {
   const dashboard = isMobile ? (
     <DashboardProvider {...dashboardContextValue}>
       <DashboardTodosProvider todosMap={todosMap}>
-        <MobileDashboard />
+        <MobileShellGate
+          userId={user.id}
+          patientIds={patientIds}
+        />
       </DashboardTodosProvider>
     </DashboardProvider>
   ) : (
     <DashboardProvider {...dashboardContextValue}>
       <DashboardTodosProvider todosMap={todosMap}>
-        <DesktopDashboard />
+        <DesktopShellGate
+          userId={user.id}
+          patientIds={patientIds}
+        />
       </DashboardTodosProvider>
     </DashboardProvider>
   );
@@ -326,6 +335,112 @@ function Index(): React.ReactElement {
     <ChangeTrackingProvider>
       <IndexContent />
     </ChangeTrackingProvider>
+  );
+}
+
+/**
+ * Desktop strangler: Focus-first Round shell by default when enabled.
+ * Classic workbench remains a secondary escape hatch from ToolsSheet.
+ * RoundSessionProvider stays mounted so roster position survives workbench hops.
+ */
+function DesktopShellGate({
+  userId,
+  patientIds,
+}: {
+  userId: string;
+  patientIds: readonly string[];
+}): React.ReactElement {
+  const roundRunnerOn = isRoundRunnerEnabled();
+  const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
+
+  const handleOpenWorkbench = React.useCallback(() => {
+    setUseClassicWorkbench(true);
+  }, []);
+
+  const handleBackToRound = React.useCallback(() => {
+    setUseClassicWorkbench(false);
+  }, []);
+
+  if (!roundRunnerOn) {
+    return <DesktopDashboard />;
+  }
+
+  return (
+    <RoundSessionProvider userId={userId} patientIds={patientIds}>
+      {useClassicWorkbench ? (
+        <div className="relative" data-testid="classic-desktop-shell">
+          <div className="sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-border/30 bg-background/95 px-3 py-1.5 text-xs backdrop-blur">
+            <span className="text-muted-foreground">
+              Classic workbench (legacy). Prefer Round Tools for demoted panels.
+            </span>
+            <button
+              type="button"
+              className="rounded-md border border-border/40 px-2.5 py-1 font-medium text-foreground hover:bg-secondary/60"
+              onClick={handleBackToRound}
+              aria-label="Back to Round Focus"
+            >
+              Back to Round
+            </button>
+          </div>
+          <DesktopDashboard />
+        </div>
+      ) : (
+        <DesktopRoundShell onOpenWorkbench={handleOpenWorkbench} />
+      )}
+    </RoundSessionProvider>
+  );
+}
+
+/**
+ * Mobile strangler: Focus-first Round shell by default when enabled.
+ * Classic workbench remains a secondary escape hatch from ToolsSheet.
+ * RoundSessionProvider stays mounted so roster position survives workbench hops.
+ */
+function MobileShellGate({
+  userId,
+  patientIds,
+}: {
+  userId: string;
+  patientIds: readonly string[];
+}): React.ReactElement {
+  const roundRunnerOn = isRoundRunnerEnabled();
+  const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
+
+  const handleOpenWorkbench = React.useCallback(() => {
+    setUseClassicWorkbench(true);
+  }, []);
+
+  const handleBackToRound = React.useCallback(() => {
+    setUseClassicWorkbench(false);
+  }, []);
+
+  if (!roundRunnerOn) {
+    return <MobileDashboard />;
+  }
+
+  return (
+    <RoundSessionProvider userId={userId} patientIds={patientIds}>
+      {useClassicWorkbench ? (
+        <div className="relative" data-testid="classic-mobile-shell">
+          <div className="sticky top-0 z-50 flex min-h-11 items-center justify-between gap-2 border-b border-border/30 bg-background/95 px-3 py-2 text-sm backdrop-blur safe-area-top">
+            <span className="text-foreground/75">
+              Classic workbench (legacy). Prefer Round Home / Tools / End Round.
+            </span>
+            <button
+              type="button"
+              className="min-h-11 shrink-0 rounded-md border border-border/40 px-3 py-2 font-medium text-foreground hover:bg-secondary/60"
+              onClick={handleBackToRound}
+              aria-label="Back to Round Focus"
+            >
+              Back to Round
+            </button>
+          </div>
+          <MobileDashboard />
+        </div>
+      ) : (
+        <MobileRoundShell onOpenWorkbench={handleOpenWorkbench} />
+      )}
+    </RoundSessionProvider>
   );
 }
 

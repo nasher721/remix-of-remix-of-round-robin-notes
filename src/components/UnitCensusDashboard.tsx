@@ -97,7 +97,7 @@ export function UnitCensusDashboard({ patients, onPatientSelect, className }: Un
       <SheetTrigger asChild>
         <Button variant="outline" size="sm" className={cn("relative h-8 gap-2", className)}>
           <LayoutDashboard className="h-4 w-4" />
-          <span className="hidden sm:inline">Census</span>
+          <span>Census</span>
           {metrics.recordedCritical > 0 && (
             <Badge
               variant="destructive"

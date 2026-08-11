@@ -58,7 +58,15 @@ export function ActivityFeed({
   className,
 }: ActivityFeedProps) {
   const [isOpen, setIsOpen] = React.useState(false);
-  const { activities, loading, error, errorDetail, fetchActivities, retry } = usePatientActivity(patientId);
+  const {
+    activities,
+    loading,
+    error,
+    errorDetail,
+    lastFetchedAt,
+    fetchActivities,
+    retry,
+  } = usePatientActivity(patientId);
 
   React.useEffect(() => {
     if (isOpen && patientId) {
@@ -68,6 +76,15 @@ export function ActivityFeed({
 
   const displayedActivities = activities.slice(0, maxItems);
   const hasMore = activities.length > maxItems;
+  const statusMessage = loading
+    ? activities.length > 0
+      ? "Refreshing patient activity"
+      : "Loading patient activity"
+    : error
+      ? "Patient activity unavailable"
+      : lastFetchedAt
+        ? `Activity updated ${formatRelativeTime(new Date(lastFetchedAt).toISOString())}`
+        : null;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -79,6 +96,7 @@ export function ActivityFeed({
             "flex min-h-11 items-center gap-1.5 px-3 text-muted-foreground hover:text-foreground",
             className,
           )}
+          aria-busy={loading || undefined}
         >
           {isOpen ? (
             <ChevronDown className="h-4 w-4" aria-hidden />
@@ -96,7 +114,13 @@ export function ActivityFeed({
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <div className="mt-2">
+        <div className="mt-2" aria-busy={loading || undefined}>
+          {statusMessage && !(loading && activities.length === 0) && (
+            <div role="status" className="sr-only">
+              {statusMessage}
+            </div>
+          )}
+
           {error && (
             <div role="alert" className="mb-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
               <div className="flex items-start gap-2">
@@ -136,6 +160,12 @@ export function ActivityFeed({
           ) : activities.length > 0 ? (
             <ScrollArea className="h-[200px] pr-2">
               <div className="space-y-2">
+                {loading && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status" aria-live="polite" aria-busy="true">
+                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+                    <span>Refreshing…</span>
+                  </div>
+                )}
                 {displayedActivities.map((activity, index) => {
                   const config = ACTION_CONFIG[activity.action];
                   const Icon = config.icon;

@@ -7,6 +7,7 @@
 export * from './patient';
 export * from './todo';
 export * from './labs';
+export * from './round';
 
 // New feature types
 export * from './printTemplates';

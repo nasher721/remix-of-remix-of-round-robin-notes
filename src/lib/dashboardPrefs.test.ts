@@ -8,6 +8,7 @@ import {
   saveDashboardPrefs,
 } from "@/lib/dashboardPrefs";
 import { createSafeStorage } from "@/utils/safeStorage";
+import { createThrowingStorage } from "@/test/dashboardRegressionFixtures";
 
 describe("sanitizeDashboardPrefs", () => {
   it("returns defaults for non-object input", () => {
@@ -78,16 +79,11 @@ describe("dashboard preference storage failures", () => {
 
   it("keeps working when localStorage writes throw", () => {
     const originalDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage");
+    const throwingStorage = createThrowingStorage({ onGetItem: "null", onSetItem: "throw" });
 
     Object.defineProperty(window, "localStorage", {
       configurable: true,
-      value: {
-        getItem: () => null,
-        setItem: () => {
-          throw new Error("Quota exceeded");
-        },
-        removeItem: () => {},
-      },
+      value: throwingStorage,
     });
 
     try {
@@ -120,5 +116,22 @@ describe("dashboard preference storage failures", () => {
         Object.defineProperty(window, "localStorage", originalDescriptor);
       }
     }
+  });
+
+  it("returns defaults and quarantines corrupt JSON instead of masking it", () => {
+    const memory = new Map<string, string>();
+    memory.set(DASHBOARD_PREFS_STORAGE_KEY, "{not-valid-json");
+    const storage = {
+      getItem: (key: string) => memory.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        memory.set(key, value);
+      },
+      removeItem: (key: string) => {
+        memory.delete(key);
+      },
+    };
+
+    assert.deepEqual(loadDashboardPrefs(storage), DEFAULT_DASHBOARD_PREFS);
+    assert.equal(memory.has(DASHBOARD_PREFS_STORAGE_KEY), false);
   });
 });

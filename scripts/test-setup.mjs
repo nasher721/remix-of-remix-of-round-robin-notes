@@ -39,3 +39,69 @@ if (dom.window && typeof dom.window.requestAnimationFrame !== "function") {
   dom.window.requestAnimationFrame = globalThis.requestAnimationFrame.bind(globalThis);
   dom.window.cancelAnimationFrame = globalThis.cancelAnimationFrame.bind(globalThis);
 }
+
+/** Stable MediaQueryList stub for hooks that call window.matchMedia in effects. */
+const createMatchMediaStub = (matches = false) => (query) => ({
+  matches,
+  media: query,
+  onchange: null,
+  addListener: () => undefined,
+  removeListener: () => undefined,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  dispatchEvent: () => false,
+});
+
+if (typeof dom.window.matchMedia !== "function") {
+  Object.defineProperty(dom.window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: createMatchMediaStub(false),
+  });
+}
+if (typeof globalThis.matchMedia !== "function") {
+  Object.defineProperty(globalThis, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: dom.window.matchMedia,
+  });
+}
+globalThis.installTestMatchMedia = (matches = false) => {
+  const stub = createMatchMediaStub(matches);
+  Object.defineProperty(dom.window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: stub,
+  });
+  Object.defineProperty(globalThis, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: stub,
+  });
+  return stub;
+};
+
+if (typeof globalThis.IntersectionObserver !== "function") {
+  globalThis.IntersectionObserver = class IntersectionObserver {
+    constructor() {}
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  };
+}
+if (typeof dom.window.IntersectionObserver !== "function") {
+  dom.window.IntersectionObserver = globalThis.IntersectionObserver;
+}
+if (typeof globalThis.ResizeObserver !== "function") {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+if (typeof dom.window.ResizeObserver !== "function") {
+  dom.window.ResizeObserver = globalThis.ResizeObserver;
+}

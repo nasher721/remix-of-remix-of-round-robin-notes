@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Calendar } from 'lucide-react';
 import { TimelineGenerator } from './TimelineGenerator';
@@ -20,6 +20,10 @@ export function TimelineDialog() {
             </DialogTrigger>
 
             <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full p-0 bg-background overflow-hidden border-border/50">
+                <DialogTitle className="sr-only">Patient Timeline Generator</DialogTitle>
+                <DialogDescription className="sr-only">
+                    Build and review a chronological clinical timeline from chart events.
+                </DialogDescription>
                 <div className="h-full w-full overflow-hidden flex flex-col">
                     <TimelineGenerator />
                 </div>

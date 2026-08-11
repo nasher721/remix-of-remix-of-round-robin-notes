@@ -23,6 +23,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -1214,6 +1215,9 @@ export const RichTextEditor = ({
             <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] flex flex-col p-0 gap-0">
               <DialogHeader className="p-3 border-b shrink-0">
                 <DialogTitle>Focus mode</DialogTitle>
+                <DialogDescription>
+                  Expanded editor for the current note field. Close to return to the chart layout.
+                </DialogDescription>
               </DialogHeader>
               <div className="min-h-[60vh] overflow-hidden flex flex-col p-3">
                 <RichTextEditor

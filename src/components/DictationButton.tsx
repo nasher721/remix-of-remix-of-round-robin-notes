@@ -84,6 +84,14 @@ export const DictationButton = ({
       ? "Stop dictation"
       : "Start voice dictation"
 
+  const statusMessage = error
+    ? error
+    : isProcessing
+      ? "Transcribing dictation. Keep focus here; recording has stopped."
+      : isRecording
+        ? "Recording. Click stop when finished speaking."
+        : null
+
   const buttonContent = (
     <Button
       type="button"
@@ -92,6 +100,8 @@ export const DictationButton = ({
       onClick={handleClick}
       disabled={disabled || isProcessing}
       aria-label={ariaLabel}
+      aria-busy={isProcessing || undefined}
+      aria-pressed={isRecording || undefined}
       title={isProcessing ? "Transcribing…" : isRecording ? "Recording — click to stop" : "Voice dictation"}
       className={cn(
         buttonSize,
@@ -109,36 +119,58 @@ export const DictationButton = ({
     </Button>
   );
 
+  const statusRegion = statusMessage ? (
+    <span
+      role={error ? "alert" : "status"}
+      aria-live={error ? "assertive" : "polite"}
+      aria-atomic="true"
+      className={cn(
+        "max-w-64 text-xs",
+        error ? "text-destructive" : "text-muted-foreground",
+        !error && "sr-only sm:not-sr-only sm:inline",
+      )}
+    >
+      {error ? error : isProcessing ? "Transcribing…" : "Recording"}
+    </span>
+  ) : null
+
   // When recording, show popover with audio level indicator
   if (isRecording) {
     return (
-      <Popover open={isRecording}>
-        <PopoverTrigger asChild>
-          {buttonContent}
-        </PopoverTrigger>
-        <PopoverContent 
-          side="top" 
-          align="center"
-          className="w-auto p-2 bg-destructive/10 border-destructive/30"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-              <span className="text-xs font-medium text-destructive">Recording</span>
+      <span className="inline-flex items-center gap-2">
+        <Popover open={isRecording}>
+          <PopoverTrigger asChild>
+            {buttonContent}
+          </PopoverTrigger>
+          <PopoverContent
+            side="top"
+            align="center"
+            className="w-auto p-2 bg-destructive/10 border-destructive/30"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            <div className="flex items-center gap-2" role="status" aria-live="polite" aria-atomic="true">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-destructive animate-pulse" aria-hidden="true" />
+                <span className="text-xs font-medium text-destructive">Recording</span>
+              </div>
+              <div className="w-px h-4 bg-destructive/30" aria-hidden="true" />
+              <AudioLevelIndicator level={audioLevel} />
+              <div className="w-px h-4 bg-destructive/30" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={handleClick}
+                className="text-xs text-destructive hover:text-destructive/80 font-medium"
+                aria-label="Stop dictation"
+              >
+                Stop
+              </button>
             </div>
-            <div className="w-px h-4 bg-destructive/30" />
-            <AudioLevelIndicator level={audioLevel} />
-            <div className="w-px h-4 bg-destructive/30" />
-            <button
-              onClick={handleClick}
-              className="text-xs text-destructive hover:text-destructive/80 font-medium"
-            >
-              Stop
-            </button>
-          </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+        <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {statusMessage}
+        </span>
+      </span>
     );
   }
 
@@ -153,20 +185,18 @@ export const DictationButton = ({
           <TooltipContent side="bottom">
             <p className="font-medium">
               {isProcessing
-                ? "Processing..."
+                ? "Processing transcription…"
                 : "Start medical dictation"}
             </p>
             <p className="mt-1 max-w-72 text-xs text-muted-foreground">
-              {DICTATION_DATA_DISCLOSURE}
+              {error
+                ? "Microphone access was blocked. Allow it in browser settings, then try again."
+                : DICTATION_DATA_DISCLOSURE}
             </p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      {error && (
-        <span role="alert" aria-live="polite" className="max-w-64 text-xs text-destructive">
-          {error}
-        </span>
-      )}
+      {statusRegion}
     </span>
   );
 };

@@ -161,3 +161,68 @@ export const dashboardPatientUpdatePatch = {
   field: "clinicalSummary",
   value: "Updated focused neuro ICU rounding summary.",
 } as const;
+
+/** Shared Step 1 production-readiness scenarios for dashboard/activity/dictation harnesses. */
+export const productionReadinessFixtures = {
+  zeroPatients: [] as Patient[],
+  threePatientRoster: dashboardPatients3,
+  selectedNonFirstPatient: dashboardPatients3[2],
+  filteredEmpty: {
+    patients: dashboardPatients3,
+    filteredPatients: [] as Patient[],
+    searchQuery: "zz-no-match",
+  },
+  storageAccessDeniedError: new Error("Access to storage is not allowed from this context"),
+  storageQuotaExceededError: new Error("Quota exceeded"),
+  activityFetchFailure: () => ({
+    data: null,
+    error: new Error("activity service unavailable"),
+  }),
+  activityFetchSuccess: (rows: unknown[] = []) => ({
+    data: rows,
+    error: null,
+  }),
+  dictationPermissionDenied: () =>
+    new DOMException("Permission denied by test browser", "NotAllowedError"),
+} as const;
+
+export function createThrowingStorage(options?: {
+  onGetItem?: "throw" | "null";
+  onSetItem?: "throw" | "ok";
+  onRemoveItem?: "throw" | "ok";
+}): Storage {
+  const store = new Map<string, string>();
+  const onGetItem = options?.onGetItem ?? "throw";
+  const onSetItem = options?.onSetItem ?? "throw";
+  const onRemoveItem = options?.onRemoveItem ?? "ok";
+
+  return {
+    get length() {
+      return store.size;
+    },
+    clear() {
+      store.clear();
+    },
+    key() {
+      return null;
+    },
+    getItem(key: string) {
+      if (onGetItem === "throw") {
+        throw productionReadinessFixtures.storageAccessDeniedError;
+      }
+      return store.get(key) ?? null;
+    },
+    setItem(key: string, value: string) {
+      if (onSetItem === "throw") {
+        throw productionReadinessFixtures.storageQuotaExceededError;
+      }
+      store.set(key, value);
+    },
+    removeItem(key: string) {
+      if (onRemoveItem === "throw") {
+        throw productionReadinessFixtures.storageAccessDeniedError;
+      }
+      store.delete(key);
+    },
+  } as Storage;
+}

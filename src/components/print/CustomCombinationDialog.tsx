@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -77,6 +78,9 @@ export function CustomCombinationDialog({
             <Plus className="h-5 w-5" />
             {existingCombination ? "Edit Custom Combination" : "Create Custom Combination"}
           </DialogTitle>
+          <DialogDescription>
+            Name a print layout and choose which chart sections to include together.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

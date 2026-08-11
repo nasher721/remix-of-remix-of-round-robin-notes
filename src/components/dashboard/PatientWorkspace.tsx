@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -151,7 +152,9 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
   }, [filteredPatients, desktopSelectedPatientId]);
 
   const [pendingRemove, setPendingRemove] = React.useState(false);
+  const [pendingDuplicate, setPendingDuplicate] = React.useState(false);
   const removeTriggerRef = React.useRef<HTMLElement | null>(null);
+  const duplicateTriggerRef = React.useRef<HTMLElement | null>(null);
   const chartBodyRef = React.useRef<HTMLDivElement | null>(null);
   const [signOffOpen, setSignOffOpen] = React.useState(false);
   const [handoffOpen, setHandoffOpen] = React.useState(false);
@@ -243,6 +246,17 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
     if (patient) onRemovePatient(patient.id);
     setPendingRemove(false);
   }, [onRemovePatient, patient]);
+
+  const handleDuplicateRequest = React.useCallback(() => {
+    duplicateTriggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPendingDuplicate(true);
+  }, []);
+
+  const handleConfirmDuplicate = React.useCallback(() => {
+    if (patient) onDuplicatePatient(patient.id);
+    setPendingDuplicate(false);
+  }, [onDuplicatePatient, patient]);
 
   const jumpToSection = React.useCallback((sectionId: DocumentationSectionId) => {
     setActiveTab(sectionId);
@@ -434,7 +448,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
                   </>
                 ) : null}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDuplicatePatient(patient.id)} className="text-xs">
+                <DropdownMenuItem onClick={handleDuplicateRequest} className="text-xs">
                   Duplicate
                 </DropdownMenuItem>
                 <DropdownMenuItem
@@ -630,7 +644,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
           patient={patient}
           onUpdate={onUpdatePatient}
           onRemove={handleRemoveRequest}
-          onDuplicate={onDuplicatePatient}
+          onDuplicate={handleDuplicateRequest}
           onToggleCollapse={onToggleCollapse}
           autotexts={autotexts}
           sharedPatientTodos={sharedPatientTodos}
@@ -697,6 +711,9 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
         <DialogContent className="h-[80vh] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Shift handoff</DialogTitle>
+            <DialogDescription>
+              Review and complete handoff notes for patients on the current roster.
+            </DialogDescription>
           </DialogHeader>
           <ShiftHandoff
             patients={filteredPatients.length > 0 ? filteredPatients : patients}
@@ -750,6 +767,36 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDuplicate}
+        onOpenChange={(open) => {
+          if (!open) setPendingDuplicate(false);
+        }}
+      >
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            duplicateTriggerRef.current?.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              {patient.name
+                ? `Create a new roster entry from ${patient.name}?`
+                : "Create a new roster entry from this patient?"}{" "}
+              Chart content is copied into the duplicate.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDuplicate}>
+              Duplicate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -100,7 +100,18 @@ export const MobilePatientDetail = ({
   const [activeSection, setActiveSection] = useState("summary");
   const [pendingClearField, setPendingClearField] = useState<string | null>(null);
   const [showRemovePatientDialog, setShowRemovePatientDialog] = useState(false);
+  const [showDuplicatePatientDialog, setShowDuplicatePatientDialog] = useState(false);
   const [showClearSystemsDialog, setShowClearSystemsDialog] = useState(false);
+  const clearSectionLabel = useMemo(() => {
+    if (!pendingClearField) return "this section";
+    const labels: Record<string, string> = {
+      clinicalSummary: "Clinical Summary",
+      intervalEvents: "Interval Events",
+      imaging: "Imaging",
+      labs: "Labs",
+    };
+    return labels[pendingClearField] ?? pendingClearField;
+  }, [pendingClearField]);
   const { todos, generating, addTodo, toggleTodo, deleteTodo, generateTodos } = usePatientTodos(patient.id, { initialTodos });
   const { generateIntervalEvents, isGenerating: isGeneratingEvents } = useIntervalEventsGenerator();
   const { enabledSystems } = useSystemsConfig();
@@ -197,7 +208,12 @@ export const MobilePatientDetail = ({
   };
 
   const handleDuplicate = () => {
+    setShowDuplicatePatientDialog(true);
+  };
+
+  const handleConfirmDuplicatePatient = () => {
     onDuplicate(patient.id);
+    setShowDuplicatePatientDialog(false);
     onBack();
   };
 
@@ -701,7 +717,10 @@ export const MobilePatientDetail = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear section</AlertDialogTitle>
             <AlertDialogDescription>
-              Clear this section? This action cannot be undone.
+              {patient.name
+                ? `Clear ${clearSectionLabel} for ${patient.name}?`
+                : `Clear ${clearSectionLabel}?`}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -721,7 +740,10 @@ export const MobilePatientDetail = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove patient</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove this patient from rounds? This action cannot be undone.
+              {patient.name
+                ? `Remove ${patient.name} from rounds?`
+                : "Remove this patient from rounds?"}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -736,12 +758,35 @@ export const MobilePatientDetail = ({
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={showDuplicatePatientDialog} onOpenChange={setShowDuplicatePatientDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              {patient.name
+                ? `Create a new roster entry from ${patient.name}?`
+                : "Create a new roster entry from this patient?"}{" "}
+              Chart content is copied into the duplicate.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDuplicatePatient}>
+              Duplicate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={showClearSystemsDialog} onOpenChange={setShowClearSystemsDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Clear all systems review</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove all systems review content for this patient? This action cannot be undone.
+              {patient.name
+                ? `Remove all systems review content for ${patient.name}?`
+                : "Remove all systems review content for this patient?"}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,7 +1,7 @@
 ---
 title: Harden production readiness from comprehensive test report
 type: feature
-status: todo
+status: done
 depends_on: []
 ---
 
@@ -165,7 +165,7 @@ Implement this as a reliability and accessibility hardening pass. First add regr
 
 ## Implementation Process
 
-### Step 1: Baseline And Regression Harness
+### Step 1: Baseline And Regression Harness [DONE]
 
 Agent assignment: `test-engineer`
 
@@ -189,7 +189,32 @@ Verification:
 
 - Run focused new tests and document expected failures before implementation.
 
-### Step 2: Safe Storage Foundation
+#### Step 1 evidence (2026-08-11)
+
+Baseline commands:
+
+- `npm test`: 414 tests, 410 pass, 4 fail.
+- `npm run lint`: exit 0 (0 errors, 44 warnings).
+- `npm run build`: exit 0 (vite production build succeeded; chunk-size / dynamic-import warnings only).
+- `npx playwright test --list`: 12 tests in 4 files. Prefer `./node_modules/.bin/playwright test --list` if an RTK wrapper swallows output.
+
+Intentional contract failures left for later steps:
+
+- Duplicate confirmation dialog (Step 5): `names the target patient before confirming a desktop duplicate action` — resolved in Step 5 evidence below.
+
+Pre-existing unrelated failures (not introduced by Step 1):
+
+- `EpicHandoffImport.test.tsx` clipboard paste button selectors.
+
+Harness additions:
+
+- Shared `productionReadinessFixtures` / `createThrowingStorage` in `src/test/dashboardRegressionFixtures.ts`.
+- Global `matchMedia` / `IntersectionObserver` / `ResizeObserver` stubs in `scripts/test-setup.mjs`.
+- Cancel-remove, AI/sync discoverability, empty-state, selected-patient AI, dialog focus-return, storage-throw, activity error/retry, ContextAwareHelp, and dictation denial coverage.
+
+Do not mark this task DONE until Steps 2-7 complete.
+
+### Step 2: Safe Storage Foundation [DONE]
 
 Agent assignment: `executor`
 
@@ -215,7 +240,34 @@ Verification:
 - Throwing storage tests pass.
 - Dashboard and print preference tests still pass.
 
-### Step 3: Patient Activity Error And Retry
+#### Step 2 evidence (2026-08-11)
+
+Implemented:
+
+- `createSafeStorage` wraps access, get, set, and remove with memory fallback + pending write/remove overrides.
+- `createSafeSessionStorage` / `safeSessionStorage` for session paths.
+- `readStoredJson` distinguishes missing vs corrupt JSON; `loadDashboardPrefs` quarantines corrupt payloads and returns defaults (does not mask as empty object).
+- One-time `console.warn` + `isDegraded()` when browser storage fails.
+- Migrated remaining raw `localStorage` read in `isRoundRunnerEnabled` to `safeLocalStorage`.
+- Prior migrations already cover dashboard prefs, settings, theme, print scoped storage, offline queue fallback, FHIR session state, observability session, desktop tools menu.
+
+Focused verification (52 pass / 0 fail):
+
+- `src/utils/safeStorage.test.ts`
+- `src/lib/dashboardPrefs.test.ts`
+- `src/context/DashboardLayoutContext.test.tsx`
+- `src/lib/offline/indexedDBQueue.test.ts`
+- `src/lib/print/preferences.test.ts`
+
+Remaining gaps (deferred; not Step 2 blockers):
+
+- No user-visible degraded-persistence banner/toast yet (console warn + `isDegraded()` only).
+- A few non-critical production paths may still mention storage only in comments/tests; grep for raw `localStorage.` / `sessionStorage.` method calls in `src/` outside tests is clean except intentional test harness clears.
+- Visible UI status for blocked storage can land with later polish if product wants it mid-rounds.
+
+Do not mark this task DONE until Steps 3-7 complete.
+
+### Step 3: Patient Activity Error And Retry [DONE]
 
 Agent assignment: `executor`
 
@@ -240,7 +292,17 @@ Verification:
 
 - Hook and component tests cover loading, error, retry, empty, success, show-more, and preserved last-success state.
 
-### Step 4: Dialog Accessibility Audit
+#### Step 3 evidence (2026-08-11)
+
+- `usePatientActivity` now returns `error`, `errorDetail`, `retry`, `loading`, and `lastFetchedAt`.
+- Successful fetches set `lastFetchedAt`; failed refreshes keep prior activities and prior `lastFetchedAt`.
+- Transient network/timeout errors get one bounded automatic retry; UI retry remains manual via `retry`.
+- `ActivityFeed` shows alert + Retry, preserves rows after failed refresh, and exposes `role=status` / `aria-busy` loading feedback.
+- Focused tests: `src/hooks/__tests__/usePatientActivity.test.tsx`, `src/components/patient/ActivityFeed.test.tsx` — 9/9 pass.
+
+Do not mark this task DONE until Steps 2-7 complete.
+
+### Step 4: Dialog Accessibility Audit [DONE]
 
 Agent assignment: `accessibility auditor` plus `executor`
 
@@ -267,7 +329,38 @@ Verification:
 - Component tests query dialogs by role/name and check description text where appropriate.
 - Manual keyboard pass opens/closes targeted dialogs.
 
-### Step 5: AI Context And Destructive Action Safety
+#### Step 4 evidence (2026-08-11)
+
+High-traffic dialogs now expose title + useful `DialogDescription` (visible or `sr-only` where layout is chrome-dense). Shared `DialogContent` already restores focus via `useFocusReturn` / `onCloseAutoFocus`; Escape/close focus return verified on comparison dialog.
+
+Files updated:
+
+- `PatientInfoToolbarCustomizeDialog.tsx`, `ImageLightbox.tsx`, `tools/timeline/TimelineDialog.tsx`
+- `DocumentImport.tsx`, `EpicHandoffImport.tsx`, `import/CSVColumnMapper.tsx`, `SmartPatientImport.tsx`
+- `phrases/PhraseFormDialog.tsx`, `print/CustomCombinationDialog.tsx`
+- `offline/OfflineSyncIndicator.tsx`, `dashboard/MobileDashboard.tsx` (autotext wrapper), `round/ToolsSheet.tsx` (autotext)
+- `dashboard/PatientWorkspace.tsx` (handoff), `RichTextEditor.tsx` (focus mode)
+- `ImagePasteEditor.tsx`, `ProtocolChecklist.tsx`, `AITextTools.tsx`, `AppleAIAssistant.tsx`
+- Round runner wrappers (`RoundHome` import) left structurally unchanged; descriptions come from `EpicHandoffImport` child content.
+
+Tests:
+
+- Extended `src/components/__tests__/dialogAccessibility.contract.test.ts` (priority file title/description signals).
+- `src/components/MultiPatientComparison.test.tsx` — name/description + Escape focus return.
+- `src/components/__tests__/dialogAccessibility.representative.test.tsx` — lightbox + document import name/description.
+- Focused run: 5/5 pass.
+
+Already covered before Step 4 (no change needed): comparison, voice command, unified AI, `CommandDialog`, PhraseManager, PrintExportModalFull, AIClinicalAssistant, most AlertDialogs.
+
+Remaining dialogs without local descriptions (lower traffic / deferred):
+
+- Wrapper-only shells whose child supplies title+description: `RoundHome` import Dialog, `MobileDashboard` import Dialog.
+- `OneClickSignOff` AlertDialog uses `AlertDialogDescription as AlertDialogDescriptionText` (has description; inventory alias false-positive).
+- Possible obscure leftovers outside the priority list if any new DialogContent callsites land later.
+
+Do not mark this task DONE until Steps 5–7 complete.
+
+### Step 5: AI Context And Destructive Action Safety [DONE]
 
 Agent assignment: `executor` plus `designer`
 
@@ -296,7 +389,41 @@ Verification:
 - Selected-patient AI tests pass.
 - Destructive action matrix passes on desktop and mobile.
 
-### Step 6: Discoverability, Dictation, And Async Status
+#### Step 5 evidence (2026-08-11)
+
+Implemented:
+
+- `DesktopDashboard` passes `aiContextPatient` from `desktopSelectedPatientId` (no silent first-patient fallback; mobile `selectedPatient` only when no desktop id).
+- Duplicate confirmation gated on desktop (`VirtualizedPatientList`, `PatientWorkspace`) and mobile (list via `MobileDashboard`, detail via `MobilePatientDetail`) with target name + “new roster entry / chart content copied” outcome copy.
+- Remove / clear-all / clear-section / clear-systems copy names patient (and section label / patient count where applicable).
+- `AICommandPalette` unavailable patient actions show “Unavailable — select a patient first”; scope line explains no-patient state.
+- `UnifiedAIDropdown` selection actions disable with “Unavailable — select text in the note first” when menu opens without a selection.
+
+Focused verification (23/23 pass):
+
+- `src/components/dashboard/__tests__/dashboardRegressionHarness.test.tsx`
+- `src/components/tools/__tests__/aiCommandPalette.context.test.ts`
+
+Intentional Step 1 fail now passing:
+
+- `names the target patient before confirming a desktop duplicate action`
+
+Also covered:
+
+- non-first selected patient AI suggestions (`Selected: Devon Rivera` + Devon-named drafts; not Alex)
+- no selected patient AI unavailable copy
+- cancel duplicate → no mutation
+- confirm duplicate / remove exactly once
+
+Gaps left for Step 7 / other lanes:
+
+- Round `ToolsSheet` still uses dashboard `selectedPatient` (round focus path); not rewired to desktop id.
+- AppleAIAssistant selection tools still toast on click rather than pre-disabled menu rows.
+- Full `npm test` / browser smoke deferred to Step 7.
+
+Do not mark this task DONE until Step 7 completes.
+
+### Step 6: Discoverability, Dictation, And Async Status [DONE]
 
 Agent assignment: `executor`
 
@@ -325,7 +452,36 @@ Verification:
 - Dictation denied and allowed-path tests pass where mocked.
 - Manual browser permission check is documented.
 
-### Step 7: Integrated Verification And Release Readiness
+#### Step 6 evidence (2026-08-11)
+
+Implemented discoverability / dictation / async-status hardening without marking the overall task DONE.
+
+Focused verification (11/11 pass):
+
+- `useDictation` permission denial idle + recovery copy
+- `DictationButton` visible denied guidance + idle button
+- `ContextAwareHelp` dashboard / close / patient-route content
+- Harness zero-patient + filtered-empty recovery
+- Harness AI/sync discoverability + sync `aria-busy` loading
+
+Files touched (localized):
+
+- `DictationButton.tsx` — recording/processing/`aria-busy` live status; denied alert remains visible
+- `ContextAwareHelp.tsx` (+ test) — richer dashboard tips; `/patient*` chart help
+- `AICommandPalette.tsx`, `UnifiedAIDropdown.tsx`, `AIClinicalAssistant.tsx` — streaming/busy status semantics
+- `OfflineSyncIndicator.tsx`, `PatientTodos.tsx`, `ActivityFeed.tsx` (refresh status attrs only), `PatientCard.tsx` — tooltips/busy copy
+- `DesktopDashboard.tsx` — filtered-empty recovery hint; view-mode/phrases titles (no large rewrite)
+- `VirtualizedPatientList.tsx` — clearer zero-roster copy
+
+Gaps left for Step 7 / other lanes:
+
+- `useLocalDictation` / `LocalDictationButton` not present in tree (cloud dictation path only)
+- Real browser microphone permission prompt remains manual / environment-gated
+- Duplicate confirmation dialog resolved in Step 5
+- Import-parsing busy regions not exhaustively audited
+- Avoided heavy `DesktopDashboard` ownership conflicts with Steps 4–5
+
+### Step 7: Integrated Verification And Release Readiness [DONE]
 
 Agent assignment: `verifier`
 
@@ -350,6 +506,53 @@ Subtasks:
 Verification:
 
 - Final report includes changed files, simplifications made, remaining risks, command evidence, and manual checks.
+
+#### Step 7 evidence (2026-08-11)
+
+Command evidence:
+
+| Command | Result |
+| --- | --- |
+| `npm test` | **PASS** — 426 tests, 426 pass, 0 fail (after Step 7 fix) |
+| `npm run lint` | **PASS** — exit 0; 0 errors, 44 warnings (pre-existing `react-refresh` / one `exhaustive-deps`) |
+| `npm run build` | **PASS** — vite production build succeeded; chunk-size / dynamic-import warnings only |
+| `./node_modules/.bin/playwright test --list` | **PASS** — 12 tests in 4 files |
+| Non-credential e2e (`auth page loads`) | **BLOCKED** — Playwright needs `chromium_headless_shell-1228`; local cache has `1208`. Install of matching browsers was not performed in this verifier run. |
+
+Regression fixed in Step 7:
+
+- `EpicHandoffImport.test.tsx`: Step 4 `DialogTitle`/`DialogDescription` required a parent `Dialog` when `noDialog` is used (matches RoundHome/MobileDashboard). Tests now wrap with `Dialog open`. Also updated paste button query to `aria-label` `/paste patient list content from clipboard/i` (was stale `/paste handoff content/i`).
+
+Production-readiness intentional harness failures from Step 1: all resolved in Steps 2–6 (duplicate confirmation, storage, activity, AI context, empty states, dictation).
+
+Credential / environment gated (not run):
+
+- Dashboard / round-runner / roster-sort / login-redirect e2e require `E2E_TEST_EMAIL` + `E2E_TEST_PASSWORD`.
+- Real browser microphone permission for dictation remains manual.
+- Full interactive browser smoke of report findings deferred to human QA; covered by unit/harness contracts above.
+
+Remaining risks (non-blocking for this task):
+
+- No user-visible degraded-storage banner (console + `isDegraded()` only).
+- Round `ToolsSheet` AI still uses round `selectedPatient`, not desktop id path.
+- `useLocalDictation` / `LocalDictationButton` absent from tree.
+- Lower-traffic dialogs outside the priority audit may still lack descriptions.
+- Playwright chromium version mismatch blocks local e2e until `playwright install`.
+- Trailing `bun` wrapper noise after `npm test` (Bad CPU type) does not fail the suite (exit 0).
+
+Ready for orchestrator move to `.specs/tasks/done/`. Do not stage `.DS_Store` or unrelated junk.
+
+## Definition of Done
+
+- [X] Steps 1–6 implemented with evidence and marked `[DONE]`
+- [X] `npm test` passes (426/426) after fixing Step-4-related EpicHandoffImport test harness
+- [X] `npm run lint` passes (0 errors)
+- [X] `npm run build` passes
+- [X] Playwright test inventory listed (12 tests / 4 files)
+- [X] Non-credential e2e attempt documented (blocked on browser binary version; credential e2e gated)
+- [X] Remaining risks and gated checks recorded
+- [X] Frontmatter `status: done`; task ready to move to `done/`
+- [X] No `.DS_Store` / unrelated junk staging required for this verification
 
 ## Parallelization Plan
 

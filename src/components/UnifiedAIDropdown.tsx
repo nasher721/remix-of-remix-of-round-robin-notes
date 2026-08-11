@@ -89,6 +89,12 @@ export const UnifiedAIDropdown = ({
   const { stylePrompt, updateFromSample } = useWritingStyleProfile()
 
   const isLoading = isProcessing || isTransforming
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  const hasSelection = React.useMemo(() => {
+    if (!menuOpen) return false
+    return Boolean(getSelectedText()?.trim())
+  }, [menuOpen, getSelectedText])
+  const selectionUnavailableReason = "Unavailable — select text in the note first"
 
   const applyPreviewInsert = React.useCallback(() => {
     if (!aiPreview) return
@@ -233,7 +239,7 @@ export const UnifiedAIDropdown = ({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
@@ -241,14 +247,16 @@ export const UnifiedAIDropdown = ({
             disabled={disabled || isLoading}
             className={triggerClassName ?? "h-7 w-7 p-0"}
             title="AI writing tools: expand, correct, transform selection — results open in a preview before inserting"
-            aria-label="AI writing tools"
+            aria-label={isLoading ? "AI writing tools busy" : "AI writing tools"}
+            aria-busy={isLoading || undefined}
           >
             {isLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             ) : (
-              <Wand2 className="h-3.5 w-3.5" />
+              <Wand2 className="h-3.5 w-3.5" aria-hidden="true" />
             )}
           </Button>
+
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56 max-h-[70vh] overflow-y-auto">
           {showDocumentSection && (
@@ -283,12 +291,18 @@ export const UnifiedAIDropdown = ({
           )}
 
           <DropdownMenuLabel className="text-xs text-muted-foreground">Selection</DropdownMenuLabel>
+          {!hasSelection && (
+            <p className="px-2 pb-1 text-[11px] text-amber-700 dark:text-amber-400">
+              {selectionUnavailableReason}
+            </p>
+          )}
           <DropdownMenuItem
             onSelect={(e) => {
               e.preventDefault()
               void handleSmartExpand()
             }}
-            disabled={isLoading}
+            disabled={isLoading || !hasSelection}
+            title={!hasSelection ? selectionUnavailableReason : undefined}
           >
             <Zap className="h-4 w-4 mr-2 text-yellow-500" />
             Smart expand
@@ -298,21 +312,24 @@ export const UnifiedAIDropdown = ({
               e.preventDefault()
               void handleMedicalCorrection()
             }}
-            disabled={isLoading}
+            disabled={isLoading || !hasSelection}
+            title={!hasSelection ? selectionUnavailableReason : undefined}
           >
             <FileText className="h-4 w-4 mr-2 text-blue-500" />
             Medical correct
           </DropdownMenuItem>
 
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Transform</DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger disabled={isLoading || !hasSelection}>
+              Transform
+            </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault()
                   void handleTransform("custom", "Make it sound more professional")
                 }}
-                disabled={isLoading}
+                disabled={isLoading || !hasSelection}
               >
                 Make professional
               </DropdownMenuItem>
@@ -321,7 +338,7 @@ export const UnifiedAIDropdown = ({
                   e.preventDefault()
                   void handleTransform("comma-list")
                 }}
-                disabled={isLoading}
+                disabled={isLoading || !hasSelection}
               >
                 <List className="h-4 w-4 mr-2" />
                 To comma list
@@ -331,7 +348,7 @@ export const UnifiedAIDropdown = ({
                   e.preventDefault()
                   void handleTransform("medical-shorthand")
                 }}
-                disabled={isLoading}
+                disabled={isLoading || !hasSelection}
               >
                 <Stethoscope className="h-4 w-4 mr-2" />
                 Medical shorthand
@@ -343,7 +360,7 @@ export const UnifiedAIDropdown = ({
                   setCustomPromptText("")
                   setCustomDialogOpen(true)
                 }}
-                disabled={isLoading}
+                disabled={isLoading || !hasSelection}
               >
                 <MessageSquarePlus className="h-4 w-4 mr-2" />
                 Custom prompt...

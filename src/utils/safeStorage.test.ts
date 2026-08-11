@@ -7,7 +7,7 @@ import { ThemeProvider, useTheme } from '@/components/theme-provider';
 import { useLLMModelSelection } from '@/hooks/useLLMModelSelection';
 import { DEFAULT_SYSTEMS, useSystemsConfig } from '@/hooks/useSystemsConfig';
 import { useMotionPreference } from '@/hooks/useReducedMotion';
-import { createSafeStorage } from './safeStorage';
+import { createSafeSessionStorage, createSafeStorage, readStoredJson } from './safeStorage';
 import type { StorageLike } from './safeStorage';
 
 afterEach(() => {
@@ -96,9 +96,14 @@ async function withMatchMedia<T>(
     for (const { target, descriptor } of targets) {
       if (descriptor) {
         Object.defineProperty(target, 'matchMedia', descriptor);
-      } else {
-        delete (target as { matchMedia?: typeof window.matchMedia }).matchMedia;
+        continue;
       }
+      // Never leave matchMedia deleted — later dashboard harness suites need it.
+      Object.defineProperty(target, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: stub,
+      });
     }
   }
 }
@@ -162,6 +167,57 @@ test('a later successful write replaces a removal tombstone', () => {
     removalBlocked = false;
     storage.setItem('key', 'replacement');
     assert.equal(storage.getItem('key'), 'replacement');
+  });
+});
+
+test('session storage adapter falls back to memory when access throws', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
+  Object.defineProperty(window, 'sessionStorage', {
+    configurable: true,
+    get() {
+      throw new Error('Access to storage is not allowed from this context');
+    },
+  });
+
+  const warnMessages: unknown[][] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnMessages.push(args);
+  };
+
+  try {
+    const storage = createSafeSessionStorage();
+    assert.equal(storage.isDegraded(), false);
+    storage.setItem('session-key', 'session-value');
+    assert.equal(storage.getItem('session-key'), 'session-value');
+    assert.equal(storage.isDegraded(), true);
+    assert.equal(warnMessages.length, 1);
+    assert.match(String(warnMessages[0]?.[0]), /sessionStorage/);
+  } finally {
+    console.warn = originalWarn;
+    if (descriptor) Object.defineProperty(window, 'sessionStorage', descriptor);
+  }
+});
+
+test('readStoredJson distinguishes missing and corrupt payloads', () => {
+  const storage: StorageLike = {
+    getItem: (key) => {
+      if (key === 'missing') return null;
+      if (key === 'corrupt') return '{not-json';
+      return '{"ok":true}';
+    },
+    setItem: () => undefined,
+    removeItem: () => undefined,
+  };
+
+  assert.deepEqual(readStoredJson(storage, 'missing'), { status: 'missing' });
+  assert.deepEqual(readStoredJson(storage, 'corrupt'), {
+    status: 'corrupt',
+    raw: '{not-json',
+  });
+  assert.deepEqual(readStoredJson<{ ok: boolean }>(storage, 'valid'), {
+    status: 'ok',
+    value: { ok: true },
   });
 });
 

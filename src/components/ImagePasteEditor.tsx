@@ -15,6 +15,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -1927,6 +1928,9 @@ export const ImagePasteEditor = ({
         <DialogContent className="max-w-4xl w-[95vw]">
           <DialogHeader>
             <DialogTitle>Annotate imaging</DialogTitle>
+            <DialogDescription>
+              Draw or type annotations on the selected image before inserting it into the note.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">

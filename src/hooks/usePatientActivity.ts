@@ -53,6 +53,7 @@ export const usePatientActivity = (patientId: string) => {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [errorDetail, setErrorDetail] = React.useState<string | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = React.useState<number | null>(null);
   const lastLimitRef = React.useRef(10);
   const requestIdRef = React.useRef(0);
   const { user } = useAuth();
@@ -87,6 +88,7 @@ export const usePatientActivity = (patientId: string) => {
           createdAt: entry.created_at,
         }))
       );
+      setLastFetchedAt(Date.now());
     } catch (fetchError) {
       if (requestId !== requestIdRef.current) return;
 
@@ -121,6 +123,7 @@ export const usePatientActivity = (patientId: string) => {
         ].filter(Boolean).join(" · "),
       );
       setError(getUserFacingErrorMessage(fetchError, "Patient activity could not be loaded. Please try again."));
+      // Preserve previous activities and lastFetchedAt on refresh failure.
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }
@@ -135,6 +138,7 @@ export const usePatientActivity = (patientId: string) => {
     setActivities([]);
     setError(null);
     setErrorDetail(null);
+    setLastFetchedAt(null);
     setLoading(false);
   }, [patientId]);
 
@@ -199,6 +203,7 @@ export const usePatientActivity = (patientId: string) => {
     loading,
     error,
     errorDetail,
+    lastFetchedAt,
     fetchActivities,
     retry,
     addActivity,

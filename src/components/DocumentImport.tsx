@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -106,6 +107,9 @@ export const DocumentImport = ({ onImport, disabled }: DocumentImportProps) => {
             <FileText className="h-5 w-5" />
             Import Document
           </DialogTitle>
+          <DialogDescription>
+            Upload a text or Word file to insert its content into the current note field.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 py-4">

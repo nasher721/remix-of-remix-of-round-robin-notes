@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -370,9 +371,10 @@ export const PhraseFormDialog: React.FC<PhraseFormDialogProps> = ({
             <Wand2 className="h-5 w-5 text-primary" />
             {phrase.name}
           </DialogTitle>
-          {phrase.description && (
-            <p className="text-sm text-muted-foreground">{phrase.description}</p>
-          )}
+          <DialogDescription>
+            {phrase.description?.trim()
+              || "Fill phrase fields and preview the text that will be inserted into the note."}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-4">

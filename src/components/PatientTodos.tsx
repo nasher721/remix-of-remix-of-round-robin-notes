@@ -34,6 +34,8 @@ interface PatientTodosProps {
   onGenerateTodos: (patient: Patient, section: TodoSection) => Promise<void>;
   /** If true, todos are rendered inline (always visible) instead of in a popover */
   alwaysVisible?: boolean;
+  /** Demote AI Generate off Focus mid-rounds path (use Tools → AI instead). Default true. */
+  showAiGenerate?: boolean;
 }
 
 export function PatientTodos({
@@ -46,6 +48,7 @@ export function PatientTodos({
   onDeleteTodo,
   onGenerateTodos,
   alwaysVisible = false,
+  showAiGenerate = true,
 }: PatientTodosProps) {
   const [newTodoText, setNewTodoText] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -190,23 +193,32 @@ export function PatientTodos({
             )}
           </div>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleGenerate();
-              }}
-              disabled={generating}
-              className="h-7 text-xs gap-1"
-            >
-              {generating ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Sparkles className="h-3 w-3" />
-              )}
-              <span className="hidden sm:inline">AI Generate</span>
-            </Button>
+            {showAiGenerate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleGenerate();
+                }}
+                disabled={generating}
+                aria-busy={generating || undefined}
+                aria-label={generating ? "Generating tasks" : "AI Generate tasks for this section"}
+                className="h-7 text-xs gap-1"
+              >
+                {generating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="h-3 w-3" aria-hidden="true" />
+                )}
+                <span className="hidden sm:inline">AI Generate</span>
+              </Button>
+            )}
+            {generating ? (
+              <span className="sr-only" role="status" aria-live="polite">
+                Generating tasks…
+              </span>
+            ) : null}
             {isExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground" />
             ) : (
@@ -256,20 +268,29 @@ export function PatientTodos({
             <h4 className="font-medium text-sm">
               {section ? 'Section' : 'Patient'} To-Dos
             </h4>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="h-7 text-xs gap-1"
-            >
-              {generating ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Sparkles className="h-3 w-3" />
-              )}
-              AI Generate
-            </Button>
+            {showAiGenerate && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerate}
+                disabled={generating}
+                aria-busy={generating || undefined}
+                aria-label={generating ? "Generating tasks" : "AI Generate tasks for this section"}
+                className="h-7 text-xs gap-1"
+              >
+                {generating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="h-3 w-3" aria-hidden="true" />
+                )}
+                AI Generate
+              </Button>
+            )}
+            {generating ? (
+              <span className="sr-only" role="status" aria-live="polite">
+                Generating tasks…
+              </span>
+            ) : null}
           </div>
 
           <TodoListContent />

@@ -121,6 +121,16 @@ const PatientCardComponent = ({
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);
   const [pendingClearField, setPendingClearField] = React.useState<string | null>(null);
   const [showClearSystemsDialog, setShowClearSystemsDialog] = React.useState(false);
+  const clearSectionLabel = React.useMemo(() => {
+    if (!pendingClearField) return "this section";
+    const labels: Record<string, string> = {
+      clinicalSummary: "Clinical Summary",
+      intervalEvents: "Interval Events",
+      imaging: "Imaging",
+      labs: "Labs",
+    };
+    return labels[pendingClearField] ?? pendingClearField;
+  }, [pendingClearField]);
   // Workspace chrome: advanced sections are peers (no gate), so default them open.
   const [showAdvancedSections, setShowAdvancedSections] = React.useState(() => chrome === "workspace");
   // AI draft preview (mockup artboard C): generated content waits here until inserted.
@@ -568,26 +578,42 @@ const PatientCardComponent = ({
             role="group"
             aria-label="Duplicate or remove patient"
           >
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onDuplicate(patient.id)}
-              className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
-              aria-label="Duplicate patient"
-              title="Duplicate this patient card"
-            >
-              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => onRemove(patient.id)}
-              className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-              aria-label="Remove patient from list"
-              title="Remove patient from this session"
-            >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-            </Button>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDuplicate(patient.id)}
+                    className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-lg transition-colors"
+                    aria-label={`Duplicate ${patient.name || "patient"}`}
+                    title="Duplicate this patient card into a new roster entry"
+                  >
+                    <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-xs">
+                  Duplicate this patient into a new roster entry
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onRemove(patient.id)}
+                    className="min-h-11 min-w-11 h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                    aria-label={`Remove ${patient.name || "patient"} from list`}
+                    title="Remove patient from this session"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-xs">
+                  Remove this patient from today&apos;s roster
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </div>
@@ -758,6 +784,7 @@ const PatientCardComponent = ({
                                 onClick={handleGenerateIntervalEvents}
                                 className="min-h-11 h-11 px-3 text-primary hover:text-primary hover:bg-primary/10"
                                 aria-label="Generate interval events from systems using AI"
+                                title="Draft interval events from systems review using the current AI model"
                               >
                                 <Sparkles className="h-3 w-3" aria-hidden="true" />
                                 <span className="ml-1 text-xs">Generate</span>
@@ -768,6 +795,7 @@ const PatientCardComponent = ({
                                 onClick={handleGenerateDailySummary}
                                 className="min-h-11 h-11 px-3 text-warning hover:text-warning hover:bg-warning/10"
                                 aria-label="Summarize today's changes and todos using AI"
+                                title="Summarize today's chart changes and open todos"
                               >
                                 <ClipboardList className="h-3 w-3" aria-hidden="true" />
                                 <span className="ml-1 text-xs">Summary</span>
@@ -775,8 +803,16 @@ const PatientCardComponent = ({
                             </>
                           )}
                           {(isGeneratingEvents || isGeneratingSummary) && (
-                            <div className="flex items-center min-h-11 h-11 px-2">
-                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                            <div
+                              className="flex items-center min-h-11 h-11 px-2 gap-1.5"
+                              role="status"
+                              aria-live="polite"
+                              aria-busy="true"
+                            >
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" aria-hidden="true" />
+                              <span className="text-xs text-muted-foreground">
+                                {isGeneratingEvents ? "Generating events…" : "Summarizing…"}
+                              </span>
                             </div>
                           )}
                         </>
@@ -1089,7 +1125,10 @@ const PatientCardComponent = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear section</AlertDialogTitle>
             <AlertDialogDescription>
-              Clear this section? This action cannot be undone.
+              {patient.name
+                ? `Clear ${clearSectionLabel} for ${patient.name}?`
+                : `Clear ${clearSectionLabel}?`}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1109,7 +1148,10 @@ const PatientCardComponent = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear all systems review</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove all systems review content for this patient? This action cannot be undone.
+              {patient.name
+                ? `Remove all systems review content for ${patient.name}?`
+                : "Remove all systems review content for this patient?"}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

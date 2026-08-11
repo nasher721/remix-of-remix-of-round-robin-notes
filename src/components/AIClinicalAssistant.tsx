@@ -612,11 +612,14 @@ export const AIClinicalAssistant = ({
             size="sm"
             disabled={isProcessing}
             className={compact ? 'h-7 px-2 text-xs' : ''}
+            aria-busy={isProcessing || undefined}
+            aria-label={isProcessing ? "Clinical AI assistant busy" : "Clinical AI assistant"}
+            title="Clinical AI: differentials, documentation checks, SOAP, and summaries"
           >
             {isProcessing ? (
-              <Loader2 className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} animate-spin mr-1`} />
+              <Loader2 className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} animate-spin mr-1`} aria-hidden="true" />
             ) : (
-              <Brain className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} />
+              <Brain className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} aria-hidden="true" />
             )}
             {compact ? 'AI Assist' : 'AI Clinical Assistant'}
           </Button>
@@ -688,6 +691,9 @@ export const AIClinicalAssistant = ({
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </DropdownMenuItem>
+              <div role="status" aria-live="polite" aria-busy="true" className="px-2 py-1.5 text-xs text-muted-foreground">
+                Clinical AI is working…
+              </div>
             </>
           )}
         </DropdownMenuContent>

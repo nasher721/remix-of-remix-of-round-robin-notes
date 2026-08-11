@@ -16,6 +16,9 @@ import { useClinicalGuidelinesState } from "@/contexts/ClinicalGuidelinesContext
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -104,6 +107,7 @@ export const MobileDashboard = () => {
   const [showPhraseManager, setShowPhraseManager] = useState(false);
   const [showBatchCourse, setShowBatchCourse] = useState(false);
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [pendingDuplicateId, setPendingDuplicateId] = useState<string | null>(null);
   const [showClearAllDialog, setShowClearAllDialog] = useState(false);
   const [isPatientTransitioning, setIsPatientTransitioning] = useState(false);
 
@@ -156,6 +160,27 @@ export const MobileDashboard = () => {
       setPendingRemoveId(null);
     }
   }, [pendingRemoveId, onRemovePatient, handlePatientSelect]);
+
+  const handleDuplicatePatient = useCallback((id: string) => {
+    setPendingDuplicateId(id);
+  }, []);
+
+  const handleConfirmDuplicate = useCallback(() => {
+    if (pendingDuplicateId) {
+      onDuplicatePatient(pendingDuplicateId);
+      setPendingDuplicateId(null);
+    }
+  }, [pendingDuplicateId, onDuplicatePatient]);
+
+  const pendingRemovePatient = useMemo(
+    () => patients.find((p) => p.id === pendingRemoveId) ?? null,
+    [patients, pendingRemoveId],
+  );
+
+  const pendingDuplicatePatient = useMemo(
+    () => patients.find((p) => p.id === pendingDuplicateId) ?? null,
+    [patients, pendingDuplicateId],
+  );
 
   const handleClearAll = useCallback(() => {
     setShowClearAllDialog(true);
@@ -216,9 +241,7 @@ export const MobileDashboard = () => {
           patient={selectedPatient}
           onBack={() => handlePatientSelect(null)}
           onUpdate={onUpdatePatient}
-          onRemove={(id) => {
-            handleRemovePatient(id);
-          }}
+          onRemove={onRemovePatient}
           onDuplicate={onDuplicatePatient}
           onPrint={handlePrint}
           autotexts={autotexts}
@@ -359,7 +382,7 @@ export const MobileDashboard = () => {
                   patients={filteredPatients}
                   onPatientSelect={handlePatientSelect}
                   onPatientDelete={handleRemovePatient}
-                  onPatientDuplicate={onDuplicatePatient}
+                  onPatientDuplicate={handleDuplicatePatient}
                   searchQuery={searchQuery}
                   onAddPatient={handleAddPatient}
                   onOpenImport={() => setShowImportModal(true)}
@@ -462,6 +485,12 @@ export const MobileDashboard = () => {
 
       <Dialog open={showAutotextModal} onOpenChange={setShowAutotextModal}>
         <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Autotexts &amp; templates</DialogTitle>
+            <DialogDescription>
+              Manage typing shortcuts, note templates, and custom dictionary entries for mobile rounds.
+            </DialogDescription>
+          </DialogHeader>
           <AutotextManager
             autotexts={autotexts}
             templates={templates}
@@ -498,7 +527,10 @@ export const MobileDashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove this patient from rounds? This action cannot be undone.
+              {pendingRemovePatient?.name
+                ? `Remove ${pendingRemovePatient.name} from rounds?`
+                : "Remove this patient from rounds?"}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -513,13 +545,37 @@ export const MobileDashboard = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog
+        open={pendingDuplicateId !== null}
+        onOpenChange={(open) => !open && setPendingDuplicateId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDuplicatePatient?.name
+                ? `Create a new roster entry from ${pendingDuplicatePatient.name}?`
+                : "Create a new roster entry from this patient?"}{" "}
+              Chart content is copied into the duplicate.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingDuplicateId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDuplicate}>Duplicate</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Clear all patients confirmation */}
       <AlertDialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Clear All Patients</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove all patients from rounds? This action cannot be undone.
+              {patients.length > 0
+                ? `Remove all ${patients.length} patients from today's rounds?`
+                : "Remove all patients from today's rounds?"}{" "}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

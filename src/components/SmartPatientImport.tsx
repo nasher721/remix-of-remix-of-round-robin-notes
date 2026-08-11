@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -227,13 +228,15 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
             <Wand2 className="h-5 w-5 text-primary" />
             {step === "input" ? "Smart Patient Import" : "Review & Edit"}
           </DialogTitle>
+          <DialogDescription>
+            {step === "input"
+              ? "Paste clinical notes and AI will organize them into the correct patient fields."
+              : "Review parsed fields before adding this patient to the roster."}
+          </DialogDescription>
         </DialogHeader>
 
         {step === "input" ? (
           <div className="space-y-4 flex-1">
-            <p className="text-sm text-muted-foreground">
-              Paste clinical notes and AI will organize them into the correct patient fields.
-            </p>
 
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={handlePaste} className="gap-1">

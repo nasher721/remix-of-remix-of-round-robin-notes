@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 
@@ -59,6 +59,12 @@ export const ImageLightbox = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none">
+        <DialogTitle className="sr-only">
+          Image {currentIndex + 1} of {images.length}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          Full-screen image viewer. Use arrow keys to change images, Escape to close.
+        </DialogDescription>
         <div className="relative w-full h-full min-h-[70vh] flex items-center justify-center">
           {/* Close button */}
           <Button
@@ -66,6 +72,7 @@ export const ImageLightbox = ({
             size="icon"
             className="absolute top-2 right-2 z-10 text-white hover:bg-white/20"
             onClick={() => onOpenChange(false)}
+            aria-label="Close image viewer"
           >
             <X className="h-5 w-5" />
           </Button>

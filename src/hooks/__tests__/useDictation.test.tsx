@@ -81,4 +81,31 @@ describe("useDictation", { concurrency: false }, () => {
       assert.match(result.current.error ?? "", /microphone permission/i);
     });
   });
+
+  it("surfaces a NotAllowedError from mocked getUserMedia without leaving recording stuck", async () => {
+    setupAuthMock();
+    let getUserMediaCalls = 0;
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: {
+        getUserMedia: async () => {
+          getUserMediaCalls += 1;
+          throw new DOMException("Permission denied by test browser", "NotAllowedError");
+        },
+      },
+    });
+
+    const { result } = renderHook(() => useDictation(), { wrapper });
+    await waitFor(() => assert.ok(result.current));
+
+    await act(async () => {
+      await result.current.toggleRecording();
+    });
+
+    await waitFor(() => {
+      assert.equal(getUserMediaCalls, 1);
+      assert.equal(result.current.isRecording, false);
+      assert.match(result.current.error ?? "", /Allow microphone access/i);
+    });
+  });
 });

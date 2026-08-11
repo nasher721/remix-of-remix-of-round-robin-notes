@@ -1,4 +1,4 @@
-import { safeLocalStorage } from "@/utils/safeStorage";
+import { readStoredJson, safeLocalStorage, type StorageLike } from "@/utils/safeStorage";
 
 export type SystemsReviewMode = "split" | "combine_all" | "combine_custom";
 
@@ -98,23 +98,35 @@ export const sanitizeDashboardPrefs = (value: unknown): DashboardPrefs => {
   return migrated;
 };
 
-export const loadDashboardPrefs = (): DashboardPrefs => {
+export const loadDashboardPrefs = (
+  storage: StorageLike = safeLocalStorage,
+): DashboardPrefs => {
   if (typeof window === "undefined") {
     return { ...DEFAULT_DASHBOARD_PREFS };
   }
 
   try {
-    const raw = safeLocalStorage.getItem(DASHBOARD_PREFS_STORAGE_KEY);
-    if (!raw) return { ...DEFAULT_DASHBOARD_PREFS };
-    return sanitizeDashboardPrefs(JSON.parse(raw));
+    const stored = readStoredJson<unknown>(storage, DASHBOARD_PREFS_STORAGE_KEY);
+    if (stored.status === "missing") {
+      return { ...DEFAULT_DASHBOARD_PREFS };
+    }
+    if (stored.status === "corrupt") {
+      // Quarantine corrupt payloads instead of masking them as empty prefs.
+      storage.removeItem(DASHBOARD_PREFS_STORAGE_KEY);
+      return { ...DEFAULT_DASHBOARD_PREFS };
+    }
+    return sanitizeDashboardPrefs(stored.value);
   } catch {
     return { ...DEFAULT_DASHBOARD_PREFS };
   }
 };
 
-export const saveDashboardPrefs = (prefs: DashboardPrefs): void => {
+export const saveDashboardPrefs = (
+  prefs: DashboardPrefs,
+  storage: StorageLike = safeLocalStorage,
+): void => {
   if (typeof window === "undefined") return;
-  safeLocalStorage.setItem(
+  storage.setItem(
     DASHBOARD_PREFS_STORAGE_KEY,
     JSON.stringify(sanitizeDashboardPrefs(prefs)),
   );

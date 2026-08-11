@@ -10,6 +10,8 @@ import {
   makeDashboardPatients,
   makeDashboardTodoRows,
   makeDashboardTodosMap,
+  productionReadinessFixtures,
+  createThrowingStorage,
 } from "@/test/dashboardRegressionFixtures";
 import { createDashboardRequestCounter } from "@/test/dashboardRequestInstrumentation";
 
@@ -55,6 +57,21 @@ describe("dashboard regression fixtures", () => {
     assert.equal(todoRows[0].patient_id, "patient-01");
     assert.equal(dashboardImportPatients.length, 3);
     assert.equal(dashboardPatientUpdatePatch.field, "clinicalSummary");
+  });
+
+  it("exposes shared production-readiness scenarios used by Step 1 harnesses", () => {
+    assert.equal(productionReadinessFixtures.zeroPatients.length, 0);
+    assert.equal(productionReadinessFixtures.threePatientRoster.length, 3);
+    assert.equal(productionReadinessFixtures.selectedNonFirstPatient.id, "patient-03");
+    assert.equal(productionReadinessFixtures.filteredEmpty.filteredPatients.length, 0);
+    assert.equal(productionReadinessFixtures.filteredEmpty.patients.length, 3);
+
+    const throwingStorage = createThrowingStorage();
+    assert.throws(() => throwingStorage.getItem("x"), /Access to storage is not allowed/);
+    assert.throws(() => throwingStorage.setItem("x", "1"), /Quota exceeded/);
+
+    assert.equal(productionReadinessFixtures.activityFetchFailure().error?.message, "activity service unavailable");
+    assert.equal(productionReadinessFixtures.dictationPermissionDenied().name, "NotAllowedError");
   });
 });
 

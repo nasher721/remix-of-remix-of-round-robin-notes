@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as React from "react";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
+import { Dialog } from "@/components/ui/dialog";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 
@@ -12,8 +13,17 @@ const AuthenticatedSettings = ({ children }: { children: React.ReactNode }) => {
   return React.createElement(SettingsProvider, null, children);
 };
 
-const authWrapper = ({ children }: { children: React.ReactNode }) =>
-  React.createElement(AuthProvider, null, React.createElement(AuthenticatedSettings, null, children));
+/** Mirrors parent Dialog context when EpicHandoffImport uses noDialog (skip DialogContent to avoid FocusScope/MutationObserver in node tests). */
+const authDialogWrapper = ({ children }: { children: React.ReactNode }) =>
+  React.createElement(
+    AuthProvider,
+    null,
+    React.createElement(
+      AuthenticatedSettings,
+      null,
+      React.createElement(Dialog, { open: true }, children),
+    ),
+  );
 
 function setupAuthMock() {
   (globalThis as unknown as {
@@ -64,10 +74,10 @@ test("clipboard import does not invoke parse when clipboard content is empty", a
       onImportPatients: async () => {},
       noDialog: true,
     }),
-    { wrapper: authWrapper },
+    { wrapper: authDialogWrapper },
   );
 
-  fireEvent.click(await screen.findByRole("button", { name: /paste handoff content/i }));
+  fireEvent.click(await screen.findByRole("button", { name: /paste patient list content from clipboard/i }));
 
   await waitFor(() => {
     assert.equal(invokeCount, 0);
@@ -127,10 +137,10 @@ test("parsed patients are selectable and duplicate bed warning is shown", async 
       onImportPatients: async () => {},
       noDialog: true,
     }),
-    { wrapper: authWrapper },
+    { wrapper: authDialogWrapper },
   );
 
-  fireEvent.click(await screen.findByRole("button", { name: /paste handoff content/i }));
+  fireEvent.click(await screen.findByRole("button", { name: /paste patient list content from clipboard/i }));
 
   await waitFor(() => assert.equal(clipboardReadCount, 1));
   await waitFor(() => assert.equal(invokeCount, 1));

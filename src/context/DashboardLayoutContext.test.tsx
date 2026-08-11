@@ -179,6 +179,33 @@ describe("DashboardLayoutContext", () => {
         Object.defineProperty(window, "localStorage", { configurable: true, value: localStorageMock });
       }
     });
+
+    it("remains interactive when storage access throws before prefs hydrate", async () => {
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        get() {
+          throw new Error("Access to storage is not allowed from this context");
+        },
+      });
+
+      try {
+        const { result } = renderHook(() => useDashboardLayout(), {
+          wrapper: DashboardLayoutProvider,
+        });
+
+        await waitFor(() => {
+          assert.equal(typeof result.current.toggleRightPanel, "function");
+        });
+
+        const before = result.current.panelRightCollapsed;
+        act(() => {
+          result.current.toggleRightPanel();
+        });
+        assert.equal(result.current.panelRightCollapsed, !before);
+      } finally {
+        Object.defineProperty(window, "localStorage", { configurable: true, value: localStorageMock });
+      }
+    });
   });
 
   describe("focus mode", () => {

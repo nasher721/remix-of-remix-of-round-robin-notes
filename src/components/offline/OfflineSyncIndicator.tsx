@@ -10,6 +10,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -31,8 +32,8 @@ export function OfflineSyncIndicator(): React.ReactElement {
 
   if (!state.isOnline) {
     return (
-      <Badge variant="destructive" className="gap-1">
-        <WifiOff className="h-3 w-3" />
+      <Badge variant="destructive" className="gap-1" role="status" aria-live="polite">
+        <WifiOff className="h-3 w-3" aria-hidden="true" />
         Offline
       </Badge>
     );
@@ -40,10 +41,10 @@ export function OfflineSyncIndicator(): React.ReactElement {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" role="status" aria-live="polite" aria-busy={state.isSyncing || undefined}>
         {state.isSyncing ? (
-          <Badge variant="outline" className="gap-1 animate-pulse">
-            <RefreshCw className="h-3 w-3 animate-spin" />
+          <Badge variant="outline" className="gap-1 animate-pulse" aria-busy="true">
+            <RefreshCw className="h-3 w-3 animate-spin" aria-hidden="true" />
             Syncing...
           </Badge>
         ) : state.pendingCount > 0 ? (
@@ -51,13 +52,14 @@ export function OfflineSyncIndicator(): React.ReactElement {
             variant="secondary"
             className="gap-1 cursor-pointer hover:bg-secondary/80"
             onClick={() => sync()}
+            aria-label={`${state.pendingCount} pending sync items. Activate to sync now.`}
           >
-            <Wifi className="h-3 w-3" />
+            <Wifi className="h-3 w-3" aria-hidden="true" />
             {state.pendingCount} pending
           </Badge>
         ) : (
           <Badge variant="outline" className="gap-1">
-            <Wifi className="h-3 w-3" />
+            <Wifi className="h-3 w-3" aria-hidden="true" />
             Synced
           </Badge>
         )}
@@ -78,6 +80,9 @@ export function OfflineSyncIndicator(): React.ReactElement {
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Resolve Sync Conflicts</DialogTitle>
+            <DialogDescription>
+              Choose whether to keep your local edits or the server version for each conflicting field.
+            </DialogDescription>
           </DialogHeader>
           
           <ScrollArea className="h-[60vh]">

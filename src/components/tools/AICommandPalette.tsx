@@ -229,7 +229,7 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
   const [selectedExample, setSelectedExample] = React.useState<string | null>(null);
   const patientScopeLabel = patient?.name
     ? `Selected: ${patient.name}`
-    : 'Select a patient to run clinical AI actions';
+    : 'No patient selected — choose a patient on the roster first';
 
   const contextualSuggestions = getContextualSuggestions(patient);
 
@@ -247,7 +247,7 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
     if (!patient) {
       toast({
         title: 'No Patient Selected',
-        description: 'Please select a patient to use AI features',
+        description: 'Select a patient on the roster before running patient AI actions',
         variant: 'destructive',
       });
       return;
@@ -298,7 +298,7 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
     } else {
       toast({
         title: 'No Patient Selected',
-        description: 'Please select a patient to use AI features',
+        description: 'Select a patient on the roster before running patient AI actions',
         variant: 'destructive',
       });
     }
@@ -352,13 +352,13 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
           <span className="text-xs text-muted-foreground">{cmd.description}</span>
           {isPatientUnavailable && (
             <span className="text-xs text-amber-700 dark:text-amber-400">
-              Select a patient
+              Unavailable — select a patient first
             </span>
           )}
         </div>
         {cmd.requiresTextInput && (
           <CommandShortcut>
-            {isPatientUnavailable ? 'Patient required' : 'Input'}
+            {isPatientUnavailable ? 'Patient required' : 'Needs text'}
           </CommandShortcut>
         )}
       </CommandItem>
@@ -552,11 +552,18 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
 
       {/* Floating indicator when AI is processing */}
       {isStreaming && (
-        <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full shadow-lg flex items-center gap-2 animate-pulse">
-          <Sparkles className="h-4 w-4 animate-spin" />
+        <div
+          className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full shadow-lg flex items-center gap-2 animate-pulse"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          aria-atomic="true"
+        >
+          <Sparkles className="h-4 w-4 animate-spin" aria-hidden="true" />
           <span className="text-sm">AI Processing...</span>
         </div>
       )}
+
 
       <AITransparencyPanel
         open={transparencyOpen}

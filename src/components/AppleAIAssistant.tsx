@@ -342,6 +342,9 @@ export const AppleAIAssistant = ({
               </div>
               Differential Diagnosis
             </DialogTitle>
+            <DialogDescription>
+              Review AI-generated differentials, critical rule-outs, and suggested workup.
+            </DialogDescription>
             {renderBadges()}
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
@@ -413,6 +416,9 @@ export const AppleAIAssistant = ({
               </div>
               {title}
             </DialogTitle>
+            <DialogDescription>
+              Review the generated clinical text, then copy or insert it into the chart.
+            </DialogDescription>
             {renderBadges()}
           </DialogHeader>
           <ScrollArea className="max-h-[55vh] p-4 bg-muted/30 rounded-2xl border border-border/50">
@@ -442,6 +448,9 @@ export const AppleAIAssistant = ({
         <DialogContent className="sm:max-w-md rounded-3xl bg-background/95 backdrop-blur-xl border-primary/20">
           <DialogHeader>
             <DialogTitle className="text-xl font-medium flex items-center gap-2"><MessageSquarePlus className="h-5 w-5 text-primary"/> Custom Instruction</DialogTitle>
+            <DialogDescription>
+              Enter a custom instruction to transform the selected clinical text.
+            </DialogDescription>
           </DialogHeader>
           <Textarea placeholder="e.g., 'Summarize in 2 sentences' or 'Make it sound more professional'" value={customPromptText} onChange={(e) => setCustomPromptText(e.target.value)} className="min-h-[120px] resize-none bg-muted/40 rounded-2xl border-border/50 focus-visible:ring-primary/30" autoFocus />
           <DialogFooter>

@@ -8,6 +8,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -456,6 +457,9 @@ export const AITextTools = ({
               <MessageSquarePlus className="h-5 w-5" />
               Custom AI Prompt
             </DialogTitle>
+            <DialogDescription>
+              Enter instructions to transform the selected note text with AI.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Textarea
@@ -504,6 +508,9 @@ export const AITextTools = ({
               <Plus className="h-5 w-5" />
               Save Custom Prompt
             </DialogTitle>
+            <DialogDescription>
+              Name and save this prompt so it can be reused from the AI text tools menu.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

@@ -2,6 +2,7 @@ import * as React from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -96,6 +97,9 @@ export const PatientInfoToolbarCustomizeDialog = ({
           <DialogTitle className="text-lg font-semibold">
             Customize Patient Info Toolbar
           </DialogTitle>
+          <DialogDescription>
+            Choose which patient identity and clinical fields appear in the chart toolbar during rounds.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">

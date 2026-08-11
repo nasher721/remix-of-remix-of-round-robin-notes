@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -253,17 +253,14 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
   const content = (
     <>
       <DialogHeader className="flex-shrink-0">
-        {noDialog ? (
-          <h2 className="text-lg font-semibold leading-none tracking-tight flex items-center gap-2">
-            <Table2 className="h-5 w-5" aria-hidden="true" />
-            Import from CSV
-          </h2>
-        ) : (
-          <DialogTitle className="flex items-center gap-2">
-            <Table2 className="h-5 w-5" aria-hidden="true" />
-            Import from CSV
-          </DialogTitle>
-        )}
+        {/* DialogTitle works for both owned Dialog and parent Dialog wrappers (noDialog). */}
+        <DialogTitle className="flex items-center gap-2">
+          <Table2 className="h-5 w-5" aria-hidden="true" />
+          Import from CSV
+        </DialogTitle>
+        <DialogDescription>
+          Upload or paste CSV content, map columns to patient fields, then import selected rows.
+        </DialogDescription>
       </DialogHeader>
 
       <div className="flex-1 overflow-y-auto min-h-0 py-2">

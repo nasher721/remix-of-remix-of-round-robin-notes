@@ -26,6 +26,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -304,6 +305,9 @@ function ActiveProtocolCard({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Discontinue Protocol</DialogTitle>
+            <DialogDescription>
+              Confirm removing this protocol checklist from the patient chart.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -481,6 +485,9 @@ function ProtocolSelector({
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Add Protocol</DialogTitle>
+          <DialogDescription>
+            Choose a clinical protocol checklist to add to this patient.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

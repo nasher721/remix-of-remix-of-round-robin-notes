@@ -60,7 +60,9 @@ export const VirtualizedPatientList = React.memo(() => {
   } = useDashboardLayout();
 
   const [pendingRemoveId, setPendingRemoveId] = React.useState<string | null>(null);
+  const [pendingDuplicateId, setPendingDuplicateId] = React.useState<string | null>(null);
   const removeTriggerRef = React.useRef<HTMLElement | null>(null);
+  const duplicateTriggerRef = React.useRef<HTMLElement | null>(null);
 
   const handleRemoveRequest = React.useCallback((id: string) => {
     removeTriggerRef.current = document.activeElement instanceof HTMLElement
@@ -80,9 +82,32 @@ export const VirtualizedPatientList = React.memo(() => {
     setPendingRemoveId(null);
   }, []);
 
+  const handleDuplicateRequest = React.useCallback((id: string) => {
+    duplicateTriggerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setPendingDuplicateId(id);
+  }, []);
+
+  const handleConfirmDuplicate = React.useCallback(() => {
+    if (pendingDuplicateId) {
+      onDuplicatePatient(pendingDuplicateId);
+      setPendingDuplicateId(null);
+    }
+  }, [pendingDuplicateId, onDuplicatePatient]);
+
+  const handleCancelDuplicate = React.useCallback(() => {
+    setPendingDuplicateId(null);
+  }, []);
+
   const pendingPatient = React.useMemo(
     () => patients.find((p) => p.id === pendingRemoveId),
     [patients, pendingRemoveId],
+  );
+
+  const pendingDuplicatePatient = React.useMemo(
+    () => patients.find((p) => p.id === pendingDuplicateId),
+    [patients, pendingDuplicateId],
   );
 
   const selectedPatient = React.useMemo((): Patient | null => {
@@ -137,7 +162,7 @@ export const VirtualizedPatientList = React.memo(() => {
 
   if (patients.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-6 text-center rounded-lg bg-secondary/20">
+      <div className="flex flex-col items-center justify-center py-20 px-6 text-center rounded-lg bg-secondary/20" role="status">
         <div className="w-16 h-16 rounded-lg bg-card border border-border/40 flex items-center justify-center mb-5 shadow-sm">
           <Hospital className="h-7 w-7 text-primary" aria-hidden="true" />
         </div>
@@ -145,7 +170,7 @@ export const VirtualizedPatientList = React.memo(() => {
           Ready to Start Rounds
         </h3>
         <p className="text-muted-foreground text-base max-w-sm leading-relaxed">
-          Click &quot;Add Patient&quot; to add your first patient to the list.
+          No patients on your roster yet. Use Add Patient or Import Patient List to build today&apos;s census.
         </p>
       </div>
     );
@@ -384,7 +409,7 @@ export const VirtualizedPatientList = React.memo(() => {
                   patient={selectedPatient}
                   onUpdate={onUpdatePatient}
                   onRemove={handleRemoveRequest}
-                  onDuplicate={onDuplicatePatient}
+                  onDuplicate={handleDuplicateRequest}
                   onToggleCollapse={onToggleCollapse}
                   autotexts={autotexts}
                   sharedPatientTodos={sharedPatientTodos}
@@ -498,6 +523,36 @@ export const VirtualizedPatientList = React.memo(() => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingDuplicateId !== null}
+        onOpenChange={(open) => {
+          if (!open) handleCancelDuplicate();
+        }}
+      >
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            duplicateTriggerRef.current?.focus();
+          }}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDuplicatePatient?.name
+                ? `Create a new roster entry from ${pendingDuplicatePatient.name}?`
+                : "Create a new roster entry from this patient?"}{" "}
+              Chart content is copied into the duplicate.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDuplicate}>
+              Duplicate
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

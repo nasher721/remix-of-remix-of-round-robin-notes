@@ -8,10 +8,13 @@
  * - phrases: Cached clinical phrases for offline access
  * - guidelines: Cached clinical guidelines
  * - syncMetadata: Track last sync timestamps and conflict state
+ * - roundSessions: Today’s Round continuity cache (position, filters, drafts)
+ * - roundOutbox: Round state + chart draft outbox for reconnect drain
  */
 
 import Dexie, { type EntityTable } from 'dexie';
 import { logInfo } from '../observability/logger';
+import type { CachedRoundSession, RoundOutboxEntry } from '../round/sync/types';
 
 // ============================================
 // Type Definitions
@@ -70,6 +73,8 @@ export interface SyncMetadata {
   ownerId?: string;
 }
 
+export type { CachedRoundSession, RoundOutboxEntry };
+
 // ============================================
 // Database Class
 // ============================================
@@ -80,6 +85,8 @@ class RoundRobinDatabase extends Dexie {
   phrases!: EntityTable<CachedPhrase, 'id'>;
   guidelines!: EntityTable<CachedGuideline, 'id'>;
   syncMetadata!: EntityTable<SyncMetadata, 'id'>;
+  roundSessions!: EntityTable<CachedRoundSession, 'id'>;
+  roundOutbox!: EntityTable<RoundOutboxEntry, 'id'>;
 
   constructor() {
     super('RoundRobinNotesDB');
@@ -97,6 +104,12 @@ class RoundRobinDatabase extends Dexie {
     // unused and can contain clinical text, so remove its object store.
     this.version(3).stores({
       aiCache: null,
+    });
+
+    // Today’s Round continuity + outbox (Step 5).
+    this.version(4).stores({
+      roundSessions: 'id, userId, lastModified, syncStatus',
+      roundOutbox: 'id, ownerId, kind, entityKey, timestamp, status, [kind+entityKey]',
     });
   }
 }
@@ -126,6 +139,8 @@ const allDataTables = () => [
   db.phrases,
   db.guidelines,
   db.syncMetadata,
+  db.roundSessions,
+  db.roundOutbox,
 ];
 
 async function clearAllTables(): Promise<void> {
@@ -135,6 +150,8 @@ async function clearAllTables(): Promise<void> {
     db.phrases.clear(),
     db.guidelines.clear(),
     db.syncMetadata.clear(),
+    db.roundSessions.clear(),
+    db.roundOutbox.clear(),
   ]);
 }
 
@@ -224,15 +241,19 @@ export async function getDatabaseStats(): Promise<{
   patients: number;
   phrases: number;
   guidelines: number;
+  roundSessions: number;
+  roundOutbox: number;
 }> {
-  const [mutations, patients, phrases, guidelines] = await Promise.all([
+  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox] = await Promise.all([
     db.mutations.count(),
     db.patients.count(),
     db.phrases.count(),
     db.guidelines.count(),
+    db.roundSessions.count(),
+    db.roundOutbox.count(),
   ]);
   
-  return { mutations, patients, phrases, guidelines };
+  return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox };
 }
 
 /**
@@ -246,19 +267,23 @@ export async function exportDatabase(): Promise<{
     patients: CachedPatient[];
     phrases: CachedPhrase[];
     guidelines: CachedGuideline[];
+    roundSessions: CachedRoundSession[];
+    roundOutbox: RoundOutboxEntry[];
   };
 }> {
-  const [mutations, patients, phrases, guidelines] = await Promise.all([
+  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox] = await Promise.all([
     db.mutations.toArray(),
     db.patients.toArray(),
     db.phrases.toArray(),
-    db.guidelines.toArray()
+    db.guidelines.toArray(),
+    db.roundSessions.toArray(),
+    db.roundOutbox.toArray(),
   ]);
   
   return {
-    version: 1,
+    version: 2,
     exportedAt: Date.now(),
-    data: { mutations, patients, phrases, guidelines }
+    data: { mutations, patients, phrases, guidelines, roundSessions, roundOutbox }
   };
 }
 
@@ -272,16 +297,24 @@ export async function importDatabase(backup: {
     patients: CachedPatient[];
     phrases: CachedPhrase[];
     guidelines: CachedGuideline[];
+    roundSessions?: CachedRoundSession[];
+    roundOutbox?: RoundOutboxEntry[];
   };
 }): Promise<void> {
-  await db.transaction('rw', [db.mutations, db.patients, db.phrases, db.guidelines], async () => {
-    await Promise.all([
-      db.mutations.bulkPut(backup.data.mutations),
-      db.patients.bulkPut(backup.data.patients),
-      db.phrases.bulkPut(backup.data.phrases),
-      db.guidelines.bulkPut(backup.data.guidelines)
-    ]);
-  });
+  await db.transaction(
+    'rw',
+    [db.mutations, db.patients, db.phrases, db.guidelines, db.roundSessions, db.roundOutbox],
+    async () => {
+      await Promise.all([
+        db.mutations.bulkPut(backup.data.mutations),
+        db.patients.bulkPut(backup.data.patients),
+        db.phrases.bulkPut(backup.data.phrases),
+        db.guidelines.bulkPut(backup.data.guidelines),
+        db.roundSessions.bulkPut(backup.data.roundSessions ?? []),
+        db.roundOutbox.bulkPut(backup.data.roundOutbox ?? []),
+      ]);
+    },
+  );
   
   logInfo('[IndexedDB] Database restored from backup');
 }

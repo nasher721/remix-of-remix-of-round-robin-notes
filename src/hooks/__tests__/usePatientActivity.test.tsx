@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { AuthProvider } from "@/hooks/useAuth";
 import { usePatientActivity } from "@/hooks/usePatientActivity";
+import { productionReadinessFixtures } from "@/test/dashboardRegressionFixtures";
 
 declare global {
   var __SUPABASE_SELECT_MOCK__: unknown;
@@ -32,10 +33,7 @@ const activityRow = {
 
 describe("usePatientActivity", { concurrency: false }, () => {
   it("exposes a readable error and retry callback when activity fetch fails", async () => {
-    globalThis.__SUPABASE_SELECT_MOCK__ = () => ({
-      data: null,
-      error: new Error("activity service unavailable"),
-    });
+    globalThis.__SUPABASE_SELECT_MOCK__ = productionReadinessFixtures.activityFetchFailure;
 
     const { result } = renderHook(() => usePatientActivity("patient-1"), { wrapper });
 
@@ -43,8 +41,8 @@ describe("usePatientActivity", { concurrency: false }, () => {
 
     await waitFor(() => {
       assert.equal(result.current.loading, false);
-      assert.match((result.current as unknown as { error?: string }).error ?? "", /patient activity could not be loaded/i);
-      assert.equal(typeof (result.current as unknown as { retry?: unknown }).retry, "function");
+      assert.match(result.current.error ?? "", /patient activity could not be loaded/i);
+      assert.equal(typeof result.current.retry, "function");
     });
   });
 
@@ -52,9 +50,9 @@ describe("usePatientActivity", { concurrency: false }, () => {
     let shouldFail = false;
     globalThis.__SUPABASE_SELECT_MOCK__ = () => {
       if (shouldFail) {
-        return { data: null, error: new Error("temporary activity failure") };
+        return productionReadinessFixtures.activityFetchFailure();
       }
-      return { data: [activityRow], error: null };
+      return productionReadinessFixtures.activityFetchSuccess([activityRow]);
     };
 
     const { result } = renderHook(() => usePatientActivity("patient-1"), { wrapper });
@@ -71,6 +69,48 @@ describe("usePatientActivity", { concurrency: false }, () => {
       assert.equal(result.current.loading, false);
       assert.equal(result.current.activities[0]?.summary, "Assessment updated");
     });
+  });
+
+  it("exposes lastFetchedAt after a successful fetch for Step 3 contract coverage", async () => {
+    globalThis.__SUPABASE_SELECT_MOCK__ = () =>
+      productionReadinessFixtures.activityFetchSuccess([activityRow]);
+
+    const { result } = renderHook(() => usePatientActivity("patient-1"), { wrapper });
+    await result.current.fetchActivities();
+
+    await waitFor(() => {
+      assert.equal(result.current.loading, false);
+      assert.equal(result.current.activities.length, 1);
+    });
+
+    assert.equal(typeof result.current.lastFetchedAt, "number");
+    assert.ok((result.current.lastFetchedAt as number) > 0);
+  });
+
+  it("keeps lastFetchedAt when a later refresh fails", async () => {
+    let shouldFail = false;
+    globalThis.__SUPABASE_SELECT_MOCK__ = () => {
+      if (shouldFail) {
+        return productionReadinessFixtures.activityFetchFailure();
+      }
+      return productionReadinessFixtures.activityFetchSuccess([activityRow]);
+    };
+
+    const { result } = renderHook(() => usePatientActivity("patient-1"), { wrapper });
+    await result.current.fetchActivities();
+    await waitFor(() => {
+      assert.equal(typeof result.current.lastFetchedAt, "number");
+    });
+    const previousFetchedAt = result.current.lastFetchedAt;
+
+    shouldFail = true;
+    await result.current.fetchActivities();
+    await waitFor(() => {
+      assert.equal(result.current.loading, false);
+      assert.match(result.current.error ?? "", /patient activity could not be loaded/i);
+    });
+
+    assert.equal(result.current.lastFetchedAt, previousFetchedAt);
   });
 
   it("reports a returned Supabase error when adding an activity", async () => {

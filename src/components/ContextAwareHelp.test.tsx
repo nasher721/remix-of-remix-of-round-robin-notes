@@ -26,6 +26,9 @@ describe("ContextAwareHelp", () => {
     assert.ok(await screen.findByText("Dashboard Help"));
     assert.ok(screen.getByText(/Add Patient:/));
     assert.ok(screen.getByText(/Smart Import/));
+    assert.ok(screen.getByText(/Shortcuts:/));
+    assert.ok(screen.getByText(/Dictation:/));
+    assert.ok(screen.getByText(/Quick Actions:/));
   });
 
   it("closes help from the popover close button", async () => {
@@ -48,4 +51,20 @@ describe("ContextAwareHelp", () => {
 
     assert.equal(screen.queryByText("Dashboard Help"), null);
   });
+
+  it("shows patient-context help content when opened from a patient route", async () => {
+    render(
+      <MemoryRouter initialEntries={["/patient/patient-01"]}>
+        <ContextAwareHelp />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Get Help" }));
+
+    assert.ok(await screen.findByText("Patient Chart Help"));
+    assert.ok(screen.getByText(/Document systems review/i));
+    assert.ok(screen.getByText(/Duplicate:/i));
+    assert.ok(screen.getByText(/microphone access/i));
+  });
 });
+

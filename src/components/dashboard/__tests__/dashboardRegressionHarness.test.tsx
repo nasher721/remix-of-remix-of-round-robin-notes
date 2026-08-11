@@ -24,6 +24,7 @@ import {
   dashboardPatients8,
   dashboardPatients20,
   makeDashboardTodosMap,
+  productionReadinessFixtures,
 } from "@/test/dashboardRegressionFixtures";
 import { PatientFilterType } from "@/constants/config";
 import type { Patient } from "@/types/patient";
@@ -42,9 +43,53 @@ globalThis.ResizeObserver =
   };
 Element.prototype.scrollIntoView = Element.prototype.scrollIntoView ?? function scrollIntoView() {};
 
+if (typeof window.matchMedia !== "function") {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
+if (typeof window.IntersectionObserver !== "function") {
+  window.IntersectionObserver = class IntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  } as unknown as typeof IntersectionObserver;
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  if (typeof window.matchMedia !== "function") {
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    });
+  }
 });
 
 function setViewport(width: number, height: number) {
@@ -74,6 +119,9 @@ function buildDashboardValue({
   filter = PatientFilterType.All,
   setFilter = () => {},
   onAddPatient = () => {},
+  onRemovePatient = async () => {},
+  onDuplicatePatient = async () => {},
+  onClearAll = async () => {},
   onRefetchPatients = () => {},
   patientListViewMode = "compact",
   setPatientListViewMode = () => {},
@@ -89,6 +137,9 @@ function buildDashboardValue({
   filter?: PatientFilterType;
   setFilter?: (filter: PatientFilterType) => void;
   onAddPatient?: () => void;
+  onRemovePatient?: (id: string) => void | Promise<void>;
+  onDuplicatePatient?: (id: string) => void | Promise<void>;
+  onClearAll?: () => void | Promise<void>;
   onRefetchPatients?: () => void | Promise<void>;
   patientListViewMode?: "rich" | "compact";
   setPatientListViewMode?: (mode: "rich" | "compact") => void;
@@ -113,11 +164,11 @@ function buildDashboardValue({
     onAddPatient,
     onAddPatientWithData: async () => {},
     onUpdatePatient: async () => {},
-    onRemovePatient: async () => {},
-    onDuplicatePatient: async () => {},
+    onRemovePatient,
+    onDuplicatePatient,
     onToggleCollapse: async () => {},
     onCollapseAll: async () => {},
-    onClearAll: async () => {},
+    onClearAll,
     onImportPatients: async () => {},
     onRefetchPatients,
     onAddAutotext: async () => true,
@@ -144,6 +195,9 @@ function AppProviders({
   filter = PatientFilterType.All,
   setFilter = () => {},
   onAddPatient = () => {},
+  onRemovePatient = async () => {},
+  onDuplicatePatient = async () => {},
+  onClearAll = async () => {},
   onRefetchPatients = () => {},
   patientListViewMode = "compact",
   setPatientListViewMode = () => {},
@@ -160,6 +214,9 @@ function AppProviders({
   filter?: PatientFilterType;
   setFilter?: (filter: PatientFilterType) => void;
   onAddPatient?: () => void;
+  onRemovePatient?: (id: string) => void | Promise<void>;
+  onDuplicatePatient?: (id: string) => void | Promise<void>;
+  onClearAll?: () => void | Promise<void>;
   onRefetchPatients?: () => void | Promise<void>;
   patientListViewMode?: "rich" | "compact";
   setPatientListViewMode?: (mode: "rich" | "compact") => void;
@@ -190,6 +247,9 @@ function AppProviders({
                           filter,
                           setFilter,
                           onAddPatient,
+                          onRemovePatient,
+                          onDuplicatePatient,
+                          onClearAll,
                           onRefetchPatients,
                           patientListViewMode,
                           setPatientListViewMode,
@@ -325,7 +385,7 @@ describe("production dashboard roster regression harness", () => {
       <MemoryRouter>
         <AppProviders
           patients={dashboardPatients20}
-          selectedPatient={dashboardPatients20[3]}
+          selectedPatient={null}
           desktopSelectedPatientId={dashboardPatients20[3].id}
         >
           <DesktopDashboard />
@@ -340,8 +400,33 @@ describe("production dashboard roster regression harness", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "AI" }));
 
+    assert.ok(await screen.findByText("Selected: Devon Rivera"));
     assert.ok(await screen.findByText("Draft note for Devon Rivera"));
     assert.ok(screen.getByText("Summarize Devon Rivera's overnight events"));
+    assert.equal(screen.queryByText(/Draft note for Alex Morgan/), null);
+  });
+
+  it("explains unavailable patient-required AI actions when no patient is selected", async () => {
+    setViewport(1440, 900);
+    render(
+      <MemoryRouter>
+        <AppProviders
+          patients={productionReadinessFixtures.threePatientRoster}
+          selectedPatient={null}
+          desktopSelectedPatientId={null}
+        >
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "AI" }));
+
+    assert.ok(
+      await screen.findByText("No patient selected — choose a patient on the roster first"),
+    );
+    assert.ok(screen.getAllByText(/Unavailable — select a patient first/).length > 0);
+    assert.equal(screen.queryByText(/Draft note for/), null);
   });
 
   it("keeps the active roster row and patient workspace on the same patient", async () => {
@@ -513,6 +598,173 @@ describe("production dashboard roster regression harness", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.equal(screen.queryByRole("alertdialog", { name: "Remove Patient" }), null);
     assert.equal(document.activeElement, removeButton);
+  });
+
+  it("does not mutate when a remove confirmation is canceled", async () => {
+    setViewport(1440, 768);
+    const removedIds: string[] = [];
+
+    render(
+      <AppProviders
+        patients={productionReadinessFixtures.threePatientRoster}
+        desktopSelectedPatientId={productionReadinessFixtures.threePatientRoster[0].id}
+        onRemovePatient={async (id) => {
+          removedIds.push(id);
+        }}
+      >
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    assert.ok(await screen.findByRole("button", { name: /Select Alex Morgan, A01/ }));
+    const removeButton = screen.getAllByRole("button", { name: /remove/i }).find(isUserVisible);
+    assert.ok(removeButton, "expected a visible remove button for the selected patient");
+    fireEvent.click(removeButton);
+
+    assert.ok(await screen.findByRole("alertdialog", { name: "Remove Patient" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      assert.equal(screen.queryByRole("alertdialog", { name: "Remove Patient" }), null);
+    });
+    assert.deepEqual(removedIds, []);
+  });
+
+  it("exposes discoverable AI and sync help affordances on the desktop shell", async () => {
+    setViewport(1440, 900);
+
+    render(
+      <MemoryRouter>
+        <AppProviders patients={productionReadinessFixtures.threePatientRoster}>
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    const aiButton = await screen.findByRole("button", { name: /Open AI command palette/i });
+    assert.match(aiButton.getAttribute("title") ?? "", /AI workspace/i);
+    assert.match(aiButton.getAttribute("aria-label") ?? "", /model/i);
+
+    const retrySyncButton = screen.getByRole("button", { name: "Retry sync and refresh patient list" });
+    assert.ok(retrySyncButton);
+    assert.equal(retrySyncButton.getAttribute("aria-busy"), "false");
+  });
+
+  it("names the target patient before confirming a desktop duplicate action", async () => {
+    setViewport(1440, 768);
+    const duplicatedIds: string[] = [];
+
+    render(
+      <AppProviders
+        patients={productionReadinessFixtures.threePatientRoster}
+        desktopSelectedPatientId={productionReadinessFixtures.threePatientRoster[0].id}
+        onDuplicatePatient={async (id) => {
+          duplicatedIds.push(id);
+        }}
+      >
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    assert.ok(await screen.findByRole("button", { name: /Select Alex Morgan, A01/ }));
+    const duplicateButton = screen.getAllByRole("button", { name: /duplicate/i }).find(isUserVisible);
+    assert.ok(duplicateButton, "expected a visible duplicate button for the selected patient");
+    fireEvent.click(duplicateButton);
+
+    assert.ok(await screen.findByRole("alertdialog", { name: /Duplicate Patient/i }));
+    assert.ok(screen.getByText(/Create a new roster entry from Alex Morgan/i));
+    assert.deepEqual(duplicatedIds, [], "duplicate must wait for confirmation");
+  });
+
+  it("does not mutate when a duplicate confirmation is canceled", async () => {
+    setViewport(1440, 768);
+    const duplicatedIds: string[] = [];
+
+    render(
+      <AppProviders
+        patients={productionReadinessFixtures.threePatientRoster}
+        desktopSelectedPatientId={productionReadinessFixtures.threePatientRoster[0].id}
+        onDuplicatePatient={async (id) => {
+          duplicatedIds.push(id);
+        }}
+      >
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    assert.ok(await screen.findByRole("button", { name: /Select Alex Morgan, A01/ }));
+    const duplicateButton = screen.getAllByRole("button", { name: /duplicate/i }).find(isUserVisible);
+    assert.ok(duplicateButton, "expected a visible duplicate button for the selected patient");
+    fireEvent.click(duplicateButton);
+
+    assert.ok(await screen.findByRole("alertdialog", { name: /Duplicate Patient/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      assert.equal(screen.queryByRole("alertdialog", { name: /Duplicate Patient/i }), null);
+    });
+    assert.deepEqual(duplicatedIds, []);
+  });
+
+  it("confirms a desktop duplicate mutation exactly once", async () => {
+    setViewport(1440, 768);
+    const duplicatedIds: string[] = [];
+
+    render(
+      <AppProviders
+        patients={productionReadinessFixtures.threePatientRoster}
+        desktopSelectedPatientId={productionReadinessFixtures.threePatientRoster[1].id}
+        onDuplicatePatient={async (id) => {
+          duplicatedIds.push(id);
+        }}
+      >
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    assert.ok(await screen.findByRole("button", { name: /Select Blair Patel, A02/ }));
+    const duplicateButton = screen.getAllByRole("button", { name: /duplicate/i }).find(isUserVisible);
+    assert.ok(duplicateButton, "expected a visible duplicate button for the selected patient");
+    fireEvent.click(duplicateButton);
+
+    assert.ok(await screen.findByRole("alertdialog", { name: /Duplicate Patient/i }));
+    assert.ok(screen.getByText(/Create a new roster entry from Blair Patel/i));
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate" }));
+
+    await waitFor(() => {
+      assert.deepEqual(duplicatedIds, [productionReadinessFixtures.threePatientRoster[1].id]);
+    });
+    assert.equal(duplicatedIds.length, 1);
+  });
+
+  it("confirms a desktop remove mutation exactly once", async () => {
+    setViewport(1440, 768);
+    const removedIds: string[] = [];
+
+    render(
+      <AppProviders
+        patients={productionReadinessFixtures.threePatientRoster}
+        desktopSelectedPatientId={productionReadinessFixtures.threePatientRoster[0].id}
+        onRemovePatient={async (id) => {
+          removedIds.push(id);
+        }}
+      >
+        <VirtualizedPatientList />
+      </AppProviders>,
+    );
+
+    assert.ok(await screen.findByRole("button", { name: /Select Alex Morgan, A01/ }));
+    const removeButton = screen.getAllByRole("button", { name: /remove/i }).find(isUserVisible);
+    assert.ok(removeButton, "expected a visible remove button for the selected patient");
+    fireEvent.click(removeButton);
+
+    assert.ok(await screen.findByRole("alertdialog", { name: "Remove Patient" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    await waitFor(() => {
+      assert.deepEqual(removedIds, [productionReadinessFixtures.threePatientRoster[0].id]);
+    });
+    assert.equal(removedIds.length, 1);
   });
 
   it("exposes sync loading status while desktop patient refresh is in flight", async () => {
