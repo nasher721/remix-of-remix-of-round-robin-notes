@@ -71,9 +71,10 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   const { getModelForFeature } = useSettings();
 
   const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }) => {
+    // documentParse is 180s — successful handoff parses have been observed at ~67s.
     return withCategoryTimeout(
       supabase.functions.invoke('parse-handoff', { body }),
-      'aiEdgeFunction',
+      'documentParse',
       'parse-handoff',
     );
   };
@@ -96,13 +97,16 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       }
 
       const status = (result.error as { context?: { status?: number } }).context?.status;
-      if (status && status < 500 && status !== 429) {
+      // Server already fails over providers on 429; only retry transient 5xx.
+      // Client-side TimeoutError propagates from invokeParseHandoff and is not retried here.
+      if (!status || status < 500) {
         return result;
       }
 
       attempt += 1;
-      await new Promise((resolve) => setTimeout(resolve, 400 * attempt));
-      setStatusMessage(`Retrying parse request (${attempt + 1}/${retries + 1})...`);
+      const waitMs = Math.min(1_000 * attempt, 3_000);
+      setStatusMessage(`Temporary server issue — retrying (${attempt + 1}/${retries + 1})...`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
   };
 
@@ -152,7 +156,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
         );
       }
 
-      setStatusMessage("Parsing patients and chart sections...");
+      setStatusMessage("Parsing patients and chart sections (may take 1–2 minutes)...");
       const { data, error } = await tryInvokeParseHandoff({
         pdfContent: extracted.text,
         model: getModelForFeature("parsing"),
@@ -233,7 +237,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       }
 
       setIsLoading(true);
-      setStatusMessage("Processing pasted text...");
+      setStatusMessage("Processing pasted text (may take 1–2 minutes)...");
       setParsedPatients([]);
       setSelectedPatients(new Set());
 

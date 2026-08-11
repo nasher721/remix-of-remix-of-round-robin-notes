@@ -18,6 +18,11 @@ export const TIMEOUT_DEFAULTS = {
   mutation: 15_000,
   /** AI edge function calls (can be slow) */
   aiEdgeFunction: 120_000,
+  /**
+   * Patient-list / handoff parsing: large docs + provider failover routinely
+   * take 60–90s (observed ~67s successful parse).
+   */
+  documentParse: 180_000,
   /** Text transformation calls */
   textTransform: 30_000,
   /** Audio transcription */

@@ -18,7 +18,49 @@ import {
   providerForModel,
   resolveRequestedModel,
   selectModelForConfig,
+  type LLMConfig,
 } from "../_shared/llm-client.ts";
+
+type ProviderAttempt = {
+  config: LLMConfig;
+  model: string;
+};
+
+/**
+ * Build provider attempt order for large parse jobs.
+ * When the preferred vendor is OpenAI, try Gemini first — OpenAI has been
+ * persistently 429ing while Gemini completes parses (~67s observed).
+ */
+const buildProviderQueue = (requestedModel: string | undefined): ProviderAttempt[] => {
+  const preferred = providerForModel(requestedModel);
+  const order: Array<"openai" | "gemini" | "grok"> = [];
+  if (preferred === "openai") {
+    order.push("gemini", "openai", "grok");
+  } else if (preferred) {
+    order.push(preferred);
+    for (const provider of ["gemini", "openai", "grok"] as const) {
+      if (!order.includes(provider)) order.push(provider);
+    }
+  } else {
+    order.push("gemini", "openai", "grok");
+  }
+
+  const queue: ProviderAttempt[] = [];
+  for (const provider of order) {
+    const config = getLLMConfig(provider);
+    if (!config.apiKey) continue;
+    let model = config.defaultModel;
+    if (provider === preferred) {
+      try {
+        model = selectModelForConfig(requestedModel, config);
+      } catch {
+        model = config.defaultModel;
+      }
+    }
+    queue.push({ config, model });
+  }
+  return queue;
+};
 
 interface PatientSystems {
   neuro: string;
@@ -353,8 +395,17 @@ Deno.serve(async (req: Request) => {
       authResult.userId,
     );
     if (!rateLimit.allowed) {
+      safeLog("warn", "Parse handoff app rate limited", {
+        statusCode: rateLimit.response?.status ?? 429,
+        source: "app",
+        remaining: rateLimit.remaining ?? 0,
+      });
       return rateLimit.response ??
-        jsonResponse(req, { error: "Rate limit exceeded" }, 429);
+        jsonResponse(req, {
+          error: "Rate limit exceeded",
+          success: false,
+          source: "app",
+        }, 429);
     }
 
     const bodyResult = await parseAndValidateBody<
@@ -420,8 +471,8 @@ Deno.serve(async (req: Request) => {
       }, 413);
     }
 
-    const llmConfig = getLLMConfig(providerForModel(modelResult.model));
-    if (!llmConfig.apiKey) {
+    const providerQueue = buildProviderQueue(modelResult.model);
+    if (providerQueue.length === 0) {
       safeLog("error", "No LLM API key configured");
       return jsonResponse(req, {
         success: false,
@@ -429,11 +480,12 @@ Deno.serve(async (req: Request) => {
           "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets.",
       }, 500);
     }
-    const OPENAI_API_KEY = llmConfig.apiKey;
 
     safeLog("info", "Parse handoff processing started", {
       imageCount: images?.length ?? 0,
       hasText: Boolean(pdfContent),
+      providerCount: providerQueue.length,
+      primaryProvider: providerQueue[0]?.config.provider,
     });
 
     const systemPrompt =
@@ -599,34 +651,90 @@ SYSTEM MAPPING GUIDANCE:
         `Parse the following patient list / handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed/room should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Place clinical details into the correct chart sections/systems:\n\n${pdfContent}`;
     }
 
-    const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: selectModelForConfig(modelResult.model, llmConfig),
+    // One attempt per provider: on 429, fail over immediately to avoid burning
+    // the client timeout budget before a healthy vendor can finish.
+    let response: Response | null = null;
+    let activeProvider: ProviderAttempt | null = null;
+    let lastStatus = 0;
+
+    for (let queueIndex = 0; queueIndex < providerQueue.length; queueIndex++) {
+      const attempt = providerQueue[queueIndex]!;
+      const providerPayload = JSON.stringify({
+        model: attempt.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
         ],
         max_tokens: normalizeOutputTokenLimit(8_000),
-      }),
-    });
+      });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return jsonResponse(req, {
-          success: false,
-          error: "Rate limit exceeded. Please try again later.",
-        }, 429);
+      response = await fetch(`${attempt.config.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${attempt.config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: providerPayload,
+      });
+      lastStatus = response.status;
+
+      if (response.ok) {
+        activeProvider = attempt;
+        break;
       }
+
       if (response.status === 402) {
         return jsonResponse(req, {
           success: false,
           error: "AI credits exhausted. Please add funds.",
         }, 402);
+      }
+
+      if (response.status === 429 && queueIndex < providerQueue.length - 1) {
+        safeLog("warn", "Parse handoff failing over to next provider", {
+          fromProvider: attempt.config.provider,
+          toProvider: providerQueue[queueIndex + 1]?.config.provider,
+          source: "provider",
+          statusCode: 429,
+        });
+        await response.text().catch(() => "");
+        continue;
+      }
+
+      if (response.status !== 429) {
+        safeLog("error", "Parse handoff provider request failed", {
+          statusCode: response.status,
+          provider: attempt.config.provider,
+        });
+        if (queueIndex < providerQueue.length - 1) {
+          await response.text().catch(() => "");
+          continue;
+        }
+      }
+    }
+
+    if (!response) {
+      return jsonResponse(req, {
+        success: false,
+        error: "AI processing failed",
+      }, 500);
+    }
+
+    if (!response.ok) {
+      if (lastStatus === 429 || response.status === 429) {
+        safeLog("error", "Parse handoff provider rate limited", {
+          statusCode: 429,
+          provider: activeProvider?.config.provider ?? providerQueue[0]?.config.provider,
+          source: "provider",
+          providersTried: providerQueue.length,
+          retryAfter: 5,
+        });
+        return jsonResponse(req, {
+          success: false,
+          error: "Rate limit exceeded. Please try again later.",
+          source: "provider",
+          retryAfter: 5,
+        }, 429);
       }
       safeLog("error", "Parse handoff provider request failed", {
         statusCode: response.status,
@@ -635,6 +743,13 @@ SYSTEM MAPPING GUIDANCE:
         success: false,
         error: "AI processing failed",
       }, 500);
+    }
+
+    if (activeProvider) {
+      safeLog("info", "Parse handoff provider selected", {
+        provider: activeProvider.config.provider,
+        model: activeProvider.model,
+      });
     }
 
     const aiResponse = await response.json();
