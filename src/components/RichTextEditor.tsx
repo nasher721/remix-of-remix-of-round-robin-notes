@@ -135,6 +135,9 @@ export const RichTextEditor = ({
   const toolbarIconClass = "min-h-10 min-w-10 h-10 w-10 p-0";
   // Show patient-field inserts only while the editor is focused to reduce density.
   const showPatientInfoToolbar = Boolean(patient) && isEditorFocused;
+  // Keep full formatting chrome off until the field is active to cut empty vertical space.
+  const showDenseToolbar =
+    isEditorFocused || isPopOutInstance || Boolean(findReplaceMode) || isPoppedOut;
 
   // Effective change tracking state - must be defined before any callbacks that use it
   const effectiveChangeTracking = localMarkingDisabled ? null : changeTracking;
@@ -626,6 +629,9 @@ export const RichTextEditor = ({
     }
   }, [value]);
 
+  const collapsedMinHeight = isPopOutInstance ? minHeight : "72px";
+  const activeMinHeight = isPopOutInstance ? minHeight : minHeight;
+
   const editorArea = (
     <>
       <div className={cn("max-h-[600px] overflow-y-auto editor-scroll-container relative", isPoppedOut && isPopOutInstance && "min-h-[60vh] max-h-[70vh]")}>
@@ -636,10 +642,14 @@ export const RichTextEditor = ({
           aria-label={section ? `${section} notes` : placeholder}
           contentEditable
           className={cn(
-            "p-3 rounded-b-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
-            isPopOutInstance ? "min-h-[55vh]" : "min-h-[120px]"
+            "p-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
+            showDenseToolbar && "rounded-t-none",
+            isPopOutInstance ? "min-h-[55vh]" : showDenseToolbar ? "min-h-[120px]" : "min-h-[72px]",
           )}
-          style={{ fontSize: `${fontSizeRef.current}px`, minHeight }}
+          style={{
+            fontSize: `${fontSizeRef.current}px`,
+            minHeight: showDenseToolbar ? activeMinHeight : collapsedMinHeight,
+          }}
           onInput={handleInput}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
@@ -659,11 +669,11 @@ export const RichTextEditor = ({
           suppressContentEditableWarning
         />
       </div>
-      <EditorStatusBar html={value} />
+      {showDenseToolbar ? <EditorStatusBar html={value} /> : null}
     </>
   );
 
-  const toolbarContent = (
+  const toolbarContent = showDenseToolbar ? (
     <>
       {showPatientInfoToolbar && (
         <div className="border-b border-border/50 bg-muted/20">
@@ -1194,7 +1204,7 @@ export const RichTextEditor = ({
         })()}
       </div>
     </>
-  );
+  ) : null;
 
   return (
     <>

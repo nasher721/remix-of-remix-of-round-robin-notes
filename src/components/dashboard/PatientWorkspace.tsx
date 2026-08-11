@@ -533,6 +533,24 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
         {/* Documentation tabs */}
         <nav className="mt-3 flex items-center gap-1 overflow-x-auto" aria-label="Documentation sections">
+          <p className="sr-only">
+            Status colors: green means ready, amber means in progress, gray means not started.
+          </p>
+          <div
+            className="mr-1 hidden items-center gap-2 text-[11px] xl:flex"
+            style={{ color: "var(--rr-label-2)" }}
+            aria-hidden="true"
+          >
+            <span className="inline-flex items-center gap-1">
+              <span className="rr-dot rr-st-ready" /> Ready
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="rr-dot rr-st-prog" /> In progress
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="rr-dot rr-st-todo" /> Not started
+            </span>
+          </div>
           {sectionStatuses.map(({ id, status }) => {
             const statusLabel = DOCUMENTATION_STATUS_LABELS[status];
             const tabLabel = `${TAB_LABELS[id]}, ${statusLabel}`;
@@ -566,7 +584,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
             >
               {readyCount} of {sectionStatuses.length} sections ready
               {incompleteSections.length > 0 ? (
-                <span className="block text-[11px] no-underline" style={{ color: "var(--rr-label-3)" }}>
+                <span className="block text-xs no-underline" style={{ color: "var(--rr-label-2)" }}>
                   Remaining: {incompleteLabels}
                 </span>
               ) : null}

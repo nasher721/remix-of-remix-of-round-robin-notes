@@ -96,7 +96,7 @@ export const MobilePatientDetail = ({
   hasPrevious = false,
   initialTodos,
 }: MobilePatientDetailProps) => {
-  const [openSections, setOpenSections] = useState<string[]>(["summary", "events"]);
+  const [openSections, setOpenSections] = useState<string[]>(["summary"]);
   const [activeSection, setActiveSection] = useState("summary");
   const [pendingClearField, setPendingClearField] = useState<string | null>(null);
   const [showRemovePatientDialog, setShowRemovePatientDialog] = useState(false);
@@ -117,7 +117,7 @@ export const MobilePatientDetail = ({
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
-    setOpenSections(["summary", "events"]);
+    setOpenSections(["summary"]);
     setActiveSection("summary");
   }, [patient.id]);
 
@@ -153,7 +153,8 @@ export const MobilePatientDetail = ({
 
   const handleJumpToSection = (sectionId: string) => {
     setActiveSection(sectionId);
-    setOpenSections((prev) => (prev.includes(sectionId) ? prev : [...prev, sectionId]));
+    // Mount only the selected chart section to avoid a tall stacked mobile document.
+    setOpenSections([sectionId]);
     window.setTimeout(() => {
       const target = document.getElementById(`section-${sectionId}`);
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -240,7 +241,7 @@ export const MobilePatientDetail = ({
                 size="icon"
                 onClick={onPrevious}
                 disabled={!hasPrevious}
-                className="h-9 w-9 rounded-l-full hover:bg-secondary"
+                className="min-h-11 min-w-11 h-11 w-11 rounded-l-full hover:bg-secondary"
                 aria-label="Previous patient"
               >
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -251,7 +252,7 @@ export const MobilePatientDetail = ({
                 size="icon"
                 onClick={onNext}
                 disabled={!hasNext}
-                className="h-9 w-9 rounded-r-full hover:bg-secondary"
+                className="min-h-11 min-w-11 h-11 w-11 rounded-r-full hover:bg-secondary"
                 aria-label="Next patient"
               >
                 <ArrowLeft className="h-4 w-4 rotate-180" aria-hidden="true" />
@@ -261,7 +262,7 @@ export const MobilePatientDetail = ({
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="More patient actions">
+              <Button variant="ghost" size="icon" className="min-h-11 min-w-11 h-11 w-11" aria-label="More patient actions">
                 <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
@@ -337,7 +338,7 @@ export const MobilePatientDetail = ({
               placeholder="Bed/Room"
               value={patient.bed}
               onChange={(e) => onUpdate(patient.id, "bed", e.target.value)}
-              className="w-24 h-8 text-sm bg-transparent border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="w-24 min-h-9 h-9 text-sm bg-transparent border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               autoComplete="off"
               autoCorrect="off"
               aria-label="Bed or room"
@@ -390,9 +391,13 @@ export const MobilePatientDetail = ({
 
       {/* Content Sections */}
       <Accordion
-        type="multiple"
-        value={openSections}
-        onValueChange={setOpenSections}
+        type="single"
+        collapsible
+        value={openSections[0] ?? ""}
+        onValueChange={(value) => {
+          setOpenSections(value ? [value] : []);
+          if (value) setActiveSection(value);
+        }}
         className="px-4"
       >
         {/* Clinical Summary */}
@@ -511,12 +516,12 @@ export const MobilePatientDetail = ({
               <ImageIcon className="h-4 w-4 text-blue-500" />
               <span className="font-medium">Imaging</span>
               {imagingTextCount > 0 && (
-                <span className="text-[11px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded dark:text-blue-100 dark:bg-blue-950/60">
                   {imagingTextCount} chars
                 </span>
               )}
               {imagingImageCount > 0 && (
-                <span className="text-[11px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                <span className="text-[11px] text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded dark:text-blue-100 dark:bg-blue-950/60">
                   {imagingImageCount} img
                 </span>
               )}
