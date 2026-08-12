@@ -11,8 +11,16 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { indexedDBQueue, QueuedMutation, ConflictData } from './indexedDBQueue';
+import { CircuitOpenError } from '@/lib/circuitBreaker';
 import { toast } from 'sonner';
-import { logInfo } from '../observability/logger';
+import { logInfo, logWarn } from '../observability/logger';
+
+/** Detect a circuit-breaker rejection, including one wrapped by apiFetch. */
+function asCircuitOpenError(error: unknown): CircuitOpenError | null {
+  if (error instanceof CircuitOpenError) return error;
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  return cause instanceof CircuitOpenError ? cause : null;
+}
 
 // Types
 export type ConflictResolution = 'server-wins' | 'client-wins' | 'merge' | 'manual';
@@ -230,6 +238,25 @@ class SyncEngine {
             mutationCompleted = true;
           } catch (error) {
             if (this.abortController.signal.aborted) break;
+
+            // A circuit-breaker rejection means the backend/route is in a
+            // transient cooldown, not that the mutation is bad. Burning
+            // maxRetries against an open circuit would condemn the write in
+            // under a second; instead leave it pending, end this pass, and
+            // retry after the breaker resets.
+            const circuitOpen = asCircuitOpenError(error);
+            if (circuitOpen) {
+              logWarn(`[SyncEngine] Circuit "${circuitOpen.circuitName}" open; deferring sync ${circuitOpen.remainingMs}ms`);
+              hasMore = false;
+              const retryDelay = circuitOpen.remainingMs + 500;
+              setTimeout(() => {
+                if (typeof navigator === "undefined" || navigator.onLine) {
+                  void this.sync();
+                }
+              }, retryDelay);
+              break;
+            }
+
             console.error(`[SyncEngine] Mutation ${mutation.id} failed:`, error);
             
             const shouldRetry = await indexedDBQueue.markFailed(

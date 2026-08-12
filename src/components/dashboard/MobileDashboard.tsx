@@ -40,7 +40,7 @@ const PrintExportModal = React.lazy(() =>
   import("@/components/PrintExportModal").then((module) => ({ default: module.PrintExportModal })),
 );
 const PhraseManager = React.lazy(() =>
-  import("@/components/phrases").then((module) => ({ default: module.PhraseManager })),
+  import("@/components/phrases/PhraseManager").then((module) => ({ default: module.PhraseManager })),
 );
 import {
   Select,

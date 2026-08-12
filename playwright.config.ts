@@ -28,8 +28,12 @@ loadEnvFile(".env.local");
  * Playwright E2E config for Round Robin Notes.
  * Run: npm run test:e2e (or npx playwright test)
  * For login flow, set E2E_TEST_EMAIL and E2E_TEST_PASSWORD (real Supabase required).
+ * Set E2E_PORT when 8080 is occupied by another local service.
  * @see e2e/README.md
  */
+const e2ePort = process.env.E2E_PORT ?? "8080";
+const e2eBaseURL = `http://localhost:${e2ePort}`;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -38,7 +42,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:8080",
+    baseURL: e2eBaseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -46,8 +50,8 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:8080",
+    command: `npm run dev -- --port ${e2ePort} --strictPort`,
+    url: e2eBaseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

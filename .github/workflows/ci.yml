@@ -42,6 +42,7 @@ jobs:
         run: |
           npm run build
           npm run security:check-client-bundle
+          npm run security:check-bundle-reachability
 
   edge-functions:
     name: Edge function checks

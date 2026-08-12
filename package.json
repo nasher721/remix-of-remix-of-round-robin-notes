@@ -24,6 +24,7 @@
     "edge:verify": "deno fmt --check supabase/functions && deno lint supabase/functions && deno check --no-config --lock deno.lock --frozen supabase/functions/_shared/*.ts supabase/functions/*/index.ts && deno test --no-config --lock deno.lock --frozen supabase/functions",
     "verify:migrations": "node scripts/verify-supabase-migration-order.mjs",
     "security:check-client-bundle": "node scripts/assert-client-secret-not-bundled.mjs",
+    "security:check-bundle-reachability": "node scripts/assert-no-optional-native-in-bundle.mjs",
     "clinical:typecheck": "npm --prefix clinical-mcp-server run typecheck",
     "clinical:test": "npm --prefix clinical-mcp-server test",
     "clinical:build": "npm --prefix clinical-mcp-server run build",

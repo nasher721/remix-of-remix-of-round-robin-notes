@@ -21,6 +21,7 @@ import {
 } from "@/lib/patientImages";
 import { logError, logWarn } from "@/lib/observability/logger";
 import { indexedDBQueue } from "@/lib/offline/indexedDBQueue";
+import { CircuitOpenError } from "@/lib/circuitBreaker";
 
 export interface PatientMutationsDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
@@ -42,12 +43,21 @@ class PatientWriteConflictError extends Error {
 }
 
 function isRetryablePatientWriteError(error: unknown): boolean {
-    const candidate = error as { status?: number; code?: string; message?: string } | null;
+    if (error instanceof PatientWriteConflictError) return false;
+    const candidate = error as { status?: number; code?: string; message?: string; cause?: unknown } | null;
     const status = candidate?.status;
     if (status === 408 || status === 429 || (typeof status === "number" && status >= 500)) return true;
     const message = candidate?.message?.toLowerCase() ?? "";
     if (error instanceof TypeError || /network|fetch|timeout|connection|temporar/.test(message)) return true;
-    return typeof navigator !== "undefined" && !navigator.onLine && message.length === 0;
+    // The API circuit breaker opens on transient connectivity/backend failures
+    // — exactly the writes the durable offline queue exists to protect.
+    // apiFetch wraps CircuitOpenError in an ApiError, so check both the error
+    // and its cause.
+    if (error instanceof CircuitOpenError || candidate?.cause instanceof CircuitOpenError) return true;
+    // While the browser reports offline, any failure without an HTTP status is
+    // connectivity-driven and queueable. (Strict === false: outside browsers
+    // navigator.onLine is undefined, not offline.)
+    return typeof navigator !== "undefined" && navigator.onLine === false && typeof status !== "number";
 }
 
 function collectReferencedPatientImageKeys(
@@ -160,6 +170,51 @@ export function usePatientMutations({
         (requestOwnerId: string) => activeOwnerIdRef.current === requestOwnerId,
         []
     );
+
+    // Reconcile per-patient save states with the durable offline queue: a
+    // queued write that disappears from the queue has drained successfully;
+    // one that exhausted its retries surfaces as an error. Without this the
+    // header would claim "Offline queued" forever after a successful sync.
+    const patientSaveStatesRef = React.useRef(patientSaveStates);
+    React.useEffect(() => {
+        patientSaveStatesRef.current = patientSaveStates;
+    }, [patientSaveStates]);
+
+    React.useEffect(() => {
+        const unsubscribe = indexedDBQueue.subscribe((queue) => {
+            const current = patientSaveStatesRef.current;
+            const drained: string[] = [];
+            const failed: string[] = [];
+            for (const [patientId, state] of Object.entries(current)) {
+                if (state !== "queued") continue;
+                const record = queue.find(
+                    (mutation) => mutation.type === "patient" && mutation.entityId === patientId,
+                );
+                if (!record) drained.push(patientId);
+                else if (record.status === "failed") failed.push(patientId);
+            }
+            if (drained.length === 0 && failed.length === 0) return;
+            setPatientSaveStates((prev) => {
+                const next = { ...prev };
+                for (const id of drained) if (next[id] === "queued") next[id] = "saved";
+                for (const id of failed) if (next[id] === "queued") next[id] = "error";
+                return next;
+            });
+            // The replay bumped the server revision outside this hook's write
+            // path; drop the cached expected revision and refetch so the next
+            // edit does not hit a spurious conflict.
+            const ownerId = activeOwnerIdRef.current;
+            for (const patientId of drained) {
+                if (ownerId) {
+                    patientServerRevisionRef.current.delete(`${ownerId}:${patientId}`);
+                }
+            }
+            if (drained.length > 0) {
+                void fetchPatients({ force: true });
+            }
+        });
+        return unsubscribe;
+    }, [fetchPatients]);
 
     const deleteImagesIfUnreferenced = React.useCallback(async (
         candidateKeys: string[],

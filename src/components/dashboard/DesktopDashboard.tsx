@@ -43,7 +43,7 @@ import type { ChangeTrackingStyles } from "@/types/changeTracking";
 // Lazy-load heavy modal components for better initial bundle size
 const PrintExportModal = React.lazy(() => import("@/components/PrintExportModal").then(m => ({ default: m.PrintExportModal })));
 const MultiPatientComparison = React.lazy(() => import("@/components/MultiPatientComparison").then(m => ({ default: m.MultiPatientComparison })));
-const PhraseManager = React.lazy(() => import("@/components/phrases").then(m => ({ default: m.PhraseManager })));
+const PhraseManager = React.lazy(() => import("@/components/phrases/PhraseManager").then(m => ({ default: m.PhraseManager })));
 const AICommandPalette = React.lazy(() => import("@/components/tools/AICommandPalette").then(m => ({ default: m.AICommandPalette })));
 import { Button } from "@/components/ui/button";
 import {

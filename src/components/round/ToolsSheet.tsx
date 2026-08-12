@@ -87,7 +87,7 @@ const MultiPatientComparison = React.lazy(() =>
   import("@/components/MultiPatientComparison").then((m) => ({ default: m.MultiPatientComparison })),
 )
 const PhraseManager = React.lazy(() =>
-  import("@/components/phrases").then((m) => ({ default: m.PhraseManager })),
+  import("@/components/phrases/PhraseManager").then((m) => ({ default: m.PhraseManager })),
 )
 const AICommandPalette = React.lazy(() =>
   import("@/components/tools/AICommandPalette").then((m) => ({ default: m.AICommandPalette })),

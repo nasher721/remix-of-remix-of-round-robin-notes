@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { getSafeAuthErrorMessage, type AuthProviderLabel } from "@/lib/auth/authErrorMessage";
+import { supabase } from "@/integrations/supabase/client";
 import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 
 const authSchema = z.object({
@@ -105,7 +106,6 @@ const Auth = () => {
     const label: AuthProviderLabel = provider === "google" ? "Google" : "Apple";
     setProviderLoading(true);
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {

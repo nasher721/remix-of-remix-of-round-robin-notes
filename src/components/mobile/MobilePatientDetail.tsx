@@ -60,6 +60,15 @@ import type { PatientTodo } from "@/types/todo";
 import { extractPatientImageObjectKeyList } from "@/lib/patientImages";
 import { patientSafetyLabel } from "@/lib/patientIdentity";
 
+const SECTION_CHIPS = [
+  { id: "summary", label: "Summary", icon: FileText },
+  { id: "events", label: "Events", icon: Calendar },
+  { id: "imaging", label: "Imaging", icon: ImageIcon },
+  { id: "labs", label: "Labs", icon: TestTube },
+  { id: "medications", label: "Meds", icon: Pill },
+  { id: "systems", label: "Systems", icon: Activity },
+] as const;
+
 interface MobilePatientDetailProps {
   patient: Patient;
   onBack: () => void;
@@ -133,17 +142,8 @@ export const MobilePatientDetail = ({
     setActiveSection("summary");
   }, [patient.id]);
 
-  const sectionChips = [
-    { id: "summary", label: "Summary", icon: FileText },
-    { id: "events", label: "Events", icon: Calendar },
-    { id: "imaging", label: "Imaging", icon: ImageIcon },
-    { id: "labs", label: "Labs", icon: TestTube },
-    { id: "medications", label: "Meds", icon: Pill },
-    { id: "systems", label: "Systems", icon: Activity },
-  ];
-
   useEffect(() => {
-    const sections = sectionChips
+    const sections = SECTION_CHIPS
       .map((chip) => document.getElementById(`section-${chip.id}`))
       .filter((el): el is HTMLElement => Boolean(el));
     if (sections.length === 0) return;
@@ -370,7 +370,7 @@ export const MobilePatientDetail = ({
 
       <div className="px-4 py-3 border-b border-border bg-background/95">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin" role="tablist" aria-label="Documentation sections">
-          {sectionChips.map((chip) => {
+          {SECTION_CHIPS.map((chip) => {
             const Icon = chip.icon;
             const isActive = activeSection === chip.id;
             return (

@@ -89,7 +89,6 @@ export function useLazyData<TModule, TData>(
 // Cache resolved modules to avoid re-loading
 let ibccCache: typeof import('@/data/ibccContent') | null = null;
 let guidelinesCache: typeof import('@/data/clinicalGuidelinesData') | null = null;
-let chapterContentCache: typeof import('@/data/ibccChapterContent') | null = null;
 
 export async function loadIBCCData() {
   if (!ibccCache) {
@@ -105,12 +104,11 @@ export async function loadGuidelinesData() {
   return guidelinesCache;
 }
 
-export async function loadChapterContent() {
-  if (!chapterContentCache) {
-    chapterContentCache = await import('@/data/ibccChapterContent');
-  }
-  return chapterContentCache;
-}
+// NOTE: ibccChapterContent intentionally has no dynamic loader here. It is
+// statically imported by IBCCChapterView, which is only reachable through the
+// React.lazy IBCCPanelContent chunk, so the 160 KB module already loads with
+// the IBCC panel and never enters the entry bundle. A dynamic import would be
+// an ineffective no-op (Rollup keeps it in the static importer's chunk).
 
 /**
  * Preload data modules in the background.

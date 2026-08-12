@@ -250,3 +250,18 @@ export function getAllCircuitStates(): Record<string, { state: CircuitState; fai
   }
   return states;
 }
+
+/**
+ * Reset every registered breaker. Called when the browser regains
+ * connectivity: OPEN circuits caused by an outage should allow traffic
+ * immediately instead of serving CircuitOpenError through the cooldown.
+ */
+export function resetAllCircuitBreakers(): void {
+  for (const cb of registry.values()) {
+    cb.reset();
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", resetAllCircuitBreakers);
+}
