@@ -8,16 +8,12 @@ close. All engineering-controlled items are complete and evidenced below.
 
 | Item | Value |
 | --- | --- |
-| Repo SHA (CI green) | `4761978` — fix(ci): restore green release pipeline and gate Vercel auto-deploy |
-| CI run | `31553909471` (green) |
-| Supabase deploy workflow | run `31554068909` **failed** — GitHub secret `SUPABASE_ACCESS_TOKEN` is empty; re-run after secrets are set (`SUPABASE_ACCESS_TOKEN`, `VERCEL_DEPLOY_HOOK_URL`) |
-| Frontend production deploy | **Not yet shipped** — held intentionally until the deploy hook secret exists; live bundle predates the revision work |
+| Repo SHA (deployed) | `c9aaf44` — chore(db): placeholder files for 18 out-of-band migration versions (tree identical to `613ddf5` offline/conflict fixes) |
+| CI run | `31563682430` (green) |
+| Supabase deploy workflow | run `31563844814` **success** — migration history reconciled, SHA revalidated, `disable_signup: true` enforced and confirmed in the Auth settings response |
+| Frontend production deploy | **Shipped and verified** — Vercel hook job `PlPVAMoedP6LxP3K3am6`; live entry `index-DC1nPnrW.js` is byte-identical in size (2,099,063) to the local release build and contains the revision/queue code (`revision`, `Offline queued`, `CircuitOpen` markers present) |
 | Supabase project | `zsavxqvnseqxusfwdovu` (RollingRounds) |
-| Latest migration versions in prod | through `20260811133644_create_round_state` (includes `20260811000000_add_patient_optimistic_revision`, `20260811014046_add_distributed_edge_rate_limits`); history repaired per `supabase/manual/2026-08-11-migration-history-repair.sql` |
-
-Follow-up engineering commit (this packet's work: offline-queue/conflict
-fixes, bundle budgets, e2e, docs) lands after `4761978`; see git log for the
-exact SHA once pushed. The deploy workflow must be re-run at that SHA.
+| Latest migration versions in prod | through `20260811133644_create_round_state`; history repaired per `supabase/manual/2026-08-11-migration-history-repair.sql` plus 18 placeholder files for out-of-band versions |
 
 ## 2. Evidence index
 
@@ -55,7 +51,7 @@ exact SHA once pushed. The deploy workflow must be re-run at that SHA.
 
 | Gate | Status |
 | --- | --- |
-| CI/deployment workflows green at exact production SHA | PARTIAL — CI green at `4761978`; deploy workflow blocked on empty GitHub secrets |
+| CI/deployment workflows green at exact production SHA | DONE — CI `31563682430` + deploy `31563844814` green at `c9aaf44`; live bundle verified |
 | Backend migration deployed; revision/RLS proven | DONE (2026-08-11, evidence above) |
 | Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — Chromium e2e automated and passing; cross-device/WebKit manual cells open |
 | Accessibility/responsive validation on representative devices | OPEN (human) |
@@ -66,9 +62,8 @@ exact SHA once pushed. The deploy workflow must be re-run at that SHA.
 
 ## 4. Open human gates (required before GO)
 
-1. **GitHub secrets** — add `SUPABASE_ACCESS_TOKEN` and
-   `VERCEL_DEPLOY_HOOK_URL`, then re-run deploy run `31554068909`
-   (or dispatch the workflow at the new SHA) and ship the frontend.
+1. ~~**GitHub secrets**~~ — DONE 2026-08-12: secrets added, deploy run
+   `31563844814` green, live bundle verified at `c9aaf44`.
 2. **BAA/DPA and PHI/provider approvals** — evidence items in
    `docs/clinical-data-flow.md` (allowlist, retention, key custody,
    redaction tests, clinician review, legacy credential rotation).
@@ -101,9 +96,9 @@ From the Supabase security advisors on 2026-08-11/12:
   **Proposed:** enable in Supabase Auth settings.
 - Several RLS policies lack `TO authenticated` (hygiene; default is PUBLIC
   role scoping). **Proposed:** tighten in a follow-up migration.
-- `disable_signup` could not be verified/enforced because the deploy
-  workflow failed before that step; confirm restricted enrollment in the
-  Supabase Auth dashboard.
+- ~~`disable_signup` unverified~~ — RESOLVED 2026-08-12: the deploy workflow
+  enforced `disable_signup: true` and the Auth settings response confirmed
+  restricted enrollment is active.
 
 Any one of these changes can affect production behavior — they are listed
 for explicit owner approval, not applied.
