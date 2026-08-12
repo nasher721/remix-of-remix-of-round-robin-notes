@@ -113,12 +113,14 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
           onDoneAndNext={markDoneAndNext}
           onExportRecovery={() => exportRoundRecovery(round, patients)}
         >
-          <PatientFocus
-            key={patient?.id ?? "empty"}
-            patient={patient}
-            touchFriendly
-            onGoHome={handleGoHome}
-          />
+          <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden">
+            <PatientFocus
+              key={patient?.id ?? "empty"}
+              patient={patient}
+              touchFriendly
+              onGoHome={handleGoHome}
+            />
+          </main>
         </RoundChrome>
       ) : (
         <>
@@ -131,7 +133,7 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
             showLifecycleActions={false}
             onExportRecovery={() => exportRoundRecovery(round, patients)}
           />
-          <main className="min-h-0 flex-1 overflow-hidden">
+          <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden">
             {surface === "home" && (
               <RoundHome
                 touchFriendly

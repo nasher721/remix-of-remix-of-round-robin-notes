@@ -25,12 +25,6 @@ export type BatchProgress = {
   results: BatchResult[];
 };
 
-export type UndoEntry = {
-  patientId: string;
-  field: string;
-  previousValue: string;
-};
-
 export const useBatchCourseGenerator = () => {
   const assertBackendReady = useAssertBackendReady();
   const { getModelForFeature } = useSettings();
@@ -41,7 +35,6 @@ export const useBatchCourseGenerator = () => {
     current: null,
     results: [],
   });
-  const [undoStack, setUndoStack] = React.useState<UndoEntry[][]>([]);
   const abortControllerRef = React.useRef<AbortController | null>(null);
 
   const toTodoRow = (t: PatientTodo): { content: string | null; completed: boolean; section: string | null; created_at: string } => ({
@@ -54,7 +47,6 @@ export const useBatchCourseGenerator = () => {
   const generateBatch = React.useCallback(async (
     patients: Patient[],
     type: BatchGenerationType,
-    onUpdatePatient?: (id: string, field: string, value: unknown) => void,
     todosByPatientId?: Record<string, PatientTodo[]>
   ): Promise<BatchResult[]> => {
     // Filter patients with content based on generation type
@@ -95,10 +87,6 @@ export const useBatchCourseGenerator = () => {
     setIsGenerating(true);
     
     const results: BatchResult[] = [];
-    const undoEntries: UndoEntry[] = [];
-    // Daily summary and interval events go to intervalEvents field
-    const targetField = type === 'course' ? 'clinicalSummary' : 'intervalEvents';
-
     setProgress({
       total: patientsWithContent.length,
       completed: 0,
@@ -218,32 +206,6 @@ export const useBatchCourseGenerator = () => {
             content,
           });
 
-          // If auto-insert is enabled, save for undo and update patient
-          if (onUpdatePatient && content) {
-            const previousValue = type === 'course' 
-              ? patient.clinicalSummary 
-              : patient.intervalEvents;
-            
-            undoEntries.push({
-              patientId: patient.id,
-              field: targetField,
-              previousValue,
-            });
-
-            let newValue: string;
-            if (type === 'course') {
-              newValue = previousValue
-                ? `${previousValue}\n\n---\n**Hospital Course:**\n${content}`
-                : `**Hospital Course:**\n${content}`;
-            } else {
-              // For both intervalEvents and dailySummary, append to intervalEvents
-              newValue = previousValue
-                ? `${previousValue}\n\n${content}`
-                : content;
-            }
-            
-            onUpdatePatient(patient.id, targetField, newValue);
-          }
         }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -262,11 +224,6 @@ export const useBatchCourseGenerator = () => {
         completed: i + 1,
         results: [...results],
       }));
-    }
-
-    // Save undo entries if any updates were made
-    if (undoEntries.length > 0) {
-      setUndoStack(prev => [undoEntries, ...prev.slice(0, 4)]); // Keep last 5 batches
     }
 
     setIsGenerating(false);
@@ -291,38 +248,6 @@ export const useBatchCourseGenerator = () => {
     return results;
   }, [getModelForFeature, assertBackendReady]);
 
-  // Backwards compatible wrapper for course generation
-  const generateBatchCourses = React.useCallback(async (
-    patients: Patient[],
-    onUpdatePatient?: (id: string, field: string, value: unknown) => void
-  ): Promise<BatchResult[]> => {
-    return generateBatch(patients, 'course', onUpdatePatient);
-  }, [generateBatch]);
-
-  // New method for interval events
-  const generateBatchIntervalEvents = React.useCallback(async (
-    patients: Patient[],
-    onUpdatePatient?: (id: string, field: string, value: unknown) => void
-  ): Promise<BatchResult[]> => {
-    return generateBatch(patients, 'intervalEvents', onUpdatePatient);
-  }, [generateBatch]);
-
-  const undoLastBatch = React.useCallback((
-    onUpdatePatient: (id: string, field: string, value: unknown) => void
-  ) => {
-    if (undoStack.length === 0) return;
-
-    const [lastBatch, ...rest] = undoStack;
-    
-    // Restore all previous values
-    lastBatch.forEach(entry => {
-      onUpdatePatient(entry.patientId, entry.field, entry.previousValue);
-    });
-
-    setUndoStack(rest);
-    toast.success(`Undone ${lastBatch.length} change${lastBatch.length > 1 ? 's' : ''}`);
-  }, [undoStack]);
-
   const cancelGeneration = React.useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -332,16 +257,10 @@ export const useBatchCourseGenerator = () => {
     }
   }, []);
 
-  const canUndo = undoStack.length > 0;
-
   return {
     generateBatch,
-    generateBatchCourses,
-    generateBatchIntervalEvents,
     isGenerating,
     progress,
     cancelGeneration,
-    undoLastBatch,
-    canUndo,
   };
 };

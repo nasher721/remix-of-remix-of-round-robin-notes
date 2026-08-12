@@ -86,6 +86,8 @@ interface RichTextEditorProps {
   } | null;
   patient?: Patient;
   section?: string;
+  /** Visible heading that labels the contenteditable region. */
+  ariaLabelledby?: string;
   /** When true, show an expand button to open this editor in a large focus overlay */
   popOutAvailable?: boolean;
   /** Internal: when true, this instance is the one rendered inside the pop-out dialog */
@@ -103,6 +105,7 @@ export const RichTextEditor = ({
   changeTracking = null,
   patient,
   section,
+  ariaLabelledby,
   popOutAvailable = false,
   isPopOutInstance = false,
 }: RichTextEditorProps) => {
@@ -658,10 +661,12 @@ export const RichTextEditor = ({
           ref={editorRef}
           role="textbox"
           aria-multiline="true"
-          aria-label={section ? `${section} notes` : placeholder}
+          aria-labelledby={ariaLabelledby}
+          aria-label={ariaLabelledby ? undefined : section ? `${section} notes` : placeholder}
+          spellCheck
           contentEditable
           className={cn(
-            "p-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
+            "p-3 rounded-lg empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-0 prose prose-sm max-w-none relative whitespace-pre-wrap text-foreground",
             showDenseToolbar && "rounded-t-none",
             isPopOutInstance ? "min-h-[55vh]" : showDenseToolbar ? "min-h-[120px]" : "min-h-[72px]",
           )}
@@ -848,7 +853,7 @@ export const RichTextEditor = ({
             <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto w-56">
               {/* Text Style group */}
               {(!showButtonInBar('underline') || !showButtonInBar('strikethrough') || !showButtonInBar('superscript') || !showButtonInBar('subscript')) && (
-                <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Text Style</DropdownMenuLabel>
+                <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Text Style</DropdownMenuLabel>
               )}
               {!showButtonInBar('underline') && <DropdownMenuItem onClick={() => execCommand('underline')}><Underline className="h-3.5 w-3.5 mr-2" /> Underline</DropdownMenuItem>}
               {!showButtonInBar('strikethrough') && <DropdownMenuItem onClick={() => execCommand('strikeThrough')}><Strikethrough className="h-3.5 w-3.5 mr-2" /> Strikethrough</DropdownMenuItem>}
@@ -859,7 +864,7 @@ export const RichTextEditor = ({
               {!showButtonInBar('heading') && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Headings</DropdownMenuLabel>
+                  <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Headings</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => execCommand('formatBlock', '<p>')}>Normal text</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h1>')}>Heading 1</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('formatBlock', '<h2>')}>Heading 2</DropdownMenuItem>
@@ -872,7 +877,7 @@ export const RichTextEditor = ({
               {(!showButtonInBar('bulletList') || !showButtonInBar('numberedList') || !showButtonInBar('indent')) && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Lists & Indent</DropdownMenuLabel>
+                  <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Lists & Indent</DropdownMenuLabel>
                 </>
               )}
               {!showButtonInBar('bulletList') && <DropdownMenuItem onClick={() => execCommand('insertUnorderedList')}><List className="h-3.5 w-3.5 mr-2" /> Bullet list</DropdownMenuItem>}
@@ -888,7 +893,7 @@ export const RichTextEditor = ({
               {!showButtonInBar('alignLeft') && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Alignment</DropdownMenuLabel>
+                  <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Alignment</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => execCommand('justifyLeft')}><AlignLeft className="h-3.5 w-3.5 mr-2" /> Align left</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('justifyCenter')}><AlignCenter className="h-3.5 w-3.5 mr-2" /> Align center</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => execCommand('justifyRight')}><AlignRight className="h-3.5 w-3.5 mr-2" /> Align right</DropdownMenuItem>
@@ -900,7 +905,7 @@ export const RichTextEditor = ({
               {(!showButtonInBar('link') || !showButtonInBar('table') || !showButtonInBar('find')) && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Insert</DropdownMenuLabel>
+                  <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Insert</DropdownMenuLabel>
                 </>
               )}
               {!showButtonInBar('link') && <DropdownMenuItem onClick={handleInsertLink}><Link2 className="h-3.5 w-3.5 mr-2" /> Insert link</DropdownMenuItem>}
@@ -910,7 +915,7 @@ export const RichTextEditor = ({
               {!showButtonInBar('fontSize') && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Typography</DropdownMenuLabel>
+                  <DropdownMenuLabel className="px-2 py-1 text-xs uppercase tracking-wider text-muted-foreground">Typography</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => { handleFontSizeChange([14]); applyFontSizeToSelection(); }}><Type className="h-3.5 w-3.5 mr-2" /> Font size 14px</DropdownMenuItem>
                 </>
               )}

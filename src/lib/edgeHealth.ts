@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabaseUrl } from '@/integrations/supabase/client';
 import { TimeoutError, withTimeout } from '@/lib/requestTimeout';
 import { recordTelemetryEvent } from '@/lib/observability/telemetry';
 
@@ -26,16 +26,20 @@ type SingleProbeOutcome =
 
 async function runSingleProbe(): Promise<SingleProbeOutcome> {
   try {
-    const { data, error } = await withTimeout(
-      supabase.functions.invoke('healthcheck', { body: {} }),
+    const response = await withTimeout(
+      fetch(`${supabaseUrl}/functions/v1/healthcheck`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      }),
       HEALTH_CHECK_TIMEOUT_MS,
       'healthcheck',
     );
 
-    if (error) {
+    if (!response.ok) {
       return { kind: 'unhealthy', reason: 'invoke_error' };
     }
 
+    const data: unknown = await response.json();
     const status = data && typeof data === 'object' ? (data as { status?: string }).status : undefined;
     if (status === 'healthy') {
       return { kind: 'healthy' };

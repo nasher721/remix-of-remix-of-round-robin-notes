@@ -141,7 +141,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
         showLifecycleActions={surface === "focus"}
         onExportRecovery={() => exportRoundRecovery(round, patients)}
       />
-      <main className="min-h-0 flex-1">
+      <main id="main-content" tabIndex={-1} className="min-h-0 flex-1">
         {surface === "home" && (
           <RoundHome onStartRound={handleStartRound} onEndRound={handleEndRound} />
         )}

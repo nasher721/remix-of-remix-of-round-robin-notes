@@ -191,8 +191,7 @@ test('session storage adapter falls back to memory when access throws', () => {
     storage.setItem('session-key', 'session-value');
     assert.equal(storage.getItem('session-key'), 'session-value');
     assert.equal(storage.isDegraded(), true);
-    assert.equal(warnMessages.length, 1);
-    assert.match(String(warnMessages[0]?.[0]), /sessionStorage/);
+    assert.equal(warnMessages.length, 0);
   } finally {
     console.warn = originalWarn;
     if (descriptor) Object.defineProperty(window, 'sessionStorage', descriptor);

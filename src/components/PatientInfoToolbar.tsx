@@ -17,6 +17,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { PATIENT_INFO_TOOLBAR_ITEMS, DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS } from "@/constants/config";
 import { PatientInfoToolbarCustomizeDialog } from "./PatientInfoToolbarCustomizeDialog";
 import { cn } from "@/lib/utils";
+import { getPatientIdentity, normalizePatientIdentityValue, NOT_DOCUMENTED } from "@/lib/patientIdentity";
 import type { Patient } from "@/types/patient";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -35,14 +36,14 @@ interface PatientInfoToolbarProps {
 
 const formatMedications = (patient: Patient): string => {
   const { infusions, scheduled, prn, rawText } = patient.medications;
-  if (rawText?.trim()) return rawText;
+  if (rawText?.trim()) return normalizePatientIdentityValue(rawText);
 
   const medications = [...infusions, ...scheduled, ...prn].filter(Boolean);
-  return medications.length > 0 ? medications.join(", ") : "[Medications]";
+  return medications.length > 0 ? medications.join(", ") : NOT_DOCUMENTED;
 };
 
 const formatVitals = (patient: Patient): string => {
-  if (!patient.vitals) return "[Vitals]";
+  if (!patient.vitals) return NOT_DOCUMENTED;
 
   const values = [
     patient.vitals.temp && `Temp ${patient.vitals.temp}`,
@@ -52,7 +53,7 @@ const formatVitals = (patient: Patient): string => {
     patient.vitals.spo2 && `SpO₂ ${patient.vitals.spo2}`,
   ].filter((value): value is string => Boolean(value));
 
-  return values.length > 0 ? values.join(", ") : "[Vitals]";
+  return values.length > 0 ? values.join(", ") : NOT_DOCUMENTED;
 };
 
 export const PatientInfoToolbar = ({
@@ -85,38 +86,39 @@ export const PatientInfoToolbar = ({
 
   const handleInsert = React.useCallback((itemId: string) => {
     if (!patient) {
-      onInsert(`[${itemId}]`);
+      onInsert(NOT_DOCUMENTED);
       return;
     }
 
+    const identity = getPatientIdentity(patient);
     let value = "";
     switch (itemId) {
       case "patientName":
-        value = patient.name || "[Name]";
+        value = identity.name;
         break;
       case "mrn":
-        value = patient.mrn || "[MRN]";
+        value = identity.mrn;
         break;
       case "dob":
-        value = "[DOB]";
+        value = identity.dob;
         break;
       case "room":
-        value = patient.bed || "[Room]";
+        value = identity.room;
         break;
       case "codeStatus":
-        value = patient.codeStatus || "[Code Status]";
+        value = identity.codeStatus;
         break;
       case "attending":
-        value = patient.attendingPhysician || "[Attending]";
+        value = identity.attending;
         break;
       case "diagnosis":
-        value = "[Diagnosis]";
+        value = identity.diagnosis;
         break;
       case "admissionDate":
-        value = "[Admission]";
+        value = NOT_DOCUMENTED;
         break;
       case "allergies":
-        value = "[No Allergies]";
+        value = identity.allergies;
         break;
       case "medications":
         value = formatMedications(patient);
@@ -125,10 +127,10 @@ export const PatientInfoToolbar = ({
         value = formatVitals(patient);
         break;
       case "labs":
-        value = patient.labs || "[Labs]";
+        value = normalizePatientIdentityValue(patient.labs);
         break;
       default:
-        value = `[${itemId}]`;
+        value = NOT_DOCUMENTED;
     }
 
     onInsert(value);
@@ -173,7 +175,7 @@ export const PatientInfoToolbar = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">
+              <DropdownMenuLabel className="text-xs uppercase tracking-wider text-muted-foreground px-2 py-1">
                 Additional Fields
               </DropdownMenuLabel>
               {dropdownItems.map((item) => {

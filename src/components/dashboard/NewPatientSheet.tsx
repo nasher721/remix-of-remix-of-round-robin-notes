@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { PATIENT_TEMPLATES, getTemplateById } from "@/lib/templates/patientTemplates";
+import { normalizePatientAlerts } from "@/lib/patientIdentity";
 
 /** Radix Select forbids `value=""` on SelectItem; use this sentinel for "start from scratch". */
 const NEW_PATIENT_TEMPLATE_SCRATCH = "__new_patient_scratch__" as const;
@@ -220,12 +221,12 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
     setNameError(null);
     setSubmitting(true);
     try {
-      const parsedAllergies = allergies
+      const parsedAllergies = normalizePatientAlerts(allergies
         ? allergies
             .split(",")
             .map((a) => a.trim())
             .filter((a) => a.length > 0)
-        : [];
+        : []);
 
       const parsedConsultingTeam = consultingTeam
         ? consultingTeam

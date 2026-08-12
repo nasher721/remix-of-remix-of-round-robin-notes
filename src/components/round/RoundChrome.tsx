@@ -2,9 +2,10 @@ import * as React from "react";
 import { Check, ChevronLeft, ChevronRight, Download, Home, Menu, MoreHorizontal, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { RoundSyncStatus } from "@/types/round";
 import { useRoundSession } from "@/contexts/RoundSessionContext";
 import { safeLocalStorage, safeSessionStorage } from "@/utils/safeStorage";
+import { describeRoundSync } from "@/lib/round/sync/syncPresentation";
+import { toast } from "sonner";
 
 export interface RoundChromeProps {
   onOpenRoster: () => void;
@@ -31,46 +32,6 @@ export interface RoundChromeProps {
   /** Download local PHI recovery JSON when sync cannot be trusted. */
   onExportRecovery?: () => void;
 }
-
-const formatSyncCueLabel = (
-  status: RoundSyncStatus,
-  pendingCount: number,
-  failedCount: number,
-  savedAt: string,
-): string | null => {
-  if (status === "idle") {
-    const parsed = new Date(savedAt);
-    return Number.isNaN(parsed.getTime())
-      ? "Saved"
-      : `Saved at ${parsed.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
-  }
-  if (status === "offline") {
-    return pendingCount > 0 ? `offline · ${pendingCount} pending` : "offline";
-  }
-  if (status === "failed") {
-    return failedCount > 0 ? `sync failed · ${failedCount} failed` : "sync failed";
-  }
-  if (status === "syncing") {
-    return pendingCount > 0 ? `syncing · ${pendingCount}` : "syncing";
-  }
-  if (status === "conflict") return "conflict";
-  return null;
-};
-
-const formatChromeCueLabel = (
-  status: RoundSyncStatus,
-  pendingCount: number,
-  failedCount: number,
-  savedAt: string,
-  isStorageDegraded: boolean,
-): string | null => {
-  const syncLabel = formatSyncCueLabel(status, pendingCount, failedCount, savedAt);
-  if (syncLabel) {
-    return isStorageDegraded ? `${syncLabel} · storage limited` : syncLabel;
-  }
-  if (isStorageDegraded) return "storage limited";
-  return null;
-};
 
 /**
  * Quiet Round top chrome: roster, Round · N/M, sync cue slot, Tools, Done/Next.
@@ -100,6 +61,8 @@ export const RoundChrome = ({
     conflicts,
     pendingCount,
     failedCount,
+    lastSuccessfulSyncAt,
+    retryResult,
     canCompleteRound,
     retryRoundSync,
     clearWalkStatus,
@@ -108,6 +71,12 @@ export const RoundChrome = ({
   const [isStorageDegraded, setIsStorageDegraded] = React.useState(() =>
     safeLocalStorage.isDegraded() || safeSessionStorage.isDegraded(),
   );
+  const announcedRetryResultRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!retryResult || retryResult === "Retrying sync…" || announcedRetryResultRef.current === retryResult) return;
+    announcedRetryResultRef.current = retryResult;
+    toast.message(retryResult);
+  }, [retryResult]);
   React.useEffect(() => {
     if (isStorageDegraded) return;
     const timer = window.setInterval(() => {
@@ -118,13 +87,15 @@ export const RoundChrome = ({
     return () => window.clearInterval(timer);
   }, [isStorageDegraded]);
 
-  const syncLabel = formatChromeCueLabel(
+  const syncPresentation = describeRoundSync(
     round.syncStatus,
     pendingCount,
     failedCount,
-    round.updatedAt,
-    isStorageDegraded,
+    lastSuccessfulSyncAt,
   );
+  const syncLabel = isStorageDegraded
+    ? `${syncPresentation.label} · storage limited`
+    : syncPresentation.label;
   const isEmpty = position.total === 0;
   const atStart = isEmpty || position.current <= 1;
   const atEnd = isEmpty || position.current >= position.total;
@@ -179,7 +150,7 @@ export const RoundChrome = ({
 
   const handleSyncCueActivate = () => {
     if (round.syncStatus === "failed") {
-      retryRoundSync();
+      void retryRoundSync();
       return;
     }
     if (!hasConflicts) return;
@@ -208,6 +179,15 @@ export const RoundChrome = ({
       )}
       data-testid={touchFriendly ? "round-chrome-actions" : undefined}
     >
+      <span id="round-prev-help" className="sr-only">
+        Previous is unavailable when the first patient is active or the roster is empty.
+      </span>
+      <span id="round-done-help" className="sr-only">
+        Done and End Round require all local edits to finish syncing and all conflicts to be resolved.
+      </span>
+      <span id="round-next-help" className="sr-only">
+        Next is unavailable when the last patient is active or the roster is empty.
+      </span>
       <Button
         type="button"
         variant="ghost"
@@ -216,10 +196,12 @@ export const RoundChrome = ({
           touchFriendly
             ? "h-11 min-h-11 flex-1 text-foreground/85 hover:text-foreground"
             : "h-9 w-9 text-muted-foreground hover:text-foreground",
+          "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         )}
         onClick={handlePrev}
         disabled={atStart}
         aria-label="Previous patient"
+        aria-describedby="round-prev-help"
         title="Previous ([ or K)"
         data-testid="round-prev"
       >
@@ -235,10 +217,12 @@ export const RoundChrome = ({
           touchFriendly
             ? "h-11 min-h-11 flex-1 gap-1.5 px-3 border-border/50 bg-card text-foreground"
             : "h-9 gap-1.5 px-3",
+          "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         )}
         onClick={handleDoneAndNext}
         disabled={isEmpty || (!isCurrentDone && isCompletionBlocked)}
         aria-label={isCurrentDone ? "Reopen completed patient" : "Mark done and go to next patient"}
+        aria-describedby="round-done-help"
         title={isCurrentDone ? "Reopen patient" : "Done (D)"}
         data-testid="round-done"
       >
@@ -254,10 +238,12 @@ export const RoundChrome = ({
         size="sm"
         className={cn(
           touchFriendly ? "h-11 min-h-11 flex-1 gap-1.5 px-3" : "h-9 gap-1.5 px-3",
+          "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         )}
         onClick={handleNext}
         disabled={atEnd}
         aria-label="Next patient"
+        aria-describedby="round-next-help"
         title="Next (] or J)"
         data-testid="round-next"
       >
@@ -315,9 +301,10 @@ export const RoundChrome = ({
             onKeyDown={handleSyncCueKeyDown}
             tabIndex={0}
             disabled={round.syncStatus !== "conflict" && round.syncStatus !== "failed"}
+            title={syncPresentation.description}
           >
             {round.syncStatus === "failed"
-              ? `sync failed${failedCount > 0 ? ` · ${failedCount} failed` : ""} — retry`
+              ? `${syncPresentation.label} — retry`
               : pendingCount > 0
                 ? `conflict · ${pendingCount} pending`
                 : "conflict — resolve"}
@@ -331,10 +318,16 @@ export const RoundChrome = ({
             )}
             data-testid="round-sync-cue"
             aria-live="polite"
+            title={syncPresentation.description}
           >
-            {syncLabel ?? "sync idle"}
+            {syncLabel}
           </span>
         )}
+        {retryResult ? (
+          <span className="sr-only" role="status" aria-live="polite">
+            {retryResult}
+          </span>
+        ) : null}
         {round.syncStatus === "failed" && onExportRecovery ? (
           <button
             type="button"
@@ -369,12 +362,13 @@ export const RoundChrome = ({
             type="button"
             variant="ghost"
             size="icon"
-            className={iconBtnClass}
             onClick={handleEndRound}
             aria-label="End Round"
             title="End Round"
             data-testid="round-end-entry"
             disabled={isCompletionBlocked}
+            aria-describedby="round-done-help"
+            className={cn(iconBtnClass, "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
           >
             <Printer className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
           </Button>

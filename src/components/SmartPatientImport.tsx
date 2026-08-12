@@ -21,7 +21,7 @@ import type { PatientSystems, PatientMedications } from "@/types/patient";
 import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
 import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
-import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
+import { useAssertBackendReady, useEdgeHealth } from "@/contexts/EdgeHealthContext";
 
 interface ParsedPatientData {
   name: string;
@@ -52,6 +52,8 @@ interface SmartPatientImportProps {
 
 export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImportProps) => {
   const assertBackendReady = useAssertBackendReady();
+  const edgeHealth = useEdgeHealth();
+  const backendUnavailable = edgeHealth?.status === "unhealthy";
   const [open, setOpen] = React.useState(false);
   const [step, setStep] = React.useState<"input" | "review">("input");
   const [content, setContent] = React.useState("");
@@ -308,11 +310,21 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
               className="min-h-[250px] font-mono text-sm"
             />
 
+            {backendUnavailable ? (
+              <p id="smart-import-backend-unavailable" className="text-sm font-medium text-destructive" role="status">
+                Parsing is unavailable while the backend health check is failing. Your pasted text remains local in this form.
+              </p>
+            ) : null}
+
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleParse} disabled={isLoading || !content.trim() || !phiAcknowledged}>
+              <Button
+                onClick={handleParse}
+                disabled={backendUnavailable || isLoading || !content.trim() || !phiAcknowledged}
+                aria-describedby={backendUnavailable ? "smart-import-backend-unavailable" : undefined}
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

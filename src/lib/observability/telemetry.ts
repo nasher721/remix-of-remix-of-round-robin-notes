@@ -89,11 +89,16 @@ function getSessionId(): string {
  * Turn thrown values, API errors, and rejection reasons into a useful telemetry string.
  * Avoids `[object Object]` from String(plainObject) and handles circular structures.
  */
-function classifyTelemetryError(error: unknown): string {
+function classifyTelemetryError(error: unknown, category: TelemetryCategory): string {
   if (error instanceof Error && /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(error.name)) {
     return error.name;
   }
-  if (typeof error === 'string') return 'StringError';
+  if (typeof error === 'string') {
+    if (error === 'edge_health_probe_exhausted') return 'HealthCheckError';
+    if (/storage.+not allowed|storage.+unavailable/i.test(error)) return 'StorageAccessError';
+    if (category === 'network_error') return 'NetworkFailure';
+    return 'StringError';
+  }
   if (error === null) return 'NullError';
   return `${typeof error}Error`;
 }
@@ -210,7 +215,7 @@ export function recordTelemetryEvent(
   error: Error | string | unknown,
   context: Record<string, unknown> = {},
 ): TelemetryEvent {
-  const errorType = classifyTelemetryError(error);
+  const errorType = classifyTelemetryError(error, category);
   const message = `${category}:${errorType}`;
 
   const event: TelemetryEvent = {
@@ -229,10 +234,12 @@ export function recordTelemetryEvent(
   trackFrequency(event);
   storeEvent(event);
 
-  // Also log through the structured logger
-  if (event.level === 'error') {
+  // Expected connectivity/handled failures remain available to the collector
+  // and local diagnostics without flooding production consoles.
+  const shouldWriteConsole = category !== 'network_error' && category !== 'handled_error';
+  if (shouldWriteConsole && event.level === 'error') {
     logError(`[Telemetry] ${category}: ${errorType}`, event.context as LogContext);
-  } else {
+  } else if (shouldWriteConsole) {
     logWarn(`[Telemetry] ${category}: ${errorType}`, event.context as LogContext);
   }
 

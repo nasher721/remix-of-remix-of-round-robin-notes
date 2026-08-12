@@ -153,20 +153,20 @@ Room: ${patient.bed}
 Date: ${new Date().toLocaleDateString()}
 
 SUBJECTIVE:
-${patient.intervalEvents || '[Events overnight]'}
+${patient.intervalEvents || 'Not documented'}
 
 OBJECTIVE:
 Vitals:
-Labs: ${patient.labs || '[Labs]'}
-Imaging: ${patient.imaging || '[Imaging]'}
+Labs: ${patient.labs || 'Not documented'}
+Imaging: ${patient.imaging || 'Not documented'}
 
 ASSESSMENT & PLAN:
 ${Object.entries(patient.systems)
   .filter(([_, v]) => v)
   .map(([k, v]) => `# ${k.toUpperCase()}\n${v}`)
-  .join('\n\n') || '[Assessment by system]'}
+  .join('\n\n') || 'Not documented'}
 
-Disposition: ${patient.systems.dispo || '[Disposition]'}`;
+Disposition: ${patient.systems.dispo || 'Not documented'}`;
       copyToClipboard(template);
       showToast('Progress note copied to clipboard');
     },
@@ -195,8 +195,8 @@ Disposition: ${patient.systems.dispo || '[Disposition]'}`;
 Summary: ${patient.clinicalSummary || 'No summary'}
 Overnight Events: ${patient.intervalEvents || 'None documented'}
 Active Issues: ${Object.entries(patient.systems).filter(([_, v]) => v).map(([k]) => k).join(', ') || 'None'}
-Pending: [Add pending items]
-If-Then: [Add contingency plans]`;
+Pending: Not documented
+If-Then: Not documented`;
       copyToClipboard(signout);
       showToast('Sign-out copied');
     },
@@ -236,7 +236,7 @@ If-Then: [Add contingency plans]`;
     shortcut: 'R',
     action: (patient, { updatePatient, showToast }) => {
       const timestamp = new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-      updatePatient('intervalEvents', `${patient.intervalEvents}\n[${timestamp}] Consult requested: [Service] for [Indication]`);
+      updatePatient('intervalEvents', `${patient.intervalEvents}\n${timestamp} Consult requested — service and indication not documented`);
       showToast('Consult request logged');
     },
   },
@@ -264,7 +264,7 @@ If-Then: [Add contingency plans]`;
     confirmationMessage: 'Document Rapid Response Team activation?',
     action: (patient, { updatePatient, showToast }) => {
       const timestamp = new Date().toLocaleString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-      updatePatient('intervalEvents', `${patient.intervalEvents}\n[${timestamp}] **RRT ACTIVATED** - Reason: [Document reason]`);
+      updatePatient('intervalEvents', `${patient.intervalEvents}\n${timestamp} **RRT ACTIVATED** — reason not documented`);
       showToast('RRT documented');
     },
   },
@@ -432,7 +432,7 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
                         )}
                       </div>
                       {action.shortcut && (
-                        <Badge variant="outline" className="text-[10px] font-mono">
+                        <Badge variant="outline" className="text-xs font-mono">
                           {action.shortcut}
                         </Badge>
                       )}
@@ -462,7 +462,7 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
                           )}
                         </div>
                         {action.shortcut && (
-                          <Badge variant="outline" className="text-[10px] font-mono">
+                          <Badge variant="outline" className="text-xs font-mono">
                             {action.shortcut}
                           </Badge>
                         )}
@@ -493,7 +493,7 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
                           )}
                         </div>
                         {action.shortcut && (
-                          <Badge variant="outline" className="text-[10px] font-mono">
+                          <Badge variant="outline" className="text-xs font-mono">
                             {action.shortcut}
                           </Badge>
                         )}
@@ -527,7 +527,7 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
                           )}
                         </div>
                         {action.shortcut && (
-                          <Badge variant="outline" className="text-[10px] font-mono">
+                          <Badge variant="outline" className="text-xs font-mono">
                             {action.shortcut}
                           </Badge>
                         )}

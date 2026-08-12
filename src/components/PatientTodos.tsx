@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useId, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,6 +22,7 @@ import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { MAX_TODO_LENGTH, validateTodoInput } from '@/lib/todoValidation';
 
 interface PatientTodosProps {
   todos: PatientTodo[];
@@ -53,6 +54,15 @@ export function PatientTodos({
   const [newTodoText, setNewTodoText] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [todoError, setTodoError] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const todoInputId = useId();
+  const todoHelpId = `${todoInputId}-help`;
+  const todoErrorId = `${todoInputId}-error`;
+  const draftValidation = validateTodoInput(newTodoText);
+  const displayedTodoError = newTodoText.trim().length > MAX_TODO_LENGTH
+    ? `Todos must be ${MAX_TODO_LENGTH} characters or fewer.`
+    : todoError;
 
   const { sectionTodos, incompleteTodos, completedTodos } = useMemo(() => {
     const sec = todos.filter(t => t.section === section);
@@ -64,9 +74,19 @@ export function PatientTodos({
   }, [todos, section]);
 
   const handleAddTodo = async () => {
-    if (!newTodoText.trim()) return;
-    await onAddTodo(newTodoText.trim(), section);
-    setNewTodoText('');
+    const result = validateTodoInput(newTodoText);
+    if (!result.valid) {
+      setTodoError(result.error);
+      return;
+    }
+    setTodoError(null);
+    setIsAdding(true);
+    try {
+      await onAddTodo(result.value, section);
+      setNewTodoText('');
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -87,23 +107,45 @@ export function PatientTodos({
   const todoListContent = (
     <div className="space-y-2">
       {/* Add new todo */}
-      <div className="flex gap-2">
-        <Input
-          placeholder="Add a todo..."
-          value={newTodoText}
-          onChange={(e) => setNewTodoText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="min-h-11 h-11 text-sm"
-        />
-        <Button 
-          size="sm" 
-          onClick={handleAddTodo}
-          disabled={!newTodoText.trim()}
-          className="min-h-11 h-11 px-3"
-          aria-label="Add todo"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+      <div className="space-y-1.5">
+        <label htmlFor={todoInputId} className="block text-sm font-medium text-foreground">
+          New todo
+        </label>
+        <div className="flex gap-2">
+          <Input
+            id={todoInputId}
+            placeholder="Add a todo..."
+            value={newTodoText}
+            maxLength={MAX_TODO_LENGTH}
+            onChange={(e) => {
+              setNewTodoText(e.target.value);
+              if (todoError) setTodoError(null);
+            }}
+            onKeyDown={handleKeyDown}
+            className="min-h-11 h-11 text-sm"
+            aria-invalid={displayedTodoError ? true : undefined}
+            aria-describedby={displayedTodoError ? `${todoHelpId} ${todoErrorId}` : todoHelpId}
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleAddTodo}
+            disabled={!draftValidation.valid || isAdding}
+            className="min-h-11 h-11 px-3 disabled:border disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+            aria-label="Add todo"
+            aria-describedby={todoHelpId}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+        <p id={todoHelpId} className="text-xs text-muted-foreground">
+          Press Enter to add. {newTodoText.length}/{MAX_TODO_LENGTH} characters.
+        </p>
+        {displayedTodoError ? (
+          <p id={todoErrorId} className="text-sm font-medium text-destructive" role="alert">
+            {displayedTodoError}
+          </p>
+        ) : null}
       </div>
 
       {/* Todo list */}
@@ -123,6 +165,7 @@ export function PatientTodos({
               checked={false}
               onCheckedChange={() => onToggleTodo(todo.id)}
               className="mt-0.5"
+              aria-label={`Mark todo complete: ${todo.content}`}
             />
             <span className="flex-1 text-sm leading-tight">
               {todo.content}
@@ -153,6 +196,7 @@ export function PatientTodos({
                   checked={true}
                   onCheckedChange={() => onToggleTodo(todo.id)}
                   className="mt-0.5"
+                  aria-label={`Mark todo incomplete: ${todo.content}`}
                 />
                 <span className="flex-1 text-sm leading-tight line-through">
                   {todo.content}
@@ -179,11 +223,14 @@ export function PatientTodos({
     return (
       <div className="border border-border rounded-lg bg-muted/20 overflow-hidden">
         {/* Header with expand/collapse */}
-        <div 
-          className="flex items-center justify-between px-3 py-2 bg-muted/40 cursor-pointer hover:bg-muted/60 transition-colors"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <div className="flex items-center gap-2">
+        <div className="flex min-h-11 items-center justify-between bg-muted/40 px-1 transition-colors hover:bg-muted/60">
+          <button
+            type="button"
+            className="flex min-h-11 flex-1 items-center gap-2 rounded-md px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => setIsExpanded((current) => !current)}
+            aria-expanded={isExpanded}
+            aria-controls={`${todoInputId}-content`}
+          >
             <ListTodo className="h-4 w-4 text-primary" />
             <span className="font-medium text-sm">
               {section ? 'Section' : 'Patient'} To-Dos
@@ -196,7 +243,12 @@ export function PatientTodos({
                 {incompleteTodos.length}/{sectionTodos.length}
               </span>
             )}
-          </div>
+            {isExpanded ? (
+              <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            ) : (
+              <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            )}
+          </button>
           <div className="flex items-center gap-1">
             {showAiGenerate && (
               <Button
@@ -224,17 +276,12 @@ export function PatientTodos({
                 Generating tasks…
               </span>
             ) : null}
-            {isExpanded ? (
-              <ChevronUp className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            )}
           </div>
         </div>
         
         {/* Collapsible content */}
         {isExpanded && (
-          <div className="px-3 py-2">
+          <div id={`${todoInputId}-content`} className="px-3 py-2">
             {todoListContent}
           </div>
         )}
@@ -260,7 +307,7 @@ export function PatientTodos({
           <ListTodo className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           <span className="text-xs sm:text-sm">+ Task</span>
           {sectionTodos.length > 0 ? (
-            <Badge variant="secondary" className="h-5 px-1.5 text-[10px] font-semibold tabular-nums">
+            <Badge variant="secondary" className="h-5 px-1.5 text-xs font-semibold tabular-nums">
               {incompleteTodos.length}/{sectionTodos.length}
             </Badge>
           ) : null}

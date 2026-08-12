@@ -1,5 +1,5 @@
 import * as React from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { PatientTodos } from "@/components/PatientTodos";
@@ -12,6 +12,7 @@ import { usePatientTodos } from "@/hooks/usePatientTodos";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { cn } from "@/lib/utils";
 import type { Patient, PatientSystems } from "@/types/patient";
+import { getPatientIdentity } from "@/lib/patientIdentity";
 
 export interface PatientFocusProps {
   patient: Patient | null;
@@ -36,11 +37,11 @@ const toPlainCue = (value: string | undefined, max = 80): string => {
   return `${plain.slice(0, max - 1)}…`;
 };
 
-const CODE_STATUS_LABELS: Record<string, string> = {
-  full: "Full code",
-  dnr: "DNR",
-  dni: "DNI",
-  comfort: "Comfort",
+const formatUpdatedCue = (value: string | undefined): string => {
+  if (!value) return "Update time not recorded";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Update time not recorded";
+  return `Updated ${parsed.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 };
 
 type MobileSectionTab = "clinicalSummary" | "systems" | "todos";
@@ -203,18 +204,7 @@ export const PatientFocus = ({
     }
   };
 
-  const stableIdentifier = patient.mrn?.trim()
-    ? `MRN …${patient.mrn.trim().slice(-4)}`
-    : patient.bed?.trim()
-      ? `Bed ${patient.bed.trim()}`
-      : `Record …${patient.id.slice(-4)}`;
-  const metaBits = [
-    stableIdentifier,
-    patient.mrn?.trim() && patient.bed?.trim() ? `Bed ${patient.bed.trim()}` : null,
-    patient.age !== undefined && patient.age !== null ? `${patient.age}y` : null,
-    patient.codeStatus ? CODE_STATUS_LABELS[patient.codeStatus] ?? patient.codeStatus : null,
-    patient.acuity ? patient.acuity : null,
-  ].filter(Boolean);
+  const identity = getPatientIdentity(patient);
 
   const summaryCue = toPlainCue(patient.clinicalSummary);
   const showSummary = !touchFriendly || round.activeSection === "clinicalSummary";
@@ -239,6 +229,7 @@ export const PatientFocus = ({
       changeTracking={changeTracking}
       patient={patient}
       section="clinical_summary"
+      ariaLabelledby="focus-summary-heading"
     />
   );
 
@@ -268,6 +259,7 @@ export const PatientFocus = ({
         onClick={handleToggleSummary}
         aria-expanded={summaryExpanded}
         aria-controls="focus-summary-body"
+        aria-label={summaryExpanded ? "Collapse clinical summary" : "Expand clinical summary"}
       >
         {summaryExpanded ? (
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -275,9 +267,9 @@ export const PatientFocus = ({
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         )}
         <span className={mutedLabelClass}>Clinical summary</span>
-        {!summaryExpanded && summaryCue && (
-          <span className={cn("ml-auto max-w-[60%] truncate", cueClass)}>
-            {summaryCue}
+        {!summaryExpanded && (
+          <span className={cn("ml-auto min-w-0 max-w-[65%] whitespace-normal text-right", cueClass)}>
+            {summaryCue || "Not documented"}
           </span>
         )}
       </button>
@@ -305,6 +297,7 @@ export const PatientFocus = ({
           const isExpanded = round.expandedSystemId === system.key;
           const cue = toPlainCue(systemValue, 64);
           const hasContent = Boolean(cue);
+          const updatedAt = patient.fieldTimestamps[`systems.${system.key}`] ?? patient.lastModified;
 
           return (
             <li
@@ -319,6 +312,7 @@ export const PatientFocus = ({
             >
               <button
                 type="button"
+                id={`focus-system-heading-${system.key}`}
                 className={rowBtnClass}
                 onClick={() => handleExpandSystem(system.key)}
                 aria-expanded={isExpanded}
@@ -344,18 +338,16 @@ export const PatientFocus = ({
                 {!isExpanded && (
                   <span
                     className={cn(
-                      "ml-auto max-w-[55%] truncate",
+                      "ml-auto flex min-w-0 max-w-[58%] flex-col items-end gap-0.5 whitespace-normal text-right",
                       touchFriendly ? "text-sm" : "text-xs",
-                      hasContent
-                        ? touchFriendly
-                          ? "text-foreground/75"
-                          : "text-foreground/65"
-                        : touchFriendly
-                          ? "text-foreground/55"
-                          : "text-muted-foreground/70",
                     )}
                   >
-                    {hasContent ? cue : "—"}
+                    <span className={hasContent ? "text-foreground/75" : "text-muted-foreground"}>
+                      {hasContent ? cue : "Not documented"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Chart note · {formatUpdatedCue(updatedAt)}
+                    </span>
                   </span>
                 )}
               </button>
@@ -374,6 +366,7 @@ export const PatientFocus = ({
                     changeTracking={changeTracking}
                     patient={patient}
                     section={system.key}
+                    ariaLabelledby={`focus-system-heading-${system.key}`}
                   />
                 </div>
               )}
@@ -416,24 +409,40 @@ export const PatientFocus = ({
       data-touch-friendly={touchFriendly ? "true" : undefined}
     >
       <div className="shrink-0 border-b border-border/25 px-4 py-3 md:px-6">
-        <h1
-          className={cn(
-            "truncate font-semibold tracking-tight text-foreground",
-            touchFriendly ? "text-xl" : "text-lg",
-          )}
-        >
-          {patient.name?.trim() || "Unnamed patient"}
-        </h1>
-        {metaBits.length > 0 && (
-          <p
-            className={cn(
-              "mt-0.5 truncate",
-              touchFriendly ? "text-sm text-foreground/75" : "text-xs text-muted-foreground",
-            )}
-          >
-            {metaBits.join(" · ")}
-          </p>
-        )}
+        <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" data-testid="patient-focus-identity">
+          <div className="sm:col-span-2 lg:col-span-4">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</dt>
+            <dd className={cn("mt-0.5 break-words font-semibold tracking-tight text-foreground", touchFriendly ? "text-xl" : "text-lg")}>
+              {identity.name}
+            </dd>
+          </div>
+          {[
+            ["MRN", identity.mrn],
+            ["Room / bed", identity.room],
+            ["DOB", identity.dob],
+            ["Attending", identity.attending],
+            ["Diagnosis", identity.diagnosis],
+          ].map(([label, value]) => (
+            <div key={label} className="min-w-0">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+              <dd className="mt-0.5 break-words text-sm text-foreground">{value}</dd>
+            </div>
+          ))}
+          <div className="min-w-0 rounded-md border border-amber-500/50 bg-amber-500/5 p-2 sm:col-span-2" data-testid="patient-focus-allergies">
+            <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              Allergies
+            </dt>
+            <dd className="mt-0.5 break-words text-sm text-foreground">{identity.allergies}</dd>
+          </div>
+          <div className="min-w-0 rounded-md border border-red-500/50 bg-red-500/5 p-2 sm:col-span-2" data-testid="patient-focus-code-status">
+            <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground">
+              <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              Code status
+            </dt>
+            <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{identity.codeStatus}</dd>
+          </div>
+        </dl>
       </div>
 
       {touchFriendly && (
@@ -461,7 +470,7 @@ export const PatientFocus = ({
                 }
                 tabIndex={isActive ? 0 : -1}
                 className={cn(
-                  "min-h-11 shrink-0 rounded-lg px-3.5 text-sm font-medium transition-colors",
+                  "round-section-tab min-h-11 shrink-0 rounded-lg px-3.5 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : "bg-secondary/40 text-foreground/85 hover:bg-secondary/55",
@@ -486,6 +495,15 @@ export const PatientFocus = ({
         {showSummary && summarySection}
         {showSystems && systemsSection}
         {showTodos && todosSection}
+        {touchFriendly && !showSummary ? (
+          <div id="focus-summary-panel" role="tabpanel" aria-labelledby="focus-mobile-tab-clinicalSummary" hidden />
+        ) : null}
+        {touchFriendly && !showSystems ? (
+          <div id="focus-system-panel" role="tabpanel" aria-labelledby="focus-mobile-tab-systems" hidden />
+        ) : null}
+        {touchFriendly && !showTodos ? (
+          <div id="focus-todos-panel" role="tabpanel" aria-labelledby="focus-mobile-tab-todos" hidden />
+        ) : null}
       </div>
     </div>
   );

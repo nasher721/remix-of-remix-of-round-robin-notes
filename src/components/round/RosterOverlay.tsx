@@ -97,7 +97,7 @@ export const RosterOverlay = ({
 
   const handleSelectPatient = (patientId: string) => {
     selectPatient(patientId);
-    onOpenChange(false);
+    handleOpenChange(false);
   };
 
   const handleKeyDownSearch = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -197,7 +197,7 @@ export const RosterOverlay = ({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-2" role="listbox" aria-label="Round patients">
+        <nav className="flex-1 overflow-y-auto px-2 py-2" aria-label="Round patients">
           {visibleRows.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               No patients match these filters.
@@ -226,8 +226,7 @@ export const RosterOverlay = ({
                   key={ref.patientId}
                   type="button"
                   variant="ghost"
-                  role="option"
-                  aria-selected={isActive}
+                  aria-current={isActive ? "true" : undefined}
                   aria-label={`${name}, bed ${bed}, ${stableIdentifier}, ${STATUS_LABEL[ref.status]}`}
                   className={cn(
                     "mb-0.5 h-auto w-full justify-start gap-3 rounded-lg px-3 text-left",
@@ -274,7 +273,7 @@ export const RosterOverlay = ({
               );
             })
           )}
-        </div>
+        </nav>
 
         {(onEndRound || onGoHome) && (
           <div className="flex shrink-0 gap-2 border-t border-border/30 px-4 py-3">

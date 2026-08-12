@@ -63,6 +63,8 @@ import { useRoundSession } from "@/contexts/RoundSessionContext"
 import { useSettings } from "@/contexts/SettingsContext"
 import { MIN_GLOBAL_FONT_SIZE_PX, MAX_GLOBAL_FONT_SIZE_PX } from "@/constants/config"
 import { cn } from "@/lib/utils"
+import { useEdgeHealth } from "@/contexts/EdgeHealthContext"
+import { formatClearAllPatientsConfirmation } from "@/lib/destructiveConfirmation"
 
 const useIsOnline = (): boolean => {
   const [isOnline, setIsOnline] = React.useState(() =>
@@ -138,6 +140,9 @@ export const ToolsSheet = ({
   const toolsPatient = roundPatient ?? selectedPatient
   const todosMap = useDashboardTodos()
   const isOnline = useIsOnline()
+  const edgeHealth = useEdgeHealth()
+  const backendUnavailable = edgeHealth?.status === "unhealthy"
+  const networkActionsUnavailable = !isOnline || backendUnavailable
   const { openPanel: openIbcc } = useIBCCState()
   const { openPanel: openGuidelines } = useClinicalGuidelinesState()
   const { isOpen: isAICommandPaletteOpen, setIsOpen: setAICommandPaletteOpen } = useAICommandPalette()
@@ -231,7 +236,6 @@ export const ToolsSheet = ({
   }
 
   const handleOpenAi = () => {
-    closeSheet()
     setAICommandPaletteOpen(true)
   }
 
@@ -246,17 +250,14 @@ export const ToolsSheet = ({
   }
 
   const handleOpenCompare = () => {
-    closeSheet()
     setShowComparison(true)
   }
 
   const handleOpenPhrases = () => {
-    closeSheet()
     setShowPhraseManager(true)
   }
 
   const handleOpenAutotexts = () => {
-    closeSheet()
     setShowAutotexts(true)
   }
 
@@ -298,7 +299,7 @@ export const ToolsSheet = ({
           </SheetHeader>
 
           <div className="flex flex-col gap-4 px-4 py-4">
-            {!isOnline && (
+            {networkActionsUnavailable && (
               <p
                 className={cn(
                   "rounded-md border border-border/40 bg-muted/40 px-3 py-2 text-muted-foreground",
@@ -307,11 +308,13 @@ export const ToolsSheet = ({
                 data-testid="tools-offline-cue"
                 role="status"
               >
-                Offline — network tools need connection. Focus stays editable.
+                {backendUnavailable
+                  ? "Backend unavailable — AI and parsing are disabled. Focus stays editable."
+                  : "Offline — network tools need connection. Focus stays editable."}
               </p>
             )}
             <section className="space-y-2" aria-label="Clinical tools">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Clinical
               </p>
               <Button
@@ -319,14 +322,20 @@ export const ToolsSheet = ({
                 variant="outline"
                 className={rowClass}
                 onClick={handleOpenAi}
-                disabled={!isOnline}
-                aria-label={isOnline ? "Open AI assistant" : "AI assistant needs network"}
+                disabled={networkActionsUnavailable}
+                aria-label={
+                  backendUnavailable
+                    ? "AI assistant unavailable while backend health check is failing"
+                    : isOnline
+                      ? "Open AI assistant"
+                      : "AI assistant needs network"
+                }
                 data-testid="tools-ai"
               >
                 <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
                 AI Assistant
                 <span className="ml-auto text-xs opacity-60">
-                  {isOnline ? "⌘⇧A" : "needs network"}
+                  {networkActionsUnavailable ? "unavailable" : "⌘⇧A"}
                 </span>
               </Button>
               <Button
@@ -364,11 +373,10 @@ export const ToolsSheet = ({
               </Button>
               <div
                 data-testid="tools-risk"
-                onClickCapture={closeSheet}
               >
                 <ClinicalRiskCalculator className={cn(touchFriendly ? "h-11 min-h-11" : "h-9", "w-full justify-start gap-2")} />
               </div>
-              <div data-testid="tools-timeline" onClickCapture={closeSheet}>
+              <div data-testid="tools-timeline">
                 <TimelineDialog triggerClassName={touchFriendly ? "h-11 min-h-11" : undefined} />
               </div>
               <div data-testid="tools-census" onClickCapture={closeSheet}>
@@ -379,25 +387,23 @@ export const ToolsSheet = ({
               </div>
               <div
                 data-testid="tools-batch-course"
-                onClickCapture={closeSheet}
-                className={cn(!isOnline && "pointer-events-none opacity-50")}
-                aria-disabled={!isOnline}
-                title={!isOnline ? "Needs network" : undefined}
+                className={cn(networkActionsUnavailable && "pointer-events-none opacity-50")}
+                aria-disabled={networkActionsUnavailable}
+                title={networkActionsUnavailable ? "Backend connection required" : undefined}
               >
                 <BatchCourseGenerator
                   patients={patients}
-                  onUpdatePatient={onUpdatePatient}
                   todosMap={todosMap}
                   triggerClassName={touchFriendly ? "h-11 min-h-11" : undefined}
                 />
-                {!isOnline && (
-                  <p className="mt-1 text-[11px] text-muted-foreground">Batch course needs network</p>
+                {networkActionsUnavailable && (
+                  <p className="mt-1 text-xs text-muted-foreground">Batch course needs a healthy backend connection</p>
                 )}
               </div>
             </section>
 
             <section className="space-y-2" aria-label="Authoring">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Phrases &amp; autotext
               </p>
               <Button
@@ -447,7 +453,7 @@ export const ToolsSheet = ({
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2 space-y-2 rounded-md border border-border/30 bg-card/40 p-3">
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Primary Import Patient List lives on Round Home. These are secondary formats.
                 </p>
                 <SmartPatientImport onImportPatient={onAddPatientWithData} />
@@ -534,7 +540,7 @@ export const ToolsSheet = ({
             </Collapsible>
 
             <section className="space-y-2 border-t border-border/25 pt-3" aria-label="Account">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Account
               </p>
               <div className="flex items-center gap-2">
@@ -584,7 +590,7 @@ export const ToolsSheet = ({
                   <PanelLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
                   Classic workbench (legacy)
                 </Button>
-                <p className="mt-1 px-1 text-[11px] text-muted-foreground">
+                <p className="mt-1 px-1 text-xs text-muted-foreground">
                   Secondary escape hatch only — prefer Tools panels above.
                 </p>
               </section>
@@ -644,8 +650,7 @@ export const ToolsSheet = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear All Patients</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove all {patients.length} patient{patients.length === 1 ? "" : "s"} from today&apos;s rounds?
-              This action cannot be undone. Export any needed recovery copy first.
+              {formatClearAllPatientsConfirmation(patients.length)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

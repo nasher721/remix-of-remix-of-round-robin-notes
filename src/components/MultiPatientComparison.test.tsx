@@ -34,6 +34,11 @@ describe("MultiPatientComparison dialog accessibility", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Patient Comparison" });
     assert.ok(dialog);
+    assert.ok(dialog.contains(document.activeElement), "focus must move inside the modal");
+    assert.ok(
+      document.querySelectorAll('[data-radix-focus-guard]').length >= 2,
+      "Radix focus guards must trap keyboard focus while the modal is open",
+    );
     assert.match(
       dialog.textContent ?? "",
       /Compare patient notes, labs, systems, medications, and active todos/i,

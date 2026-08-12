@@ -8,7 +8,7 @@ type EdgeHealthContextValue = {
   status: EdgeHealthStatus;
   bannerDismissed: boolean;
   dismissBanner: () => void;
-  refresh: (options?: { force?: boolean }) => Promise<void>;
+  refresh: (options?: { force?: boolean }) => Promise<EdgeHealthStatus>;
   /** Returns false when backend is unhealthy (shows toast). Unknown = allow. */
   assertBackendReady: () => boolean;
 };
@@ -26,6 +26,7 @@ export const EdgeHealthProvider = ({ children }: { children: React.ReactNode }) 
     setStatus('checking');
     const result = await probeEdgeHealth({ force: options?.force });
     setStatus(result);
+    return result;
   }, []);
 
   React.useEffect(() => {

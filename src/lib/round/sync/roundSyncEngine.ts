@@ -4,6 +4,7 @@
  */
 
 import { logInfo } from "@/lib/observability/logger";
+import { recordTelemetryEvent } from "@/lib/observability/telemetry";
 import type { Round, RoundSyncStatus } from "@/types/round";
 import {
   applyFieldConflictChoice,
@@ -38,6 +39,7 @@ import type {
 
 type StatusListener = (status: RoundSyncStatus) => void;
 type ConflictListener = (conflicts: FieldConflict[]) => void;
+type SyncSuccessListener = (syncedAt: string) => void;
 
 /** Light interval so pending clears after reload without needing a new edit. */
 const DRAIN_INTERVAL_MS = 30_000;
@@ -54,6 +56,7 @@ class RoundSyncEngine {
   private status: RoundSyncStatus = "idle";
   private statusListeners = new Set<StatusListener>();
   private conflictListeners = new Set<ConflictListener>();
+  private syncSuccessListeners = new Set<SyncSuccessListener>();
   private activeDrain: Promise<RoundSyncDrainResult> | null = null;
   private deviceId: string | null = null;
   private openConflicts: FieldConflict[] = [];
@@ -74,6 +77,17 @@ class RoundSyncEngine {
     return () => {
       this.conflictListeners.delete(listener);
     };
+  }
+
+  onSyncSuccess(listener: SyncSuccessListener): () => void {
+    this.syncSuccessListeners.add(listener);
+    return () => {
+      this.syncSuccessListeners.delete(listener);
+    };
+  }
+
+  private markSyncSuccess(syncedAt = new Date().toISOString()): void {
+    this.syncSuccessListeners.forEach((listener) => listener(syncedAt));
   }
 
   getStatus(): RoundSyncStatus {
@@ -255,11 +269,12 @@ class RoundSyncEngine {
         });
 
         this.setStatus(this.openConflicts.length > 0 ? "conflict" : "idle");
+        this.markSyncSuccess(remote.round.updatedAt);
         resultRound = merged.round;
         resultMeta = merged.continuity;
       }
     } catch (error) {
-      console.error("[RoundSync] hydrate failed:", error);
+      recordTelemetryEvent("sync_error", error, { operation: "round_hydrate" });
       this.setStatus(navigator.onLine ? "idle" : "offline");
     }
 
@@ -383,7 +398,7 @@ class RoundSyncEngine {
           await setCachedConflicts(cached.id, nextConflicts);
         }
       } catch (error) {
-        console.error("[RoundSync] entry failed:", error);
+        recordTelemetryEvent("sync_error", error, { operation: "round_outbox_entry" });
         const canRetry = await roundOutbox.markFailed(entry.id);
         if (!canRetry) result.failed += 1;
       }
@@ -400,6 +415,9 @@ class RoundSyncEngine {
         failedCount: failed,
       }),
     );
+    if (result.success > 0 && failed === 0 && conflicts === 0 && pending === 0) {
+      this.markSyncSuccess();
+    }
 
     if (failed > result.failed) {
       result.failed = failed;
@@ -444,16 +462,24 @@ class RoundSyncEngine {
     return resolved;
   }
 
-  async retryFailedWrites(): Promise<void> {
+  async retryFailedWrites(): Promise<RoundSyncDrainResult> {
+    const emptyResult: RoundSyncDrainResult = {
+      success: 0,
+      failed: 0,
+      softFailed: 0,
+      conflicts: [],
+      missingTable: false,
+    };
     if (!navigator.onLine) {
       this.setStatus("offline");
-      return;
+      return emptyResult;
     }
     const retried = await roundOutbox.retryFailedWrites();
     if (retried > 0) {
       this.setStatus("syncing");
-      void this.drain();
+      return this.drain();
     }
+    return emptyResult;
   }
 
   deriveChromeStatus(input: {

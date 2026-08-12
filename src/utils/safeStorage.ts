@@ -21,17 +21,9 @@ export const createSafeStorage = (
   const memoryStore = new Map<string, string>();
   const pendingOverrides = new Map<string, string | null>();
   let degraded = false;
-  let hasWarned = false;
 
-  const markDegraded = (reason: unknown): void => {
+  const markDegraded = (_reason: unknown): void => {
     degraded = true;
-    if (hasWarned) return;
-    hasWarned = true;
-    const detail = reason instanceof Error ? reason.message : String(reason ?? "unknown");
-    console.warn(
-      `[safeStorage] Browser ${storageName} unavailable; using in-memory fallback for this session.`,
-      detail,
-    );
   };
 
   const getBrowserStorage = (): Storage | null => {

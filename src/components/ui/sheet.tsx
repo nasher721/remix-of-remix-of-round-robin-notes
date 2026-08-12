@@ -19,6 +19,7 @@ const SheetOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
+    data-modal-overlay="sheet"
     className={cn(
       "fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className,
@@ -53,7 +54,7 @@ interface SheetContentProps
     VariantProps<typeof sheetVariants> {}
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, ...props }, ref) => {
+  ({ side = "right", className, children, onOpenAutoFocus, onCloseAutoFocus, ...props }, ref) => {
     const lastFocusedElement = useFocusReturn();
 
     return (
@@ -62,16 +63,24 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         <SheetPrimitive.Content
           ref={ref}
           className={cn(sheetVariants({ side }), className)}
+          onOpenAutoFocus={(event) => {
+            if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+              lastFocusedElement.current = document.activeElement;
+            }
+            onOpenAutoFocus?.(event);
+          }}
           onCloseAutoFocus={(event) => {
+            onCloseAutoFocus?.(event);
+            if (event.defaultPrevented) return;
             event.preventDefault();
-            if (lastFocusedElement.current && lastFocusedElement.current.focus) {
+            if (lastFocusedElement.current?.isConnected) {
               lastFocusedElement.current.focus();
             }
           }}
           {...props}
         >
           {children}
-          <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none">
+          <SheetPrimitive.Close className="absolute right-2 top-2 inline-flex h-11 w-11 items-center justify-center rounded-md opacity-80 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none sm:right-3 sm:top-3">
             <X className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>

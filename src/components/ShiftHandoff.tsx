@@ -253,7 +253,6 @@ export function ShiftHandoff({
           {onUpdatePatient && (
             <BatchCourseGenerator
               patients={patients}
-              onUpdatePatient={onUpdatePatient}
               className="w-full [&>button]:w-full"
             />
           )}

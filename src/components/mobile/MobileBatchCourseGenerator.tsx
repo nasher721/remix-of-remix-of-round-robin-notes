@@ -12,15 +12,12 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sparkles,
   Check,
   X,
-  Undo2,
   Users,
   Copy,
   AlertCircle,
@@ -38,7 +35,6 @@ import { toast } from 'sonner';
 
 interface MobileBatchCourseGeneratorProps {
   patients: Patient[];
-  onUpdatePatient: (id: string, field: string, value: unknown) => void;
   todosMap?: Record<string, PatientTodo[]>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -46,7 +42,6 @@ interface MobileBatchCourseGeneratorProps {
 
 export const MobileBatchCourseGenerator = ({
   patients,
-  onUpdatePatient,
   todosMap,
   open,
   onOpenChange,
@@ -56,13 +51,10 @@ export const MobileBatchCourseGenerator = ({
     isGenerating,
     progress,
     cancelGeneration,
-    undoLastBatch,
-    canUndo,
   } = useBatchCourseGenerator();
 
   const [generationType, setGenerationType] = React.useState<BatchGenerationType>('course');
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [autoInsert, setAutoInsert] = React.useState(true);
   const [results, setResults] = React.useState<BatchResult[]>([]);
   const [showResults, setShowResults] = React.useState(false);
 
@@ -127,7 +119,6 @@ export const MobileBatchCourseGenerator = ({
     const batchResults = await generateBatch(
       selectedPatients,
       generationType,
-      autoInsert ? onUpdatePatient : undefined,
       generationType === 'dailySummary' ? todosMap : undefined
     );
     
@@ -150,10 +141,6 @@ export const MobileBatchCourseGenerator = ({
     toast.success(`${name}'s content copied`);
   };
 
-  const handleUndo = () => {
-    undoLastBatch(onUpdatePatient);
-  };
-
   const handleClose = () => {
     if (!isGenerating) {
       onOpenChange(false);
@@ -167,13 +154,12 @@ export const MobileBatchCourseGenerator = ({
   const successCount = results.filter(r => r.content).length;
   const failCount = results.filter(r => !r.content).length;
 
-  const typeLabelMap: Record<BatchGenerationType, { plural: string; singular: string; autoInsertField: string }> = {
-    course: { plural: 'Courses', singular: 'Course', autoInsertField: 'Clinical Summary' },
-    intervalEvents: { plural: 'Events', singular: 'Event', autoInsertField: 'Interval Events' },
-    dailySummary: { plural: 'Summaries', singular: 'Summary', autoInsertField: 'Interval Events' },
+  const typeLabelMap: Record<BatchGenerationType, { plural: string; singular: string }> = {
+    course: { plural: 'Courses', singular: 'Course' },
+    intervalEvents: { plural: 'Events', singular: 'Event' },
+    dailySummary: { plural: 'Summaries', singular: 'Summary' },
   };
   const typeLabel = typeLabelMap[generationType].plural;
-  const autoInsertFieldLabel = typeLabelMap[generationType].autoInsertField;
 
   return (
     <Drawer open={open} onOpenChange={handleClose}>
@@ -264,19 +250,11 @@ export const MobileBatchCourseGenerator = ({
                 )}
               </ScrollArea>
 
-              {/* Auto-insert toggle */}
               <Card>
                 <CardContent className="p-3">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="mobile-auto-insert" className="text-sm cursor-pointer">
-                      Auto-insert into {autoInsertFieldLabel}
-                    </Label>
-                    <Switch
-                      id="mobile-auto-insert"
-                      checked={autoInsert}
-                      onCheckedChange={setAutoInsert}
-                    />
-                  </div>
+                  <p className="text-sm text-foreground" role="status">
+                    Generated content remains a review-only draft. It is never written into a patient chart automatically.
+                  </p>
                 </CardContent>
               </Card>
 
@@ -297,17 +275,6 @@ export const MobileBatchCourseGenerator = ({
                 </Card>
               )}
 
-              {/* Undo button */}
-              {canUndo && !isGenerating && (
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
-                  onClick={handleUndo}
-                >
-                  <Undo2 className="h-4 w-4 mr-2" />
-                  Undo Last Batch
-                </Button>
-              )}
             </div>
           ) : (
             <div className="p-4 space-y-4">
@@ -323,9 +290,7 @@ export const MobileBatchCourseGenerator = ({
                     {failCount} Failed
                   </Badge>
                 )}
-                {autoInsert && successCount > 0 && (
-                  <Badge variant="outline">Auto-inserted</Badge>
-                )}
+                <Badge variant="outline">Review required</Badge>
               </div>
 
               {/* Results List */}
@@ -362,6 +327,10 @@ export const MobileBatchCourseGenerator = ({
                               </Button>
                             )}
                           </div>
+                          <p className="mb-2 text-xs text-muted-foreground">
+                            Patient: {result.patientName} · Source: documented chart fields
+                            {generationType === 'dailySummary' ? ' and patient todos' : ''}
+                          </p>
                           {result.content ? (
                             <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[100px] overflow-y-auto bg-muted/50 p-2 rounded">
                               {result.content}
@@ -388,16 +357,9 @@ export const MobileBatchCourseGenerator = ({
                     Copy All {typeLabel}
                   </Button>
                 )}
-                {canUndo && autoInsert && (
-                  <Button 
-                    variant="ghost" 
-                    className="w-full" 
-                    onClick={handleUndo}
-                  >
-                    <Undo2 className="h-4 w-4 mr-2" />
-                    Undo All Insertions
-                  </Button>
-                )}
+                <Button variant="ghost" className="w-full" onClick={() => setShowResults(false)}>
+                  Review selection / retry
+                </Button>
               </div>
             </div>
           )}

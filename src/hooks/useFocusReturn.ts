@@ -8,19 +8,7 @@ import { useEffect, useRef } from "react";
  * but this hook ensures focus returns to the trigger element on close.
  */
 export function useFocusReturn() {
-  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    // Store the currently focused element before the dialog opens.
-    // Focus is returned via the dialog's onCloseAutoFocus handler — NOT here.
-    // Restoring focus in an unmount cleanup also fires when the parent layout
-    // tears the dialog subtree down (e.g. dashboard focus-mode exit), which
-    // steals focus back to a contentEditable editor and re-triggers focus
-    // mode, trapping Escape in a blur/refocus loop.
-    lastFocusedElementRef.current = document.activeElement as HTMLElement;
-  }, []);
-
-  return lastFocusedElementRef;
+  return useRef<HTMLElement | null>(null);
 }
 
 /**

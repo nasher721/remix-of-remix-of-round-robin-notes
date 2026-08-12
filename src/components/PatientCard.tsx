@@ -38,7 +38,7 @@ import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useTeam } from "@/contexts/TeamContext";
 import { DashboardFocusTarget, SystemsReviewMode } from "@/lib/dashboardPrefs";
 import { cn } from "@/lib/utils";
-import { patientSafetyLabel } from "@/lib/patientIdentity";
+import { normalizePatientAlerts, patientSafetyLabel } from "@/lib/patientIdentity";
 import { extractPatientImageObjectKeyList } from "@/lib/patientImages";
 import {
   AlertDialog,
@@ -154,6 +154,7 @@ const PatientCardComponent = ({
   const { generateIntervalEvents, isGenerating: isGeneratingEvents, cancelGeneration } = useIntervalEventsGenerator();
   const { generateDailySummary, isGenerating: isGeneratingSummary, cancelGeneration: cancelSummary } = useDailySummaryGenerator();
   const { enabledSystems, systemLabels, systemIcons } = useSystemsConfig();
+  const normalizedAlerts = React.useMemo(() => normalizePatientAlerts(patient.alerts), [patient.alerts]);
   const imagingImageCount = React.useMemo(() => {
     if (!patient.imaging) return 0;
     return extractPatientImageObjectKeyList(patient.imaging).length;
@@ -438,7 +439,7 @@ const PatientCardComponent = ({
                             />
                           ) : (
                             <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-[10px] font-medium text-primary">
+                              <span className="text-xs font-medium text-primary">
                                 {member.name.charAt(0).toUpperCase()}
                               </span>
                             </div>
@@ -468,7 +469,7 @@ const PatientCardComponent = ({
                               />
                             ) : (
                               <div className="h-4 w-4 rounded-full bg-primary/10 flex items-center justify-center">
-                                <span className="text-[8px] font-medium text-primary">
+                                <span className="text-xs font-medium text-primary">
                                   {assignedMember.name.charAt(0).toUpperCase()}
                                 </span>
                               </div>
@@ -484,10 +485,10 @@ const PatientCardComponent = ({
                 })()}
               </div>
             )}
-            {(patient.serviceLine || patient.codeStatus || patient.acuity || (patient.alerts && patient.alerts.length > 0)) && (
+            {(patient.serviceLine || patient.codeStatus || patient.acuity || normalizedAlerts.length > 0) && (
               <div className="flex items-center gap-1.5 no-print border-l border-border/50 pl-2 ml-1">
                 {patient.serviceLine && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-secondary/60 text-secondary-foreground border border-border/40">
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-secondary/60 text-secondary-foreground border border-border/40">
                     {patient.serviceLine}
                   </span>
                 )}
@@ -506,7 +507,7 @@ const PatientCardComponent = ({
                 {patient.codeStatus && (
                   <span
                     className={cn(
-                      "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border",
+                      "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border",
                       patient.codeStatus === 'full' && "bg-blue-500/10 text-blue-600 border-blue-500/30",
                       patient.codeStatus === 'dnr' && "bg-purple-500/10 text-purple-600 border-purple-500/30",
                       patient.codeStatus === 'dni' && "bg-amber-500/10 text-amber-600 border-amber-500/30",
@@ -517,18 +518,18 @@ const PatientCardComponent = ({
                     {(patient.codeStatus ?? "").toUpperCase()}
                   </span>
                 )}
-                {patient.alerts && patient.alerts.length > 0 && (
+                {normalizedAlerts.length > 0 && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           type="button"
                           className="inline-flex items-center justify-center w-5 h-5 rounded bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                          aria-label={`${patient.alerts.length} alert${patient.alerts.length > 1 ? 's' : ''}`}
+                          aria-label={`${normalizedAlerts.length} alert${normalizedAlerts.length > 1 ? 's' : ''}`}
                         >
                           <AlertTriangle className="w-3 h-3" />
-                          {patient.alerts.length > 1 && (
-                            <span className="text-[9px] font-bold ml-0.5">{patient.alerts.length}</span>
+                          {normalizedAlerts.length > 1 && (
+                            <span className="ml-0.5 text-xs font-bold">{normalizedAlerts.length}</span>
                           )}
                         </button>
                       </TooltipTrigger>
@@ -536,7 +537,7 @@ const PatientCardComponent = ({
                         <div className="space-y-1">
                           <p className="font-semibold text-xs">Alerts</p>
                           <ul className="text-xs space-y-0.5">
-                            {patient.alerts.map((alert, idx) => (
+                            {normalizedAlerts.map((alert, idx) => (
                               <li key={`${patient.id}-alert-${idx}`} className="flex items-start gap-1">
                                 <span className="w-1 h-1 rounded-full bg-destructive mt-1.5 flex-shrink-0" />
                                 <span>{alert}</span>
@@ -682,7 +683,7 @@ const PatientCardComponent = ({
                       </div>
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Clinical Summary</h3>
                       {patient.clinicalSummary && (
-                        <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+                        <span className="rounded bg-muted/50 px-1.5 py-0.5 text-xs text-foreground/70">
                           {(patient.clinicalSummary ?? "").length}
                         </span>
                       )}
@@ -768,7 +769,7 @@ const PatientCardComponent = ({
                       </div>
                       <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Interval Events</h3>
                       {patient.intervalEvents && (
-                        <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+                        <span className="rounded bg-muted/50 px-1.5 py-0.5 text-xs text-foreground/70">
                           {patient.intervalEvents.length}
                         </span>
                       )}
@@ -944,12 +945,12 @@ const PatientCardComponent = ({
                           </div>
                           <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Imaging</h3>
                           {patient.imaging && (
-                            <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+                            <span className="rounded bg-muted/50 px-1.5 py-0.5 text-xs text-foreground/70">
                               {patient.imaging.replace(/<[^>]*>/g, '').length}
                             </span>
                           )}
                           {imagingImageCount > 0 && (
-                            <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+                            <span className="rounded bg-muted/50 px-1.5 py-0.5 text-xs text-foreground/70">
                               {imagingImageCount} img
                             </span>
                           )}
@@ -1017,7 +1018,7 @@ const PatientCardComponent = ({
                           </div>
                           <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground/85">Labs</h3>
                           {patient.labs && (
-                            <span className="text-[11px] text-foreground/70 bg-muted/50 px-1.5 py-0.5 rounded">
+                            <span className="rounded bg-muted/50 px-1.5 py-0.5 text-xs text-foreground/70">
                               {patient.labs.length}
                             </span>
                           )}

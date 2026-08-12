@@ -13,14 +13,12 @@ import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sparkles,
   Check,
   X,
-  Undo2,
   Users,
   FileText,
   Copy,
@@ -36,7 +34,6 @@ import { cn } from '@/lib/utils';
 
 interface BatchCourseGeneratorProps {
   patients: Patient[];
-  onUpdatePatient: (id: string, field: string, value: unknown) => void;
   todosMap?: Record<string, PatientTodo[]>;
   className?: string;
   triggerClassName?: string;
@@ -44,7 +41,6 @@ interface BatchCourseGeneratorProps {
 
 export const BatchCourseGenerator = ({
   patients,
-  onUpdatePatient,
   todosMap,
   className = '',
   triggerClassName,
@@ -54,14 +50,11 @@ export const BatchCourseGenerator = ({
     isGenerating,
     progress,
     cancelGeneration,
-    undoLastBatch,
-    canUndo,
   } = useBatchCourseGenerator();
 
   const [open, setOpen] = React.useState(false);
   const [generationType, setGenerationType] = React.useState<BatchGenerationType>('course');
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [autoInsert, setAutoInsert] = React.useState(true);
   const [results, setResults] = React.useState<BatchResult[]>([]);
   const [showResults, setShowResults] = React.useState(false);
 
@@ -119,7 +112,6 @@ export const BatchCourseGenerator = ({
     const batchResults = await generateBatch(
       selectedPatients,
       generationType,
-      autoInsert ? onUpdatePatient : undefined,
       generationType === 'dailySummary' ? todosMap : undefined
     );
     
@@ -140,10 +132,6 @@ export const BatchCourseGenerator = ({
     navigator.clipboard.writeText(content);
   };
 
-  const handleUndo = () => {
-    undoLastBatch(onUpdatePatient);
-  };
-
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
       setOpen(true);
@@ -161,14 +149,13 @@ export const BatchCourseGenerator = ({
   const successCount = results.filter(r => r.content).length;
   const failCount = results.filter(r => !r.content).length;
 
-  const typeLabelMap: Record<BatchGenerationType, { plural: string; singular: string; autoInsertField: string }> = {
-    course: { plural: 'Courses', singular: 'Course', autoInsertField: 'Clinical Summary' },
-    intervalEvents: { plural: 'Interval Events', singular: 'Interval Event', autoInsertField: 'Interval Events' },
-    dailySummary: { plural: 'Daily Summaries', singular: 'Daily Summary', autoInsertField: 'Interval Events' },
+  const typeLabelMap: Record<BatchGenerationType, { plural: string; singular: string }> = {
+    course: { plural: 'Courses', singular: 'Course' },
+    intervalEvents: { plural: 'Interval Events', singular: 'Interval Event' },
+    dailySummary: { plural: 'Daily Summaries', singular: 'Daily Summary' },
   };
   const typeLabel = typeLabelMap[generationType].plural;
   const typeLabelSingular = typeLabelMap[generationType].singular;
-  const autoInsertFieldLabel = typeLabelMap[generationType].autoInsertField;
 
   return (
     <div className={className}>
@@ -270,24 +257,8 @@ export const BatchCourseGenerator = ({
                   </div>
                 </ScrollArea>
 
-                {/* Options */}
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="auto-insert"
-                      checked={autoInsert}
-                      onCheckedChange={setAutoInsert}
-                    />
-                    <Label htmlFor="auto-insert" className="text-sm cursor-pointer">
-                      Auto-insert into {autoInsertFieldLabel}
-                    </Label>
-                  </div>
-                  {canUndo && (
-                    <Button variant="ghost" size="sm" onClick={handleUndo}>
-                      <Undo2 className="h-4 w-4 mr-1" />
-                      Undo Last
-                    </Button>
-                  )}
+                <div className="rounded-lg border border-border bg-muted/50 p-3 text-sm text-foreground" role="status">
+                  Generated content remains a review-only draft. It is never written into a patient chart automatically.
                 </div>
 
                 {/* Progress during generation */}
@@ -341,9 +312,7 @@ export const BatchCourseGenerator = ({
                       {failCount} Failed
                     </Badge>
                   )}
-                  {autoInsert && successCount > 0 && (
-                    <Badge variant="outline">Auto-inserted</Badge>
-                  )}
+                  <Badge variant="outline">Review required</Badge>
                 </div>
 
                 <ScrollArea className="flex-1 max-h-[400px] border rounded-lg">
@@ -376,6 +345,10 @@ export const BatchCourseGenerator = ({
                               </Button>
                             )}
                           </div>
+                          <p className="mb-2 text-xs text-muted-foreground">
+                            Patient: {result.patientName} · Source: documented chart fields
+                            {generationType === 'dailySummary' ? ' and patient todos' : ''}
+                          </p>
                           {result.content ? (
                             <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono max-h-[150px] overflow-y-auto">
                               {result.content}
@@ -391,12 +364,9 @@ export const BatchCourseGenerator = ({
               </div>
 
               <DialogFooter className="gap-2">
-                {canUndo && autoInsert && (
-                  <Button variant="outline" onClick={handleUndo}>
-                    <Undo2 className="h-4 w-4 mr-2" />
-                    Undo All
-                  </Button>
-                )}
+                <Button variant="outline" onClick={() => setShowResults(false)}>
+                  Review selection / retry
+                </Button>
                 {successCount > 0 && (
                   <Button variant="secondary" onClick={handleCopyAll}>
                     <Copy className="h-4 w-4 mr-2" />

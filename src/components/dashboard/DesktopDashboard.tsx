@@ -1147,7 +1147,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                   <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
                     <UnitCensusDashboard patients={patients} />
                     <ContextAwareHelp />
-                    <BatchCourseGenerator patients={patients} onUpdatePatient={onUpdatePatient} todosMap={todosMap} />
+                    <BatchCourseGenerator patients={patients} todosMap={todosMap} />
                   </CollapsibleContent>
                 </Collapsible>
               </div>

@@ -191,6 +191,7 @@ describe("Focus-first Round runner harness", () => {
 
     fireEvent.click(screen.getByTestId("round-tools-entry"));
     const tools = await screen.findByTestId("tools-sheet");
+    assert.ok(tools.contains(document.activeElement), "Tools must trap focus while open");
     assert.ok(within(tools).getByTestId("tools-ai"));
     assert.ok(within(tools).getByTestId("tools-ibcc"));
     assert.ok(within(tools).getByTestId("tools-guidelines"));
@@ -311,6 +312,10 @@ describe("Focus-first Round runner harness", () => {
     assert.equal(summaryTab.tabIndex, 0);
     assert.equal(systemsTab.tabIndex, -1);
     assert.equal(summaryTab.getAttribute("aria-controls"), "focus-summary-panel");
+    assert.ok(document.getElementById("main-content"));
+    assert.ok(document.getElementById("focus-summary-panel"));
+    assert.ok(document.getElementById("focus-system-panel"));
+    assert.ok(document.getElementById("focus-todos-panel"));
 
     summaryTab.focus();
     fireEvent.keyDown(summaryTab, { key: "ArrowRight" });

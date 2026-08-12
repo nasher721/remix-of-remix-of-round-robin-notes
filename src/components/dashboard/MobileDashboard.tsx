@@ -522,7 +522,6 @@ export const MobileDashboard = () => {
 
       <MobileBatchCourseGenerator
         patients={patients}
-        onUpdatePatient={onUpdatePatient}
         todosMap={todosMap}
         open={showBatchCourse}
         onOpenChange={setShowBatchCourse}

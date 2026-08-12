@@ -48,6 +48,10 @@ export interface RoundSessionContextValue {
   pendingCount: number;
   /** Outbox rows that entered explicit failed state after retry exhaustion. */
   failedCount: number;
+  /** Last time queued Round data received a remote acknowledgement. */
+  lastSuccessfulSyncAt: string | null;
+  /** Concrete outcome from the latest manual Retry action. */
+  retryResult: string | null;
   selectPatient: (patientId: string) => void;
   nextPatient: () => void;
   prevPatient: () => void;
@@ -64,7 +68,7 @@ export interface RoundSessionContextValue {
   /** Queue a mid-rounds chart draft field for offline-capable sync. */
   enqueueDraftField: (field: Omit<VersionedField, "deviceId"> & { deviceId?: string }) => Promise<void>;
   /** Retry persisted failed sync writes without reloading the session. */
-  retryRoundSync: () => void;
+  retryRoundSync: () => Promise<void>;
   resolveConflict: (
     conflict: FieldConflict,
     choice: FieldConflictChoice,
@@ -106,6 +110,8 @@ export const RoundSessionProvider = ({
   const [conflicts, setConflicts] = React.useState<FieldConflict[]>([]);
   const [pendingCount, setPendingCount] = React.useState(0);
   const [failedCount, setFailedCount] = React.useState(0);
+  const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = React.useState<string | null>(null);
+  const [retryResult, setRetryResult] = React.useState<string | null>(null);
   const [unresolvedCount, setUnresolvedCount] = React.useState(0);
   const [activeConflict, setActiveConflict] = React.useState<FieldConflict | null>(null);
   const [conflictOpen, setConflictOpen] = React.useState(false);
@@ -160,6 +166,7 @@ export const RoundSessionProvider = ({
     const unsubConflicts = roundSyncEngine.onConflicts((next) => {
       setConflicts(next);
     });
+    const unsubSyncSuccess = roundSyncEngine.onSyncSuccess(setLastSuccessfulSyncAt);
     const unsubOutbox = roundOutbox.subscribe(() => {
       void (async () => {
         const pending = await roundOutbox.getPendingCount();
@@ -181,6 +188,7 @@ export const RoundSessionProvider = ({
     return () => {
       unsubStatus();
       unsubConflicts();
+      unsubSyncSuccess();
       unsubOutbox();
     };
   }, [disablePersistence]);
@@ -350,8 +358,22 @@ export const RoundSessionProvider = ({
     [continuity?.deviceId, round.id, userId],
   );
 
-  const handleRetryRoundSync = React.useCallback(() => {
-    void roundSyncEngine.retryFailedWrites();
+  const handleRetryRoundSync = React.useCallback(async () => {
+    setRetryResult("Retrying sync…");
+    const result = await roundSyncEngine.retryFailedWrites();
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setRetryResult("Retry could not start while offline. Edits remain saved locally.");
+      return;
+    }
+    if (result.failed > 0 || result.softFailed > 0) {
+      setRetryResult(`Retry finished with ${result.failed + result.softFailed} unsynced write${result.failed + result.softFailed === 1 ? "" : "s"}.`);
+      return;
+    }
+    if (result.success > 0) {
+      setRetryResult(`Retry synced ${result.success} write${result.success === 1 ? "" : "s"} remotely.`);
+      return;
+    }
+    setRetryResult("No failed writes were available to retry.");
   }, []);
 
   const handleResolveConflict = React.useCallback(
@@ -394,6 +416,8 @@ export const RoundSessionProvider = ({
       canCompleteRound,
       pendingCount,
       failedCount,
+      lastSuccessfulSyncAt,
+      retryResult,
       selectPatient: handleSelectPatient,
       nextPatient: handleNextPatient,
       prevPatient: handlePrevPatient,
@@ -417,6 +441,8 @@ export const RoundSessionProvider = ({
     conflicts,
     pendingCount,
     failedCount,
+    lastSuccessfulSyncAt,
+    retryResult,
     canCompleteRound,
     handleSelectPatient,
     handleNextPatient,
