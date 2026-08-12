@@ -11,11 +11,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Wand2, Loader2, Clipboard, Check, Edit2, Pill } from "lucide-react";
+import { Wand2, Loader2, Clipboard, Check, Edit2, Pill, ShieldAlert } from "lucide-react";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
 import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
@@ -24,6 +25,7 @@ import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
 
 interface ParsedPatientData {
   name: string;
+  mrn?: string;
   bed: string;
   clinicalSummary: string;
   intervalEvents: string;
@@ -36,6 +38,7 @@ interface ParsedPatientData {
 interface SmartPatientImportProps {
   onImportPatient: (patient: {
     name: string;
+    mrn?: string;
     bed: string;
     clinicalSummary: string;
     intervalEvents: string;
@@ -55,10 +58,19 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
   const [isLoading, setIsLoading] = React.useState(false);
   const [parsedData, setParsedData] = React.useState<ParsedPatientData | null>(null);
   const [editingField, setEditingField] = React.useState<string | null>(null);
+  const [phiAcknowledged, setPhiAcknowledged] = React.useState(false);
   const { toast } = useToast();
   const { getModelForFeature } = useSettings();
 
   const handlePaste = async () => {
+    if (!phiAcknowledged) {
+      toast({
+        title: "Review PHI processing first",
+        description: "Confirm the disclosure before reading clinical text from the clipboard.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       const text = await navigator.clipboard.readText();
       if (text) {
@@ -75,6 +87,14 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
   };
 
   const handleParse = async () => {
+    if (!phiAcknowledged) {
+      toast({
+        title: "PHI confirmation required",
+        description: "Confirm your organization permits this configured AI workflow.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!content.trim()) {
       toast({
         title: "No content to parse",
@@ -151,6 +171,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
     setContent("");
     setParsedData(null);
     setEditingField(null);
+    setPhiAcknowledged(false);
   };
 
   const updateField = (field: string, value: string) => {
@@ -178,8 +199,9 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2"
+            className="min-h-11 min-w-11 h-11 px-2"
             onClick={() => setEditingField(isEditing ? null : field)}
+            aria-label={`${isEditing ? "Finish editing" : "Edit"} ${label}`}
           >
             {isEditing ? <Check className="h-3 w-3" /> : <Edit2 className="h-3 w-3" />}
           </Button>
@@ -196,17 +218,19 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
             <Input
               value={value}
               onChange={(e) => updateField(field, e.target.value)}
-              className="text-sm"
+              className="min-h-11 text-sm"
               autoFocus
             />
           )
         ) : (
-          <div
-            className="text-sm p-2 bg-muted/50 rounded-md min-h-[32px] whitespace-pre-wrap cursor-pointer hover:bg-muted"
+          <button
+            type="button"
+            className="min-h-11 w-full cursor-pointer whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-left text-sm hover:bg-muted"
             onClick={() => setEditingField(field)}
+            aria-label={`Edit ${label}`}
           >
             {value || <span className="text-muted-foreground italic">Empty</span>}
-          </div>
+          </button>
         )}
       </div>
     );
@@ -216,7 +240,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button type="button" variant="outline" className="w-full justify-start gap-2">
+          <Button type="button" variant="outline" className="min-h-11 w-full justify-start gap-2">
             <Wand2 className="h-4 w-4" />
             Smart Import
           </Button>
@@ -238,8 +262,40 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
         {step === "input" ? (
           <div className="space-y-4 flex-1">
 
+            <section
+              className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+              aria-labelledby="smart-import-phi-heading"
+            >
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden="true" />
+                <div className="space-y-2">
+                  <h3 id="smart-import-phi-heading" className="font-semibold text-foreground">
+                    PHI processing disclosure
+                  </h3>
+                  <p className="text-xs leading-relaxed text-foreground/80">
+                    Text is sent through this deployment&apos;s Supabase Edge Function to configured AI model
+                    <strong> {getModelForFeature('parsing')}</strong>. Processing is not local. Retention, deletion,
+                    training use, BAA/DPA coverage, and permitted PHI use depend on deployment and provider contracts;
+                    confirm them with your administrator. Review every parsed field before import. Parsing errors can
+                    place data in wrong chart sections.
+                  </p>
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      id="smart-import-phi-ack"
+                      checked={phiAcknowledged}
+                      onCheckedChange={(checked) => setPhiAcknowledged(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <Label htmlFor="smart-import-phi-ack" className="text-xs leading-relaxed text-foreground">
+                      Organization permits this PHI workflow; provider terms and patient data destination verified.
+                    </Label>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handlePaste} className="gap-1">
+              <Button variant="outline" size="sm" onClick={handlePaste} className="min-h-11 gap-1" disabled={!phiAcknowledged}>
                 <Clipboard className="h-4 w-4" />
                 Paste from Clipboard
               </Button>
@@ -256,7 +312,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
               <Button variant="outline" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button onClick={handleParse} disabled={isLoading || !content.trim()}>
+              <Button onClick={handleParse} disabled={isLoading || !content.trim() || !phiAcknowledged}>
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -289,6 +345,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
                   <div className="grid grid-cols-2 gap-4">
                     {renderEditableField("Patient Name", "name", parsedData.name)}
                     {renderEditableField("Bed/Room", "bed", parsedData.bed)}
+                    {renderEditableField("MRN", "mrn", parsedData.mrn ?? "")}
                   </div>
                   {renderEditableField("Clinical Summary", "clinicalSummary", parsedData.clinicalSummary, true)}
                   {renderEditableField("Interval Events", "intervalEvents", parsedData.intervalEvents, true)}

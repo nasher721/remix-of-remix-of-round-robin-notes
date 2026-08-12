@@ -4,6 +4,7 @@ import { systemLabels } from './constants';
 import { cleanInlineStyles, formatMedicationsHtml } from './utils';
 import { cn } from '@/lib/utils';
 import { CheckSquare, Square } from 'lucide-react';
+import { patientExportIdentifierLine } from '@/lib/patientIdentity';
 
 interface PrintCardsProps {
   patients: Patient[];
@@ -39,11 +40,9 @@ export const PrintCards = ({
                 {patient.name || 'Unnamed'}
               </span>
             </div>
-            {patient.bed && (
-              <span className="bg-white/20 px-3 py-1 rounded text-sm font-medium">
-                Bed: {patient.bed}
-              </span>
-            )}
+            <span className="bg-white/20 px-3 py-1 rounded text-sm font-medium">
+              {patientExportIdentifierLine(patient)}
+            </span>
           </div>
 
           <div className="p-4 space-y-4">

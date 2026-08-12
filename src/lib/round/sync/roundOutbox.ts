@@ -10,11 +10,13 @@ import {
   coalesceRoundOutboxEntry,
   computeOutboxNextRetryAt,
   countConflictOutbox,
+  countFailedOutbox,
   countPendingOutbox,
   createOutboxId,
   mergeOutboxQueue,
   OUTBOX_SOFT_FAIL_RETRY_MS,
   selectPendingOutbox,
+  countUnresolvedOutbox,
   withOutboxDefaults,
 } from "./outboxMerge";
 import type { RoundOutboxEntry, RoundOutboxKind, VersionedField } from "./types";
@@ -187,6 +189,14 @@ class RoundOutboxManager {
     return countConflictOutbox(await this.getQueue(), this.ownerId);
   }
 
+  async getFailedCount(): Promise<number> {
+    return countFailedOutbox(await this.getQueue(), this.ownerId);
+  }
+
+  async getUnresolvedCount(): Promise<number> {
+    return countUnresolvedOutbox(await this.getQueue(), this.ownerId);
+  }
+
   async updateStatus(
     id: string,
     status: RoundOutboxEntry["status"],
@@ -269,6 +279,23 @@ class RoundOutboxManager {
       softFailReason: reason,
       nextRetryAt: now + OUTBOX_SOFT_FAIL_RETRY_MS,
     });
+  }
+
+  async retryFailedWrites(now = Date.now()): Promise<number> {
+    await this.initialization;
+    const queue = await this.getQueue();
+    const failed = queue.filter((entry) => entry.status === "failed");
+    if (failed.length === 0) return 0;
+    for (const entry of failed) {
+      const nextRetryCount = Math.min(Math.max(entry.retryCount - 1, 0), entry.maxRetries);
+      await this.updateStatus(entry.id, "pending", undefined, {
+        retryCount: nextRetryCount,
+        nextRetryAt: now,
+        softFailReason: undefined,
+      });
+    }
+    this.notify();
+    return failed.length;
   }
 
   async clear(): Promise<void> {

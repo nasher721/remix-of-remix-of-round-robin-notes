@@ -63,7 +63,7 @@ export const DEFAULT_SECTION_VISIBILITY: SectionVisibility = {
 
 // Default configuration values
 export const DEFAULT_CONFIG = {
-  GLOBAL_FONT_SIZE: 11,
+  GLOBAL_FONT_SIZE: 14,
   PRINT_FONT_SIZE: 9,
   PRINT_FONT_FAMILY: 'system',
   PRINT_ORIENTATION: 'portrait' as const,
@@ -84,11 +84,11 @@ export const DEFAULT_CONFIG = {
 
 /** Editor note text uses pixel font size; base matches DEFAULT_CONFIG.GLOBAL_FONT_SIZE for % migration. */
 export const GLOBAL_FONT_SIZE_BASE_PX = DEFAULT_CONFIG.GLOBAL_FONT_SIZE;
-export const MIN_GLOBAL_FONT_SIZE_PX = 10;
+export const MIN_GLOBAL_FONT_SIZE_PX = 14;
 export const MAX_GLOBAL_FONT_SIZE_PX = 24;
 
 /**
- * `globalFontSize` is stored as px (10–24). Legacy bug: desktop showed 85–125 "%" but passed the
+ * `globalFontSize` is stored as px (14–24). Legacy bug: desktop showed 85–125 "%" but passed the
  * number through as px (e.g. 100 → 100px). Values in 80–130 are treated as percentages of the base.
  */
 export function normalizeGlobalFontSizeToPx(raw: unknown): number {

@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { toLayoutMode, toPrefsMode } from "@/lib/dashboardLayoutModes";
 import { getPatientDocumentationSummary, DOCUMENTATION_STATUS_LABELS } from "@/lib/patientDocumentation";
+import { patientSafetyLabel } from "@/lib/patientIdentity";
 import { Hospital, ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronLeft, ChevronRight, CheckCircle2, Circle, CloudOff, Loader2, AlertCircle, Cloud } from "lucide-react";
 
 /**
@@ -510,8 +511,8 @@ export const VirtualizedPatientList = React.memo(() => {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingPatient?.name
-                ? `Remove ${pendingPatient.name} from rounds?`
+              {pendingPatient
+                ? `Remove ${patientSafetyLabel(pendingPatient)} from rounds?`
                 : "Remove this patient from rounds?"}{" "}
               This action cannot be undone.
             </AlertDialogDescription>
@@ -543,8 +544,8 @@ export const VirtualizedPatientList = React.memo(() => {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDuplicatePatient?.name
-                ? `Create a new roster entry from ${pendingDuplicatePatient.name}?`
+              {pendingDuplicatePatient
+                ? `Create a new roster entry from ${patientSafetyLabel(pendingDuplicatePatient)}?`
                 : "Create a new roster entry from this patient?"}{" "}
               Chart content is copied into the duplicate.
             </AlertDialogDescription>

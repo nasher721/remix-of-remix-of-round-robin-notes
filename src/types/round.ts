@@ -5,7 +5,12 @@
  */
 
 /** Quiet sync cue values surfaced in Round chrome. */
-export type RoundSyncStatus = "idle" | "offline" | "syncing" | "conflict";
+export type RoundSyncStatus =
+  | "idle"
+  | "offline"
+  | "syncing"
+  | "conflict"
+  | "failed";
 
 /** Per-patient walk state within a Round. */
 export type RoundPatientWalkStatus = "pending" | "done" | "skipped";

@@ -29,10 +29,21 @@ export const RoundEnd = ({
 }: RoundEndProps) => {
   const { patients, filteredPatients, onUpdatePatient } = useDashboard()
   const todosMap = useDashboardTodos()
-  const { position, round, completeRound } = useRoundSession()
+  const {
+    position,
+    round,
+    completeRound,
+    canCompleteRound,
+    pendingCount,
+    failedCount,
+    conflicts,
+  } = useRoundSession()
   const [printOpen, setPrintOpen] = React.useState(false)
 
   const doneCount = round.patients.filter((ref) => ref.status === "done").length
+  const incompleteTodoCount = Object.values(todosMap)
+    .flat()
+    .filter((todo) => !todo.completed).length
   const isComplete = round.status === "completed"
 
   const handleOpenPrint = () => {
@@ -85,6 +96,17 @@ export const RoundEnd = ({
               Round marked complete
             </p>
           )}
+          {patients.length > 0 && (
+            <div className="rounded-lg border border-border/50 bg-muted/25 px-3 py-2 text-sm text-foreground/80">
+              <p>{position.total - doneCount} patients not marked done</p>
+              <p>{incompleteTodoCount} incomplete todos</p>
+              <p>
+                {canCompleteRound
+                  ? "All note changes saved"
+                  : `${pendingCount} pending · ${failedCount} failed · ${conflicts.length} conflicts`}
+              </p>
+            </div>
+          )}
         </header>
 
         <div className="flex flex-col gap-3">
@@ -113,6 +135,7 @@ export const RoundEnd = ({
                 "w-full justify-center gap-2",
                 touchFriendly && "min-h-11 text-base",
               )}
+              disabled={!canCompleteRound || patients.length === 0}
               onClick={handleMarkComplete}
               aria-label="Mark Round complete"
               data-testid="round-end-complete"

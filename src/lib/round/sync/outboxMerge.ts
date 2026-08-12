@@ -181,6 +181,34 @@ export const countPendingOutbox = (
   ).length;
 };
 
+export const countFailedOutbox = (
+  queue: readonly RoundOutboxEntry[],
+  ownerId: string | null,
+): number => {
+  if (!ownerId) return 0;
+  return queue.filter(
+    (entry) =>
+      entry.ownerId === ownerId
+      && entry.status === "failed",
+  ).length;
+};
+
+export const countUnresolvedOutbox = (
+  queue: readonly RoundOutboxEntry[],
+  ownerId: string | null,
+): number => {
+  if (!ownerId) return 0;
+  return queue.filter(
+    (entry) =>
+      entry.ownerId === ownerId
+      && (entry.status === "pending"
+        || entry.status === "syncing"
+        || entry.status === "soft_fail"
+        || entry.status === "conflict"
+        || entry.status === "failed"),
+  ).length;
+};
+
 export const countConflictOutbox = (
   queue: readonly RoundOutboxEntry[],
   ownerId: string | null,

@@ -176,17 +176,30 @@ export const supabase = {
             : { data: null, error: null },
         );
       },
-      update(data) {
+      update(data, options) {
         updateCapture.push({ table, data });
-        return {
-          eq(column, value) {
-            const handler = globalThis.__SUPABASE_UPDATE_MOCK__;
-            if (typeof handler === "function") {
-              return Promise.resolve(handler({ table, data, column, value }));
-            }
-            return Promise.resolve({ error: null });
-          },
+        const filters = [];
+        const resolveUpdate = () => {
+          const handler = globalThis.__SUPABASE_UPDATE_MOCK__;
+          return Promise.resolve(
+            typeof handler === "function"
+              ? handler({ table, data, options, filters })
+              : { data: { revision: 1 }, error: null, count: 1 },
+          );
         };
+        const builder = {
+          eq(column, value) {
+            filters.push({ op: "eq", column, value });
+            return builder;
+          },
+          select() { return builder; },
+          maybeSingle: () => resolveUpdate(),
+          single: () => resolveUpdate(),
+          then(resolve, reject) { return resolveUpdate().then(resolve, reject); },
+          catch(reject) { return resolveUpdate().catch(reject); },
+          finally(onFinally) { return resolveUpdate().finally(onFinally); },
+        };
+        return builder;
       },
       delete() {
         const filters = [];

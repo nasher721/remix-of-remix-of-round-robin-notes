@@ -26,7 +26,7 @@ export const RoundHome = ({
   className,
 }: RoundHomeProps) => {
   const { patients, onImportPatients, onSignOut, user } = useDashboard()
-  const { position, round } = useRoundSession()
+  const { position, round, canCompleteRound } = useRoundSession()
   const [importOpen, setImportOpen] = React.useState(false)
 
   const hasPatients = patients.length > 0
@@ -125,6 +125,7 @@ export const RoundHome = ({
                 "w-full justify-center gap-2",
                 touchFriendly && "min-h-11 text-base",
               )}
+              disabled={!canCompleteRound}
               onClick={onEndRound}
               aria-label="End Round and print or export"
               data-testid="round-home-end"

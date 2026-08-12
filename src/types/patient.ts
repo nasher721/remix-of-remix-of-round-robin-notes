@@ -104,6 +104,7 @@ export interface DbPatient {
   collapsed: boolean;
   created_at: string;
   last_modified: string;
+  revision?: number;
   age?: number;
   /** ICU service line (MICU, SICU, CVICU, etc.) */
   service_line?: string;
@@ -144,6 +145,8 @@ export interface Patient {
   collapsed: boolean;
   createdAt: string;
   lastModified: string;
+  /** Monotonic server revision used to reject stale cross-tab writes. */
+  revision?: number;
   age?: number;
   /** ICU service line (MICU, SICU, CVICU, etc.) */
   serviceLine?: string;

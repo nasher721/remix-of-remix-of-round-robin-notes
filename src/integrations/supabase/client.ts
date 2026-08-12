@@ -11,16 +11,15 @@ const SUPABASE_KEY =
 export const hasSupabaseConfig = Boolean(SUPABASE_URL && SUPABASE_KEY);
 
 if (!hasSupabaseConfig) {
-  console.warn(
-    '[Supabase] Missing required environment variables. Using localhost fallback - edge functions and auth will not work in production.'
-  );
+  const message = '[Supabase] Missing required environment variables.';
+  throw new Error(`${message} Application startup blocked.`);
 }
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabaseUrl = hasSupabaseConfig ? SUPABASE_URL : "http://localhost";
-const resolvedKey = hasSupabaseConfig ? SUPABASE_KEY : "invalid-key";
+export const supabaseUrl = SUPABASE_URL;
+const resolvedKey = SUPABASE_KEY;
 
 export const supabase = createClient<Database>(supabaseUrl, resolvedKey, {
   auth: {

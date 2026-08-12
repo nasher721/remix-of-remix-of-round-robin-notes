@@ -1,0 +1,17 @@
+{
+  "name": "Rolling Rounds",
+  "short_name": "Rounds",
+  "description": "Offline-aware ICU rounding workspace",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

@@ -33,6 +33,7 @@ export interface QueuedMutationDB {
   entityId?: string;
   conflictResolution?: 'server-wins' | 'client-wins' | 'manual';
   conflictData?: Record<string, unknown>;
+  conflictServerData?: Record<string, unknown> | null;
   /** The authenticated user that owns this mutation. */
   ownerId?: string;
 }

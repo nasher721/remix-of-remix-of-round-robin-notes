@@ -229,6 +229,11 @@ describe("expanded system and continuity fields", () => {
     assert.equal(completed.expandedSystemId, null);
   });
 
+  it("accepts failed sync status without sanitization fallback", () => {
+    const round = setRoundSyncStatus(createSampleRound(), "failed", LATER);
+    assert.equal(round.syncStatus, "failed");
+  });
+
   it("replaceRoundPatients preserves statuses and current selection when possible", () => {
     const started = markCurrentDone(selectPatient(createSampleRound(), "p2", FIXED_NOW), FIXED_NOW);
     const replaced = replaceRoundPatients(started, ["p2", "p4", "p1"], LATER);

@@ -38,6 +38,7 @@ import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useTeam } from "@/contexts/TeamContext";
 import { DashboardFocusTarget, SystemsReviewMode } from "@/lib/dashboardPrefs";
 import { cn } from "@/lib/utils";
+import { patientSafetyLabel } from "@/lib/patientIdentity";
 import { extractPatientImageObjectKeyList } from "@/lib/patientImages";
 import {
   AlertDialog,
@@ -268,6 +269,16 @@ const PatientCardComponent = ({
       onRequestDashboardFocusMode?.(target);
     },
     [onRequestDashboardFocusMode],
+  );
+
+  const handleEditableFocus = React.useCallback(
+    (target: DashboardFocusTarget) => (event: React.FocusEvent) => {
+      const targetElement = event.target;
+      if (!(targetElement instanceof HTMLElement)) return;
+      if (!targetElement.isContentEditable) return;
+      handleEditorFocusIntent(target);
+    },
+    [handleEditorFocusIntent],
   );
 
   React.useEffect(() => {
@@ -713,7 +724,7 @@ const PatientCardComponent = ({
                   <div
                     className="space-y-1"
                     ref={bindFocusContainer("clinicalSummary")}
-                    onFocusCapture={() => handleEditorFocusIntent("clinicalSummary")}
+                    onFocusCapture={handleEditableFocus("clinicalSummary")}
                     data-editor-type="clinical-summary"
                   >
                     <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
@@ -853,7 +864,7 @@ const PatientCardComponent = ({
                   <div
                     className="space-y-1"
                     ref={bindFocusContainer("intervalEvents")}
-                    onFocusCapture={() => handleEditorFocusIntent("intervalEvents")}
+                    onFocusCapture={handleEditableFocus("intervalEvents")}
                   >
                     <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                       <RichTextEditor
@@ -976,7 +987,7 @@ const PatientCardComponent = ({
                       <div
                         className="space-y-1"
                         ref={bindFocusContainer("imaging")}
-                        onFocusCapture={() => handleEditorFocusIntent("imaging")}
+                        onFocusCapture={handleEditableFocus("imaging")}
                       >
                         <div className="bg-background/50 rounded-lg border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                           <ImagePasteEditor
@@ -1041,7 +1052,7 @@ const PatientCardComponent = ({
                       <div
                         className="space-y-1"
                         ref={bindFocusContainer("labs")}
-                        onFocusCapture={() => handleEditorFocusIntent("labs")}
+                        onFocusCapture={handleEditableFocus("labs")}
                       >
                         <div className="bg-background/50 rounded-lg p-3 border border-border/40 focus-within:border-primary/40 focus-within:bg-background">
                           <RichTextEditor
@@ -1082,7 +1093,7 @@ const PatientCardComponent = ({
               {sectionVisibility.systemsReview && (
                 <div
                   ref={bindFocusContainer("systemsReview")}
-                  onFocusCapture={() => handleEditorFocusIntent("systemsReview")}
+                  onFocusCapture={handleEditableFocus("systemsReview")}
                   data-editor-type="systems-review"
                   data-documentation-section="systems"
                   id="documentation-section-systems"
@@ -1125,9 +1136,7 @@ const PatientCardComponent = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear section</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Clear ${clearSectionLabel} for ${patient.name}?`
-                : `Clear ${clearSectionLabel}?`}{" "}
+              Clear {clearSectionLabel} for {patientSafetyLabel(patient)}?{" "}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1148,9 +1157,7 @@ const PatientCardComponent = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear all systems review</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Remove all systems review content for ${patient.name}?`
-                : "Remove all systems review content for this patient?"}{" "}
+              Remove all systems review content for {patientSafetyLabel(patient)}?{" "}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

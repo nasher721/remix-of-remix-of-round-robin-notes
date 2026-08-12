@@ -58,6 +58,7 @@ import { AutoText } from "@/types/autotext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 import type { PatientTodo } from "@/types/todo";
 import { extractPatientImageObjectKeyList } from "@/lib/patientImages";
+import { patientSafetyLabel } from "@/lib/patientIdentity";
 
 interface MobilePatientDetailProps {
   patient: Patient;
@@ -717,9 +718,7 @@ export const MobilePatientDetail = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear section</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Clear ${clearSectionLabel} for ${patient.name}?`
-                : `Clear ${clearSectionLabel}?`}{" "}
+              Clear {clearSectionLabel} for {patientSafetyLabel(patient)}?{" "}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -740,9 +739,7 @@ export const MobilePatientDetail = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Remove patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Remove ${patient.name} from rounds?`
-                : "Remove this patient from rounds?"}{" "}
+              Remove {patientSafetyLabel(patient)} from rounds?{" "}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -763,9 +760,7 @@ export const MobilePatientDetail = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Create a new roster entry from ${patient.name}?`
-                : "Create a new roster entry from this patient?"}{" "}
+              Create a new roster entry from {patientSafetyLabel(patient)}?{" "}
               Chart content is copied into the duplicate.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -783,9 +778,7 @@ export const MobilePatientDetail = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear all systems review</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Remove all systems review content for ${patient.name}?`
-                : "Remove all systems review content for this patient?"}{" "}
+              Remove all systems review content for {patientSafetyLabel(patient)}?{" "}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

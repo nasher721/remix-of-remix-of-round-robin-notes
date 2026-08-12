@@ -37,7 +37,7 @@ import { BatchCourseGenerator } from "@/components/BatchCourseGenerator";
 import { ContextAwareHelp } from "@/components/ContextAwareHelp";
 import { KeyboardShortcutHelp, useKeyboardShortcutHelp } from "@/components/KeyboardShortcutHelp";
 import { SyncHistoryPanel } from "@/components/sync/SyncHistoryPanel";
-import { useAICommandPalette } from "@/components/tools/AICommandPalette";
+import { useAICommandPalette } from "@/hooks/useAICommandPalette";
 import type { ChangeTrackingStyles } from "@/types/changeTracking";
 
 // Lazy-load heavy modal components for better initial bundle size

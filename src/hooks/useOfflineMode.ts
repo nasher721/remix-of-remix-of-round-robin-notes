@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   indexedDBQueue,
+  type ConflictData,
   type QueuedMutation,
   type QueuedMutationInput,
 } from '@/lib/offline/indexedDBQueue';
 import { syncEngine } from '@/lib/offline/syncEngine';
 import { useOnlineStatus } from './useOnlineStatus';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
+import { QUERY_KEYS } from '@/lib/cache/cacheConfig';
 
 export interface SyncProgress {
   total: number;
@@ -20,6 +24,7 @@ interface SkippedMutation {
   mutation: QueuedMutation;
   reason: string;
   serverTimestamp?: string;
+  conflict: ConflictData;
 }
 
 export interface OfflineState {
@@ -39,10 +44,20 @@ function getRetainedConflicts(queue: QueuedMutation[]): SkippedMutation[] {
       id: mutation.id,
       mutation,
       reason: 'Conflict detected - manual review required',
+      conflict: {
+        id: mutation.entityId ?? mutation.id,
+        table: mutation.table,
+        operation: mutation.operation,
+        clientData: mutation.payload,
+        serverData: mutation.conflictServerData ?? null,
+        originalData: mutation.conflictData ?? mutation.payload,
+      },
     }));
 }
 
 export function useOfflineMode() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const isOnline = useOnlineStatus();
   const [pendingMutations, setPendingMutations] = useState<QueuedMutation[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -156,15 +171,38 @@ export function useOfflineMode() {
     );
   }, [pendingMutations]);
 
+  const retryFailed = useCallback(async (): Promise<void> => {
+    const failed = await indexedDBQueue.getByStatus('failed');
+    await Promise.all(failed.map((mutation) => indexedDBQueue.updateStatus(mutation.id, 'pending')));
+    await triggerSync();
+  }, [triggerSync]);
+
+  const resolveSkippedConflict = useCallback(async (
+    skipped: SkippedMutation,
+    resolution: 'server-wins' | 'client-wins',
+  ): Promise<void> => {
+    const resolved = await syncEngine.resolvePendingConflict(skipped.conflict, resolution);
+    if (!resolved) return;
+    updateQueueState(await indexedDBQueue.getQueue());
+    if (user?.id) {
+      await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.patientList(user.id), exact: true });
+    }
+  }, [queryClient, updateQueueState, user?.id]);
+
+  const failedCount = pendingMutations.filter((mutation) => mutation.status === 'failed').length;
+
   return {
     isOnline,
     pendingCount: pendingMutations.length,
     pendingMutations,
+    failedCount,
     isSyncing,
     syncProgress,
     lastSyncTime,
     skippedMutations,
     triggerSync,
+    retryFailed,
+    resolveSkippedConflict,
     queueMutation,
     clearQueue,
     hasPendingChanges,

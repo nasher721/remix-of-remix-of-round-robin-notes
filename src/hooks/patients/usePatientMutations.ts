@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/use-notifications";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import type { PatientTodosMap } from "@/hooks/useAllPatientTodos";
-import type { Database, Json } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
 import { prepareUpdateData } from "@/lib/mappers/patientMapper";
 import {
@@ -20,6 +20,7 @@ import {
     extractPatientImageObjectKeys,
 } from "@/lib/patientImages";
 import { logError, logWarn } from "@/lib/observability/logger";
+import { indexedDBQueue } from "@/lib/offline/indexedDBQueue";
 
 export interface PatientMutationsDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
@@ -32,6 +33,22 @@ export interface PatientMutationsDeps {
 type PatientUpdateRow = Database["public"]["Tables"]["patients"]["Update"];
 
 export type PatientSaveState = "idle" | "saving" | "saved" | "queued" | "error";
+
+class PatientWriteConflictError extends Error {
+    constructor() {
+        super("Patient changed in another tab or device");
+        this.name = "PatientWriteConflictError";
+    }
+}
+
+function isRetryablePatientWriteError(error: unknown): boolean {
+    const candidate = error as { status?: number; code?: string; message?: string } | null;
+    const status = candidate?.status;
+    if (status === 408 || status === 429 || (typeof status === "number" && status >= 500)) return true;
+    const message = candidate?.message?.toLowerCase() ?? "";
+    if (error instanceof TypeError || /network|fetch|timeout|connection|temporar/.test(message)) return true;
+    return typeof navigator !== "undefined" && !navigator.onLine && message.length === 0;
+}
 
 function collectReferencedPatientImageKeys(
     patients: ReadonlyArray<Pick<Patient, "imaging">>,
@@ -129,6 +146,8 @@ export function usePatientMutations({
     activeOwnerIdRef.current = user?.id ?? null;
     const fieldUpdateVersionRef = React.useRef(new Map<string, number>());
     const patientUpdateVersionRef = React.useRef(new Map<string, number>());
+    const patientWriteChainsRef = React.useRef(new Map<string, Promise<void>>());
+    const patientServerRevisionRef = React.useRef(new Map<string, number>());
     const [patientSaveStates, setPatientSaveStates] = React.useState<Record<string, PatientSaveState>>({});
 
     const setPatientSaveState = React.useCallback((patientId: string, state: PatientSaveState) => {
@@ -317,39 +336,51 @@ export function usePatientMutations({
             updateData.field_timestamps = updatedPatient.fieldTimestamps as PatientUpdateRow["field_timestamps"];
         }
 
+        // Serialize this tab's writes per patient. Each request then compares the
+        // revision produced by its predecessor, while other tabs are rejected.
+        const previousWrite = patientWriteChainsRef.current.get(patientUpdateKey) ?? Promise.resolve();
+        let releaseWrite!: () => void;
+        const writeGate = new Promise<void>((resolve) => {
+            releaseWrite = resolve;
+        });
+        const writeChain = previousWrite.catch(() => undefined).then(() => writeGate);
+        patientWriteChainsRef.current.set(patientUpdateKey, writeChain);
+        await previousWrite.catch(() => undefined);
+
         const serializeForHistory = (v: unknown): string =>
             typeof v === "object" && v !== null ? JSON.stringify(v) : String(v);
+        let persistenceData = updateData;
 
         try {
-            const [nestedParent, nestedChild] = field.split(".");
-            const isAtomicNestedUpdate = Boolean(
-                nestedChild
-                && (nestedParent === "systems" || nestedParent === "medications")
-            );
-
-            if (isAtomicNestedUpdate) {
-                const jsonValue = JSON.parse(JSON.stringify(value ?? null)) as Json;
-                const { data, error } = await supabase.rpc("update_owned_patient_json_field", {
-                    p_patient_id: id,
-                    p_parent_field: nestedParent,
-                    p_child_field: nestedChild,
-                    p_value: jsonValue,
-                    p_last_modified: now,
-                    p_field_timestamp: shouldTrack ? now : null,
-                });
-
-                if (!isCurrentOwner(requestOwnerId)) return;
-                if (error) throw error;
-                if (data !== true) throw new Error("Patient JSON patch was not applied");
-            } else {
-                const { error } = await supabase
-                    .from("patients")
-                    .update(updateData)
-                    .eq("id", id);
-
-                if (!isCurrentOwner(requestOwnerId)) return;
-                if (error) throw error;
+            const latestPatient = patientsRef.current.find((patient) => patient.id === id) ?? updatedPatient;
+            persistenceData = prepareUpdateData(
+                field,
+                value,
+                latestPatient.systems,
+                latestPatient.medications,
+            ) as PatientUpdateRow;
+            persistenceData.last_modified = now;
+            if (shouldTrack) {
+                persistenceData.field_timestamps = latestPatient.fieldTimestamps as PatientUpdateRow["field_timestamps"];
             }
+            const expectedRevision = patientServerRevisionRef.current.get(patientUpdateKey)
+                ?? oldPatient.revision
+                ?? 0;
+            const { error, count } = await supabase
+                .from("patients")
+                .update(persistenceData, { count: "exact" })
+                .eq("id", id)
+                .eq("revision", expectedRevision);
+
+            if (!isCurrentOwner(requestOwnerId)) return;
+            if (error) throw error;
+            if (count === 0) throw new PatientWriteConflictError();
+            const nextRevision = expectedRevision + 1;
+            patientServerRevisionRef.current.set(patientUpdateKey, nextRevision);
+            const revisionPatients = patientsRef.current.map((patient) => (
+                patient.id === id ? { ...patient, revision: nextRevision } : patient
+            ));
+            commitPatients(requestOwnerId, revisionPatients);
 
             if (imageDelta?.removed.length) {
                 await deleteImagesIfUnreferenced(
@@ -390,11 +421,37 @@ export function usePatientMutations({
             if (patientUpdateVersionRef.current.get(patientUpdateKey) === patientUpdateVersion) {
                 setPatientSaveState(id, "saved");
             }
-        } catch {
+        } catch (error) {
             if (!isCurrentOwner(requestOwnerId)) return;
             logError("patient.update.failed");
             const isLatestFieldUpdate =
                 fieldUpdateVersionRef.current.get(fieldUpdateKey) === fieldUpdateVersion;
+
+            if (isLatestFieldUpdate && isRetryablePatientWriteError(error)) {
+                try {
+                    await indexedDBQueue.enqueue({
+                        type: "patient",
+                        operation: "update",
+                        table: "patients",
+                        entityId: id,
+                        payload: persistenceData as Record<string, unknown>,
+                        conflictData: {
+                            last_modified: oldPatient.lastModified,
+                            revision: patientServerRevisionRef.current.get(patientUpdateKey)
+                                ?? oldPatient.revision
+                                ?? 0,
+                        },
+                    });
+                    setPatientSaveState(id, "queued");
+                    notifications.warning({
+                        title: "Offline — change queued",
+                        description: "Change is stored on this device and will retry when connection recovers.",
+                    });
+                    return;
+                } catch {
+                    // Durable queue unavailable: fall through to rollback and persistent error.
+                }
+            }
 
             if (isLatestFieldUpdate) {
                 const rolledBackPatients = patientsRef.current.map((patient) => (
@@ -418,11 +475,28 @@ export function usePatientMutations({
             if (patientUpdateVersionRef.current.get(patientUpdateKey) === patientUpdateVersion) {
                 void fetchPatients({ force: true });
             }
+            if (error instanceof PatientWriteConflictError) {
+                patientServerRevisionRef.current.delete(patientUpdateKey);
+            }
             if (isLatestFieldUpdate) {
                 setPatientSaveState(id, "error");
-                notifications.error({
-                    title: "Update failed",
-                    description: "Patient changes could not be saved. Please try again.",
+                notifications.error(error instanceof PatientWriteConflictError
+                    ? {
+                        title: "Save conflict",
+                        description: "This patient changed in another tab or device. Your edit was not allowed to overwrite it; review the refreshed chart.",
+                    }
+                    : {
+                        title: "Save failed",
+                        description: "Patient changes could not be saved or queued. Copy your text before retrying.",
+                    });
+            }
+        } finally {
+            releaseWrite();
+            if (patientWriteChainsRef.current.get(patientUpdateKey) === writeChain) {
+                void writeChain.finally(() => {
+                    if (patientWriteChainsRef.current.get(patientUpdateKey) === writeChain) {
+                        patientWriteChainsRef.current.delete(patientUpdateKey);
+                    }
                 });
             }
         }
@@ -459,6 +533,7 @@ export function usePatientMutations({
 
             if (!isCurrentOwner(requestOwnerId)) return;
             if (error) throw error;
+            patientServerRevisionRef.current.delete(`${requestOwnerId}:${id}`);
 
             const remainingPatients = patientsRef.current.filter((patient) => patient.id !== id);
             commitPatients(requestOwnerId, remainingPatients);
@@ -596,6 +671,10 @@ export function usePatientMutations({
 
             if (!isCurrentOwner(requestOwnerId)) return;
             if (error) throw error;
+            currentPatients.forEach((patient) => {
+                patientServerRevisionRef.current.delete(`${requestOwnerId}:${patient.id}`);
+            });
+            await fetchPatients({ force: true });
         } catch {
             if (!isCurrentOwner(requestOwnerId)) return;
             logError("patient.collapse_all.failed");
@@ -614,7 +693,7 @@ export function usePatientMutations({
             });
             commitPatients(requestOwnerId, rolledBackPatients);
         }
-    }, [user, notifications, patientsRef, isCurrentOwner, commitPatients]);
+    }, [user, notifications, patientsRef, isCurrentOwner, commitPatients, fetchPatients]);
 
     const clearAll = React.useCallback(async () => {
         if (!user) return;
@@ -638,6 +717,9 @@ export function usePatientMutations({
             if (error) throw error;
 
             commitPatients(requestOwnerId, []);
+            previousPatients.forEach((patient) => {
+                patientServerRevisionRef.current.delete(`${requestOwnerId}:${patient.id}`);
+            });
             setPatientCounter(1);
             previousPatients.forEach((patient) => removePatientScopedCaches(queryClient, requestOwnerId, patient.id));
             queryClient.setQueriesData<PatientTodosMap>(

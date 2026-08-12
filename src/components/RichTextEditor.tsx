@@ -99,7 +99,7 @@ export const RichTextEditor = ({
   className,
   minHeight = "120px",
   autotexts = defaultAutotexts,
-  fontSize = 11,
+  fontSize = 14,
   changeTracking = null,
   patient,
   section,
@@ -109,6 +109,7 @@ export const RichTextEditor = ({
   const { editorToolbarMode, editorToolbarButtons } = useSettings();
   const isTablet = useIsTablet();
   const editorRef = React.useRef<HTMLDivElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const fontSizeRef = React.useRef(fontSize);
   const [showAutocomplete, setShowAutocomplete] = React.useState(false);
   const [autocompleteOptions, setAutocompleteOptions] = React.useState<{ shortcut: string; expansion: string }[]>([]);
@@ -133,7 +134,7 @@ export const RichTextEditor = ({
     return editorToolbarButtons.includes(id);
   };
 
-  const toolbarIconClass = "min-h-10 min-w-10 h-10 w-10 p-0";
+  const toolbarIconClass = "min-h-11 min-w-11 h-11 w-11 p-0";
   // Show patient-field inserts only while the editor is focused to reduce density.
   const showPatientInfoToolbar = Boolean(patient) && isEditorFocused;
   // Keep full formatting chrome off until the field is active to cut empty vertical space.
@@ -273,7 +274,6 @@ export const RichTextEditor = ({
 
   const execCommand = React.useCallback((command: string, cmdValue?: string) => {
     document.execCommand(command, false, cmdValue);
-    editorRef.current?.focus();
     if (editorRef.current) {
       const sanitizedValue = sanitizeHtml(editorRef.current.innerHTML);
       if (sanitizedValue !== editorRef.current.innerHTML) {
@@ -526,11 +526,18 @@ export const RichTextEditor = ({
       }
       if (e.key === "Escape") {
         setShowAutocomplete(false);
+        editorRef.current?.blur();
         return;
       }
     }
 
     // Handle autotext expansion on space/tab
+    if (e.key === "Escape") {
+      editorRef.current?.blur();
+      setShowAutocomplete(false);
+      return;
+    }
+
     if (e.key === " " || e.key === "Tab") {
       const { word } = getCurrentWord();
       if (word) {
@@ -550,6 +557,17 @@ export const RichTextEditor = ({
             return;
           }
         }
+      }
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const focusable = Array.from(document.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
+        )).filter((element) => element.getClientRects().length > 0 || element === editorRef.current);
+        const currentIndex = focusable.indexOf(editorRef.current!);
+        const nextIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
+        editorRef.current?.blur();
+        focusable[nextIndex]?.focus();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -657,13 +675,11 @@ export const RichTextEditor = ({
           onKeyUp={handleKeyUp}
           data-placeholder={placeholder}
           onFocus={(e) => {
-            setIsEditorFocused(true);
             if (e.currentTarget.innerHTML === '' || e.currentTarget.innerHTML === '<br>') {
               e.currentTarget.dataset.empty = 'true';
             }
           }}
           onBlur={(e) => {
-            setIsEditorFocused(false);
             delete e.currentTarget.dataset.empty;
             setShowAutocomplete(false);
           }}
@@ -1040,7 +1056,7 @@ export const RichTextEditor = ({
             title="Font size"
             aria-label="Font size"
           >
-            {[5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24].map((size) => (
+            {[14, 15, 16, 18, 20, 22, 24].map((size) => (
               <option key={size} value={size}>{size}px</option>
             ))}
           </select>
@@ -1247,7 +1263,23 @@ export const RichTextEditor = ({
         </>
       )}
       {(isPopOutInstance || !isPoppedOut) && (
-    <div className={cn("border border-border/50 rounded-lg bg-card relative h-auto shadow-card", className)}>
+    <div
+      ref={containerRef}
+      className={cn("border border-border/50 rounded-lg bg-card relative h-auto shadow-card", className)}
+      onFocusCapture={() => setIsEditorFocused(true)}
+      onBlurCapture={(event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && containerRef.current?.contains(next)) return;
+        window.requestAnimationFrame(() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement) {
+            if (containerRef.current?.contains(active)) return;
+            if (active.closest('[data-radix-popper-content-wrapper], [role="dialog"], [role="menu"]')) return;
+          }
+          setIsEditorFocused(false);
+        });
+      }}
+    >
       {toolbarContent}
       {/* Editor area (larger default min-height; pop-out instance uses min-h-[55vh]) */}
       {editorArea}

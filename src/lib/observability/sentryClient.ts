@@ -3,11 +3,17 @@
  * beforeSend scrubs URLs and avoids shipping request bodies (PHI-safe defaults).
  */
 
-import * as Sentry from '@sentry/react';
+import type * as SentryTypes from '@sentry/react';
 
-type CaptureExceptionContext = Parameters<typeof Sentry.captureException>[1];
+type CaptureExceptionContext = Parameters<typeof SentryTypes.captureException>[1];
 
 let initialized = false;
+let sentryPromise: Promise<typeof SentryTypes> | null = null;
+
+const loadSentry = () => {
+  sentryPromise ??= import('@sentry/react');
+  return sentryPromise;
+};
 
 function scrubUrl(url: string | undefined): string | undefined {
   if (!url) return url;
@@ -24,7 +30,7 @@ function scrubUrl(url: string | undefined): string | undefined {
 /**
  * Call once from main.tsx after env is available.
  */
-export function initAppSentry(): void {
+function configureSentry(Sentry: typeof SentryTypes): void {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
   if (!dsn || initialized) return;
 
@@ -75,16 +81,27 @@ export function initAppSentry(): void {
   });
 }
 
+export function initAppSentry(): void {
+  if (!import.meta.env.VITE_SENTRY_DSN) return;
+  void loadSentry().then(configureSentry);
+}
+
 export function captureExceptionToSentry(error: unknown, captureContext?: CaptureExceptionContext): void {
   if (!import.meta.env.VITE_SENTRY_DSN) return;
-  Sentry.captureException(error, captureContext);
+  void loadSentry().then((Sentry) => {
+    configureSentry(Sentry);
+    Sentry.captureException(error, captureContext);
+  });
 }
 
 /** Non-PII metadata only — function name, HTTP status, attempts (no URLs with query, no bodies). */
 export function captureEdgeFetchFailureToSentry(extra: Record<string, unknown>): void {
   if (!import.meta.env.VITE_SENTRY_DSN) return;
-  Sentry.captureMessage('edge_fetch_failed', {
-    level: 'error',
-    extra,
+  void loadSentry().then((Sentry) => {
+    configureSentry(Sentry);
+    Sentry.captureMessage('edge_fetch_failed', {
+      level: 'error',
+      extra,
+    });
   });
 }

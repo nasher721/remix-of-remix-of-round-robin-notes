@@ -297,4 +297,32 @@ describe("Focus-first Round runner harness", () => {
     assert.ok(screen.getByTestId("round-chrome-sticky-actions"));
     assert.ok(screen.getByTestId("patient-focus"));
   });
+
+  it("uses roving focus and associated panels for mobile section tabs", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3}>
+        <MobileRoundShell />
+      </RoundProviders>,
+    );
+
+    const summaryTab = screen.getByRole("tab", { name: "Summary" });
+    const systemsTab = screen.getByRole("tab", { name: "Systems" });
+    const todosTab = screen.getByRole("tab", { name: "Todos" });
+    assert.equal(summaryTab.tabIndex, 0);
+    assert.equal(systemsTab.tabIndex, -1);
+    assert.equal(summaryTab.getAttribute("aria-controls"), "focus-summary-panel");
+
+    summaryTab.focus();
+    fireEvent.keyDown(summaryTab, { key: "ArrowRight" });
+    await new Promise((resolve) => window.requestAnimationFrame(() => resolve(undefined)));
+    assert.equal(document.activeElement, systemsTab);
+    assert.equal(systemsTab.getAttribute("aria-selected"), "true");
+    assert.equal(systemsTab.getAttribute("aria-controls"), "focus-system-panel");
+
+    fireEvent.keyDown(systemsTab, { key: "End" });
+    await new Promise((resolve) => window.requestAnimationFrame(() => resolve(undefined)));
+    assert.equal(document.activeElement, todosTab);
+    assert.equal(todosTab.tabIndex, 0);
+    assert.ok(document.getElementById("focus-todos-panel"));
+  });
 });

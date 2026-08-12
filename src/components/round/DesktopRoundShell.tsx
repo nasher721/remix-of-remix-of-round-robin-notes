@@ -9,6 +9,7 @@ import { useDashboard } from "@/contexts/DashboardContext"
 import { useRoundSession } from "@/contexts/RoundSessionContext"
 import type { Patient } from "@/types/patient"
 import type { RoundShellSurface } from "./roundShellSurface"
+import { exportRoundRecovery } from "@/lib/exportRoundRecovery"
 
 export type { RoundShellSurface }
 
@@ -36,6 +37,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   const { patients, setDesktopSelectedPatientId } = useDashboard()
   const {
     currentPatientId,
+    round,
     nextPatient,
     prevPatient,
     markDoneAndNext,
@@ -137,6 +139,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
         onGoHome={handleGoHome}
         onEndRound={handleEndRound}
         showLifecycleActions={surface === "focus"}
+        onExportRecovery={() => exportRoundRecovery(round, patients)}
       />
       <main className="min-h-0 flex-1">
         {surface === "home" && (

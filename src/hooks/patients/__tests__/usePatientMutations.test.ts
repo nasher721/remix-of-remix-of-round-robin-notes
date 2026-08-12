@@ -83,6 +83,7 @@ const mockPatient: Patient = {
   collapsed: false,
   createdAt: "2024-01-01T00:00:00Z",
   lastModified: "2024-01-01T00:00:00Z",
+  revision: 0,
 };
 
 test("usePatientMutations addPatient calls supabase insert with expected payload", async () => {
@@ -207,6 +208,46 @@ test("usePatientMutations forces a server refresh after failed optimistic patien
   assert.deepEqual(fetchCalls, [{ force: true }]);
 });
 
+test("usePatientMutations rejects a stale cross-tab revision instead of overwriting", async () => {
+  setupAuthMock();
+  const patientsRef: { current: Patient[] } = { current: [{ ...mockPatient, revision: 7 }] };
+  const setPatients = (action: React.SetStateAction<Patient[]>) => {
+    patientsRef.current = typeof action === "function"
+      ? (action as (previous: Patient[]) => Patient[])(patientsRef.current)
+      : action;
+  };
+  const fetchCalls: Array<{ force?: boolean } | undefined> = [];
+  let revisionFilter: unknown;
+  (globalThis as unknown as {
+    __SUPABASE_UPDATE_MOCK__?: (request: { filters: Array<{ column: string; value: unknown }> }) => {
+      data: null;
+      error: null;
+      count: number;
+    };
+  }).__SUPABASE_UPDATE_MOCK__ = ({ filters }) => {
+    revisionFilter = filters.find((filter) => filter.column === "revision")?.value;
+    return { data: null, error: null, count: 0 };
+  };
+  const { wrapper } = createAuthQueryWrapper();
+  const { result } = renderHook(() => usePatientMutations({
+    patientsRef,
+    setPatients,
+    patientCounter: 1,
+    setPatientCounter: () => {},
+    fetchPatients: async (options) => { fetchCalls.push(options); },
+  }), { wrapper });
+
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await act(async () => {
+    await result.current.updatePatient("existing-id", "name", "Stale edit");
+  });
+
+  assert.equal(revisionFilter, 7);
+  assert.equal(patientsRef.current[0]?.name, "Existing");
+  assert.equal(result.current.patientSaveStates["existing-id"], "error");
+  assert.deepEqual(fetchCalls, [{ force: true }]);
+});
+
 test("usePatientMutations ignores a deferred user-A rollback after switching to user B", async () => {
   const transitionTo = setupAuthTransitionMock();
   const userAPatient = { ...mockPatient, id: "patient-a", name: "User A" };
@@ -312,15 +353,17 @@ test("a failed older update rolls back only its field and preserves a newer succ
   });
 
   let olderUpdate!: Promise<void>;
+  let newerUpdate!: Promise<void>;
   await act(async () => {
     olderUpdate = result.current.updatePatient("existing-id", "name", "Pending name");
     await Promise.resolve();
-    await result.current.updatePatient("existing-id", "bed", "B2");
+    newerUpdate = result.current.updatePatient("existing-id", "bed", "B2");
   });
 
   await act(async () => {
     resolveOlderUpdate({ error: new Error("older request failed") });
     await olderUpdate;
+    await newerUpdate;
   });
 
   assert.equal(patientsRef.current[0]?.name, "Existing");
@@ -337,22 +380,6 @@ test("a failed deferred systems patch cannot leak through a concurrent sibling u
       : action;
   };
   const serverSystems = { ...defaultSystemsValue };
-  let resolveNeuroRpc!: (result: { data: boolean | null; error: Error | null }) => void;
-
-  (globalThis as unknown as {
-    __SUPABASE_RPC_MOCK__?: (request: {
-      args: { p_parent_field: string; p_child_field: keyof typeof serverSystems; p_value: string };
-    }) => Promise<{ data: boolean | null; error: Error | null }> | { data: true; error: null };
-  }).__SUPABASE_RPC_MOCK__ = ({ args }) => {
-    if (args.p_child_field === "neuro") {
-      return new Promise((resolve) => { resolveNeuroRpc = resolve; });
-    }
-    serverSystems[args.p_child_field] = args.p_value;
-    return { data: true, error: null };
-  };
-
-  // This legacy handler makes the regression test fail if nested edits ever
-  // fall back to sending an optimistic full JSON snapshot again.
   let resolveLegacyNeuro!: (result: { error: Error | null }) => void;
   (globalThis as unknown as {
     __SUPABASE_UPDATE_MOCK__?: (request: { data: { systems?: typeof serverSystems } }) => Promise<{ error: Error | null }> | { error: null };
@@ -375,22 +402,23 @@ test("a failed deferred systems patch cannot leak through a concurrent sibling u
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
 
   let neuroRequest!: Promise<void>;
+  let cvRequest!: Promise<void>;
   await act(async () => {
     neuroRequest = result.current.updatePatient("existing-id", "systems.neuro", "pending neuro");
-    await Promise.resolve();
-    await result.current.updatePatient("existing-id", "systems.cv", "stable cv");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    cvRequest = result.current.updatePatient("existing-id", "systems.cv", "stable cv");
   });
   await act(async () => {
-    if (resolveNeuroRpc) resolveNeuroRpc({ data: null, error: new Error("neuro rejected") });
-    else resolveLegacyNeuro({ error: new Error("neuro rejected") });
+    resolveLegacyNeuro({ error: new Error("neuro rejected") });
     await neuroRequest;
+    await cvRequest;
   });
 
   assert.equal(patientsRef.current[0]?.systems.neuro, "");
   assert.equal(patientsRef.current[0]?.systems.cv, "stable cv");
   assert.equal(serverSystems.neuro, "", "the rejected optimistic value must never persist indirectly");
   assert.equal(serverSystems.cv, "stable cv");
-  assert.equal((globalThis as unknown as { __supabaseRpcCapture?: unknown[] }).__supabaseRpcCapture?.length, 2);
+  assert.equal((globalThis as unknown as { __supabaseRpcCapture?: unknown[] }).__supabaseRpcCapture?.length ?? 0, 0);
 });
 
 test("deferred medication sibling patches persist without last-completer JSON loss", async () => {
@@ -402,24 +430,6 @@ test("deferred medication sibling patches persist without last-completer JSON lo
       : action;
   };
   const serverMedications = { ...defaultMedicationsValue };
-  let finishInfusionsRpc!: () => void;
-  (globalThis as unknown as {
-    __SUPABASE_RPC_MOCK__?: (request: {
-      args: { p_child_field: keyof typeof serverMedications; p_value: string[] | string };
-    }) => Promise<{ data: true; error: null }> | { data: true; error: null };
-  }).__SUPABASE_RPC_MOCK__ = ({ args }) => {
-    if (args.p_child_field === "infusions") {
-      return new Promise((resolve) => {
-        finishInfusionsRpc = () => {
-          serverMedications.infusions = args.p_value as string[];
-          resolve({ data: true, error: null });
-        };
-      });
-    }
-    serverMedications.scheduled = args.p_value as string[];
-    return { data: true, error: null };
-  };
-
   let finishLegacyInfusions!: () => void;
   (globalThis as unknown as {
     __SUPABASE_UPDATE_MOCK__?: (request: { data: { medications?: typeof serverMedications } }) => Promise<{ error: null }> | { error: null };
@@ -448,15 +458,16 @@ test("deferred medication sibling patches persist without last-completer JSON lo
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
 
   let infusionsRequest!: Promise<void>;
+  let scheduledRequest!: Promise<void>;
   await act(async () => {
     infusionsRequest = result.current.updatePatient("existing-id", "medications.infusions", ["norepinephrine"]);
-    await Promise.resolve();
-    await result.current.updatePatient("existing-id", "medications.scheduled", ["levetiracetam"]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    scheduledRequest = result.current.updatePatient("existing-id", "medications.scheduled", ["levetiracetam"]);
   });
   await act(async () => {
-    if (finishInfusionsRpc) finishInfusionsRpc();
-    else finishLegacyInfusions();
+    finishLegacyInfusions();
     await infusionsRequest;
+    await scheduledRequest;
   });
 
   assert.deepEqual(serverMedications.infusions, ["norepinephrine"]);

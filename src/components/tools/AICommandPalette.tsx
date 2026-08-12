@@ -227,9 +227,41 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
   const [textInput, setTextInput] = React.useState('');
   const [transparencyOpen, setTransparencyOpen] = React.useState(false);
   const [selectedExample, setSelectedExample] = React.useState<string | null>(null);
+  const [pendingDraft, setPendingDraft] = React.useState<{
+    content: string;
+    field: string;
+    source: string;
+    sourcePreview: string;
+  } | null>(null);
   const patientScopeLabel = patient?.name
     ? `Selected: ${patient.name}`
     : 'No patient selected — choose a patient on the roster first';
+  const patientSecondaryIdentifier = patient
+    ? patient.mrn?.trim()
+      ? `MRN …${patient.mrn.trim().slice(-4)}`
+      : patient.bed?.trim()
+        ? `Bed ${patient.bed.trim()}`
+        : `Record …${patient.id.slice(-4)}`
+    : null;
+
+  const patientSourcePreview = patient
+    ? [
+        patient.clinicalSummary && `Summary: ${patient.clinicalSummary}`,
+        patient.intervalEvents && `Events: ${patient.intervalEvents}`,
+        patient.labs && `Labs: ${patient.labs}`,
+        patient.imaging && `Imaging: ${patient.imaging}`,
+      ].filter(Boolean).join('\n').slice(0, 1200) || 'Selected patient record (no populated source fields)'
+    : '';
+
+  const stageDraftForReview = React.useCallback((
+    content: string,
+    source: string,
+    sourcePreview = patientSourcePreview,
+  ): boolean => {
+    if (!onInsertToField) return false;
+    setPendingDraft({ content, field: 'clinicalSummary', source, sourcePreview });
+    return true;
+  }, [onInsertToField, patientSourcePreview]);
 
   const contextualSuggestions = getContextualSuggestions(patient);
 
@@ -264,9 +296,7 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
         patient,
       });
       
-      if (result && onInsertToField) {
-        onInsertToField('clinicalSummary', result);
-      }
+      if (result && stageDraftForReview(result, `AI action: ${action}`)) return;
     } catch (error) {
       console.error('Quick action failed:', error);
     }
@@ -288,10 +318,7 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
           patient,
         });
         
-        if (result && onInsertToField) {
-          // For now, show result in toast - could be enhanced to insert directly
-          onInsertToField('clinicalSummary', result);
-        }
+        if (result && stageDraftForReview(result, `AI command: ${command.name}`)) return;
       } catch (error) {
         console.error('AI command failed:', error);
       }
@@ -304,7 +331,7 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
     }
     
     onOpenChange(false);
-  }, [patient, streamWithAI, onInsertToField, onOpenChange, toast]);
+  }, [patient, streamWithAI, onOpenChange, toast, stageDraftForReview]);
 
   const handleTextSubmit = React.useCallback(async () => {
     if (!selectedCommand || !textInput.trim()) return;
@@ -315,8 +342,14 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
         patient,
       });
       
-      if (result && onInsertToField) {
-        onInsertToField('clinicalSummary', result);
+      if (result && stageDraftForReview(
+        result,
+        `AI command: ${selectedCommand.name}`,
+        textInput.slice(0, 1200),
+      )) {
+        setSelectedCommand(null);
+        setTextInput('');
+        return;
       }
     } catch (error) {
       console.error('AI command with text failed:', error);
@@ -325,12 +358,13 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
     setSelectedCommand(null);
     setTextInput('');
     onOpenChange(false);
-  }, [selectedCommand, textInput, patient, streamWithAI, onInsertToField, onOpenChange]);
+  }, [selectedCommand, textInput, patient, streamWithAI, onOpenChange, stageDraftForReview]);
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       setSelectedCommand(null);
       setTextInput('');
+      setPendingDraft(null);
     }
     onOpenChange(isOpen);
   };
@@ -381,7 +415,45 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
           <span className={patient ? 'font-medium text-foreground' : 'text-muted-foreground'}>
             {patientScopeLabel}
           </span>
+          {patientSecondaryIdentifier && (
+            <span className="ml-2 text-xs text-muted-foreground">· {patientSecondaryIdentifier}</span>
+          )}
         </div>
+        {pendingDraft && (
+          <section className="space-y-2 border-b bg-amber-500/10 px-3 py-3" aria-label="Review AI draft before insertion">
+            <div className="text-xs text-foreground/80">
+              <strong>Source:</strong> {pendingDraft.source} · {patientScopeLabel}
+              {patientSecondaryIdentifier ? ` · ${patientSecondaryIdentifier}` : ''}
+              <br />
+              <strong>Destination:</strong> Clinical Summary · review required before insertion
+            </div>
+            <div className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded border bg-background p-2 text-xs">
+              {pendingDraft.content}
+            </div>
+            <details className="rounded border bg-background px-2 py-1 text-xs">
+              <summary className="cursor-pointer font-medium">Preview source data sent to AI</summary>
+              <div className="mt-2 max-h-28 overflow-y-auto whitespace-pre-wrap text-muted-foreground">
+                {pendingDraft.sourcePreview || 'No source text supplied'}
+              </div>
+            </details>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setPendingDraft(null)}>
+                Discard
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  onInsertToField?.(pendingDraft.field, pendingDraft.content);
+                  setPendingDraft(null);
+                  onOpenChange(false);
+                }}
+              >
+                Insert reviewed draft
+              </Button>
+            </div>
+          </section>
+        )}
         <CommandList>
           <CommandEmpty>
             {isStreaming ? (
@@ -571,24 +643,4 @@ export const AICommandPalette: React.FC<AICommandPaletteProps> = ({
       />
     </>
   );
-};
-
-// Hook to manage AI Command Palette state
-export const useAICommandPalette = () => {
-  const [isOpen, setIsOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      // Cmd+Shift+A to open AI command palette
-      if (e.key === 'a' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-        e.preventDefault();
-        setIsOpen((open) => !open);
-      }
-    };
-
-    document.addEventListener('keydown', down);
-    return () => document.removeEventListener('keydown', down);
-  }, []);
-
-  return { isOpen, setIsOpen };
 };

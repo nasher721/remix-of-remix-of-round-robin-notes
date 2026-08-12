@@ -61,7 +61,7 @@ export function QuickModelSwitcher({ className }: { className?: string }) {
                     type="button"
                     title={`AI model for editor tools: ${currentModel?.label || 'Select model'}. Open to switch.`}
                     aria-label={`AI model: ${currentModel?.label || 'Select model'}. Open menu to change model.`}
-                    className={cn("h-8 gap-2 px-2 bg-background/50 backdrop-blur-sm border-border/50 hover:bg-muted/80 transition-all", className)}
+                    className={cn("min-h-11 h-11 gap-2 px-2 bg-background/50 backdrop-blur-sm border-border/50 hover:bg-muted/80 transition-all", className)}
                 >
                     <div className={cn(
                         "p-1 rounded-sm",
@@ -103,7 +103,7 @@ export function QuickModelSwitcher({ className }: { className?: string }) {
                                         key={`${m.provider}:${m.model}`}
                                         onClick={() => setAiModel(m.provider, m.model)}
                                         className={cn(
-                                            "flex flex-col items-start gap-0.5 px-2 py-1.5 cursor-pointer rounded-md transition-colors",
+                                            "min-h-11 flex flex-col items-start gap-0.5 px-2 py-1.5 cursor-pointer rounded-md transition-colors",
                                             isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted"
                                         )}
                                     >

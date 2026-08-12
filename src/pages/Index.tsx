@@ -12,7 +12,7 @@ import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardTodosProvider } from "@/contexts/DashboardTodosContext";
-import { useSetCurrentPatients } from "@/contexts/CurrentPatientsContext";
+import { useSetActivePatientId, useSetCurrentPatients } from "@/contexts/CurrentPatientsContext";
 import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
 import { DesktopRoundShell, MobileRoundShell } from "@/components/round";
 import { RoundSessionProvider } from "@/contexts/RoundSessionContext";
@@ -52,6 +52,7 @@ function IndexContent(): React.ReactElement | null {
   const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
   const { customDictionary, importDictionary } = useCloudDictionary();
   const setCurrentPatients = useSetCurrentPatients();
+  const setActivePatientId = useSetActivePatientId();
   const { patientListViewMode, setPatientListViewMode } = useDashboardLayout();
 
   // Sync dashboard patients to shared context so UnifiedAIChatbot (and others) use the same source
@@ -128,7 +129,9 @@ function IndexContent(): React.ReactElement | null {
   // Update IBCC context with current patient for context-aware suggestions
   React.useEffect(() => {
     setCurrentPatient(currentPatient);
-  }, [currentPatient, setCurrentPatient]);
+    setActivePatientId(currentPatient?.id ?? null);
+    return () => setActivePatientId(null);
+  }, [currentPatient, setCurrentPatient, setActivePatientId]);
 
   const handleUpdatePatient = React.useCallback(
     (id: string, field: string, value: unknown) => updatePatient(id, field, value),

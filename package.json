@@ -8,12 +8,12 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/check-bundle-size.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit --incremental false && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview",
-    "test": "node --import ./scripts/test-setup.mjs --loader ./scripts/test-mock-loader.mjs --loader ./scripts/supabase-mock-loader.mjs --loader ./scripts/ts-loader.mjs --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"; node .github/setup.js; node .github/setup.js",
+    "test": "node --import ./scripts/test-setup.mjs --loader ./scripts/test-mock-loader.mjs --loader ./scripts/supabase-mock-loader.mjs --loader ./scripts/ts-loader.mjs --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "test:auth": "node --import ./scripts/test-setup.mjs --loader ./scripts/supabase-mock-loader.mjs --loader ./scripts/ts-loader.mjs --test src/hooks/__tests__/useAuth.test.tsx src/pages/__tests__/Auth.test.tsx",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
@@ -91,7 +91,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.61.1",
     "react-resizable-panels": "^2.1.9",
-    "react-router-dom": "^6.30.4",
+    "react-router-dom": "7.18.2",
     "react-window": "^2.2.5",
     "recharts": "^2.15.4",
     "sonner": "^1.7.4",
@@ -111,9 +111,10 @@
     "@types/node": "^22.16.5",
     "@types/react": "~18.3.23",
     "@types/react-dom": "~18.3.7",
-    "@vitejs/plugin-react-swc": "^3.11.0",
+    "@vitejs/plugin-react-swc": "4.3.3",
     "agentation": "^3.0.2",
     "autoprefixer": "^10.4.21",
+    "esbuild": "0.28.2",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -123,6 +124,6 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19"
+    "vite": "8.2.1"
   }
 }

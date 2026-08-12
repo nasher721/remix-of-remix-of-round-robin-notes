@@ -200,7 +200,12 @@ export const PatientSystemsReview = ({
   return (
     <div
       className="space-y-3"
-      onFocusCapture={onAnyEditorFocus}
+      onFocusCapture={(event) => {
+        const targetElement = event.target;
+        if (targetElement instanceof HTMLElement && targetElement.isContentEditable) {
+          onAnyEditorFocus?.();
+        }
+      }}
       data-systems-combined={systemsReviewMode === "combine_all" ? "true" : undefined}
       data-systems-custom={systemsReviewMode === "combine_custom" ? "true" : undefined}
     >

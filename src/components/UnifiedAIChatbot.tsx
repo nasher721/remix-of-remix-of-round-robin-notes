@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useStreamingAI } from '@/hooks/useStreamingAI';
-import { useCurrentPatients } from '@/contexts/CurrentPatientsContext';
+import { useActivePatientId, useCurrentPatients } from '@/contexts/CurrentPatientsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useMotionPreference } from '@/hooks/useReducedMotion';
 import { shouldRunAnime, useAnimeTimeline } from '@/lib/anime';
@@ -280,6 +280,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onCopy, copiedId
 export const UnifiedAIChatbot: React.FC = () => {
   const { user } = useAuth();
   const patients = useCurrentPatients();
+  const activePatientId = useActivePatientId();
   const { prefersReducedMotion } = useMotionPreference();
 
   const [isOpen, setIsOpen] = React.useState(false);
@@ -300,6 +301,22 @@ export const UnifiedAIChatbot: React.FC = () => {
     () => patients.find((p) => p.id === selectedPatientId) ?? null,
     [patients, selectedPatientId],
   );
+
+  React.useEffect(() => {
+    if (activePatientId && patients.some((patient) => patient.id === activePatientId)) {
+      setSelectedPatientId(activePatientId);
+      return;
+    }
+    if (selectedPatientId !== '__none__' && !patients.some((patient) => patient.id === selectedPatientId)) {
+      setSelectedPatientId('__none__');
+    }
+  }, [activePatientId, patients, selectedPatientId]);
+
+  const patientIdentifier = React.useCallback((patient: (typeof patients)[number]) => {
+    if (patient.mrn?.trim()) return `MRN …${patient.mrn.trim().slice(-4)}`;
+    if (patient.bed?.trim()) return `Bed ${patient.bed.trim()}`;
+    return `Record …${patient.id.slice(-4)}`;
+  }, []);
 
   // ── Streaming AI hook ────────────────────────────────────────────────────────
 
@@ -519,7 +536,7 @@ export const UnifiedAIChatbot: React.FC = () => {
             title="AI Clinical Assistant (⌘⇧K)"
             aria-label="Open AI Clinical Assistant"
             className={cn(
-              'fixed bottom-6 right-6 z-50',
+              'fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-6 md:right-6',
               'h-14 w-14 rounded-full',
               'bg-gradient-to-br from-violet-500 via-indigo-500 to-purple-600',
               'shadow-lg shadow-violet-500/30',
@@ -547,13 +564,13 @@ export const UnifiedAIChatbot: React.FC = () => {
             exit={{ opacity: 0, scale: 0.96, y: 16 }}
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             className={cn(
-              'fixed z-50 flex flex-col',
-              'rounded-2xl overflow-hidden',
+              'fixed z-50 flex max-h-[100dvh] max-w-[100vw] flex-col',
+              'overflow-hidden sm:rounded-2xl',
               'border border-border/60 bg-background',
               'shadow-2xl shadow-black/25',
               isExpanded
-                ? 'inset-4'
-                : 'bottom-6 right-6 w-[460px] h-[620px]',
+                ? 'inset-0 h-[100dvh] w-screen sm:inset-4 sm:h-auto sm:w-auto'
+                : 'inset-0 h-[100dvh] w-screen sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(620px,calc(100dvh-3rem))] sm:w-[min(460px,calc(100vw-3rem))]',
             )}
           >
             {/* ── Header ── */}
@@ -651,9 +668,7 @@ export const UnifiedAIChatbot: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <User className="h-3 w-3 text-muted-foreground" />
                             <span>{p.name || `Patient ${p.bed || p.id?.slice(0, 8)}`}</span>
-                            {p.bed && (
-                              <span className="text-xs text-muted-foreground">Bed {p.bed}</span>
-                            )}
+                            <span className="text-xs text-muted-foreground">{patientIdentifier(p)}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -695,7 +710,7 @@ export const UnifiedAIChatbot: React.FC = () => {
                         type="button"
                         style={animeRunQuickChips ? { opacity: 0 } : undefined}
                         onClick={() => handleQuickAction(action)}
-                        disabled={isStreaming}
+                        disabled={isStreaming || (PATIENT_FEATURES.includes(action.id) && !selectedPatient)}
                         aria-label={`${action.name}: ${action.description}`}
                         className={cn(
                           'inline-flex items-center gap-1.5 px-2.5 py-1.5 min-h-[36px] rounded-full text-xs font-medium',
@@ -735,7 +750,7 @@ export const UnifiedAIChatbot: React.FC = () => {
             {/* ── Messages ── */}
             <div
               ref={scrollRef}
-              className="flex-1 overflow-y-auto px-3 py-3 space-y-3 scroll-smooth"
+              className="min-h-0 flex-1 overflow-y-auto px-3 py-3 space-y-3 scroll-smooth"
             >
               {messages.length === 0 ? (
                 <motion.div
@@ -752,7 +767,7 @@ export const UnifiedAIChatbot: React.FC = () => {
                       AI Clinical Assistant
                     </p>
                     <p className="text-xs text-muted-foreground mt-1.5 max-w-[240px] leading-relaxed">
-                      Select a quick action above or type a clinical question. Optionally select a patient for context-aware features.
+                      Select confirmed patient context, then choose action. Generated text stays in review until you copy it into chart.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5 justify-center mt-1">
@@ -779,7 +794,7 @@ export const UnifiedAIChatbot: React.FC = () => {
             </div>
 
             {/* ── Input area ── */}
-            <div className="flex-shrink-0 p-3 border-t border-border/50 bg-background/80 backdrop-blur-sm">
+            <div className="flex-shrink-0 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border/50 bg-background/80 backdrop-blur-sm">
               {/* Pending action banner */}
               <AnimatePresence>
                 {pendingAction && (
@@ -796,7 +811,7 @@ export const UnifiedAIChatbot: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setPendingAction(null)}
-                      className="p-1 rounded-md text-violet-400 hover:text-violet-600 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 min-h-[32px] min-w-[32px] inline-flex items-center justify-center"
+                      className="p-1 rounded-md text-violet-400 hover:text-violet-600 dark:hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 min-h-[44px] min-w-[44px] inline-flex items-center justify-center"
                       aria-label="Cancel pending action"
                     >
                       <X className="h-3 w-3" aria-hidden />

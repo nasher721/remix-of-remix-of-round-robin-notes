@@ -53,7 +53,7 @@ import { DesktopSpecialtySelector } from "@/components/settings/DesktopSpecialty
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { IBCCPanel } from "@/components/ibcc"
 import { GuidelinesPanelLazy } from "@/components/guidelines"
-import { useAICommandPalette } from "@/components/tools/AICommandPalette"
+import { useAICommandPalette } from "@/hooks/useAICommandPalette"
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext"
 import { useClinicalGuidelinesState } from "@/contexts/ClinicalGuidelinesContext"
 import { useDashboard } from "@/contexts/DashboardContext"
@@ -366,13 +366,16 @@ export const ToolsSheet = ({
                 data-testid="tools-risk"
                 onClickCapture={closeSheet}
               >
-                <ClinicalRiskCalculator className="h-9 w-full justify-start gap-2" />
+                <ClinicalRiskCalculator className={cn(touchFriendly ? "h-11 min-h-11" : "h-9", "w-full justify-start gap-2")} />
               </div>
               <div data-testid="tools-timeline" onClickCapture={closeSheet}>
-                <TimelineDialog />
+                <TimelineDialog triggerClassName={touchFriendly ? "h-11 min-h-11" : undefined} />
               </div>
               <div data-testid="tools-census" onClickCapture={closeSheet}>
-                <UnitCensusDashboard patients={patients} className="h-9 w-full justify-start gap-2" />
+                <UnitCensusDashboard
+                  patients={patients}
+                  className={cn(touchFriendly ? "h-11 min-h-11" : "h-9", "w-full justify-start gap-2")}
+                />
               </div>
               <div
                 data-testid="tools-batch-course"
@@ -385,6 +388,7 @@ export const ToolsSheet = ({
                   patients={patients}
                   onUpdatePatient={onUpdatePatient}
                   todosMap={todosMap}
+                  triggerClassName={touchFriendly ? "h-11 min-h-11" : undefined}
                 />
                 {!isOnline && (
                   <p className="mt-1 text-[11px] text-muted-foreground">Batch course needs network</p>
@@ -479,7 +483,7 @@ export const ToolsSheet = ({
                   variant={todosAlwaysVisible ? "default" : "outline"}
                   size="sm"
                   onClick={() => setTodosAlwaysVisible(!todosAlwaysVisible)}
-                  className="w-full gap-1.5"
+                  className={cn("w-full gap-1.5", touchFriendly && "h-11 min-h-11")}
                 >
                   <ListTodo className="h-3.5 w-3.5" aria-hidden="true" />
                   Todos always visible
@@ -495,6 +499,7 @@ export const ToolsSheet = ({
                     step={1}
                     value={[globalFontSize]}
                     onValueChange={(value) => setGlobalFontSize(value[0] ?? globalFontSize)}
+                    aria-label="Global font size"
                   />
                 </div>
                 <div className="space-y-1">
@@ -504,7 +509,10 @@ export const ToolsSheet = ({
                     onChange={(e) =>
                       setEditorToolbarMode(e.target.value as "minimal" | "full" | "custom")
                     }
-                    className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                    className={cn(
+                      "w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring",
+                      touchFriendly ? "h-11 min-h-11" : "h-8",
+                    )}
                     aria-label="Toolbar style for all text boxes"
                   >
                     <option value="minimal">Minimal (essential + More)</option>
@@ -636,7 +644,8 @@ export const ToolsSheet = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Clear All Patients</AlertDialogTitle>
             <AlertDialogDescription>
-              Remove all patients from rounds? This action cannot be undone.
+              Remove all {patients.length} patient{patients.length === 1 ? "" : "s"} from today&apos;s rounds?
+              This action cannot be undone. Export any needed recovery copy first.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -4,6 +4,7 @@ import { SYSTEM_LABELS_SHORT } from "@/constants/systems";
 import type { PrintSettings, PrintDataProps } from "@/lib/print/types";
 import { COLUMN_COMBINATIONS } from "@/lib/print/constants";
 import type { Patient } from "@/types/patient";
+import { patientExportIdentifierLine } from "@/lib/patientIdentity";
 import { getPageMetrics } from "@/lib/print/layout";
 import { formatMedicationsHtml } from "./utils";
 import DOMPurify from "dompurify";
@@ -291,7 +292,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
         return (
           <div>
             <div className="font-bold">{patient.name || "Unnamed"}</div>
-            <div className="text-muted-foreground">Bed: {patient.bed || "-"}</div>
+            <div className="text-muted-foreground">{patientExportIdentifierLine(patient)}</div>
           </div>
         );
       }
@@ -461,7 +462,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
                 >
                   <div className="border-b pb-2 mb-3 flex justify-between items-baseline">
                     <span className="font-bold text-lg">{patient.name || "Unnamed"}</span>
-                    <span className="text-muted-foreground font-mono">{patient.bed}</span>
+                    <span className="text-muted-foreground font-mono">{patientExportIdentifierLine(patient)}</span>
                   </div>
 
                   <div

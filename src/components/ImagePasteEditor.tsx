@@ -120,7 +120,7 @@ export const ImagePasteEditor = ({
   className,
   minHeight = "120px",
   autotexts = defaultAutotexts,
-  fontSize = 11,
+  fontSize = 14,
   changeTracking = null,
   patient,
   section

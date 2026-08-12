@@ -5,6 +5,7 @@ import { systemLabels } from './constants';
 import { cleanInlineStyles, formatTodosHtml, formatMedicationsHtml } from './utils';
 import { cn } from '@/lib/utils';
 import * as React from 'react';
+import { patientExportIdentifierLine } from '@/lib/patientIdentity';
 
 interface PrintTableProps {
   patients: Patient[];
@@ -119,7 +120,7 @@ export const PrintTable = ({
               {isColumnEnabled("patient") && (
                 <td className="border border-border p-3 align-top">
                   <div className="font-bold text-primary" style={{ fontSize: 'calc(var(--print-fs) + 1px)' } as React.CSSProperties}>{patient.name || 'Unnamed'}</div>
-                  <div className="text-muted-foreground" style={{ fontSize: 'calc(var(--print-fs) - 1px)' } as React.CSSProperties}>Bed: {patient.bed || 'N/A'}</div>
+                  <div className="text-muted-foreground" style={{ fontSize: 'calc(var(--print-fs) - 1px)' } as React.CSSProperties}>{patientExportIdentifierLine(patient)}</div>
                 </td>
               )}
               {isColumnEnabled("clinicalSummary") && (

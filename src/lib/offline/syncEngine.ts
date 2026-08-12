@@ -255,7 +255,7 @@ class SyncEngine {
       }
 
       result.duration = Date.now() - startTime;
-      this.setStatus('idle');
+      this.setStatus(result.failed > 0 ? 'error' : 'idle');
       this.emit('complete', result);
 
       if (result.failed > 0) {
@@ -290,6 +290,8 @@ class SyncEngine {
   // Process single mutation
   private async processMutation(mutation: QueuedMutation): Promise<ConflictData | null> {
     const { table, operation, payload, entityId } = mutation;
+    const originalData = mutation.conflictData ?? mutation.payload;
+    let expectedRevision: number | null = null;
 
     // For updates, check for conflicts
     if (operation === 'update' && entityId) {
@@ -317,7 +319,7 @@ class SyncEngine {
         throw new DOMException('Offline sync aborted', 'AbortError');
       }
 
-      const originalData = mutation.conflictData ?? mutation.payload;
+      expectedRevision = typeof serverData.revision === 'number' ? serverData.revision : null;
       if (this.hasConflict(originalData, serverData, mutation.timestamp)) {
         return {
           id: entityId,
@@ -338,7 +340,34 @@ class SyncEngine {
         break;
       case 'update':
         if (!entityId) throw new Error('Missing entityId for update');
-        ({ error } = await supabase.from(table as 'patients').update(payload as never).eq('id', entityId));
+        if (expectedRevision !== null) {
+          const guarded = await supabase
+            .from(table as 'patients')
+            .update(payload as never)
+            .eq('id', entityId)
+            .eq('revision', expectedRevision)
+            .select('*')
+            .maybeSingle();
+          error = guarded.error;
+          if (!error && !guarded.data) {
+            const { data: current, error: currentError } = await supabase
+              .from(table as 'patients')
+              .select('*')
+              .eq('id', entityId)
+              .maybeSingle();
+            if (currentError) throw currentError;
+            return {
+              id: entityId,
+              table,
+              operation,
+              clientData: payload,
+              serverData: current,
+              originalData,
+            };
+          }
+        } else {
+          ({ error } = await supabase.from(table as 'patients').update(payload as never).eq('id', entityId));
+        }
         break;
       case 'delete':
         if (!entityId) throw new Error('Missing entityId for delete');
@@ -359,6 +388,9 @@ class SyncEngine {
     server: Record<string, unknown>,
     queuedAt: number,
   ): boolean {
+    if (typeof original.revision === 'number' && typeof server.revision === 'number') {
+      return original.revision !== server.revision;
+    }
     const originalUpdate = this.getRecordTimestamp(original);
     const serverUpdate = this.getRecordTimestamp(server);
 
@@ -415,7 +447,10 @@ class SyncEngine {
 
       case 'manual':
         // Keep in queue for manual resolution
-        await indexedDBQueue.updateStatus(mutation.id, 'conflict');
+        await indexedDBQueue.updateStatus(mutation.id, 'conflict', {
+          originalData: conflict.originalData,
+          serverData: conflict.serverData,
+        });
         logInfo(`[SyncEngine] Conflict ${conflict.id}: requires manual resolution`);
         break;
     }

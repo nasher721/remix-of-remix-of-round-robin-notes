@@ -6,23 +6,22 @@ import test from 'node:test';
 const fromRoot = (...segments: string[]) => path.join(process.cwd(), ...segments);
 const readSource = (file: string) => readFileSync(fromRoot(file), 'utf8');
 
-test('mounted offline UI does not promise that new writes are queued', () => {
+test('mounted offline UI scopes durable queue claims to confirmed patient changes', () => {
   const source = [
     readSource('src/components/OfflineIndicator.tsx'),
     readSource('src/hooks/useNetworkStatus.ts'),
   ].join('\n');
 
-  assert.doesNotMatch(source, /Changes will sync when you're back online/i);
-  assert.doesNotMatch(source, /Changes will be saved locally and synced/i);
-  assert.doesNotMatch(source, /Syncing changes/i);
-  assert.match(source, /New changes are not queued/i);
+  assert.match(source, /stored on this device/i);
+  assert.match(source, /confirms Offline queued/i);
 });
 
-test('production patient mutations do not pretend to enqueue offline writes', () => {
+test('production patient mutations durably enqueue retryable update failures', () => {
   const source = readSource('src/hooks/patients/usePatientMutations.ts');
 
-  assert.doesNotMatch(source, /useOfflineMode|queueMutation|indexedDBQueue/);
-  assert.match(source, /Patient changes could not be saved\. Please try again\./);
+  assert.match(source, /indexedDBQueue\.enqueue/);
+  assert.match(source, /Offline — change queued/);
+  assert.match(source, /Patient changes could not be saved or queued/);
 });
 
 test('unreachable alternate offline mutation hooks remain removed', () => {

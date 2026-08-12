@@ -39,6 +39,7 @@ interface BatchCourseGeneratorProps {
   onUpdatePatient: (id: string, field: string, value: unknown) => void;
   todosMap?: Record<string, PatientTodo[]>;
   className?: string;
+  triggerClassName?: string;
 }
 
 export const BatchCourseGenerator = ({
@@ -46,6 +47,7 @@ export const BatchCourseGenerator = ({
   onUpdatePatient,
   todosMap,
   className = '',
+  triggerClassName,
 }: BatchCourseGeneratorProps) => {
   const {
     generateBatch,
@@ -176,6 +178,7 @@ export const BatchCourseGenerator = ({
             variant="outline"
             size="sm"
             disabled={patients.length === 0}
+            className={triggerClassName}
           >
             <Users className="h-4 w-4 mr-2" />
             Batch AI Generate

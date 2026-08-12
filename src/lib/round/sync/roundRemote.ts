@@ -157,7 +157,7 @@ export async function pushDraftFieldToPatient(input: {
 > {
   const { data: server, error } = await supabase
     .from("patients")
-    .select("id, clinical_summary, systems, field_timestamps, last_modified")
+    .select("id, clinical_summary, systems, field_timestamps, last_modified, revision")
     .eq("id", input.patientId)
     .maybeSingle();
 
@@ -192,12 +192,32 @@ export async function pushDraftFieldToPatient(input: {
     timestamps,
     systems,
   );
-  const { error: updateError } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("patients")
     .update(patch as never)
-    .eq("id", input.patientId);
+    .eq("id", input.patientId)
+    .eq("revision", server.revision)
+    .select("id")
+    .maybeSingle();
 
   if (updateError) throw updateError;
+  if (!updated) {
+    const { data: current, error: currentError } = await supabase
+      .from("patients")
+      .select("id, clinical_summary, systems, field_timestamps, last_modified")
+      .eq("id", input.patientId)
+      .maybeSingle();
+    if (currentError) throw currentError;
+    if (!current) return { status: "missing" };
+    const currentTimestamps = (current.field_timestamps ?? {}) as Record<string, string>;
+    return {
+      status: "conflict",
+      serverValue: readPatientFieldValue(current, input.fieldKey),
+      serverUpdatedAt:
+        currentTimestamps[input.fieldKey]
+        || (typeof current.last_modified === "string" ? current.last_modified : ""),
+    };
+  }
   return { status: "ok" };
 }
 

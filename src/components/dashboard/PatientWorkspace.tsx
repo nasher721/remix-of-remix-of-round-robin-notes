@@ -72,6 +72,7 @@ import {
 } from "@/lib/patientDocumentation";
 import type { Patient } from "@/types/patient";
 import { cn } from "@/lib/utils";
+import { patientSafetyLabel } from "@/lib/patientIdentity";
 
 const STATUS_DOT_CLASS: Record<DocumentationStatus, string> = {
   ready: "rr-st-ready",
@@ -754,9 +755,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Remove ${patient.name} from rounds?`
-                : "Remove this patient from rounds?"}{" "}
+              Remove {patientSafetyLabel(patient)} from rounds?{" "}
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -787,9 +786,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {patient.name
-                ? `Create a new roster entry from ${patient.name}?`
-                : "Create a new roster entry from this patient?"}{" "}
+              Create a new roster entry from {patientSafetyLabel(patient)}?{" "}
               Chart content is copied into the duplicate.
             </AlertDialogDescription>
           </AlertDialogHeader>

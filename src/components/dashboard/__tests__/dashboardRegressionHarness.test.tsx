@@ -137,9 +137,9 @@ function buildDashboardValue({
   filter?: PatientFilterType;
   setFilter?: (filter: PatientFilterType) => void;
   onAddPatient?: () => void;
-  onRemovePatient?: (id: string) => void | Promise<void>;
-  onDuplicatePatient?: (id: string) => void | Promise<void>;
-  onClearAll?: () => void | Promise<void>;
+  onRemovePatient?: (id: string) => Promise<void>;
+  onDuplicatePatient?: (id: string) => Promise<void>;
+  onClearAll?: () => Promise<void>;
   onRefetchPatients?: () => void | Promise<void>;
   patientListViewMode?: "rich" | "compact";
   setPatientListViewMode?: (mode: "rich" | "compact") => void;
@@ -214,9 +214,9 @@ function AppProviders({
   filter?: PatientFilterType;
   setFilter?: (filter: PatientFilterType) => void;
   onAddPatient?: () => void;
-  onRemovePatient?: (id: string) => void | Promise<void>;
-  onDuplicatePatient?: (id: string) => void | Promise<void>;
-  onClearAll?: () => void | Promise<void>;
+  onRemovePatient?: (id: string) => Promise<void>;
+  onDuplicatePatient?: (id: string) => Promise<void>;
+  onClearAll?: () => Promise<void>;
   onRefetchPatients?: () => void | Promise<void>;
   patientListViewMode?: "rich" | "compact";
   setPatientListViewMode?: (mode: "rich" | "compact") => void;
@@ -272,6 +272,75 @@ function AppProviders({
 }
 
 describe("production dashboard roster regression harness", () => {
+  it("keeps section Todo focus and typing out of clinical notes", async () => {
+    setViewport(1440, 900);
+    render(
+      <MemoryRouter>
+        <AppProviders patients={dashboardPatients3} desktopSelectedPatientId={dashboardPatients3[0].id}>
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    const editor = await screen.findByRole("textbox", { name: "Enter clinical summary..." });
+    const originalClinicalSummary = editor.innerHTML;
+    const sectionTaskButton = screen.getAllByRole("button", { name: /Section tasks: add or manage tasks/i })[0];
+    fireEvent.click(sectionTaskButton);
+
+    const todoInput = await screen.findByPlaceholderText("Add a todo...");
+    todoInput.focus();
+    fireEvent.change(todoInput, { target: { value: "Repeat head CT" } });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(document.activeElement, todoInput);
+    assert.equal((todoInput as HTMLInputElement).value, "Repeat head CT");
+    assert.equal(editor.innerHTML, originalClinicalSummary);
+    assert.ok(screen.getByRole("button", { name: "Add todo" }));
+  });
+
+  it("opens visible patient and editor toolbar controls without redirecting focus", async () => {
+    setViewport(1440, 900);
+    render(
+      <MemoryRouter>
+        <AppProviders patients={dashboardPatients3} desktopSelectedPatientId={dashboardPatients3[0].id}>
+          <DesktopDashboard />
+        </AppProviders>
+      </MemoryRouter>,
+    );
+
+    const editor = await screen.findByRole("textbox", { name: "Enter clinical summary..." });
+    const customize = screen.getByRole("button", { name: "Customize patient info toolbar" });
+    fireEvent.click(customize);
+    assert.ok(await screen.findByRole("heading", { name: "Customize Patient Info Toolbar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      assert.equal(screen.queryByRole("heading", { name: "Customize Patient Info Toolbar" }), null);
+    });
+
+    fireEvent.focus(editor);
+    const modelSelector = await screen.findByRole("button", { name: /AI model:.*Open menu to change model/i });
+    modelSelector.focus();
+    fireEvent.keyDown(modelSelector, { key: "Enter" });
+    assert.ok(await screen.findByText("Intelligence Engines"));
+    fireEvent.keyDown(modelSelector, { key: "Escape" });
+    await waitFor(() => {
+      assert.equal(screen.queryByText("Intelligence Engines"), null);
+    });
+
+    fireEvent.focus(editor);
+    const phraseButton = await screen.findByRole("button", { name: "Insert clinical phrase from library" });
+    fireEvent.click(phraseButton);
+    const phraseSearch = await screen.findByPlaceholderText("Search phrases...");
+    assert.notEqual(document.activeElement, editor);
+    fireEvent.keyDown(phraseSearch, { key: "Escape" });
+
+    fireEvent.focus(editor);
+    fireEvent.keyDown(editor, { key: "Tab" });
+    assert.notEqual(document.activeElement, editor);
+    fireEvent.focus(editor);
+    fireEvent.keyDown(editor, { key: "Escape" });
+    assert.notEqual(document.activeElement, editor);
+  });
   it("renders sober zero-patient dashboard recovery actions", async () => {
     setViewport(1440, 900);
     let addPatientCalls = 0;
@@ -569,7 +638,7 @@ describe("production dashboard roster regression harness", () => {
     fireEvent.click(removeButton);
 
     assert.ok(await screen.findByRole("alertdialog", { name: "Remove Patient" }));
-    assert.ok(screen.getByText(/Remove Alex Morgan from rounds\?/));
+    assert.ok(screen.getByText(/Remove Alex Morgan.*from rounds\?/));
     assert.ok(screen.getByRole("button", { name: "Cancel" }));
   });
 

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronLeft, ChevronRight, Home, Menu, MoreHorizontal, Printer } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Home, Menu, MoreHorizontal, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { RoundSyncStatus } from "@/types/round";
@@ -28,15 +28,27 @@ export interface RoundChromeProps {
   onPrev?: () => void;
   onNext?: () => void;
   onDoneAndNext?: () => void;
+  /** Download local PHI recovery JSON when sync cannot be trusted. */
+  onExportRecovery?: () => void;
 }
 
 const formatSyncCueLabel = (
   status: RoundSyncStatus,
   pendingCount: number,
+  failedCount: number,
+  savedAt: string,
 ): string | null => {
-  if (status === "idle") return null;
+  if (status === "idle") {
+    const parsed = new Date(savedAt);
+    return Number.isNaN(parsed.getTime())
+      ? "Saved"
+      : `Saved at ${parsed.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
   if (status === "offline") {
     return pendingCount > 0 ? `offline · ${pendingCount} pending` : "offline";
+  }
+  if (status === "failed") {
+    return failedCount > 0 ? `sync failed · ${failedCount} failed` : "sync failed";
   }
   if (status === "syncing") {
     return pendingCount > 0 ? `syncing · ${pendingCount}` : "syncing";
@@ -48,9 +60,11 @@ const formatSyncCueLabel = (
 const formatChromeCueLabel = (
   status: RoundSyncStatus,
   pendingCount: number,
+  failedCount: number,
+  savedAt: string,
   isStorageDegraded: boolean,
 ): string | null => {
-  const syncLabel = formatSyncCueLabel(status, pendingCount);
+  const syncLabel = formatSyncCueLabel(status, pendingCount, failedCount, savedAt);
   if (syncLabel) {
     return isStorageDegraded ? `${syncLabel} · storage limited` : syncLabel;
   }
@@ -74,6 +88,7 @@ export const RoundChrome = ({
   onPrev,
   onNext,
   onDoneAndNext,
+  onExportRecovery,
 }: RoundChromeProps) => {
   const {
     position,
@@ -84,6 +99,10 @@ export const RoundChrome = ({
     openConflictDialog,
     conflicts,
     pendingCount,
+    failedCount,
+    canCompleteRound,
+    retryRoundSync,
+    clearWalkStatus,
   } = useRoundSession();
 
   const [isStorageDegraded, setIsStorageDegraded] = React.useState(() =>
@@ -99,11 +118,20 @@ export const RoundChrome = ({
     return () => window.clearInterval(timer);
   }, [isStorageDegraded]);
 
-  const syncLabel = formatChromeCueLabel(round.syncStatus, pendingCount, isStorageDegraded);
+  const syncLabel = formatChromeCueLabel(
+    round.syncStatus,
+    pendingCount,
+    failedCount,
+    round.updatedAt,
+    isStorageDegraded,
+  );
   const isEmpty = position.total === 0;
   const atStart = isEmpty || position.current <= 1;
   const atEnd = isEmpty || position.current >= position.total;
   const hasConflicts = conflicts.length > 0 || round.syncStatus === "conflict";
+  const hasSyncActionCue = hasConflicts || round.syncStatus === "failed";
+  const isCompletionBlocked = !canCompleteRound;
+  const isCurrentDone = round.patients[round.currentIndex]?.status === "done";
 
   const handleOpenRoster = () => {
     onOpenRoster();
@@ -138,6 +166,10 @@ export const RoundChrome = ({
   };
 
   const handleDoneAndNext = () => {
+    if (isCurrentDone) {
+      clearWalkStatus();
+      return;
+    }
     if (onDoneAndNext) {
       onDoneAndNext();
       return;
@@ -146,6 +178,10 @@ export const RoundChrome = ({
   };
 
   const handleSyncCueActivate = () => {
+    if (round.syncStatus === "failed") {
+      retryRoundSync();
+      return;
+    }
     if (!hasConflicts) return;
     openConflictDialog();
   };
@@ -201,13 +237,15 @@ export const RoundChrome = ({
             : "h-9 gap-1.5 px-3",
         )}
         onClick={handleDoneAndNext}
-        disabled={isEmpty}
-        aria-label="Mark done and go to next patient"
-        title="Done (D)"
+        disabled={isEmpty || (!isCurrentDone && isCompletionBlocked)}
+        aria-label={isCurrentDone ? "Reopen completed patient" : "Mark done and go to next patient"}
+        title={isCurrentDone ? "Reopen patient" : "Done (D)"}
         data-testid="round-done"
       >
         <Check className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5")} aria-hidden="true" />
-        <span className={cn("font-medium", touchFriendly ? "text-sm" : "text-xs")}>Done</span>
+        <span className={cn("font-medium", touchFriendly ? "text-sm" : "text-xs")}>
+          {isCurrentDone ? "Reopen" : "Done"}
+        </span>
       </Button>
 
       <Button
@@ -263,7 +301,7 @@ export const RoundChrome = ({
           Round · {position.current}/{position.total}
         </p>
         {/* Quiet offline / syncing / conflict cue */}
-        {hasConflicts ? (
+        {hasSyncActionCue ? (
           <button
             type="button"
             className={cn(
@@ -272,12 +310,17 @@ export const RoundChrome = ({
             )}
             data-testid="round-sync-cue"
             aria-live="polite"
-            aria-label="Resolve field conflicts — tap to open"
+            aria-label={round.syncStatus === "failed" ? "Retry failed sync writes" : "Resolve field conflicts"}
             onClick={handleSyncCueActivate}
             onKeyDown={handleSyncCueKeyDown}
             tabIndex={0}
+            disabled={round.syncStatus !== "conflict" && round.syncStatus !== "failed"}
           >
-            {pendingCount > 0 ? `conflict · ${pendingCount} pending` : "conflict — resolve"}
+            {round.syncStatus === "failed"
+              ? `sync failed${failedCount > 0 ? ` · ${failedCount} failed` : ""} — retry`
+              : pendingCount > 0
+                ? `conflict · ${pendingCount} pending`
+                : "conflict — resolve"}
           </button>
         ) : (
           <span
@@ -292,6 +335,18 @@ export const RoundChrome = ({
             {syncLabel ?? "sync idle"}
           </span>
         )}
+        {round.syncStatus === "failed" && onExportRecovery ? (
+          <button
+            type="button"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+            onClick={onExportRecovery}
+            aria-label="Download local recovery copy containing PHI"
+            title="Download local recovery copy (contains PHI)"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            Recovery
+          </button>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
@@ -319,6 +374,7 @@ export const RoundChrome = ({
             aria-label="End Round"
             title="End Round"
             data-testid="round-end-entry"
+            disabled={isCompletionBlocked}
           >
             <Printer className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
           </Button>

@@ -22,10 +22,13 @@ export function OfflineIndicator() {
     isOnline,
     pendingCount,
     pendingMutations,
+    failedCount,
     isSyncing,
     syncProgress,
     lastSyncTime,
     triggerSync,
+    retryFailed,
+    resolveSkippedConflict,
     clearQueue,
     skippedMutations,
   } = useOfflineMode();
@@ -41,11 +44,13 @@ export function OfflineIndicator() {
         <Button
           variant="ghost"
           size="sm"
-          className={`gap-2 ${!isOnline ? 'text-destructive' : pendingCount > 0 ? 'text-yellow-500' : ''}`}
+          className={`gap-2 ${!isOnline || failedCount > 0 ? 'text-destructive' : pendingCount > 0 ? 'text-yellow-500' : ''}`}
           aria-label={
             !isOnline
               ? `Offline${pendingCount > 0 ? `, ${pendingCount} pending changes` : ""}`
-              : pendingCount > 0
+              : failedCount > 0
+                ? `Save failed, ${failedCount} changes need retry`
+                : pendingCount > 0
                 ? `Online, ${pendingCount} changes waiting to sync`
                 : "Online"
           }
@@ -130,7 +135,7 @@ export function OfflineIndicator() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">
-                    Pending Changes ({pendingCount})
+                    {failedCount > 0 ? `Save failed (${failedCount})` : `Pending Changes (${pendingCount})`}
                   </span>
                   {isOnline && (
                     <Tooltip>
@@ -139,13 +144,13 @@ export function OfflineIndicator() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
-                          onClick={triggerSync}
-                          aria-label="Sync now"
+                          onClick={failedCount > 0 ? retryFailed : triggerSync}
+                          aria-label={failedCount > 0 ? "Retry failed changes" : "Sync now"}
                         >
                           <RefreshCw className="h-3.5 w-3.5" aria-hidden />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>Sync now</TooltipContent>
+                      <TooltipContent>{failedCount > 0 ? "Retry failed changes" : "Sync now"}</TooltipContent>
                     </Tooltip>
                   )}
                 </div>
@@ -203,35 +208,54 @@ export function OfflineIndicator() {
                   </span>
                 </div>
                 
-                <ScrollArea className="h-24">
+                <ScrollArea className="h-48">
                   <div className="space-y-1">
                     {skippedMutations.map((skipped) => (
                       <div
                         key={skipped.id}
-                        className="flex items-center justify-between py-1 px-2 rounded bg-yellow-50 dark:bg-yellow-950/30 text-xs"
+                        className="space-y-2 rounded bg-yellow-50 px-2 py-2 text-xs dark:bg-yellow-950/30"
                       >
-                        <div className="flex items-center gap-2">
-                          <Badge 
-                            variant="outline"
-                            className="h-4 px-1 text-[10px] border-yellow-500 text-yellow-700"
-                          >
-                            {skipped.mutation.operation}
-                          </Badge>
-                          <span className="text-muted-foreground">
-                            {skipped.mutation.type}
-                          </span>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant="outline"
+                              className="h-4 px-1 text-[10px] border-yellow-500 text-yellow-700"
+                            >
+                              {skipped.mutation.operation}
+                            </Badge>
+                            <span className="text-muted-foreground">
+                              {skipped.mutation.type}
+                            </span>
+                          </div>
+                          <span className="text-yellow-600 text-[10px]">Server newer</span>
                         </div>
-                        <span className="text-yellow-600 text-[10px]">
-                          Server newer
-                        </span>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-h-11 flex-1"
+                            onClick={() => void resolveSkippedConflict(skipped, 'server-wins')}
+                          >
+                            Use server
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="min-h-11 flex-1"
+                            onClick={() => void resolveSkippedConflict(skipped, 'client-wins')}
+                          >
+                            Keep mine
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </ScrollArea>
                 
                 <p className="text-xs text-muted-foreground">
-                  These changes were skipped because server data was newer. 
-                  Your local changes are still saved locally.
+                  Server and local changes are both retained until you choose which version to keep.
                 </p>
               </div>
             </>
@@ -246,7 +270,7 @@ export function OfflineIndicator() {
                 variant="default"
                 size="sm"
                 className="flex-1"
-                onClick={triggerSync}
+                onClick={failedCount > 0 ? retryFailed : triggerSync}
                 disabled={isSyncing}
               >
                 {isSyncing ? (
@@ -257,7 +281,7 @@ export function OfflineIndicator() {
                 ) : (
                   <>
                     <Cloud className="h-4 w-4 mr-1.5" />
-                    Sync Now
+                    {failedCount > 0 ? "Retry Failed" : "Sync Now"}
                   </>
                 )}
               </Button>
@@ -284,8 +308,8 @@ export function OfflineIndicator() {
           {!isOnline && (
             <p className="text-xs text-muted-foreground text-center">
               {pendingCount > 0
-                ? "Only the pending changes listed above will sync after you reconnect. New changes are not queued."
-                : "New changes are not queued while offline and may fail to save. Reconnect before editing."}
+                ? "Listed patient changes are stored on this device and will retry after reconnect."
+                : "Edits are stored only after the interface confirms Offline queued. Keep a recovery copy for critical notes."}
             </p>
           )}
         </div>

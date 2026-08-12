@@ -4,6 +4,8 @@ import {
   coalesceRoundOutboxEntry,
   computeOutboxNextRetryAt,
   countConflictOutbox,
+  countFailedOutbox,
+  countUnresolvedOutbox,
   countPendingOutbox,
   isOutboxEntryReady,
   mergeOutboxQueue,
@@ -105,7 +107,41 @@ test("mergeOutboxQueue coalesces same entity and counts pending/conflict", () =>
     row.kind === "draft_field" ? { ...row, status: "conflict" as const } : row,
   );
   assert.equal(countConflictOutbox(queue, "user-a"), 1);
+  assert.equal(countFailedOutbox(queue, "user-a"), 0);
+  assert.equal(countUnresolvedOutbox(queue, "user-a"), 2);
   assert.equal(selectPendingOutbox(queue, "user-a").length, 1);
+});
+
+test("countFailedOutbox and countUnresolvedOutbox track explicit failed rows", () => {
+  const queue = [
+    entry({
+      kind: "round_state",
+      entityKey: "r1",
+      payload: {},
+      status: "failed",
+    }),
+    entry({
+      kind: "draft_field",
+      entityKey: "p1::clinicalSummary",
+      payload: {},
+      status: "syncing",
+    }),
+    entry({
+      kind: "draft_field",
+      entityKey: "p2::clinicalSummary",
+      payload: {},
+      status: "conflict",
+    }),
+    entry({
+      kind: "round_state",
+      entityKey: "r2",
+      payload: {},
+      status: "completed",
+    }),
+  ];
+
+  assert.equal(countFailedOutbox(queue, "user-a"), 1);
+  assert.equal(countUnresolvedOutbox(queue, "user-a"), 3);
 });
 
 test("selectPendingOutbox ignores other owners and completed rows", () => {

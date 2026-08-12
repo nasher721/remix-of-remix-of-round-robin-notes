@@ -429,17 +429,33 @@ class IndexedDBQueueManager {
     return this.dequeue(mutationId);
   }
 
-  async updateStatus(mutationId: string, status: 'pending' | 'syncing' | 'completed' | 'failed' | 'conflict'): Promise<void> {
+  async updateStatus(
+    mutationId: string,
+    status: 'pending' | 'syncing' | 'completed' | 'failed' | 'conflict',
+    conflictSnapshot?: {
+      originalData: Record<string, unknown>;
+      serverData: Record<string, unknown> | null;
+    },
+  ): Promise<void> {
+    const patch = {
+      status,
+      ...(conflictSnapshot
+        ? {
+            conflictData: conflictSnapshot.originalData,
+            conflictServerData: conflictSnapshot.serverData,
+          }
+        : {}),
+    };
     if (this.initialized) {
       const mutation = await db.mutations.get(mutationId);
       if (mutation?.ownerId === this.ownerId) {
-        await db.mutations.update(mutationId, { status });
+        await db.mutations.update(mutationId, patch);
       }
     } else {
       const queue = readMemoryQueue();
       const mutation = queue.find(item => item.id === mutationId && item.ownerId === this.ownerId);
       if (mutation?.ownerId === this.ownerId) {
-        mutation.status = status;
+        Object.assign(mutation, patch);
         writeMemoryQueue(queue);
       }
     }

@@ -1,12 +1,11 @@
+import * as React from "react";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
-import { PrintExportModal } from "@/components/PrintExportModal";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { IBCCPanel } from "@/components/ibcc";
 import { GuidelinesPanelLazy } from "@/components/guidelines";
-import { PhraseManager } from "@/components/phrases";
 import { Button } from "@/components/ui/button";
 import { ChevronsUpDown, Plus, ArrowUpDown, Printer, Trash2, Loader2 } from "lucide-react";
 import type { Patient } from "@/types/patient";
@@ -34,7 +33,15 @@ import { useDashboard } from "@/contexts/DashboardContext";
 import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { patientSafetyLabel } from "@/lib/patientIdentity";
 import { PatientFilterType } from "@/constants/config";
+
+const PrintExportModal = React.lazy(() =>
+  import("@/components/PrintExportModal").then((module) => ({ default: module.PrintExportModal })),
+);
+const PhraseManager = React.lazy(() =>
+  import("@/components/phrases").then((module) => ({ default: module.PhraseManager })),
+);
 import {
   Select,
   SelectContent,
@@ -461,13 +468,15 @@ export const MobileDashboard = () => {
       )}
 
       {/* Modals */}
-      <PrintExportModal
-        open={showPrintModal}
-        onOpenChange={setShowPrintModal}
-        patients={filteredPatients}
-        patientTodos={todosMap}
-        onUpdatePatient={onUpdatePatient}
-      />
+      <React.Suspense fallback={null}>
+        <PrintExportModal
+          open={showPrintModal}
+          onOpenChange={setShowPrintModal}
+          patients={filteredPatients}
+          patientTodos={todosMap}
+          onUpdatePatient={onUpdatePatient}
+        />
+      </React.Suspense>
 
       <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -504,10 +513,12 @@ export const MobileDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      <PhraseManager
-        open={showPhraseManager}
-        onOpenChange={setShowPhraseManager}
-      />
+      <React.Suspense fallback={null}>
+        <PhraseManager
+          open={showPhraseManager}
+          onOpenChange={setShowPhraseManager}
+        />
+      </React.Suspense>
 
       <MobileBatchCourseGenerator
         patients={patients}
@@ -527,8 +538,8 @@ export const MobileDashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingRemovePatient?.name
-                ? `Remove ${pendingRemovePatient.name} from rounds?`
+              {pendingRemovePatient
+                ? `Remove ${patientSafetyLabel(pendingRemovePatient)} from rounds?`
                 : "Remove this patient from rounds?"}{" "}
               This action cannot be undone.
             </AlertDialogDescription>
@@ -553,8 +564,8 @@ export const MobileDashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Duplicate Patient</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingDuplicatePatient?.name
-                ? `Create a new roster entry from ${pendingDuplicatePatient.name}?`
+              {pendingDuplicatePatient
+                ? `Create a new roster entry from ${patientSafetyLabel(pendingDuplicatePatient)}?`
                 : "Create a new roster entry from this patient?"}{" "}
               Chart content is copied into the duplicate.
             </AlertDialogDescription>

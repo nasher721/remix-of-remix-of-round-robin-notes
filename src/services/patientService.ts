@@ -43,6 +43,7 @@ export const mapPatientRecord = (record: {
   collapsed: boolean;
   created_at: string;
   last_modified: string | null;
+  revision?: number | null;
 }): Patient => ({
   id: record.id,
   patientNumber: record.patient_number,
@@ -59,6 +60,7 @@ export const mapPatientRecord = (record: {
   collapsed: record.collapsed,
   createdAt: record.created_at,
   lastModified: record.last_modified ?? record.created_at,
+  revision: record.revision ?? 0,
 });
 
 export const buildPatientInsertPayload = (input: {

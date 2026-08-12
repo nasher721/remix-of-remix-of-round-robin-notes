@@ -1,5 +1,6 @@
 import { Patient } from '@/types/patient';
 import * as React from 'react';
+import { patientExportIdentifierLine } from '@/lib/patientIdentity';
 
 interface PrintPatientHeaderProps {
     patient: Patient;
@@ -21,14 +22,12 @@ export const PrintPatientHeader = ({ patient, index, fontSize }: PrintPatientHea
                     {patient.name || 'Unnamed'}
                 </span>
             </div>
-            {patient.bed && (
-                <span
-                    className="bg-white/20 px-4 py-1.5 rounded font-medium"
-                    style={{ fontSize: 'var(--print-fs)' } as React.CSSProperties}
-                >
-                    Bed: {patient.bed}
-                </span>
-            )}
+            <span
+                className="bg-white/20 px-4 py-1.5 rounded font-medium"
+                style={{ fontSize: 'var(--print-fs)' } as React.CSSProperties}
+            >
+                {patientExportIdentifierLine(patient)}
+            </span>
         </div>
     );
 };

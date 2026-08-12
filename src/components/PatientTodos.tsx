@@ -82,7 +82,9 @@ export function PatientTodos({
   };
 
   // Shared todo list content
-  const TodoListContent = () => (
+  // Keep this as an element, not a nested component. A nested component gets a
+  // new identity on every keystroke and remounts the input, dropping focus.
+  const todoListContent = (
     <div className="space-y-2">
       {/* Add new todo */}
       <div className="flex gap-2">
@@ -91,13 +93,14 @@ export function PatientTodos({
           value={newTodoText}
           onChange={(e) => setNewTodoText(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="h-8 text-sm"
+          className="min-h-11 h-11 text-sm"
         />
         <Button 
           size="sm" 
           onClick={handleAddTodo}
           disabled={!newTodoText.trim()}
-          className="h-8 px-2"
+          className="min-h-11 h-11 px-3"
+          aria-label="Add todo"
         >
           <Plus className="h-4 w-4" />
         </Button>
@@ -128,7 +131,8 @@ export function PatientTodos({
               variant="ghost"
               size="sm"
               onClick={() => onDeleteTodo(todo.id)}
-              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="min-h-11 min-w-11 h-11 w-11 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+              aria-label={`Delete todo: ${todo.content}`}
             >
               <Trash2 className="h-3 w-3 text-destructive" />
             </Button>
@@ -157,7 +161,8 @@ export function PatientTodos({
                   variant="ghost"
                   size="sm"
                   onClick={() => onDeleteTodo(todo.id)}
-                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="min-h-11 min-w-11 h-11 w-11 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  aria-label={`Delete todo: ${todo.content}`}
                 >
                   <Trash2 className="h-3 w-3 text-destructive" />
                 </Button>
@@ -204,7 +209,7 @@ export function PatientTodos({
                 disabled={generating}
                 aria-busy={generating || undefined}
                 aria-label={generating ? "Generating tasks" : "AI Generate tasks for this section"}
-                className="h-7 text-xs gap-1"
+                className="min-h-11 h-7 text-xs gap-1"
               >
                 {generating ? (
                   <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -230,7 +235,7 @@ export function PatientTodos({
         {/* Collapsible content */}
         {isExpanded && (
           <div className="px-3 py-2">
-            <TodoListContent />
+            {todoListContent}
           </div>
         )}
       </div>
@@ -247,7 +252,7 @@ export function PatientTodos({
           variant="outline"
           size="sm"
           className={cn(
-            "h-8 gap-1.5 px-2.5 font-medium shrink-0",
+            "min-h-11 h-8 gap-1.5 px-2.5 font-medium shrink-0",
             sectionTodos.length > 0 && "border-primary/40 text-foreground"
           )}
           aria-label={`${tasksTriggerLabel}: add or manage tasks. ${sectionTodos.length} total, ${incompleteTodos.length} incomplete.`}
@@ -276,7 +281,7 @@ export function PatientTodos({
                 disabled={generating}
                 aria-busy={generating || undefined}
                 aria-label={generating ? "Generating tasks" : "AI Generate tasks for this section"}
-                className="h-7 text-xs gap-1"
+                className="min-h-11 h-7 text-xs gap-1"
               >
                 {generating ? (
                   <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -293,7 +298,7 @@ export function PatientTodos({
             ) : null}
           </div>
 
-          <TodoListContent />
+          {todoListContent}
         </div>
       </PopoverContent>
     </Popover>

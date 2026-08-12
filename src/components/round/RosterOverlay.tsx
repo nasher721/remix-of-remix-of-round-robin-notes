@@ -55,6 +55,7 @@ export const RosterOverlay = ({
   const { patients } = useDashboard();
   const { round, currentPatientId, selectPatient, setFilters } = useRoundSession();
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+  const triggerElementRef = React.useRef<HTMLElement | null>(null);
 
   const patientsById = React.useMemo(() => {
     const map = new Map<string, Patient>();
@@ -72,6 +73,15 @@ export const RosterOverlay = ({
     }, 50);
     return () => window.clearTimeout(timer);
   }, [open]);
+
+  const handleOpenChange = React.useCallback((nextOpen: boolean) => {
+    if (open && !nextOpen && triggerElementRef.current) {
+      window.setTimeout(() => {
+        triggerElementRef.current?.focus();
+      }, 0);
+    }
+    onOpenChange(nextOpen);
+  }, [open, onOpenChange]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFilters({ search: event.target.value });
@@ -122,7 +132,15 @@ export const RosterOverlay = ({
   }, [round.patients, round.filters.hideDone, round.filters.hideSkipped, searchLower, patientsById]);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (nextOpen && document.activeElement instanceof HTMLElement) {
+          triggerElementRef.current = document.activeElement;
+        }
+        handleOpenChange(nextOpen);
+      }}
+    >
       <SheetContent
         side="left"
         className="flex w-full flex-col gap-0 p-0 sm:max-w-sm"
@@ -190,6 +208,11 @@ export const RosterOverlay = ({
               const isActive = ref.patientId === currentPatientId;
               const name = patient?.name?.trim() || "Unnamed patient";
               const bed = patient?.bed?.trim() || "—";
+              const stableIdentifier = patient?.mrn?.trim()
+                ? `MRN …${patient.mrn.trim().slice(-4)}`
+                : patient?.id
+                  ? `Record …${patient.id.slice(-4)}`
+                  : "Record unavailable";
               const cue = toOneLine(patient?.clinicalSummary).slice(0, 72);
               const statusIcon =
                 ref.status === "done" ? (
@@ -205,7 +228,7 @@ export const RosterOverlay = ({
                   variant="ghost"
                   role="option"
                   aria-selected={isActive}
-                  aria-label={`${name}, bed ${bed}, ${STATUS_LABEL[ref.status]}`}
+                  aria-label={`${name}, bed ${bed}, ${stableIdentifier}, ${STATUS_LABEL[ref.status]}`}
                   className={cn(
                     "mb-0.5 h-auto w-full justify-start gap-3 rounded-lg px-3 text-left",
                     touchFriendly ? "min-h-11 py-3" : "py-2.5",
@@ -240,7 +263,7 @@ export const RosterOverlay = ({
                         touchFriendly ? "text-sm text-foreground/70" : "text-xs text-muted-foreground",
                       )}
                     >
-                      {bed}
+                      {bed} · {stableIdentifier}
                       {cue ? ` · ${cue}` : ""}
                     </span>
                   </span>

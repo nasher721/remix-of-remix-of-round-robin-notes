@@ -350,6 +350,9 @@ export const PatientRosterRail = ({
                 (todo) => !todo.completed,
               ).length;
               const locationLabel = patient.bed?.trim() || "Unassigned";
+              const stableIdentifier = patient.mrn?.trim()
+                ? `MRN …${patient.mrn.trim().slice(-4)}`
+                : `Record …${patient.id.slice(-4)}`;
               const diagnosis = toOneLine(patient.clinicalSummary);
               const compact = patientListViewMode === "compact";
               return (
@@ -358,7 +361,7 @@ export const PatientRosterRail = ({
                     type="button"
                     onClick={() => setDesktopSelectedPatientId(patient.id)}
                     aria-current={isActive ? "true" : undefined}
-                    aria-label={`Select ${patient.name || "unnamed patient"}, ${locationLabel}${openTodoCount > 0 ? `, ${openTodoCount} open tasks` : ""}`}
+                    aria-label={`Select ${patient.name || "unnamed patient"}, ${locationLabel}, ${stableIdentifier}${openTodoCount > 0 ? `, ${openTodoCount} open tasks` : ""}`}
                     className={cn(
                       "rr-roster-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       isActive && "rr-sel",
@@ -404,6 +407,11 @@ export const PatientRosterRail = ({
                         style={{ color: "var(--rr-label-3)" }}
                       >
                         {diagnosis}
+                      </span>
+                    ) : null}
+                    {!compact ? (
+                      <span className="mt-0.5 block truncate text-[11px]" style={{ color: "var(--rr-label-4)" }}>
+                        {stableIdentifier}
                       </span>
                     ) : null}
                     <span className={cn("flex items-center gap-1", compact ? "mt-1" : "mt-1.5")}>

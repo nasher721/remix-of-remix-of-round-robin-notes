@@ -21,7 +21,6 @@ import PrintExportTest from "./pages/PrintExportTest";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
-import { UnifiedAIChatbot } from "@/components/UnifiedAIChatbot";
 import { CurrentPatientsProvider } from "@/contexts/CurrentPatientsContext";
 import { preloadClinicalData } from "@/lib/lazyData";
 import { NavigationBreadcrumbTracker } from "@/components/observability/NavigationBreadcrumbTracker";
@@ -42,6 +41,10 @@ const DevAgentationOverlay = import.meta.env.DEV
       }))
     )
   : null
+
+const UnifiedAIChatbot = React.lazy(() =>
+  import("@/components/UnifiedAIChatbot").then((module) => ({ default: module.UnifiedAIChatbot })),
+)
 
 // Preload clinical data in background after initial render
 preloadClinicalData();
@@ -111,7 +114,11 @@ function AppContent(): React.ReactElement {
       <NavigationBreadcrumbTracker />
       <CurrentPatientsProvider>
         <SkipToContent />
-        {user ? <UnifiedAIChatbot /> : null}
+        {user ? (
+          <React.Suspense fallback={null}>
+            <UnifiedAIChatbot />
+          </React.Suspense>
+        ) : null}
         {user && DevAgentationOverlay ? (
           <React.Suspense fallback={null}>
             <DevAgentationOverlay />

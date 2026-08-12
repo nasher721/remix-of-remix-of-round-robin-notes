@@ -269,6 +269,7 @@ export type Database = {
           mrn: string
           name: string
           patient_number: number
+          revision: number
           systems: Json
           user_id: string
         }
@@ -287,6 +288,7 @@ export type Database = {
           mrn?: string
           name?: string
           patient_number: number
+          revision?: number
           systems?: Json
           user_id: string
         }
@@ -305,6 +307,7 @@ export type Database = {
           mrn?: string
           name?: string
           patient_number?: number
+          revision?: number
           systems?: Json
           user_id?: string
         }

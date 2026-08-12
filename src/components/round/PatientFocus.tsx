@@ -175,8 +175,56 @@ export const PatientFocus = ({
     }
   };
 
+  const focusMobileTab = (section: MobileSectionTab) => {
+    handleSelectMobileSection(section);
+    window.requestAnimationFrame(() => {
+      const button = document.getElementById(`focus-mobile-tab-${section}`);
+      button?.focus();
+    });
+  };
+
+  const handleMobileSectionKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    tabId: MobileSectionTab,
+  ) => {
+    if (MOBILE_SECTION_TABS.length === 0) return;
+    const currentIndex = MOBILE_SECTION_TABS.findIndex((tab) => tab.id === tabId);
+    if (currentIndex === -1) return;
+
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      event.preventDefault();
+      const nextIndex = (currentIndex + 1) % MOBILE_SECTION_TABS.length;
+      focusMobileTab(MOBILE_SECTION_TABS[nextIndex].id);
+      return;
+    }
+
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const previousIndex = (currentIndex - 1 + MOBILE_SECTION_TABS.length) % MOBILE_SECTION_TABS.length;
+      focusMobileTab(MOBILE_SECTION_TABS[previousIndex].id);
+      return;
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault();
+      focusMobileTab(MOBILE_SECTION_TABS[0].id);
+      return;
+    }
+
+    if (event.key === "End") {
+      event.preventDefault();
+      focusMobileTab(MOBILE_SECTION_TABS[MOBILE_SECTION_TABS.length - 1].id);
+    }
+  };
+
+  const stableIdentifier = patient.mrn?.trim()
+    ? `MRN …${patient.mrn.trim().slice(-4)}`
+    : patient.bed?.trim()
+      ? `Bed ${patient.bed.trim()}`
+      : `Record …${patient.id.slice(-4)}`;
   const metaBits = [
-    patient.bed?.trim() ? `Bed ${patient.bed.trim()}` : null,
+    stableIdentifier,
+    patient.mrn?.trim() && patient.bed?.trim() ? `Bed ${patient.bed.trim()}` : null,
     patient.age !== undefined && patient.age !== null ? `${patient.age}y` : null,
     patient.codeStatus ? CODE_STATUS_LABELS[patient.codeStatus] ?? patient.codeStatus : null,
     patient.acuity ? patient.acuity : null,
@@ -212,6 +260,7 @@ export const PatientFocus = ({
     <section
       className="rounded-lg border border-border/30 bg-card/50 p-3"
       aria-labelledby="focus-summary-heading"
+      id="focus-summary-panel"
       data-active-section="true"
     >
       <h2 id="focus-summary-heading" className={cn("mb-2", mutedLabelClass)}>
@@ -221,6 +270,7 @@ export const PatientFocus = ({
     </section>
   ) : (
     <section
+      id="focus-summary-panel"
       className="mb-4 rounded-lg border border-border/30 bg-card/40"
       aria-labelledby="focus-summary-heading"
       data-active-section={round.activeSection === "clinicalSummary" ? "true" : undefined}
@@ -255,6 +305,7 @@ export const PatientFocus = ({
 
   const systemsSection = (
     <section
+      id="focus-system-panel"
       className={cn(!touchFriendly && "mb-4")}
       aria-labelledby="focus-systems-heading"
       data-active-section={round.activeSection === "systems" ? "true" : undefined}
@@ -349,6 +400,7 @@ export const PatientFocus = ({
 
   const todosSection = (
     <section
+      id="focus-todos-panel"
       className={cn(!touchFriendly && "pb-6")}
       aria-label="Todos"
       onFocusCapture={handleFocusTodos}
@@ -412,7 +464,16 @@ export const PatientFocus = ({
                 key={tab.id}
                 type="button"
                 role="tab"
+                id={`focus-mobile-tab-${tab.id}`}
                 aria-selected={isActive}
+                aria-controls={
+                  tab.id === "clinicalSummary"
+                    ? "focus-summary-panel"
+                    : tab.id === "systems"
+                      ? "focus-system-panel"
+                      : "focus-todos-panel"
+                }
+                tabIndex={isActive ? 0 : -1}
                 className={cn(
                   "min-h-11 shrink-0 rounded-lg px-3.5 text-sm font-medium transition-colors",
                   isActive
@@ -420,6 +481,7 @@ export const PatientFocus = ({
                     : "bg-secondary/40 text-foreground/85 hover:bg-secondary/55",
                 )}
                 onClick={() => handleSelectMobileSection(tab.id)}
+                onKeyDown={(event) => handleMobileSectionKeyDown(event, tab.id)}
               >
                 {tab.label}
               </button>

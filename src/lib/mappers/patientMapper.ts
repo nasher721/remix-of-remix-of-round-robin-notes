@@ -101,6 +101,7 @@ export const dbToUiPatient = (dbPatient: DbPatient): Patient => ({
   collapsed: dbPatient.collapsed,
   createdAt: dbPatient.created_at,
   lastModified: dbPatient.last_modified,
+  revision: dbPatient.revision ?? 0,
   age: dbPatient.age,
   serviceLine: dbPatient.service_line ?? undefined,
   attendingPhysician: dbPatient.attending_physician ?? undefined,

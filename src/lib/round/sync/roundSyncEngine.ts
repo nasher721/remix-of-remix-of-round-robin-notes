@@ -391,14 +391,18 @@ class RoundSyncEngine {
 
     const pending = await roundOutbox.getPendingCount();
     const conflicts = await roundOutbox.getConflictCount();
-    if (!navigator.onLine) {
-      this.setStatus("offline");
-    } else if (conflicts > 0 || this.openConflicts.length > 0) {
-      this.setStatus("conflict");
-    } else if (pending > 0) {
-      this.setStatus("syncing");
-    } else {
-      this.setStatus("idle");
+    const failed = await roundOutbox.getFailedCount();
+    this.setStatus(
+      this.deriveChromeStatus({
+        isOnline: !navigator.onLine ? false : true,
+        pendingCount: pending,
+        conflictCount: conflicts,
+        failedCount: failed,
+      }),
+    );
+
+    if (failed > result.failed) {
+      result.failed = failed;
     }
 
     result.conflicts = [...this.openConflicts];
@@ -440,13 +444,27 @@ class RoundSyncEngine {
     return resolved;
   }
 
+  async retryFailedWrites(): Promise<void> {
+    if (!navigator.onLine) {
+      this.setStatus("offline");
+      return;
+    }
+    const retried = await roundOutbox.retryFailedWrites();
+    if (retried > 0) {
+      this.setStatus("syncing");
+      void this.drain();
+    }
+  }
+
   deriveChromeStatus(input: {
     isOnline: boolean;
     pendingCount: number;
     conflictCount: number;
+    failedCount: number;
   }): RoundSyncStatus {
     if (!input.isOnline) return "offline";
     if (input.conflictCount > 0 || this.openConflicts.length > 0) return "conflict";
+    if (input.failedCount > 0) return "failed";
     if (input.pendingCount > 0 || this.status === "syncing") return "syncing";
     return "idle";
   }

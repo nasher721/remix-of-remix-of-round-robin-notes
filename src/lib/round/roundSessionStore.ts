@@ -39,7 +39,13 @@ const ACTIVE_SECTIONS = new Set<RoundActiveSection>([
 
 const WALK_STATUSES = new Set<RoundPatientWalkStatus>(["pending", "done", "skipped"]);
 
-const SYNC_STATUSES = new Set<RoundSyncStatus>(["idle", "offline", "syncing", "conflict"]);
+const SYNC_STATUSES = new Set<RoundSyncStatus>([
+  "idle",
+  "offline",
+  "syncing",
+  "conflict",
+  "failed",
+]);
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
