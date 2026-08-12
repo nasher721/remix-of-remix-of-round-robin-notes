@@ -14,7 +14,7 @@ const historicalOptimizationMigration = "20250315120000_optimize_postgres_indexe
 const catchUpMigration = "20260711000000_replay_deferred_schema_hardening.sql";
 const privateImagesMigration = "20260205190811_53775f4e-5179-4c57-b663-686ce92b671e.sql";
 const childOwnershipMigration = "20260711200000_harden_child_record_ownership.sql";
-const distributedRateLimitsMigration = "20260711230000_add_distributed_edge_rate_limits.sql";
+const distributedRateLimitsMigration = "20260811014046_add_distributed_edge_rate_limits.sql";
 
 const readMigration = async (file) =>
   readFile(path.join(migrationsDirectory, file), "utf8");

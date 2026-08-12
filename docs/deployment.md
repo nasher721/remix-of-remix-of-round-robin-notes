@@ -2,6 +2,18 @@
 
 How production and preview environments stay in sync: **Supabase** (DB + edge functions) and **Vercel** (frontend).
 
+## Pre-push release checklist (local verification must match CI)
+
+Before pushing to `main`, run the same gates CI runs — including **Deno formatting**, which is the step local runs most often skip:
+
+```bash
+npm run verify:local
+```
+
+`verify:local` runs, in CI order: ESLint → TypeScript → unit tests → edge JWT config → migration order → production audit (`npm audit --omit=dev --omit=optional`) → `edge:verify` (**`deno fmt --check`** + lint + frozen-lock typecheck + Deno tests) → Clinical MCP typecheck/tests/build.
+
+Toolchain is pinned: Node **22.x** (`.nvmrc`, `engines`) and npm **10.x** (`packageManager: npm@10.9.8`). Regenerate `package-lock.json` only with this toolchain — a lock written by npm 11+ breaks `npm ci` on CI and Vercel.
+
 ## When this workflow runs
 
 | Trigger | What deploys |

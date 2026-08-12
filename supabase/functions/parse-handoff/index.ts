@@ -13,12 +13,12 @@ import {
 } from "../_shared/mod.ts";
 import {
   getLLMConfig,
+  type LLMConfig,
   MissingAPIKeyError,
   normalizeOutputTokenLimit,
   providerForModel,
   resolveRequestedModel,
   selectModelForConfig,
-  type LLMConfig,
 } from "../_shared/llm-client.ts";
 
 type ProviderAttempt = {
@@ -31,7 +31,9 @@ type ProviderAttempt = {
  * When the preferred vendor is OpenAI, try Gemini first — OpenAI has been
  * persistently 429ing while Gemini completes parses (~67s observed).
  */
-const buildProviderQueue = (requestedModel: string | undefined): ProviderAttempt[] => {
+const buildProviderQueue = (
+  requestedModel: string | undefined,
+): ProviderAttempt[] => {
   const preferred = providerForModel(requestedModel);
   const order: Array<"openai" | "gemini" | "grok"> = [];
   if (preferred === "openai") {
@@ -724,7 +726,8 @@ SYSTEM MAPPING GUIDANCE:
       if (lastStatus === 429 || response.status === 429) {
         safeLog("error", "Parse handoff provider rate limited", {
           statusCode: 429,
-          provider: activeProvider?.config.provider ?? providerQueue[0]?.config.provider,
+          provider: activeProvider?.config.provider ??
+            providerQueue[0]?.config.provider,
           source: "provider",
           providersTried: providerQueue.length,
           retryAfter: 5,

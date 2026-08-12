@@ -22,6 +22,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Assert pinned toolchain
+        run: |
+          set -euo pipefail
+          node --version | grep -E '^v22\.' || { echo "::error::Node must be 22.x (see .nvmrc / packageManager)"; exit 1; }
+          npm --version | grep -E '^10\.' || { echo "::error::npm must be 10.x (see packageManager: npm@10.9.8)"; exit 1; }
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
