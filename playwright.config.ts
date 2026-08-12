@@ -36,10 +36,12 @@ const e2eBaseURL = `http://localhost:${e2ePort}`;
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  // All credential-gated specs share one real Supabase account and roster;
+  // parallel workers make their writes conflict with each other.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: "html",
   use: {
     baseURL: e2eBaseURL,

@@ -5,10 +5,13 @@
  * Run with: E2E_TEST_EMAIL=... E2E_TEST_PASSWORD=... npm run test:e2e -- --grep "Roster sort"
  *
  * Asserts the PatientRosterRail sort dropdown actually re-orders the rendered
- * patient rows. Seeded e2e roster (patient_number / name / bed):
- *   1 · E2E Test Patient One    · T-01
- *   2 · Zebra Test Patient Two  · T-02
- *   3 · Alpha Test Patient Three · A-15
+ * patient rows. Seeded e2e roster on e2e-round-runner@roundrobin.local
+ * (patient_number / name / bed):
+ *   2 · E2E Alpha   · Z-9
+ *   3 · E2E Bravo   · A-1
+ *   1 · E2E Charlie · M-5
+ * Beds, names, and numbers are deliberately scrambled so each sort key yields
+ * a distinct order.
  */
 
 import { test, expect, type Page } from "@playwright/test";
@@ -17,9 +20,9 @@ const E2E_EMAIL = process.env.E2E_TEST_EMAIL;
 const E2E_PASSWORD = process.env.E2E_TEST_PASSWORD;
 const hasCredentials = Boolean(E2E_EMAIL && E2E_PASSWORD);
 
-const BY_ROOM = ["Alpha Test Patient Three", "E2E Test Patient One", "Zebra Test Patient Two"]; // A-15 < T-01 < T-02 (app default: DEFAULT_SORT_BY = 'room')
-const ORDER_ADDED = ["E2E Test Patient One", "Zebra Test Patient Two", "Alpha Test Patient Three"];
-const BY_NAME = ["Alpha Test Patient Three", "E2E Test Patient One", "Zebra Test Patient Two"];
+const BY_ROOM = ["E2E Bravo", "E2E Charlie", "E2E Alpha"]; // A-1 < M-5 < Z-9 (app default: DEFAULT_SORT_BY = 'room')
+const ORDER_ADDED = ["E2E Charlie", "E2E Alpha", "E2E Bravo"]; // patient_number 1 < 2 < 3
+const BY_NAME = ["E2E Alpha", "E2E Bravo", "E2E Charlie"];
 
 async function loginToDashboard(page: Page) {
   test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set for dashboard E2E");
@@ -29,7 +32,13 @@ async function loginToDashboard(page: Page) {
   await page.locator("#password").fill(E2E_PASSWORD!);
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/(\?.*)?$/);
-  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 15_000 });
+  // These specs assert classic dashboard chrome; the Round runner shell is
+  // default ON, so opt out explicitly.
+  await page.evaluate(() => {
+    window.localStorage.setItem("rr-round-runner", "0");
+  });
+  await page.reload();
+  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
 }
 
 /** Visible roster row names, top to bottom (robust to virtualization). */

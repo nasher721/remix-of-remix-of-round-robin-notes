@@ -22,7 +22,12 @@ test.describe("Auth and dashboard", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/(\?.*)?$/);
-    await expect(page.getByRole("button", { name: /print/i }).first()).toBeVisible({ timeout: 15_000 });
+    // Assert classic dashboard chrome; the Round runner shell is default ON.
+    await page.evaluate(() => {
+      window.localStorage.setItem("rr-round-runner", "0");
+    });
+    await page.reload();
+    await expect(page.getByRole("button", { name: /print/i }).first()).toBeVisible({ timeout: 20_000 });
   });
 
   test("after login, print/export modal can be opened and shows export", async ({ page }) => {
@@ -34,8 +39,13 @@ test.describe("Auth and dashboard", () => {
     await page.getByRole("button", { name: /sign in/i }).click();
 
     await expect(page).toHaveURL(/\/(\?.*)?$/);
+    // Assert classic dashboard chrome; the Round runner shell is default ON.
+    await page.evaluate(() => {
+      window.localStorage.setItem("rr-round-runner", "0");
+    });
+    await page.reload();
     const printButton = page.getByRole("button", { name: /print/i }).first();
-    await expect(printButton).toBeVisible({ timeout: 15_000 });
+    await expect(printButton).toBeVisible({ timeout: 20_000 });
 
     await printButton.click();
     await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5_000 });

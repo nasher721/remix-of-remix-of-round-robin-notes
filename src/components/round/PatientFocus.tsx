@@ -70,7 +70,6 @@ export const PatientFocus = ({
     round,
     setExpandedSystem,
     setActiveSection,
-    enqueueDraftField,
   } = useRoundSession();
 
   const [summaryExpanded, setSummaryExpanded] = React.useState(false);
@@ -135,30 +134,17 @@ export const PatientFocus = ({
   };
 
   const handleSummaryChange = (value: string) => {
-    const now = new Date().toISOString();
-    const baseUpdatedAt = patient.fieldTimestamps?.clinicalSummary ?? null;
+    // Single writer: updatePatient owns clinicalSummary (optimistic local
+    // state, revision-guarded save, durable offline queue). A parallel
+    // draft_field outbox write raced with it and each flagged the other as a
+    // same-field conflict — the per-keystroke "Field conflict" popup storm.
     onUpdatePatient(patient.id, "clinicalSummary", value);
-    void enqueueDraftField({
-      patientId: patient.id,
-      fieldKey: "clinicalSummary",
-      value,
-      updatedAt: now,
-      baseUpdatedAt,
-    });
   };
 
   const handleSystemChange = (systemKey: string, value: string) => {
     const fieldKey = `systems.${systemKey}` as `systems.${string}`;
-    const now = new Date().toISOString();
-    const baseUpdatedAt = patient.fieldTimestamps?.[fieldKey] ?? null;
+    // Same single-writer rule as handleSummaryChange.
     onUpdatePatient(patient.id, fieldKey, value);
-    void enqueueDraftField({
-      patientId: patient.id,
-      fieldKey,
-      value,
-      updatedAt: now,
-      baseUpdatedAt,
-    });
   };
 
   const handleFocusTodos = () => {

@@ -19,7 +19,13 @@ async function loginToDashboard(page: Page) {
   await page.locator("#password").fill(E2E_PASSWORD!);
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/(\?.*)?$/);
-  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 15_000 });
+  // These specs assert classic dashboard chrome; the Round runner shell is
+  // default ON, so opt out explicitly.
+  await page.evaluate(() => {
+    window.localStorage.setItem("rr-round-runner", "0");
+  });
+  await page.reload();
+  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
 }
 
 test.describe("Dashboard Panel Collapse", () => {
