@@ -27,6 +27,7 @@ export interface ChangeTrackingContextValue extends ChangeTrackingState {
   setColor: (color: string) => void;
   toggleStyle: (style: keyof ChangeTrackingStyles) => void;
   wrapWithMarkup: (text: string) => string;
+  wrapHtmlWithMarkup: (html: string) => string;
 }
 
 /** Default: primary (teal) for design-system alignment */

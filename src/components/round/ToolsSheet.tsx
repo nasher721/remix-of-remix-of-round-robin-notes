@@ -528,16 +528,29 @@ export const ToolsSheet = ({
                 </div>
                 <DesktopSpecialtySelector />
                 <DesktopAIModelSettingsDialog />
-                <ChangeTrackingControls
-                  enabled={ctEnabled}
-                  color={ctColor}
-                  styles={ctStyles}
-                  onToggleEnabled={ctToggleEnabled}
-                  onColorChange={ctSetColor}
-                  onToggleStyle={ctToggleStyle}
-                />
               </CollapsibleContent>
             </Collapsible>
+
+            <section
+              className="space-y-2 border-t border-border/25 pt-3"
+              aria-label="Documentation"
+              data-testid="tools-change-tracking"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Documentation
+              </p>
+              <ChangeTrackingControls
+                enabled={ctEnabled}
+                color={ctColor}
+                styles={ctStyles}
+                onToggleEnabled={ctToggleEnabled}
+                onColorChange={ctSetColor}
+                onToggleStyle={ctToggleStyle}
+              />
+              <p className="text-xs text-muted-foreground">
+                Mark text you add during this round so new documentation is easy to review.
+              </p>
+            </section>
 
             <section className="space-y-2 border-t border-border/25 pt-3" aria-label="Account">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

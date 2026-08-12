@@ -83,6 +83,7 @@ interface RichTextEditorProps {
   changeTracking?: {
     enabled: boolean;
     wrapWithMarkup: (text: string) => string;
+    wrapHtmlWithMarkup?: (html: string) => string;
   } | null;
   patient?: Patient;
   section?: string;
@@ -161,7 +162,9 @@ export const RichTextEditor = ({
 
     let contentHtml = content;
     if (effectiveChangeTracking?.enabled) {
-      contentHtml = effectiveChangeTracking.wrapWithMarkup(content);
+      const safeContent = sanitizeHtml(content);
+      contentHtml = effectiveChangeTracking.wrapHtmlWithMarkup?.(safeContent)
+        ?? effectiveChangeTracking.wrapWithMarkup(content);
     }
     contentHtml = sanitizeHtml(contentHtml);
 
@@ -337,9 +340,11 @@ export const RichTextEditor = ({
 
     e.preventDefault();
 
+    const safePastedHtml = sanitizePastedHtml(html, text || '');
     const contentHtml = effectiveChangeTracking?.enabled
-      ? sanitizeHtml(effectiveChangeTracking.wrapWithMarkup(text || ''))
-      : sanitizePastedHtml(html, text || '');
+      ? sanitizeHtml(effectiveChangeTracking.wrapHtmlWithMarkup?.(safePastedHtml)
+        ?? effectiveChangeTracking.wrapWithMarkup(text || ''))
+      : safePastedHtml;
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
 
@@ -1076,7 +1081,11 @@ export const RichTextEditor = ({
               <DocumentImport
                 onImport={(content) => {
                   if (editorRef.current) {
-                    const importedContent = sanitizeHtml(content);
+                    const safeContent = sanitizeHtml(content);
+                    const importedContent = effectiveChangeTracking?.enabled
+                      ? sanitizeHtml(effectiveChangeTracking.wrapHtmlWithMarkup?.(safeContent)
+                        ?? effectiveChangeTracking.wrapWithMarkup(content))
+                      : safeContent;
                     const newContent = sanitizeHtml(editorRef.current.innerHTML
                       ? `${editorRef.current.innerHTML}<br/><br/>${importedContent}`
                       : importedContent);
@@ -1129,7 +1138,11 @@ export const RichTextEditor = ({
                   if (!editorRef.current) return;
                   const isEmpty = editorRef.current.innerText.trim() === "";
                   const separator = isEmpty ? "" : "<br/><br/>";
-                  const sanitizedDraft = sanitizeHtml(draft);
+                  const safeDraft = sanitizeHtml(draft);
+                  const sanitizedDraft = effectiveChangeTracking?.enabled
+                    ? sanitizeHtml(effectiveChangeTracking.wrapHtmlWithMarkup?.(safeDraft)
+                      ?? effectiveChangeTracking.wrapWithMarkup(draft))
+                    : safeDraft;
                   const newContent = sanitizeHtml(isEmpty
                     ? sanitizedDraft
                     : `${editorRef.current.innerHTML}${separator}${sanitizedDraft}`);

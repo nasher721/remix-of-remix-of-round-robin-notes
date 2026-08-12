@@ -16,11 +16,19 @@ interface ChangeTrackingContextValue {
   setColor: (color: string) => void;
   toggleStyle: (style: keyof ChangeTrackingStyles) => void;
   wrapWithMarkup: (text: string) => string;
+  wrapHtmlWithMarkup: (html: string) => string;
 }
 
 const ChangeTrackingContext = createContext<ChangeTrackingContextValue | null>(null);
 
 const STORAGE_KEY = "changeTrackingSettings";
+
+const escapeMarkupText = (text: string): string => text
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;")
+  .replace(/'/g, "&#39;");
 
 const getTodayDate = () => new Date().toISOString().split("T")[0];
 
@@ -116,8 +124,35 @@ export const ChangeTrackingProvider: React.FC<{ children: React.ReactNode }> = (
     
     if (activeStyles.length === 0) return text;
     
-    return `<span data-marked="true" data-date="${today}" data-styles="${activeStyles.join(",")}" style="${styleStr.join("; ")}">${text}</span>`;
+    return `<span data-marked="true" data-date="${today}" data-styles="${activeStyles.join(",")}" style="${styleStr.join("; ")}">${escapeMarkupText(text)}</span>`;
   }, [state, today]);
+
+  // Preserve imported/generated formatting while marking each newly inserted
+  // text node. Plain-text insertions should continue using wrapWithMarkup.
+  const wrapHtmlWithMarkup = useCallback((html: string): string => {
+    if (!state.enabled || !html || typeof document === "undefined") return html;
+
+    const container = document.createElement("div");
+    container.innerHTML = html;
+    // Use the numeric constant as well as the named DOM constant is not
+    // exposed as a global in every browser-like test environment.
+    const walker = document.createTreeWalker(container, 4 /* SHOW_TEXT */);
+    const textNodes: Text[] = [];
+    let node = walker.nextNode();
+    while (node) {
+      textNodes.push(node as Text);
+      node = walker.nextNode();
+    }
+
+    textNodes.forEach((textNode) => {
+      if (!textNode.nodeValue?.trim() || textNode.parentElement?.closest('[data-marked="true"]')) return;
+      const replacement = document.createElement("span");
+      replacement.innerHTML = wrapWithMarkup(textNode.nodeValue);
+      textNode.replaceWith(...Array.from(replacement.childNodes));
+    });
+
+    return container.innerHTML;
+  }, [state.enabled, wrapWithMarkup]);
 
   const value = useMemo(() => ({
     enabled: state.enabled,
@@ -127,7 +162,8 @@ export const ChangeTrackingProvider: React.FC<{ children: React.ReactNode }> = (
     setColor,
     toggleStyle,
     wrapWithMarkup,
-  }), [state, toggleEnabled, setColor, toggleStyle, wrapWithMarkup]);
+    wrapHtmlWithMarkup,
+  }), [state, toggleEnabled, setColor, toggleStyle, wrapWithMarkup, wrapHtmlWithMarkup]);
 
   return (
     <ChangeTrackingContext.Provider value={value}>

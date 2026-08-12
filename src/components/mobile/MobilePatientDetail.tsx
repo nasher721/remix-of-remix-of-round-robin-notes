@@ -81,6 +81,7 @@ interface MobilePatientDetailProps {
   changeTracking?: {
     enabled: boolean;
     wrapWithMarkup: (text: string) => string;
+    wrapHtmlWithMarkup?: (html: string) => string;
   } | null;
   onNext?: () => void;
   onPrevious?: () => void;
