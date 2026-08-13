@@ -274,7 +274,7 @@ export const ToolsSheet = ({
   }
 
   const rowClass = cn(
-    "w-full justify-start gap-2",
+    "w-full justify-start gap-2.5 rounded-lg border-border/40 font-medium transition-colors hover:bg-accent/60",
     touchFriendly ? "min-h-11 h-11 text-sm" : "h-9 text-sm",
   )
 

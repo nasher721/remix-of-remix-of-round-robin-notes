@@ -60,16 +60,19 @@ export const RoundEnd = ({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 flex-col overflow-y-auto px-4 py-6 md:px-8",
+        "flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto px-4 py-8 md:px-8",
         className,
       )}
       data-testid="round-end"
     >
-      <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
-        <header className="space-y-1">
+      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
+        <header className="space-y-2 text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Printer className="h-6 w-6" aria-hidden="true" />
+          </div>
           <h1
             className={cn(
-              "font-semibold tracking-tight text-foreground",
+              "font-bold tracking-tight text-foreground",
               touchFriendly ? "text-2xl" : "text-xl",
             )}
           >
@@ -87,23 +90,32 @@ export const RoundEnd = ({
           {isComplete && (
             <p
               className={cn(
-                "flex items-center gap-1.5 font-medium text-emerald-700 dark:text-emerald-400",
+                "flex items-center justify-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400",
                 touchFriendly ? "text-sm" : "text-xs",
               )}
               data-testid="round-end-completed"
             >
-              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               Round marked complete
             </p>
           )}
           {patients.length > 0 && (
-            <div className="rounded-lg border border-border/50 bg-muted/25 px-3 py-2 text-sm text-foreground/80">
-              <p>{position.total - doneCount} patients not marked done</p>
-              <p>{incompleteTodoCount} incomplete todos</p>
-              <p>
-                {canCompleteRound
-                  ? "All note changes saved"
-                  : `${pendingCount} pending · ${failedCount} failed · ${conflicts.length} conflicts`}
+            <div className="mt-2 rounded-xl border border-border/40 bg-muted/30 p-3 text-left text-xs text-foreground/85 space-y-1">
+              <p className="flex justify-between">
+                <span>Patients remaining:</span>
+                <span className="font-semibold">{position.total - doneCount}</span>
+              </p>
+              <p className="flex justify-between">
+                <span>Incomplete todos:</span>
+                <span className="font-semibold">{incompleteTodoCount}</span>
+              </p>
+              <p className="flex justify-between border-t border-border/20 pt-1 text-muted-foreground">
+                <span>Sync status:</span>
+                <span>
+                  {canCompleteRound
+                    ? "All changes saved"
+                    : `${pendingCount} pending · ${failedCount} failed · ${conflicts.length} conflicts`}
+                </span>
               </p>
             </div>
           )}

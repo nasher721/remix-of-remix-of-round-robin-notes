@@ -217,6 +217,7 @@ export const RoundChrome = ({
           touchFriendly
             ? "h-11 min-h-11 flex-1 gap-1.5 px-3 border-border/50 bg-card text-foreground"
             : "h-9 gap-1.5 px-3",
+          isCurrentDone && "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-500/20",
           "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         )}
         onClick={handleDoneAndNext}
@@ -226,7 +227,7 @@ export const RoundChrome = ({
         title={isCurrentDone ? "Reopen patient" : "Done (D)"}
         data-testid="round-done"
       >
-        <Check className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5")} aria-hidden="true" />
+        <Check className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5", isCurrentDone && "text-emerald-600 dark:text-emerald-400")} aria-hidden="true" />
         <span className={cn("font-medium", touchFriendly ? "text-sm" : "text-xs")}>
           {isCurrentDone ? "Reopen" : "Done"}
         </span>
@@ -237,7 +238,7 @@ export const RoundChrome = ({
         variant="default"
         size="sm"
         className={cn(
-          touchFriendly ? "h-11 min-h-11 flex-1 gap-1.5 px-3" : "h-9 gap-1.5 px-3",
+          touchFriendly ? "h-11 min-h-11 flex-1 gap-1.5 px-3 font-semibold" : "h-9 gap-1.5 px-3 font-semibold",
           "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         )}
         onClick={handleNext}
@@ -256,7 +257,7 @@ export const RoundChrome = ({
   const header = (
     <header
       className={cn(
-        "sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/30 bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        "sticky top-0 z-40 flex shrink-0 items-center gap-2 border-b border-border/40 bg-background/95 px-3 backdrop-blur-md supports-[backdrop-filter]:bg-background/85",
         touchFriendly ? "h-14 min-h-14 safe-area-top" : "h-12",
         className,
       )}

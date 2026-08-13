@@ -47,16 +47,19 @@ export const RoundHome = ({
   return (
     <div
       className={cn(
-        "flex h-full min-h-0 flex-col overflow-y-auto px-4 py-6 md:px-8",
+        "flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto px-4 py-8 md:px-8",
         className,
       )}
       data-testid="round-home"
     >
-      <div className="mx-auto flex w-full max-w-lg flex-col gap-6">
-        <header className="space-y-1">
+      <div className="flex w-full max-w-md flex-col gap-6 rounded-2xl border border-border/40 bg-card p-6 shadow-sm">
+        <header className="space-y-1.5 text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <FileUp className="h-6 w-6" aria-hidden="true" />
+          </div>
           <h1
             className={cn(
-              "font-semibold tracking-tight text-foreground",
+              "font-bold tracking-tight text-foreground",
               touchFriendly ? "text-2xl" : "text-xl",
             )}
           >
@@ -78,7 +81,7 @@ export const RoundHome = ({
             type="button"
             size={touchFriendly ? "lg" : "default"}
             className={cn(
-              "w-full justify-center gap-2",
+              "w-full justify-center gap-2 font-semibold shadow-sm",
               touchFriendly && "min-h-11 text-base",
             )}
             onClick={handleOpenImport}
@@ -92,10 +95,10 @@ export const RoundHome = ({
           {hasPatients ? (
             <Button
               type="button"
-              variant="default"
+              variant="secondary"
               size={touchFriendly ? "lg" : "default"}
               className={cn(
-                "w-full justify-center gap-2",
+                "w-full justify-center gap-2 font-semibold",
                 touchFriendly && "min-h-11 text-base",
               )}
               onClick={onStartRound}
@@ -122,7 +125,7 @@ export const RoundHome = ({
               variant="outline"
               size={touchFriendly ? "lg" : "default"}
               className={cn(
-                "w-full justify-center gap-2",
+                "w-full justify-center gap-2 font-medium",
                 touchFriendly && "min-h-11 text-base",
               )}
               disabled={!canCompleteRound}

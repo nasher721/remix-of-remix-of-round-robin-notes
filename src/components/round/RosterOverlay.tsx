@@ -229,17 +229,19 @@ export const RosterOverlay = ({
                   aria-current={isActive ? "true" : undefined}
                   aria-label={`${name}, bed ${bed}, ${stableIdentifier}, ${STATUS_LABEL[ref.status]}`}
                   className={cn(
-                    "mb-0.5 h-auto w-full justify-start gap-3 rounded-lg px-3 text-left",
+                    "mb-1 h-auto w-full justify-start gap-3 rounded-lg px-3 text-left transition-colors",
                     touchFriendly ? "min-h-11 py-3" : "py-2.5",
-                    isActive && "bg-primary/10 text-foreground",
+                    isActive
+                      ? "bg-primary/15 font-semibold text-foreground border-l-2 border-primary pl-2.5"
+                      : "hover:bg-muted/50",
                   )}
                   onClick={() => handleSelectPatient(ref.patientId)}
                   data-testid={`roster-row-${ref.patientId}`}
                 >
                   <span
                     className={cn(
-                      "w-6 shrink-0 text-center tabular-nums",
-                      touchFriendly ? "text-sm text-foreground/65" : "text-xs text-muted-foreground",
+                      "w-6 shrink-0 text-center tabular-nums font-semibold",
+                      touchFriendly ? "text-sm text-foreground/75" : "text-xs text-muted-foreground",
                     )}
                   >
                     {round.patients.findIndex((r) => r.patientId === ref.patientId) + 1}
@@ -248,8 +250,8 @@ export const RosterOverlay = ({
                     <span className="flex items-center gap-1.5">
                       <span
                         className={cn(
-                          "truncate font-medium",
-                          touchFriendly ? "text-base text-foreground" : "text-sm",
+                          "truncate font-semibold",
+                          touchFriendly ? "text-base text-foreground" : "text-sm text-foreground/95",
                         )}
                       >
                         {name}
@@ -262,7 +264,7 @@ export const RosterOverlay = ({
                         touchFriendly ? "text-sm text-foreground/70" : "text-xs text-muted-foreground",
                       )}
                     >
-                      {bed} · {stableIdentifier}
+                      Bed {bed} · {stableIdentifier}
                       {cue ? ` · ${cue}` : ""}
                     </span>
                   </span>

@@ -408,10 +408,10 @@ export const PatientFocus = ({
       data-patient-id={patient.id}
       data-touch-friendly={touchFriendly ? "true" : undefined}
     >
-      <div className="shrink-0 border-b border-border/25 px-4 py-3 md:px-6">
-        <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" data-testid="patient-focus-identity">
+      <div className="shrink-0 border-b border-border/30 bg-card/30 px-4 py-3 md:px-6">
+        <dl className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4" data-testid="patient-focus-identity">
           <div className="sm:col-span-2 lg:col-span-4">
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</dt>
+            <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</dt>
             <dd className={cn("mt-0.5 break-words font-semibold tracking-tight text-foreground", touchFriendly ? "text-xl" : "text-lg")}>
               {identity.name}
             </dd>
@@ -424,30 +424,30 @@ export const PatientFocus = ({
             ["Diagnosis", identity.diagnosis],
           ].map(([label, value]) => (
             <div key={label} className="min-w-0">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
-              <dd className="mt-0.5 break-words text-sm text-foreground">{value}</dd>
+              <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
+              <dd className="mt-0.5 break-words text-sm text-foreground/90">{value}</dd>
             </div>
           ))}
-          <div className="min-w-0 rounded-md border border-amber-500/50 bg-amber-500/5 p-2 sm:col-span-2" data-testid="patient-focus-allergies">
-            <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground">
+          <div className="min-w-0 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 sm:col-span-2" data-testid="patient-focus-allergies">
+            <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-900 dark:text-amber-300">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               Allergies
             </dt>
-            <dd className="mt-0.5 break-words text-sm text-foreground">{identity.allergies}</dd>
+            <dd className="mt-0.5 break-words text-sm font-medium text-amber-950 dark:text-amber-200">{identity.allergies}</dd>
           </div>
-          <div className="min-w-0 rounded-md border border-red-500/50 bg-red-500/5 p-2 sm:col-span-2" data-testid="patient-focus-code-status">
-            <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground">
+          <div className="min-w-0 rounded-lg border border-red-500/40 bg-red-500/10 p-2.5 sm:col-span-2" data-testid="patient-focus-code-status">
+            <dt className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-red-900 dark:text-red-300">
               <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               Code status
             </dt>
-            <dd className="mt-0.5 break-words text-sm font-medium text-foreground">{identity.codeStatus}</dd>
+            <dd className="mt-0.5 break-words text-sm font-semibold text-red-950 dark:text-red-200">{identity.codeStatus}</dd>
           </div>
         </dl>
       </div>
 
       {touchFriendly && (
         <div
-          className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border/25 px-3 py-2"
+          className="flex shrink-0 gap-2 overflow-x-auto border-b border-border/30 bg-muted/20 px-3 py-2"
           role="tablist"
           aria-label="Mid-rounds sections"
           data-testid="focus-mobile-section-tabs"
@@ -470,10 +470,10 @@ export const PatientFocus = ({
                 }
                 tabIndex={isActive ? 0 : -1}
                 className={cn(
-                  "round-section-tab min-h-11 shrink-0 rounded-lg px-3.5 text-sm font-medium transition-colors",
+                  "round-section-tab min-h-11 shrink-0 rounded-lg px-4 text-sm font-semibold transition-colors",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary/40 text-foreground/85 hover:bg-secondary/55",
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted/80 hover:text-foreground",
                 )}
                 onClick={() => handleSelectMobileSection(tab.id)}
                 onKeyDown={(event) => handleMobileSectionKeyDown(event, tab.id)}
