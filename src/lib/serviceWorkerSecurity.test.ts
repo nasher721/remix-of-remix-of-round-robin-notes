@@ -14,14 +14,24 @@ type ActivationEvent = {
 
 type ServiceWorkerListener = (event: FetchEvent | ActivationEvent) => void;
 
-const loadServiceWorker = (initialCacheNames: string[] = []) => {
+type ServiceWorkerOptions = {
+  cachedResponse?: Response;
+  initialCacheNames?: string[];
+  networkResponse?: Response;
+};
+
+const loadServiceWorker = ({
+  cachedResponse,
+  initialCacheNames = [],
+  networkResponse,
+}: ServiceWorkerOptions = {}) => {
   const listeners = new Map<string, ServiceWorkerListener>();
   const deletedCaches: string[] = [];
   const cache = {
     addAll: async () => undefined,
     delete: async () => true,
     keys: async () => [],
-    match: async () => undefined,
+    match: async () => cachedResponse?.clone(),
     put: async () => undefined,
   };
   const caches = {
@@ -45,7 +55,7 @@ const loadServiceWorker = (initialCacheNames: string[] = []) => {
     Response,
     caches,
     console: { log: () => undefined, error: () => undefined },
-    fetch: async () => new Response("ok"),
+    fetch: async () => networkResponse?.clone() ?? new Response("ok"),
     performance,
     self,
   });
@@ -72,6 +82,21 @@ const isHandledByServiceWorker = (listener: ServiceWorkerListener, request: Requ
   return handled;
 };
 
+const getServiceWorkerResponse = async (
+  listener: ServiceWorkerListener,
+  request: Request,
+): Promise<Response> => {
+  let responsePromise: Promise<Response> | undefined;
+  listener({
+    request,
+    respondWith: (response) => {
+      responsePromise = Promise.resolve(response);
+    },
+  } as FetchEvent);
+  assert.ok(responsePromise, "service worker must handle the request");
+  return responsePromise;
+};
+
 describe("service worker cache policy", () => {
   it("surfaces production worker updates through the application shell", () => {
     const main = readFileSync("src/main.tsx", "utf8");
@@ -83,13 +108,15 @@ describe("service worker cache policy", () => {
   });
 
   it("deletes cache generations that may contain sensitive responses", async () => {
-    const { deletedCaches, listeners } = loadServiceWorker([
-      "api-v1.0.3",
-      "dynamic-v1.0.3",
-      "images-v1.0.3",
-      "static-v1.0.3",
-      "static-v1.0.4",
-    ]);
+    const { deletedCaches, listeners } = loadServiceWorker({
+      initialCacheNames: [
+        "api-v1.0.3",
+        "dynamic-v1.0.3",
+        "images-v1.0.3",
+        "static-v1.0.3",
+        "static-v1.0.4",
+      ],
+    });
     const listener = listeners.get("activate");
     assert.ok(listener, "service worker must register an activate listener");
 
@@ -160,5 +187,53 @@ describe("service worker cache policy", () => {
       listener,
       new Request("https://round-robin.test/assets/app.js"),
     ), true);
+  });
+
+  it("uses a fresh cached app shell when an HTML navigation receives HTTP 503", async () => {
+    const cachedResponse = new Response("cached app shell", {
+      status: 200,
+      headers: {
+        "content-type": "text/html",
+        "sw-cache-time": Date.now().toString(),
+      },
+    });
+    const { listeners } = loadServiceWorker({
+      cachedResponse,
+      networkResponse: new Response("upstream unavailable", { status: 503 }),
+    });
+    const listener = listeners.get("fetch");
+    assert.ok(listener, "service worker must register a fetch listener");
+
+    const response = await getServiceWorkerResponse(
+      listener,
+      new Request("https://round-robin.test/", {
+        headers: { accept: "text/html" },
+      }),
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "cached app shell");
+  });
+
+  it("does not hide an authoritative HTTP 404 behind a cached app shell", async () => {
+    const { listeners } = loadServiceWorker({
+      cachedResponse: new Response("cached app shell", {
+        status: 200,
+        headers: { "sw-cache-time": Date.now().toString() },
+      }),
+      networkResponse: new Response("not found", { status: 404 }),
+    });
+    const listener = listeners.get("fetch");
+    assert.ok(listener, "service worker must register a fetch listener");
+
+    const response = await getServiceWorkerResponse(
+      listener,
+      new Request("https://round-robin.test/missing", {
+        headers: { accept: "text/html" },
+      }),
+    );
+
+    assert.equal(response.status, 404);
+    assert.equal(await response.text(), "not found");
   });
 });

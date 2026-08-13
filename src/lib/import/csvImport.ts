@@ -49,14 +49,13 @@ export interface ImportResult {
  * Parse CSV string into structured data
  */
 export function parseCSV(csvText: string): CSVParseResult {
-  const lines = csvText.split(/\r?\n/).filter(line => line.trim());
-  
-  if (lines.length === 0) {
+  const records = parseCSVRecords(csvText.replace(/^\uFEFF/, ''));
+
+  if (records.length === 0) {
     return { headers: [], rows: [], rowCount: 0 };
   }
 
-  const headers = parseCSVLine(lines[0]);
-  const rows = lines.slice(1).map(line => parseCSVLine(line));
+  const [headers, ...rows] = records;
   
   return {
     headers,
@@ -66,33 +65,57 @@ export function parseCSV(csvText: string): CSVParseResult {
 }
 
 /**
- * Parse a single CSV line, handling quoted fields
+ * Parse complete CSV records so line breaks inside quoted clinical text remain
+ * part of the same field. Splitting into physical lines first silently turns a
+ * multiline note into a second, invalid patient row.
  */
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
+function parseCSVRecords(csvText: string): string[][] {
+  const records: string[][] = [];
+  let row: string[] = [];
   let current = '';
   let inQuotes = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    
+  let recordHasSyntax = false;
+
+  const pushField = () => {
+    row.push(current.trim());
+    current = '';
+  };
+  const pushRecord = () => {
+    pushField();
+    if (recordHasSyntax) records.push(row);
+    row = [];
+    recordHasSyntax = false;
+  };
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+
     if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
+      recordHasSyntax = true;
+      if (inQuotes && csvText[i + 1] === '"') {
         current += '"';
         i++;
       } else {
         inQuotes = !inQuotes;
       }
     } else if (char === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
+      recordHasSyntax = true;
+      pushField();
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && csvText[i + 1] === '\n') i++;
+      pushRecord();
+    } else if ((char === '\n' || char === '\r') && inQuotes) {
+      recordHasSyntax = true;
+      if (char === '\r' && csvText[i + 1] === '\n') i++;
+      current += '\n';
     } else {
       current += char;
+      if (!/\s/.test(char)) recordHasSyntax = true;
     }
   }
-  
-  result.push(current.trim());
-  return result;
+
+  if (recordHasSyntax || row.length > 0 || current.length > 0) pushRecord();
+  return records;
 }
 
 /**

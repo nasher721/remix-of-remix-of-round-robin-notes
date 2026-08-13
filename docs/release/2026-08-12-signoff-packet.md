@@ -194,6 +194,12 @@ close. All engineering-controlled items are complete and evidenced below.
   an accessible in-app refresh prompt instead of writing only to DevTools.
   Clinicians can refresh deliberately or defer it to avoid interrupting an
   active note edit; Chromium/WebKit and component contracts cover both paths.
+- **Resilient installed-app navigation:** a fresh cached app shell now covers
+  transient hosting and edge HTTP 5xx responses as well as rejected network
+  requests. Authoritative 4xx responses still reach the browser, and cached
+  entries remain bounded by the existing 24-hour navigation TTL. The worker
+  cache generation is bumped so previously installed clients adopt the policy;
+  an executable worker harness covers both 503 recovery and 404 pass-through.
 - **Authenticated browser gate:** local isolated runs execute all 27 discovered
   scenarios in both Chromium and WebKit with zero skips, including multi-tab conflicts, offline
   queue drain, Round navigation, roster state, and real Excel/PDF downloads.
@@ -317,6 +323,12 @@ close. All engineering-controlled items are complete and evidenced below.
   reader contracts cover the entry cards, mapping controls, and mobile Round
   tab panels. Migration `20260813010000_add_patient_roster_identity_fields.sql`
   adds the missing durable roster columns.
+- **Lossless multiline CSV import:** the CSV parser now scans complete records
+  with quote state instead of splitting on physical line breaks first. Quoted
+  multiline diagnoses and clinical summaries remain attached to one patient,
+  CRLF input is normalized inside the field, escaped quotes remain intact, and
+  physically blank records do not create patients. Parser-to-mapping regression
+  coverage proves the full multiline value reaches the imported patient.
 
 ## 3. Final release gate status (from plan)
 

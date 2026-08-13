@@ -1,6 +1,6 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.6';
+const CACHE_VERSION = 'v1.0.7';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
@@ -213,6 +213,20 @@ async function networkFirstWithCache(request, cacheName, ttl) {
       });
       
       cache.put(request, responseWithTime);
+    } else if (
+      networkResponse.status >= 500 &&
+      (request.mode === 'navigate' || isHtmlRequest(request))
+    ) {
+      // A hosting/edge outage is different from an authoritative 4xx. Keep
+      // the installed app available with a fresh cached shell, while leaving
+      // versioned JS/CSS and client errors on their network responses.
+      performanceMetrics.cacheMisses++;
+      const cachedResponse = await getCachedResponse(request, cacheName, ttl);
+      if (cachedResponse) {
+        performanceMetrics.cacheHits++;
+        performanceMetrics.cacheRetrievalTime.push(performance.now() - startTime);
+        return cachedResponse;
+      }
     }
     
     return networkResponse;
