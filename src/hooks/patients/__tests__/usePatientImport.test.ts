@@ -98,7 +98,13 @@ function installPatientImportSupabaseMock(options: {
 
     return {
       select(columns = "*") {
-        const query = { table, columns, orders: [] as unknown[], limitCount: null as number | null };
+        const query = {
+          table,
+          columns,
+          filters: [] as unknown[],
+          orders: [] as unknown[],
+          limitCount: null as number | null,
+        };
         const result = () => {
           latestNumberSelects.push(query);
           return Promise.resolve({
@@ -107,6 +113,10 @@ function installPatientImportSupabaseMock(options: {
           });
         };
         const builder = {
+          eq(column: string, value: unknown) {
+            query.filters.push({ column, value });
+            return builder;
+          },
           order(column: string, orderOptions: unknown) {
             query.orders.push({ column, options: orderOptions });
             return builder;

@@ -15,6 +15,7 @@ const catchUpMigration = "20260711000000_replay_deferred_schema_hardening.sql";
 const privateImagesMigration = "20260205190811_53775f4e-5179-4c57-b663-686ce92b671e.sql";
 const childOwnershipMigration = "20260711200000_harden_child_record_ownership.sql";
 const distributedRateLimitsMigration = "20260811014046_add_distributed_edge_rate_limits.sql";
+const backendContractMigration = "20260812000000_harden_patient_and_round_contracts.sql";
 
 const readMigration = async (file) =>
   readFile(path.join(migrationsDirectory, file), "utf8");
@@ -28,6 +29,7 @@ for (const requiredFile of [
   privateImagesMigration,
   childOwnershipMigration,
   distributedRateLimitsMigration,
+  backendContractMigration,
 ]) {
   assert(migrationFiles.includes(requiredFile), `Missing migration: ${requiredFile}`);
 }
@@ -193,6 +195,40 @@ assert.match(
   childOwnershipSql,
   /phrase_usage_log_metadata_only[\s\S]*CHECK\s*\(input_values IS NULL AND inserted_content IS NULL\)[\s\S]*NOT VALID/i,
   "Phrase usage must reject new expanded clinical content without purging legacy rows",
+);
+
+const backendContractSql = await readMigration(backendContractMigration);
+for (const column of [
+  "age",
+  "service_line",
+  "attending_physician",
+  "consulting_team",
+  "acuity",
+  "code_status",
+  "alerts",
+  "vitals",
+  "assigned_to",
+]) {
+  assert.match(
+    backendContractSql,
+    new RegExp(`ADD\\s+COLUMN\\s+IF\\s+NOT\\s+EXISTS\\s+${column}\\b`, "i"),
+    `Backend contract migration is missing patients.${column}`,
+  );
+}
+assert.match(
+  backendContractSql,
+  /CREATE UNIQUE INDEX IF NOT EXISTS idx_patients_user_patient_number/i,
+  "Patient ordering must be unique within an owner",
+);
+assert.match(
+  backendContractSql,
+  /CREATE OR REPLACE FUNCTION public\.upsert_owned_round_state/i,
+  "Round state must be persisted through the authenticated atomic RPC",
+);
+assert.match(
+  backendContractSql,
+  /pg_advisory_xact_lock/i,
+  "Round state creation must serialize concurrent first writes",
 );
 assert.match(
   childOwnershipSql,

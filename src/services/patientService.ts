@@ -27,7 +27,74 @@ export const defaultMedicationsValue: PatientMedications = {
   rawText: "",
 };
 
-export const mapPatientRecord = (record: {
+/** Explicit roster projection shared by fetch and cache-warming paths. */
+export const PATIENT_SELECT_COLUMNS = [
+  "id",
+  "user_id",
+  "patient_number",
+  "name",
+  "mrn",
+  "bed",
+  "clinical_summary",
+  "interval_events",
+  "imaging",
+  "labs",
+  "systems",
+  "medications",
+  "field_timestamps",
+  "collapsed",
+  "created_at",
+  "last_modified",
+  "revision",
+  "age",
+  "service_line",
+  "attending_physician",
+  "consulting_team",
+  "acuity",
+  "code_status",
+  "alerts",
+  "vitals",
+  "assigned_to",
+].join(", ");
+
+/** Columns present before the additive clinical metadata migration. */
+export const PATIENT_SELECT_COLUMNS_LEGACY = [
+  "id",
+  "user_id",
+  "patient_number",
+  "name",
+  "mrn",
+  "bed",
+  "clinical_summary",
+  "interval_events",
+  "imaging",
+  "labs",
+  "systems",
+  "medications",
+  "field_timestamps",
+  "collapsed",
+  "created_at",
+  "last_modified",
+  "revision",
+].join(", ");
+
+export const isMissingPatientContractColumnError = (error: { code?: string; message?: string } | null): boolean => {
+  if (!error) return false;
+  const message = (error.message ?? "").toLowerCase();
+  return error.code === "PGRST204"
+    || (message.includes("column") && (
+      message.includes("age")
+      || message.includes("service_line")
+      || message.includes("assigned_to")
+      || message.includes("consulting_team")
+      || message.includes("attending_physician")
+      || message.includes("code_status")
+      || message.includes("field")
+      || message.includes("vitals")
+    ));
+};
+
+export interface PatientRecord {
   id: string;
   patient_number: number;
   name: string;
@@ -44,7 +111,18 @@ export const mapPatientRecord = (record: {
   created_at: string;
   last_modified: string | null;
   revision?: number | null;
-}): Patient => ({
+  age?: number | null;
+  service_line?: string | null;
+  attending_physician?: string | null;
+  consulting_team?: string[] | null;
+  acuity?: string | null;
+  code_status?: string | null;
+  alerts?: string[] | null;
+  vitals?: Json | null;
+  assigned_to?: string | null;
+}
+
+export const mapPatientRecord = (record: PatientRecord): Patient => ({
   id: record.id,
   patientNumber: record.patient_number,
   name: record.name,
@@ -61,6 +139,15 @@ export const mapPatientRecord = (record: {
   createdAt: record.created_at,
   lastModified: record.last_modified ?? record.created_at,
   revision: record.revision ?? 0,
+  age: record.age ?? undefined,
+  serviceLine: record.service_line ?? undefined,
+  attendingPhysician: record.attending_physician ?? undefined,
+  consultingTeam: record.consulting_team ?? undefined,
+  acuity: record.acuity as Patient["acuity"] ?? undefined,
+  codeStatus: record.code_status as Patient["codeStatus"] ?? undefined,
+  alerts: record.alerts ?? undefined,
+  vitals: record.vitals as Patient["vitals"] ?? undefined,
+  assignedTo: record.assigned_to ?? undefined,
 });
 
 export const buildPatientInsertPayload = (input: {
@@ -75,6 +162,15 @@ export const buildPatientInsertPayload = (input: {
   labs?: string;
   systems?: PatientSystems;
   medications?: PatientMedications;
+  age?: number;
+  serviceLine?: string;
+  attendingPhysician?: string;
+  consultingTeam?: string[];
+  acuity?: Patient["acuity"];
+  codeStatus?: Patient["codeStatus"];
+  alerts?: string[];
+  vitals?: Patient["vitals"];
+  assignedTo?: string | null;
 }): TablesInsert<"patients"> => ({
   user_id: input.userId,
   patient_number: input.patientNumber,
@@ -88,6 +184,15 @@ export const buildPatientInsertPayload = (input: {
   systems: (input.systems ?? defaultSystemsValue) as unknown as Json,
   medications: (input.medications ?? defaultMedicationsValue) as unknown as Json,
   collapsed: false,
+  ...(input.age !== undefined ? { age: input.age } : {}),
+  ...(input.serviceLine !== undefined ? { service_line: input.serviceLine } : {}),
+  ...(input.attendingPhysician !== undefined ? { attending_physician: input.attendingPhysician } : {}),
+  ...(input.consultingTeam !== undefined ? { consulting_team: input.consultingTeam } : {}),
+  ...(input.acuity !== undefined ? { acuity: input.acuity } : {}),
+  ...(input.codeStatus !== undefined ? { code_status: input.codeStatus } : {}),
+  ...(input.alerts !== undefined ? { alerts: input.alerts } : {}),
+  ...(input.vitals !== undefined ? { vitals: input.vitals as unknown as Json } : {}),
+  ...(input.assignedTo !== undefined ? { assigned_to: input.assignedTo } : {}),
 });
 
 export const shouldTrackTimestamp = (field: string): boolean => {

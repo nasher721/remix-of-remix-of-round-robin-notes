@@ -82,8 +82,8 @@ export type NewPatientSubmitPayload = {
   intervalEvents: string;
   imaging: string;
   labs: string;
-  systems: PatientSystems;
-  medications: PatientMedications;
+  systems?: PatientSystems;
+  medications?: PatientMedications;
   serviceLine?: string;
   attendingPhysician?: string;
   consultingTeam?: string[];

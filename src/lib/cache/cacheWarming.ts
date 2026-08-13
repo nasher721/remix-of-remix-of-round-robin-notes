@@ -2,7 +2,13 @@ import { QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { QUERY_KEYS, CACHE_CONFIG } from './cacheConfig';
 import { logInfo } from '@/lib/observability/logger';
-import { mapPatientRecord } from '@/services/patientService';
+import {
+  mapPatientRecord,
+  PATIENT_SELECT_COLUMNS,
+  PATIENT_SELECT_COLUMNS_LEGACY,
+  isMissingPatientContractColumnError,
+  type PatientRecord,
+} from '@/services/patientService';
 import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import type { FieldHistoryEntry } from '@/hooks/useFieldHistory';
@@ -121,16 +127,24 @@ export const cacheWarming = {
     isOwnerCurrent: OwnerFence = () => true,
   ): Promise<void> {
     assertOwnerCurrent(isOwnerCurrent);
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('patients')
-      .select('*')
+      .select(PATIENT_SELECT_COLUMNS)
       .eq('user_id', userId)
       .order('patient_number');
+
+    if (error && isMissingPatientContractColumnError(error)) {
+      ({ data, error } = await supabase
+        .from('patients')
+        .select(PATIENT_SELECT_COLUMNS_LEGACY)
+        .eq('user_id', userId)
+        .order('patient_number'));
+    }
 
     assertOwnerCurrent(isOwnerCurrent);
     if (error) throw error;
     
-    const patients: Patient[] = (data || []).map(mapPatientRecord);
+    const patients: Patient[] = (data || []).map((record) => mapPatientRecord(record as unknown as PatientRecord));
     queryClient.setQueryData<Patient[]>(QUERY_KEYS.patientList(userId), patients, {
       updatedAt: Date.now(),
     });

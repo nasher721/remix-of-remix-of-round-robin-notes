@@ -8,6 +8,10 @@ import { logMetric, generateRequestId } from "@/lib/observability/logger";
 import {
     getNextPatientCounter,
     mapPatientRecord,
+    PATIENT_SELECT_COLUMNS,
+    PATIENT_SELECT_COLUMNS_LEGACY,
+    type PatientRecord,
+    isMissingPatientContractColumnError,
 } from "@/services/patientService";
 import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
 import { CACHE_CONFIG } from "@/lib/cache/cacheConfig";
@@ -23,18 +27,27 @@ export interface PatientFetchState {
     fetchPatients: (options?: { force?: boolean }) => Promise<void>;
 }
 
-async function fetchPatientsFromSupabase(): Promise<Patient[]> {
+async function fetchPatientsFromSupabase(ownerId: string): Promise<Patient[]> {
     const requestId = generateRequestId();
     const start = performance.now();
 
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from("patients")
-            .select("*")
+            .select(PATIENT_SELECT_COLUMNS)
+            .eq("user_id", ownerId)
             .order("patient_number", { ascending: true });
 
+        if (error && isMissingPatientContractColumnError(error)) {
+            ({ data, error } = await supabase
+                .from("patients")
+                .select(PATIENT_SELECT_COLUMNS_LEGACY)
+                .eq("user_id", ownerId)
+                .order("patient_number", { ascending: true }));
+        }
+
         if (error) throw error;
-        const patients = (data || []).map(mapPatientRecord);
+        const patients = (data || []).map((record) => mapPatientRecord(record as unknown as PatientRecord));
         const durationMs = Math.round(performance.now() - start);
         logMetric("patients.fetch.duration_ms", durationMs, "ms", {
             requestId,
@@ -73,7 +86,7 @@ export function usePatientFetch(): PatientFetchState {
         queryKey: patientListQueryKey,
         queryFn: async () => {
             if (!ownerId) return [];
-            const patients = await fetchPatientsFromSupabase();
+            const patients = await fetchPatientsFromSupabase(ownerId);
             return activeOwnerIdRef.current === ownerId ? patients : [];
         },
         enabled: hasSupabaseConfig && !!user,

@@ -255,9 +255,16 @@ export type Database = {
       }
       patients: {
         Row: {
+          acuity: string | null
+          age: number | null
+          alerts: string[]
+          assigned_to: string | null
+          attending_physician: string | null
           bed: string
           clinical_summary: string
           collapsed: boolean
+          code_status: string | null
+          consulting_team: string[]
           created_at: string
           field_timestamps: Json | null
           id: string
@@ -270,13 +277,22 @@ export type Database = {
           name: string
           patient_number: number
           revision: number
+          service_line: string | null
           systems: Json
           user_id: string
+          vitals: Json
         }
         Insert: {
+          acuity?: string | null
+          age?: number | null
+          alerts?: string[]
+          assigned_to?: string | null
+          attending_physician?: string | null
           bed?: string
           clinical_summary?: string
           collapsed?: boolean
+          code_status?: string | null
+          consulting_team?: string[]
           created_at?: string
           field_timestamps?: Json | null
           id?: string
@@ -289,13 +305,22 @@ export type Database = {
           name?: string
           patient_number: number
           revision?: number
+          service_line?: string | null
           systems?: Json
           user_id: string
+          vitals?: Json
         }
         Update: {
+          acuity?: string | null
+          age?: number | null
+          alerts?: string[]
+          assigned_to?: string | null
+          attending_physician?: string | null
           bed?: string
           clinical_summary?: string
           collapsed?: boolean
+          code_status?: string | null
+          consulting_team?: string[]
           created_at?: string
           field_timestamps?: Json | null
           id?: string
@@ -308,8 +333,10 @@ export type Database = {
           name?: string
           patient_number?: number
           revision?: number
+          service_line?: string | null
           systems?: Json
           user_id?: string
+          vitals?: Json
         }
         Relationships: []
       }
@@ -710,6 +737,28 @@ export type Database = {
         Returns: {
           last_used_at: string
           usage_count: number
+        }[]
+      }
+      upsert_owned_round_state: {
+        Args: {
+          p_device_id: string
+          p_expanded_updated_at: string
+          p_position_updated_at: string
+          p_round_id: string
+          p_state: Json
+          p_status: string
+          p_updated_at: string
+        }
+        Returns: {
+          created_at: string
+          device_id: string
+          expanded_updated_at: string
+          id: string
+          position_updated_at: string
+          state: Json
+          status: string
+          updated_at: string
+          user_id: string
         }[]
       }
       update_owned_patient_json_field: {

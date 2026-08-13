@@ -14,6 +14,18 @@ export interface UpsertRoundStateInput {
   continuity: RoundContinuityMeta;
 }
 
+const ROUND_STATE_SELECT_COLUMNS = [
+  "id",
+  "user_id",
+  "status",
+  "state",
+  "position_updated_at",
+  "expanded_updated_at",
+  "device_id",
+  "created_at",
+  "updated_at",
+].join(", ");
+
 const isMissingTableError = (error: { code?: string; message?: string } | null): boolean => {
   if (!error) return false;
   const message = (error.message ?? "").toLowerCase();
@@ -21,6 +33,7 @@ const isMissingTableError = (error: { code?: string; message?: string } | null):
     error.code === "42P01"
     || error.code === "PGRST205"
     || message.includes("round_state")
+    || message.includes("upsert_owned_round_state")
     || message.includes("schema cache")
   );
 };
@@ -98,7 +111,7 @@ export async function fetchRemoteRoundState(
 ): Promise<{ round: Round; continuity: RoundContinuityMeta } | null> {
   const { data, error } = await supabase
     .from("round_state")
-    .select("*")
+    .select(ROUND_STATE_SELECT_COLUMNS)
     .eq("user_id", userId)
     .eq("status", "active")
     .order("updated_at", { ascending: false })
@@ -116,20 +129,15 @@ export async function fetchRemoteRoundState(
 export async function upsertRemoteRoundState(
   input: UpsertRoundStateInput,
 ): Promise<{ ok: boolean; missingTable: boolean }> {
-  const row = {
-    id: input.round.id,
-    user_id: input.round.userId,
-    status: input.round.status,
-    state: roundToRemoteState(input.round, input.continuity) as Json,
-    position_updated_at: input.continuity.positionUpdatedAt,
-    expanded_updated_at: input.continuity.expandedUpdatedAt,
-    device_id: input.continuity.deviceId,
-    updated_at: input.round.updatedAt,
-  };
-
-  const { error } = await supabase
-    .from("round_state")
-    .upsert(row, { onConflict: "id" });
+  const { error } = await supabase.rpc("upsert_owned_round_state", {
+    p_round_id: input.round.id,
+    p_status: input.round.status,
+    p_state: roundToRemoteState(input.round, input.continuity) as Json,
+    p_position_updated_at: input.continuity.positionUpdatedAt,
+    p_expanded_updated_at: input.continuity.expandedUpdatedAt,
+    p_device_id: input.continuity.deviceId,
+    p_updated_at: input.round.updatedAt,
+  });
 
   if (error) {
     if (isMissingTableError(error)) {
@@ -204,7 +212,7 @@ export async function pushDraftFieldToPatient(input: {
   if (!updated) {
     const { data: current, error: currentError } = await supabase
       .from("patients")
-      .select("id, clinical_summary, systems, field_timestamps, last_modified")
+    .select("id, clinical_summary, systems, field_timestamps, last_modified, revision")
       .eq("id", input.patientId)
       .maybeSingle();
     if (currentError) throw currentError;

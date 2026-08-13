@@ -9,6 +9,7 @@ import {
     getNextPatientCounter,
     mapPatientRecord,
 } from "@/services/patientService";
+import type { NewPatientSubmitPayload } from "@/components/dashboard/NewPatientSheet";
 import { parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
 import type { Json, TablesInsert } from "@/integrations/supabase/types";
 
@@ -64,10 +65,11 @@ export function usePatientImport({
         return combinedText.includes("patient_number");
     }, []);
 
-    const getLatestPatientNumber = React.useCallback(async (): Promise<number> => {
+    const getLatestPatientNumber = React.useCallback(async (ownerId: string): Promise<number> => {
         const { data, error } = await supabase
             .from("patients")
             .select("patient_number")
+            .eq("user_id", ownerId)
             .order("patient_number", { ascending: false })
             .limit(1);
         if (error) throw error;
@@ -131,7 +133,7 @@ export function usePatientImport({
                         if (!isCurrentOwner(requestOwnerId)) return false;
 
                         if (error && isPatientNumberConflict(error) && attemptsRemaining > 1) {
-                            const latestNumber = await getLatestPatientNumber();
+                            const latestNumber = await getLatestPatientNumber(requestOwnerId);
                             if (!isCurrentOwner(requestOwnerId)) return false;
                             rowPayload = {
                                 ...rowPayload,
@@ -196,7 +198,7 @@ export function usePatientImport({
                 if (!isCurrentOwner(requestOwnerId)) return;
 
                 if (error && isPatientNumberConflict(error)) {
-                    const latestNumber = await getLatestPatientNumber();
+                    const latestNumber = await getLatestPatientNumber(requestOwnerId);
                     if (!isCurrentOwner(requestOwnerId)) return;
                     // A bulk patient-number collision is recovered with bounded single-row retries.
                     const recovered = await insertPreparedRowsIndividually(
@@ -253,17 +255,7 @@ export function usePatientImport({
         }
     }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, isCurrentOwner, appendPatients]);
 
-    const addPatientWithData = React.useCallback(async (patientData: {
-        name: string;
-        mrn?: string;
-        bed: string;
-        clinicalSummary: string;
-        intervalEvents: string;
-        imaging: string;
-        labs: string;
-        systems: PatientSystems;
-        medications?: PatientMedications;
-    }) => {
+    const addPatientWithData = React.useCallback(async (patientData: NewPatientSubmitPayload) => {
         if (!user) {
             notifications.error({
                 title: "Not signed in",
@@ -303,13 +295,19 @@ export function usePatientImport({
                     labs: patientData.labs || "",
                     systems,
                     medications,
+                    serviceLine: patientData.serviceLine,
+                    attendingPhysician: patientData.attendingPhysician,
+                    consultingTeam: patientData.consultingTeam,
+                    acuity: patientData.acuity,
+                    codeStatus: patientData.codeStatus,
+                    alerts: patientData.alerts,
                 })])
                 .select()
                 .single();
 
             if (!isCurrentOwner(requestOwnerId)) return;
             if (error && isPatientNumberConflict(error)) {
-                const latestNumber = await getLatestPatientNumber();
+                const latestNumber = await getLatestPatientNumber(requestOwnerId);
                 if (!isCurrentOwner(requestOwnerId)) return;
                 insertNumber = latestNumber + 1;
                 const retryResult = await supabase
@@ -326,6 +324,12 @@ export function usePatientImport({
                         labs: patientData.labs || "",
                         systems,
                         medications,
+                        serviceLine: patientData.serviceLine,
+                        attendingPhysician: patientData.attendingPhysician,
+                        consultingTeam: patientData.consultingTeam,
+                        acuity: patientData.acuity,
+                        codeStatus: patientData.codeStatus,
+                        alerts: patientData.alerts,
                     })])
                     .select()
                     .single();
