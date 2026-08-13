@@ -29,6 +29,47 @@ test.describe("Auth and dashboard", () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test("auth bootstrap releases a cached workspace before a stalled refresh finishes @public", async ({ page }) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    expect(supabaseUrl, "VITE_SUPABASE_URL is required for the auth bootstrap contract").toBeTruthy();
+    const projectRef = new URL(supabaseUrl!).hostname.split(".")[0];
+    const storageKey = `sb-${projectRef}-auth-token`;
+    const userId = "00000000-0000-4000-8000-000000000999";
+
+    await page.addInitScript(({ key, ownerId }) => {
+      const nowSeconds = Math.floor(Date.now() / 1_000);
+      window.localStorage.setItem(key, JSON.stringify({
+        access_token: "e2e-stalled-access-token",
+        refresh_token: "e2e-stalled-refresh-token",
+        expires_at: nowSeconds + 30,
+        expires_in: 30,
+        token_type: "bearer",
+        user: {
+          id: ownerId,
+          aud: "authenticated",
+          role: "authenticated",
+          email: "offline-bootstrap@example.invalid",
+          app_metadata: { provider: "email", providers: ["email"] },
+          user_metadata: {},
+          created_at: new Date().toISOString(),
+        },
+      }));
+    }, { key: storageKey, ownerId: userId });
+
+    await page.route("**/auth/v1/token**", async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 8_000));
+      await route.abort("timedout");
+    });
+
+    const startedAt = Date.now();
+    await page.goto("/security");
+    await expect(page.getByRole("heading", { name: "Security deployment guidance" })).toBeVisible({
+      timeout: 5_000,
+    });
+    expect(Date.now() - startedAt).toBeLessThan(6_000);
+    await expect(page.getByText("Loading workspace", { exact: true })).toHaveCount(0);
+  });
+
   test("landing page matches provisioned access and safe contact configuration @public", async ({ page }) => {
     const pageErrors = collectPageErrors(page);
     await page.goto("/");

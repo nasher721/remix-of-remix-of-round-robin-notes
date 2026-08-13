@@ -26,6 +26,10 @@ const MOCK_SOURCE = `
 export const hasSupabaseConfig = true;
 export const supabaseUrl = "http://test";
 export const resolvedKey = "test-key";
+export const supabaseAuthStorageKey = "sb-test-auth-token";
+export const readCachedSessionForBootstrap = () => (
+  globalThis.__SUPABASE_AUTH_MOCK__?.readCachedSessionForBootstrap?.() ?? null
+);
 const insertCapture = (globalThis.__supabaseInsertCapture = globalThis.__supabaseInsertCapture || []);
 const updateCapture = (globalThis.__supabaseUpdateCapture = globalThis.__supabaseUpdateCapture || []);
 const rpcCapture = (globalThis.__supabaseRpcCapture = globalThis.__supabaseRpcCapture || []);
@@ -222,8 +226,13 @@ export const supabase = {
     refreshSession: async () => (globalThis.__SUPABASE_AUTH_MOCK__?.refreshSession?.() ?? { data: { session: null }, error: null }),
     onAuthStateChange: (cb) => {
       (async () => {
-        const res = await (globalThis.__SUPABASE_AUTH_MOCK__?.getSession?.() ?? Promise.resolve({ data: { session: null } }));
-        setTimeout(() => cb("INITIAL_SESSION", res?.data?.session ?? null));
+        try {
+          const res = await (globalThis.__SUPABASE_AUTH_MOCK__?.getSession?.() ?? Promise.resolve({ data: { session: null } }));
+          setTimeout(() => cb("INITIAL_SESSION", res?.data?.session ?? null));
+        } catch {
+          // Production auth initialization absorbs retryable recovery failures;
+          // tests should not manufacture an unrelated unhandled rejection.
+        }
       })();
       const sub = globalThis.__SUPABASE_AUTH_MOCK__?.onAuthStateChange?.(cb) ?? { unsubscribe: () => {} };
       return { data: { subscription: sub } };

@@ -41,11 +41,11 @@ close. All engineering-controlled items are complete and evidenced below.
   bundle reachability assertion wired into CI
   (`scripts/assert-no-optional-native-in-bundle.mjs`).
 - **Bundle budgets (Phase 6):** local release candidate total initial
-  JavaScript is 614,594 bytes, down from 937,658 (34%). The public shell now
+  JavaScript is 615,621 bytes, down from 937,658 (34%). The public shell now
   defers the authenticated provider/state graph, Landing and workspace routes
   are separate chunks, and the EHR callback keeps only a small eager recovery
   shell. Login validation no longer ships the general-purpose Zod runtime for
-  two fields. The application entry is 231,480 bytes with stable React (139,836)
+  two fields. The application entry is 232,507 bytes with stable React (139,836)
   and Supabase (208,548) runtime chunks. CI now enforces 300,000-byte entry,
   750,000-byte total-initial, 160,000-byte React, and 230,000-byte Supabase
   ceilings in `scripts/check-bundle-size.mjs`. Device-specific shells,
@@ -180,6 +180,16 @@ close. All engineering-controlled items are complete and evidenced below.
   The deployment variable
   inventory also names the required 300–3600 second hosted/browser inactivity
   timeout, preventing an operator-complete setup from failing CI unexpectedly.
+- **Bounded auth bootstrap:** public and recovery routes no longer wait through
+  the full Auth network retry envelope. After three seconds, a structurally
+  valid, unexpired persisted session may restore its owner-scoped offline
+  workspace while Supabase refresh continues; an expired/corrupt session is
+  rejected, and a later authoritative Auth event always supersedes the local
+  recovery. A transient bootstrap rejection releases signed-out public routes
+  without treating uncertainty as a destructive sign-out. Unit coverage locks
+  cache validation, timeout recovery, eventual sign-out precedence, and
+  sensitive-state preservation; production-preview Chromium and WebKit both
+  render the cached route before an intentionally stalled refresh completes.
 - **Visible production updates:** a newly installed service worker now surfaces
   an accessible in-app refresh prompt instead of writing only to DevTools.
   Clinicians can refresh deliberately or defer it to avoid interrupting an
@@ -314,7 +324,7 @@ close. All engineering-controlled items are complete and evidenced below.
 | --- | --- |
 | CI/deployment workflows green at exact production SHA | PARTIAL — the current candidate is committed locally; it must pass required main-branch CI, deploy, and be verified byte-for-byte before it becomes the production SHA |
 | Backend migration deployed; revision/RLS proven | DONE (2026-08-11, evidence above) |
-| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 27 credentialed scenarios pass locally in Chromium and WebKit, plus the 12-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
+| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 27 credentialed scenarios pass locally in Chromium and WebKit, plus the 14-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
 | Accessibility/responsive validation on representative devices | PARTIAL — automated keyboard/ARIA/320px/390px/44px/200%-text/reduced-motion/dark/overflow checks pass; manual screen-reader and real-device evidence remains open |
 | Runtime audits clean; optional findings removed or time-bounded | DONE — clinical-mcp-server `npm audit` 0 vulns; risk acceptance time-bounded |
 | PHI/provider, telemetry, access-control, legal evidence | OPEN (human) — see section 4 |

@@ -1,8 +1,14 @@
 import * as React from "react";
 import { flushSync } from "react-dom";
 import type { User, Session } from "@supabase/supabase-js";
-import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
+import {
+  hasSupabaseConfig,
+  readCachedSessionForBootstrap,
+  supabase,
+} from "@/integrations/supabase/client";
 import { prepareSensitiveClientState } from "@/lib/auth/clearSensitiveClientState";
+import { AUTH_BOOTSTRAP_TIMEOUT_MS } from "@/lib/auth/authBootstrap";
+import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
 
 interface AuthContextType {
   user: User | null;
@@ -17,9 +23,15 @@ const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 interface AuthProviderProps {
   children: React.ReactNode;
   onAuthBoundary?: () => void;
+  /** Test override; production uses a short public-shell availability deadline. */
+  bootstrapTimeoutMs?: number;
 }
 
-export function AuthProvider({ children, onAuthBoundary }: AuthProviderProps): React.ReactElement {
+export function AuthProvider({
+  children,
+  onAuthBoundary,
+  bootstrapTimeoutMs = AUTH_BOOTSTRAP_TIMEOUT_MS,
+}: AuthProviderProps): React.ReactElement {
   const [user, setUser] = React.useState<User | null>(null);
   const [session, setSession] = React.useState<Session | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -77,35 +89,80 @@ export function AuthProvider({ children, onAuthBoundary }: AuthProviderProps): R
     }
 
     let authEventSeen = false;
+    let authoritativeResultSeen = false;
+    let disposed = false;
+    const bootstrapTimer = {
+      current: undefined as ReturnType<typeof setTimeout> | undefined,
+    };
 
     const finishLoading = () => {
-      if (!initialized.current) {
+      if (!disposed && !initialized.current) {
         initialized.current = true;
         setLoading(false);
       }
     };
 
+    const recoverCachedSession = async (): Promise<void> => {
+      if (disposed || authoritativeResultSeen || initialized.current) return;
+      const cachedSession = readCachedSessionForBootstrap();
+      if (cachedSession) {
+        try {
+          await applySession(cachedSession);
+        } catch {
+          console.error("Failed to prepare cached auth session");
+        }
+      }
+      finishLoading();
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (event, nextSession) => {
+        // Auth-js also emits INITIAL_SESSION/null when its own initialization
+        // throws (including retryable refresh failures). If a valid cached
+        // session exists, let the independently bounded getSession path decide
+        // whether this is signed-out truth or an unavailable backend. A real
+        // SIGNED_OUT event is always authoritative.
+        if (
+          event === "INITIAL_SESSION"
+          && nextSession === null
+          && readCachedSessionForBootstrap() !== null
+        ) {
+          return;
+        }
         authEventSeen = true;
+        authoritativeResultSeen = true;
+        if (bootstrapTimer.current) clearTimeout(bootstrapTimer.current);
         void applySession(nextSession)
           .catch(() => console.error("Failed to prepare local data for the auth session"))
           .finally(finishLoading);
       }
     );
 
+    // Bound the public shell independently from the auth client's network
+    // retry envelope. A valid, unexpired local session can continue offline;
+    // the eventual Supabase result remains authoritative when it settles.
+    bootstrapTimer.current = setTimeout(() => {
+      void recoverCachedSession();
+    }, Math.max(1, bootstrapTimeoutMs));
+    if (isBrowserKnownOffline()) {
+      void recoverCachedSession();
+    }
+
     // THEN check for existing session
     const initializeSession = async () => {
       try {
         const { data: { session: restoredSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
-        if (!authEventSeen) {
+        authoritativeResultSeen = true;
+        if (!disposed && !authEventSeen) {
           await applySession(restoredSession);
         }
-      } catch (error) {
-        console.error("Failed to restore auth session:", error);
+      } catch {
+        console.error("Failed to restore auth session");
+        await recoverCachedSession();
       } finally {
+        if (bootstrapTimer.current) clearTimeout(bootstrapTimer.current);
         finishLoading();
       }
     };
@@ -113,10 +170,12 @@ export function AuthProvider({ children, onAuthBoundary }: AuthProviderProps): R
     void initializeSession();
 
     return () => {
+      disposed = true;
       initialized.current = false;
+      if (bootstrapTimer.current) clearTimeout(bootstrapTimer.current);
       subscription.unsubscribe();
     };
-  }, [applySession]);
+  }, [applySession, bootstrapTimeoutMs]);
 
   const signIn = async (email: string, password: string) => {
     if (!hasSupabaseConfig) {

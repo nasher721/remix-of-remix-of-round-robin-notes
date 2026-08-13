@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { apiFetch } from '@/api/apiClient';
 import { createSafeStorage } from '@/utils/safeStorage';
+import { readUnexpiredCachedSession } from '@/lib/auth/authBootstrap';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_KEY =
@@ -20,10 +21,17 @@ if (!hasSupabaseConfig) {
 
 export const supabaseUrl = SUPABASE_URL;
 const resolvedKey = SUPABASE_KEY;
+const authStorage = createSafeStorage();
+export const supabaseAuthStorageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`;
+
+/** Bounded bootstrap fallback; the auth client remains refresh authority. */
+export const readCachedSessionForBootstrap = () =>
+  readUnexpiredCachedSession(authStorage, supabaseAuthStorageKey);
 
 export const supabase = createClient<Database>(supabaseUrl, resolvedKey, {
   auth: {
-    storage: createSafeStorage(),
+    storage: authStorage,
+    storageKey: supabaseAuthStorageKey,
     persistSession: true,
     autoRefreshToken: true,
   },
