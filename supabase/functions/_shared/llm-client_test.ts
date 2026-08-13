@@ -36,6 +36,20 @@ Deno.test("clinical AI requires an explicitly approved PHI provider", () => {
   }
 });
 
+Deno.test("clinical AI stays fail-closed in explicit disabled deployment mode", () => {
+  const disabled = resolveApprovedClinicalProvider(
+    undefined,
+    (key) => {
+      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "disabled";
+      if (key === "CLINICAL_PHI_LLM_MODEL") return "disabled";
+      return undefined;
+    },
+  );
+  if (disabled.valid) {
+    throw new Error("Expected disabled clinical AI policy to reject requests");
+  }
+});
+
 Deno.test("clinical AI rejects cross-provider model selection", () => {
   const result = resolveApprovedClinicalProvider(
     "gpt-4o-mini",

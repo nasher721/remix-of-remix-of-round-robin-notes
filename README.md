@@ -106,7 +106,7 @@ supabase link --project-ref your-project-ref
 supabase functions deploy
 ```
 
-Clinical imports additionally require `CLINICAL_PHI_LLM_PROVIDER` in Supabase Edge Function secrets. It must name the single contractually approved provider (`openai`, `gemini`, or `grok`); see [docs/deployment.md](docs/deployment.md#clinical-import-provider-approval).
+Clinical imports remain fail-closed while the deployment policy is `disabled`. Enabling them requires `CLINICAL_PHI_LLM_PROVIDER` and `CLINICAL_PHI_LLM_MODEL` to name one contractually approved provider/model pair; see [docs/deployment.md](docs/deployment.md#clinical-import-provider-approval).
 
 ## Features
 

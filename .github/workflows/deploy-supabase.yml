@@ -114,7 +114,7 @@ jobs:
           PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: supabase link --project-ref "$PROJECT_ID"
 
-      - name: Enforce approved clinical import provider
+      - name: Enforce clinical import provider policy
         env:
           CLINICAL_PHI_LLM_PROVIDER: ${{ vars.CLINICAL_PHI_LLM_PROVIDER }}
           CLINICAL_PHI_LLM_MODEL: ${{ vars.CLINICAL_PHI_LLM_MODEL }}
@@ -123,9 +123,21 @@ jobs:
         run: |
           set -euo pipefail
           case "${CLINICAL_PHI_LLM_PROVIDER:-}" in
+            disabled)
+              if [ -n "${CLINICAL_PHI_LLM_MODEL:-}" ] && [ "$CLINICAL_PHI_LLM_MODEL" != "disabled" ]; then
+                echo "::error::CLINICAL_PHI_LLM_MODEL must be empty or disabled when clinical AI is disabled."
+                exit 1
+              fi
+              supabase secrets set \
+                "CLINICAL_PHI_LLM_PROVIDER=disabled" \
+                "CLINICAL_PHI_LLM_MODEL=disabled" \
+                --project-ref "$PROJECT_ID"
+              echo "::notice::Clinical AI is explicitly disabled; imports remain fail-closed until an approved provider/model pair is configured."
+              exit 0
+              ;;
             openai|gemini|grok) ;;
             *)
-              echo "::error::Set repository variable CLINICAL_PHI_LLM_PROVIDER to the single BAA/DPA-approved provider (openai, gemini, or grok)."
+              echo "::error::Set CLINICAL_PHI_LLM_PROVIDER to disabled or to one BAA/DPA-approved provider (openai, gemini, or grok)."
               exit 1
               ;;
           esac

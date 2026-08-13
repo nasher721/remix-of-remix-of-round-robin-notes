@@ -79,6 +79,21 @@ describe('Supabase deployment workflow', () => {
     assert.match(workflow, /PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS/)
   })
 
+  it('deploys safely with clinical AI explicitly disabled until provider approval exists', async () => {
+    const workflow = await readFile('.github/workflows/deploy-supabase.yml', 'utf8')
+    const providerPolicy = await readFile('supabase/functions/_shared/llm-client.ts', 'utf8')
+    const deploymentGuide = await readFile('docs/deployment.md', 'utf8')
+
+    assert.match(workflow, /CLINICAL_PHI_LLM_PROVIDER:-\}" in[\s\S]*disabled\)/)
+    assert.match(workflow, /CLINICAL_PHI_LLM_PROVIDER=disabled/)
+    assert.match(workflow, /CLINICAL_PHI_LLM_MODEL=disabled/)
+    assert.match(workflow, /Clinical AI is explicitly disabled/)
+    assert.match(workflow, /openai\|gemini\|grok/)
+    assert.match(workflow, /approved provider credential \$required_key is not configured/)
+    assert.match(providerPolicy, /configured !== "openai" && configured !== "gemini" && configured !== "grok"/)
+    assert.match(deploymentGuide, /Set both variables to `disabled`/)
+  })
+
   it('pins every third-party workflow action and grants read-only repository access', async () => {
     const workflowNames = (await readdir('.github/workflows'))
       .filter((name) => /\.ya?ml$/.test(name))

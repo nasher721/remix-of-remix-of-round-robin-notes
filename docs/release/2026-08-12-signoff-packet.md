@@ -142,6 +142,11 @@ close. All engineering-controlled items are complete and evidenced below.
   than relying on tree-shaking to keep that obsolete capability unreachable.
   Settings hydration removes legacy provider/model fields from both local and
   synced preferences.
+- **Explicit non-AI deployment state:** repository policy may set the provider
+  and model to `disabled`, allowing migrations, Edge functions, monitoring, and
+  frontend release to deploy together without asserting contractual approval.
+  Clinical AI stays fail-closed in this state; provider approval remains a
+  human gate before those workflows can be marketed or used with PHI.
 - **Fail-closed federated sign-in:** production is password-only by default.
   Google and Apple controls render only when the provider is configured in
   Supabase Auth and explicitly allowlisted through

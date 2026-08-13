@@ -122,7 +122,7 @@ repository variable and Vercel production environment. Supported values are
 `google` and `apple`; malformed or unsupported values block production builds.
 Leaving the value unset is the supported password-only deployment.
 
-Configure repository variable `CLINICAL_PHI_LLM_PROVIDER` separately under **Actions → Variables**. It is required for clinical imports and is validated during deployment; see [Clinical import provider approval](#clinical-import-provider-approval).
+Configure repository variables `CLINICAL_PHI_LLM_PROVIDER` and `CLINICAL_PHI_LLM_MODEL` under **Actions → Variables**. Set both variables to `disabled` until a provider is contractually approved; deployment continues while clinical AI remains fail-closed. To enable clinical imports, use one approved allowlisted pair as described in [Clinical import provider approval](#clinical-import-provider-approval).
 
 The anon key is the same **public** key as `VITE_SUPABASE_PUBLISHABLE_KEY` / dashboard **Project API → anon public**.
 
@@ -166,6 +166,12 @@ not replace the post-PATCH verification with an unchecked dashboard setting.
 Clinical AI requests can contain names, MRNs, notes, page images, medications,
 or audio. Every workflow is therefore pinned to one deployment-approved
 provider/model pair and never fails over across vendors.
+
+For a prelaunch or non-AI deployment, set both repository variables to
+`disabled`. The workflow records that policy in Edge Function secrets and
+deploys the backend without requiring a vendor key. Clinical AI requests stay
+fail-closed; this mode does not constitute provider approval and must not be
+represented as clinical-AI readiness.
 
 1. Complete the required BAA/DPA, retention, training-use, and security review for one provider.
 2. Add repository Actions variables `CLINICAL_PHI_LLM_PROVIDER` and
