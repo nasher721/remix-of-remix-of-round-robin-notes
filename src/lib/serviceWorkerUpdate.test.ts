@@ -9,22 +9,35 @@ import {
 test("explicit activation waits for controller handoff before succeeding", async () => {
   const originalDescriptor = Object.getOwnPropertyDescriptor(navigator, "serviceWorker");
   const controllerChangeListeners = new Set<() => void>();
+  const messageListeners = new Set<(event: MessageEvent) => void>();
   const messages: unknown[] = [];
   const waitingWorker = {
     postMessage: (message: unknown) => {
       messages.push(message);
       queueMicrotask(() => {
         for (const listener of controllerChangeListeners) listener();
+        for (const listener of messageListeners) listener({
+          data: { type: "WORKER_ACTIVATED" },
+          source: waitingWorker,
+        } as unknown as MessageEvent);
       });
     },
   } as unknown as ServiceWorker;
   const serviceWorkerContainer = {
-    addEventListener: (_type: string, listener: () => void) => {
-      controllerChangeListeners.add(listener);
+    addEventListener: (type: string, listener: EventListener) => {
+      if (type === "message") {
+        messageListeners.add(listener as (event: MessageEvent) => void);
+      } else {
+        controllerChangeListeners.add(listener as () => void);
+      }
     },
     getRegistration: async () => ({ waiting: waitingWorker }),
-    removeEventListener: (_type: string, listener: () => void) => {
-      controllerChangeListeners.delete(listener);
+    removeEventListener: (type: string, listener: EventListener) => {
+      if (type === "message") {
+        messageListeners.delete(listener as (event: MessageEvent) => void);
+      } else {
+        controllerChangeListeners.delete(listener as () => void);
+      }
     },
   } as unknown as ServiceWorkerContainer;
 

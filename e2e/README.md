@@ -14,9 +14,11 @@ npm run test:e2e
 
 Or with UI: `npm run test:e2e:ui`.
 
-Run the public-route compatibility smokes in both Chromium and WebKit. The six
-checks cover the login form, signed-out FHIR callback recovery, keyboard skip
-navigation, 44px targets, 320px layout, and 200% text scaling:
+Run the public compatibility suite in both Chromium and WebKit. The eight
+checks per browser cover the login and cached-auth bootstrap paths, public
+metadata/contact surfaces, signed-out FHIR recovery, keyboard and responsive
+accessibility, the visible update prompt, and a real three-release service
+worker upgrade with exact old-chunk recovery:
 
 ```bash
 npm run test:e2e:public

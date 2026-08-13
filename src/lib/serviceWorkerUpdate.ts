@@ -40,18 +40,34 @@ export async function activateWaitingServiceWorker(
 
   return new Promise<boolean>((resolve) => {
     let settled = false;
+    let controllerChanged = false;
+    let workerActivated = false;
+    const maybeFinish = () => {
+      if (controllerChanged && workerActivated) finish(true);
+    };
     const finish = (activated: boolean) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timer);
       navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      navigator.serviceWorker.removeEventListener("message", handleWorkerMessage);
       if (activated) waitingWorker = null;
       resolve(activated);
     };
-    const handleControllerChange = () => finish(true);
+    const handleControllerChange = () => {
+      controllerChanged = true;
+      maybeFinish();
+    };
+    const handleWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "WORKER_ACTIVATED") return;
+      if (event.source && event.source !== worker) return;
+      workerActivated = true;
+      maybeFinish();
+    };
     const timer = window.setTimeout(() => finish(false), timeoutMs);
 
     navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+    navigator.serviceWorker.addEventListener("message", handleWorkerMessage);
     try {
       worker.postMessage({ type: "SKIP_WAITING" });
     } catch {

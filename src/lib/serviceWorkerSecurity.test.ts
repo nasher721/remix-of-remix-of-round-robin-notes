@@ -39,6 +39,7 @@ const loadServiceWorker = ({
 }: ServiceWorkerOptions = {}) => {
   const listeners = new Map<string, ServiceWorkerListener>();
   const deletedCaches: string[] = [];
+  const clientMessages: unknown[] = [];
   let skipWaitingCalls = 0;
   let claimCalls = 0;
   const createCache = (cacheName: string) => ({
@@ -73,7 +74,10 @@ const loadServiceWorker = ({
   };
   const self = {
     addEventListener: (type: string, listener: ServiceWorkerListener) => listeners.set(type, listener),
-    clients: { claim: async () => { claimCalls += 1; } },
+    clients: {
+      claim: async () => { claimCalls += 1; },
+      matchAll: async () => [{ postMessage: (message: unknown) => clientMessages.push(message) }],
+    },
     location: { origin: "https://round-robin.test" },
     skipWaiting: async () => { skipWaitingCalls += 1; },
   };
@@ -91,6 +95,7 @@ const loadServiceWorker = ({
 
   return {
     deletedCaches,
+    clientMessages,
     getClaimCalls: () => claimCalls,
     getSkipWaitingCalls: () => skipWaitingCalls,
     listeners,
@@ -175,6 +180,10 @@ describe("service worker cache policy", () => {
     } as ActivationEvent);
     await activationCompletion;
     assert.equal(worker.getClaimCalls(), 1);
+    assert.equal(JSON.stringify(worker.clientMessages), JSON.stringify([{
+      type: "WORKER_ACTIVATED",
+      version: "v1.0.10",
+    }]));
     assert.deepEqual(worker.deletedCaches, ["dynamic-v1.0.8", "dynamic-v1.0.9"]);
   });
 

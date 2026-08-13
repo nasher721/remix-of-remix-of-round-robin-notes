@@ -91,7 +91,15 @@ self.addEventListener('activate', (event) => {
       const dynamicKeys = await dynamicCache.keys();
       await Promise.all(dynamicKeys.map(key => dynamicCache.delete(key)));
       console.log('[SW] Cleared', dynamicKeys.length, 'stale dynamic cache entries');
-      return self.clients.claim();
+      await self.clients.claim();
+      const windowClients = await self.clients.matchAll({
+        includeUncontrolled: true,
+        type: 'window',
+      });
+      windowClients.forEach((client) => client.postMessage({
+        type: 'WORKER_ACTIVATED',
+        version: CACHE_VERSION,
+      }));
     })
   );
 });

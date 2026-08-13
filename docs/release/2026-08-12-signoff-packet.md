@@ -196,17 +196,18 @@ close. All engineering-controlled items are complete and evidenced below.
   active note edit. Installed updates remain in the browser's waiting phase
   when `Later` is selected, preserving the incumbent worker and its exact
   hashed-chunk cache for the open session. `Refresh now` explicitly activates
-  the waiting worker, waits for it to control the page, and only then reloads;
-  an activation failure stays visible instead of pretending the update landed.
+  the waiting worker, waits for both controller handoff and the worker's
+  post-cleanup activation signal, and only then reloads; an activation failure
+  stays visible instead of pretending the update landed.
   Because activation claims sibling tabs, the worker retains every dynamic
   generation that still contains a fresh, exact hashed script/style asset for
   the 24-hour recovery window. This covers suspended tabs spanning rapid
   consecutive deployments without making retained HTML authoritative. Empty
   or expired dynamic generations, all API caches, and obsolete static/image
-  caches are deleted. Chromium/WebKit,
-  component contracts, and executable single- plus multi-client lifecycle
-  harnesses cover deferral, explicit activation, one- and two-release sibling-
-  tab chunk safety, bounded expiry, and
+  caches are deleted. Chromium/WebKit, component contracts, source-level cache
+  harnesses, and a same-origin real-browser three-worker upgrade scenario cover
+  deferral, explicit activation, one- and two-release sibling-tab chunk safety,
+  bounded expiry, and
   the case where another tab activates first: its already-activated worker is
   treated as reload-ready instead of timing out on a second activation request.
 - **Resilient installed-app navigation:** a fresh cached app shell now covers
@@ -219,10 +220,11 @@ close. All engineering-controlled items are complete and evidenced below.
   already-open tab requests a previous deployment chunk after hosting cleanup
   returns 404. HTML 404 responses remain authoritative, and the worker cache
   generation is bumped again to distribute the chunk policy.
-- **Authenticated browser gate:** local isolated runs execute all 29 discovered
-  scenarios in both Chromium and WebKit with zero skips, including multi-tab conflicts, offline
-  queue drain, Round navigation, roster state, and real Excel/PDF downloads.
-  The 2026-08-13 release-candidate run passed **29/29** after the browser suite
+- **Authenticated browser gate:** local isolated runs execute 22 credentialed
+  scenarios per engine in Chromium and WebKit with zero skips, including multi-tab conflicts,
+  offline queue drain, Round navigation, roster state, and real Excel/PDF
+  downloads. The 2026-08-13 release-candidate run passed **44/44** credentialed
+  browser executions after the browser suite
   exposed and engineering fixed a continuity-hydration race that could replace
   navigation performed before the restored Round was ready. Desktop and mobile
   shells now show an accessible restoring state until continuity is hydrated.
@@ -380,7 +382,7 @@ close. All engineering-controlled items are complete and evidenced below.
 | --- | --- |
 | CI/deployment workflows green at exact production SHA | PARTIAL — the current candidate is committed locally; it must pass required main-branch CI, deploy, and be verified byte-for-byte before it becomes the production SHA |
 | Backend migration deployed; revision/RLS proven | DONE (2026-08-11, evidence above) |
-| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 29 credentialed scenarios pass locally in Chromium and WebKit, plus the 14-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
+| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 44 credentialed browser executions pass locally in Chromium and WebKit, plus the 16-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
 | Accessibility/responsive validation on representative devices | PARTIAL — automated keyboard/ARIA/320px/390px/44px/200%-text/reduced-motion/dark/overflow checks pass; manual screen-reader and real-device evidence remains open |
 | Runtime audits clean; optional findings removed or time-bounded | DONE — clinical-mcp-server `npm audit` 0 vulns; risk acceptance time-bounded |
 | PHI/provider, telemetry, access-control, legal evidence | OPEN (human) — see section 4 |
@@ -392,8 +394,8 @@ close. All engineering-controlled items are complete and evidenced below.
 1. **Deploy-candidate proof** — configure matching GitHub/Vercel production
    contact, approved privacy notice, inactivity timeout, and approved
    observability destination variables; publish the committed candidate; confirm the
-   required authenticated main-branch CI job runs all 29 tests in Chromium and
-   WebKit with zero skips,
+   required authenticated main-branch CI job runs all 60 public and
+   credentialed executions in Chromium and WebKit with zero skips,
    deploy the exact SHA, and verify the live frontend asset matches it.
 2. **BAA/DPA and PHI/provider approvals** — evidence items in
    `docs/clinical-data-flow.md` (approved provider/model pair, retention, key custody,
@@ -421,7 +423,8 @@ close. All engineering-controlled items are complete and evidenced below.
 8. **E2E credential confirmation** — the workflow now requires
    `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` on main and fails closed without
    them. Both encrypted GitHub secrets are configured and the isolated local
-   production-preview runs pass 29/29 in Chromium and WebKit; confirm the next
+   production-preview runs pass 44/44 credentialed and 16/16 public executions
+   in Chromium and WebKit; confirm the next
    main run reproduces both results rather than the former smoke-only coverage.
 
 Read-only GitHub configuration inventory on 2026-08-13 confirms the public
