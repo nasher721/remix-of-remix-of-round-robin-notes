@@ -17,6 +17,7 @@ export interface RoundCompletionSafety {
   mutationFailedCount: number;
   mutationConflictCount: number;
   patientSaveBlockerCount: number;
+  dataVerificationBlockerCount: number;
 }
 
 /** One completion decision across both persistence systems used by Round. */
@@ -25,6 +26,7 @@ export function deriveRoundCompletionSafety(input: {
   roundConflictCount: number;
   mutations: readonly QueuedMutationDB[];
   patientSaveStates: Readonly<Record<string, PatientSaveState>>;
+  dataVerificationBlockerCount?: number;
 }): RoundCompletionSafety {
   const unresolvedMutations = input.mutations.filter(
     (mutation) => mutation.status !== "completed",
@@ -44,13 +46,15 @@ export function deriveRoundCompletionSafety(input: {
   const roundUnresolvedCount = Math.max(0, input.roundUnresolvedCount);
   const roundConflictCount = Math.max(0, input.roundConflictCount);
   const mutationUnresolvedCount = unresolvedMutations.length;
+  const dataVerificationBlockerCount = Math.max(0, input.dataVerificationBlockerCount ?? 0);
 
   return {
     canComplete:
       roundUnresolvedCount === 0
       && roundConflictCount === 0
       && mutationUnresolvedCount === 0
-      && patientSaveBlockerCount === 0,
+      && patientSaveBlockerCount === 0
+      && dataVerificationBlockerCount === 0,
     roundUnresolvedCount,
     roundConflictCount,
     mutationUnresolvedCount,
@@ -58,5 +62,6 @@ export function deriveRoundCompletionSafety(input: {
     mutationFailedCount,
     mutationConflictCount,
     patientSaveBlockerCount,
+    dataVerificationBlockerCount,
   };
 }

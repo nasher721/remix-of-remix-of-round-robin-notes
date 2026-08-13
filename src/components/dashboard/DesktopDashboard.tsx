@@ -8,7 +8,7 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
-import { useDashboardTodos } from "@/contexts/DashboardTodosContext";
+import { useDashboardTodos, type TodosMap } from "@/contexts/DashboardTodosContext";
 import { PatientRosterRail } from "./PatientRosterRail";
 import { PatientWorkspace } from "./PatientWorkspace";
 import { ProfileCoachingBanner } from "./ProfileCoachingBanner";
@@ -827,7 +827,7 @@ interface DesktopUtilityPanelProps {
   autotexts: ReturnType<typeof useDashboard>["autotexts"];
   templates: ReturnType<typeof useDashboard>["templates"];
   customDictionary: ReturnType<typeof useDashboard>["customDictionary"];
-  todosMap: ReturnType<typeof useDashboardTodos>;
+  todosMap: TodosMap;
   todosAlwaysVisible: boolean;
   globalFontSize: number;
   setTodosAlwaysVisible: (visible: boolean) => void;

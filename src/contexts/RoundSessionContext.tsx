@@ -103,6 +103,8 @@ export interface RoundSessionProviderProps {
   disablePersistence?: boolean;
   /** Live patient field save states from the dashboard mutation owner. */
   patientSaveStates?: Readonly<Record<string, PatientSaveState>>;
+  /** Prevent completion when the shared Todo map could not be server-verified. */
+  dataVerificationBlocked?: boolean;
 }
 
 const patientIdsKey = (ids: readonly string[]): string => ids.join("\0");
@@ -117,6 +119,7 @@ export const RoundSessionProvider = ({
   children,
   disablePersistence = false,
   patientSaveStates = {},
+  dataVerificationBlocked = false,
 }: RoundSessionProviderProps) => {
   const [round, setRound] = React.useState<Round>(() =>
     createRound({ userId, patientIds }),
@@ -338,8 +341,9 @@ export const RoundSessionProvider = ({
       roundConflictCount: conflicts.length,
       mutations: clinicalMutations,
       patientSaveStates,
+      dataVerificationBlockerCount: dataVerificationBlocked ? 1 : 0,
     }),
-    [clinicalMutations, conflicts.length, patientSaveStates, unresolvedCount],
+    [clinicalMutations, conflicts.length, dataVerificationBlocked, patientSaveStates, unresolvedCount],
   );
   const canCompleteRound = completionSafety.canComplete;
 

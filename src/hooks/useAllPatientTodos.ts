@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasSupabaseConfig, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +15,8 @@ import { isBrowserKnownOffline } from '@/lib/networkConnectivity';
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
 }
+
+export type PatientTodosVerification = 'loading' | 'verified' | 'local' | 'stale';
 
 type PatientTodoRow = {
   id: string;
@@ -82,29 +84,40 @@ async function fetchTodosForPatients(
   ownerId: string,
   patientIds: string[],
   isOwnerActive: () => boolean,
+  reportVerification: (verification: Exclude<PatientTodosVerification, 'loading'>) => void,
 ): Promise<PatientTodosMap> {
   const grouped = emptyTodosMap(patientIds);
 
   if (patientIds.length === 0) {
+    reportVerification('verified');
     return grouped;
   }
   if (!hasSupabaseConfig || isBrowserKnownOffline()) {
-    return readOfflineTodoMap(ownerId, patientIds, isOwnerActive);
+    const local = await readOfflineTodoMap(ownerId, patientIds, isOwnerActive);
+    if (isOwnerActive()) reportVerification('local');
+    return local;
   }
 
-  const { data, error } = await supabase
-    .from('patient_todos')
-    .select('*')
-    .in('patient_id', patientIds)
-    .eq('user_id', ownerId)
-    .order('created_at', { ascending: false });
+  let response: Awaited<ReturnType<typeof runPatientTodoQuery>>;
+  try {
+    response = await runPatientTodoQuery(patientIds, ownerId);
+  } catch {
+    const local = await readOfflineTodoMap(ownerId, patientIds, isOwnerActive);
+    if (isOwnerActive()) {
+      reportVerification(isBrowserKnownOffline() ? 'local' : 'stale');
+    }
+    return local;
+  }
+
+  const { data, error } = response;
 
   if (!isOwnerActive()) return grouped;
   if (error) {
-    if (isBrowserKnownOffline()) {
-      return readOfflineTodoMap(ownerId, patientIds, isOwnerActive);
+    const local = await readOfflineTodoMap(ownerId, patientIds, isOwnerActive);
+    if (isOwnerActive()) {
+      reportVerification(isBrowserKnownOffline() ? 'local' : 'stale');
     }
-    throw error;
+    return local;
   }
 
   const requestedPatientIds = new Set(patientIds);
@@ -118,8 +131,18 @@ async function fetchTodosForPatients(
   if (!isOwnerActive()) return grouped;
   const resolved = applyQueuedTodoMap(grouped, queue, ownerId, patientIds);
   await writePatientTodoSnapshot(ownerId, resolved);
+  if (isOwnerActive()) reportVerification('verified');
 
   return resolved;
+}
+
+function runPatientTodoQuery(patientIds: string[], ownerId: string) {
+  return supabase
+    .from('patient_todos')
+    .select('*')
+    .in('patient_id', patientIds)
+    .eq('user_id', ownerId)
+    .order('created_at', { ascending: false });
 }
 
 export function useAllPatientTodos(patientIds: string[]) {
@@ -134,7 +157,12 @@ export function useAllPatientTodos(patientIds: string[]) {
     [patientIds],
   );
   const patientIdsKey = stablePatientIds.join('|');
-  const queryEnabled = hasSupabaseConfig && !!ownerId && stablePatientIds.length > 0;
+  const queryEnabled = !!ownerId && stablePatientIds.length > 0;
+  const [verificationState, setVerificationState] = useState<{
+    ownerId: string;
+    patientIdsKey: string;
+    verification: Exclude<PatientTodosVerification, 'loading'>;
+  } | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -150,13 +178,17 @@ export function useAllPatientTodos(patientIds: string[]) {
         ownerId,
         stablePatientIds,
         () => mountedRef.current && activeOwnerRef.current === ownerId,
+        (verification) => {
+          if (!mountedRef.current || activeOwnerRef.current !== ownerId) return;
+          setVerificationState({ ownerId, patientIdsKey, verification });
+        },
       )
       : Promise.resolve({} as PatientTodosMap),
     enabled: queryEnabled,
     staleTime: CACHE_CONFIG.staleTime.todos,
     gcTime: CACHE_CONFIG.queries.todos,
     refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: 'always',
     refetchOnReconnect: 'always',
     networkMode: 'always',
     retry: (failureCount) => !isBrowserKnownOffline() && failureCount < 2,
@@ -183,9 +215,25 @@ export function useAllPatientTodos(patientIds: string[]) {
     && Object.values(query.data).every((todos) => todos.every((todo) => todo.userId === ownerId))
     ? query.data
     : {};
+  const verification: PatientTodosVerification = stablePatientIds.length === 0
+    ? 'verified'
+    : verificationState?.ownerId === ownerId
+      && verificationState.patientIdsKey === patientIdsKey
+      ? verificationState.verification
+      : 'loading';
+  const refetchTodos = query.refetch;
+
+  useEffect(() => {
+    if (verification !== 'stale' || !queryEnabled) return;
+    const retryTimer = window.setTimeout(() => {
+      void refetchTodos();
+    }, 30_000);
+    return () => window.clearTimeout(retryTimer);
+  }, [queryEnabled, refetchTodos, verification]);
 
   return {
     todosMap,
+    verification,
     loading: Boolean(ownerId) && query.isFetching,
     refetch: async () => {
       if (!queryEnabled) return;

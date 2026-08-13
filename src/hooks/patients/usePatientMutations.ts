@@ -24,7 +24,7 @@ import {
     recordPatientMutationMetrics,
     type PatientMutationOutcome,
 } from "@/lib/observability/operationalMetrics";
-import { indexedDBQueue } from "@/lib/offline/indexedDBQueue";
+import { indexedDBQueue, type QueuedMutation } from "@/lib/offline/indexedDBQueue";
 import { CircuitOpenError } from "@/lib/circuitBreaker";
 import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
 
@@ -39,6 +39,46 @@ export interface PatientMutationsDeps {
 type PatientUpdateRow = Database["public"]["Tables"]["patients"]["Update"];
 
 export type PatientSaveState = "idle" | "saving" | "saved" | "queued" | "conflict" | "error";
+
+export function reconcilePatientSaveStates(
+    current: Readonly<Record<string, PatientSaveState>>,
+    queue: readonly QueuedMutation[],
+): { states: Record<string, PatientSaveState>; drained: string[]; failed: string[] } {
+    const activeByPatient = new Map<string, QueuedMutation>();
+    for (const mutation of queue) {
+        if (
+            mutation.type !== "patient"
+            || mutation.table !== "patients"
+            || mutation.operation !== "update"
+            || !mutation.entityId
+            || mutation.status === "completed"
+        ) continue;
+        activeByPatient.set(mutation.entityId, mutation);
+    }
+
+    const states = { ...current };
+    const drained: string[] = [];
+    const failed: string[] = [];
+    for (const [patientId, state] of Object.entries(current)) {
+        if (state !== "queued") continue;
+        if (!activeByPatient.has(patientId)) {
+            states[patientId] = "saved";
+            drained.push(patientId);
+        }
+    }
+    for (const [patientId, mutation] of activeByPatient) {
+        if (mutation.status === "failed") {
+            states[patientId] = "error";
+            failed.push(patientId);
+        } else if (mutation.status === "conflict") {
+            states[patientId] = "conflict";
+        } else {
+            states[patientId] = "queued";
+        }
+    }
+
+    return { states, drained, failed };
+}
 
 class PatientWriteConflictError extends Error {
     constructor() {
@@ -193,6 +233,8 @@ export function usePatientMutations({
     }, [patientSaveStates]);
 
     React.useEffect(() => {
+        patientSaveStatesRef.current = {};
+        setPatientSaveStates({});
         queuedNoticeKeysRef.current.clear();
         patientConflictBlockedThroughVersionRef.current.clear();
         patientConflictRefreshesRef.current.clear();
@@ -201,23 +243,11 @@ export function usePatientMutations({
     React.useEffect(() => {
         const unsubscribe = indexedDBQueue.subscribe((queue) => {
             const current = patientSaveStatesRef.current;
-            const drained: string[] = [];
-            const failed: string[] = [];
-            for (const [patientId, state] of Object.entries(current)) {
-                if (state !== "queued") continue;
-                const record = queue.find(
-                    (mutation) => mutation.type === "patient" && mutation.entityId === patientId,
-                );
-                if (!record) drained.push(patientId);
-                else if (record.status === "failed") failed.push(patientId);
+            const { states, drained, failed } = reconcilePatientSaveStates(current, queue);
+            if (Object.keys(states).some((patientId) => states[patientId] !== current[patientId])) {
+                patientSaveStatesRef.current = states;
+                setPatientSaveStates(states);
             }
-            if (drained.length === 0 && failed.length === 0) return;
-            setPatientSaveStates((prev) => {
-                const next = { ...prev };
-                for (const id of drained) if (next[id] === "queued") next[id] = "saved";
-                for (const id of failed) if (next[id] === "queued") next[id] = "error";
-                return next;
-            });
             // The replay bumped the server revision outside this hook's write
             // path; drop the cached expected revision and refetch so the next
             // edit does not hit a spurious conflict.

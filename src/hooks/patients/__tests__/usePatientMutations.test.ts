@@ -7,7 +7,11 @@ import type { Patient } from "@/types/patient";
 import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
 import { defaultSystemsValue, defaultMedicationsValue } from "@/services/patientService";
 import { AuthProvider } from "@/hooks/useAuth";
-import { usePatientMutations } from "@/hooks/patients/usePatientMutations";
+import {
+  reconcilePatientSaveStates,
+  usePatientMutations,
+} from "@/hooks/patients/usePatientMutations";
+import type { QueuedMutation } from "@/lib/offline/indexedDBQueue";
 import { flushPatientMutationMetrics } from "@/lib/observability/operationalMetrics";
 import { indexedDBQueue } from "@/lib/offline/indexedDBQueue";
 
@@ -87,6 +91,46 @@ const mockPatient: Patient = {
   lastModified: "2024-01-01T00:00:00Z",
   revision: 0,
 };
+
+const queuedPatientUpdate = (
+  overrides: Partial<QueuedMutation> = {},
+): QueuedMutation => ({
+  id: "queued-patient-update",
+  type: "patient",
+  operation: "update",
+  table: "patients",
+  entityId: "existing-id",
+  ownerId: "test-user-id",
+  payload: { clinical_summary: "Queued summary" },
+  timestamp: 1,
+  retryCount: 0,
+  maxRetries: 3,
+  status: "pending",
+  ...overrides,
+});
+
+test("durable patient queue restores save-state truth after a reload", () => {
+  assert.deepEqual(
+    reconcilePatientSaveStates({}, [queuedPatientUpdate()]),
+    {
+      states: { "existing-id": "queued" },
+      drained: [],
+      failed: [],
+    },
+  );
+
+  assert.deepEqual(
+    reconcilePatientSaveStates(
+      { "existing-id": "queued", "failed-id": "queued" },
+      [queuedPatientUpdate({ entityId: "failed-id", status: "failed" })],
+    ),
+    {
+      states: { "existing-id": "saved", "failed-id": "error" },
+      drained: ["existing-id"],
+      failed: ["failed-id"],
+    },
+  );
+});
 
 test("usePatientMutations addPatient calls supabase insert with expected payload", async () => {
   setupAuthMock();

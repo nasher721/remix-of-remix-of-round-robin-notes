@@ -18,7 +18,8 @@ import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
 import { CACHE_CONFIG } from "@/lib/cache/cacheConfig";
 import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
 import {
-    readPatientRosterSnapshot,
+    overlayPendingPatientUpdates,
+    readPatientRosterWithPendingUpdates,
     writePatientRosterSnapshot,
 } from "@/lib/offline/patientRosterCache";
 
@@ -99,18 +100,19 @@ export function usePatientFetch(): PatientFetchState {
         queryFn: async () => {
             if (!ownerId) return [];
             if (isBrowserKnownOffline()) {
-                return (await readPatientRosterSnapshot(ownerId)) ?? [];
+                return (await readPatientRosterWithPendingUpdates(ownerId)) ?? [];
             }
 
             try {
                 const patients = await fetchPatientsFromSupabase(ownerId);
                 if (activeOwnerIdRef.current !== ownerId) return [];
                 await writePatientRosterSnapshot(ownerId, patients);
-                return activeOwnerIdRef.current === ownerId ? patients : [];
+                if (activeOwnerIdRef.current !== ownerId) return [];
+                return overlayPendingPatientUpdates(ownerId, patients);
             } catch (error) {
                 if (activeOwnerIdRef.current !== ownerId) return [];
                 if (!isBrowserKnownOffline()) throw error;
-                const cached = await readPatientRosterSnapshot(ownerId);
+                const cached = await readPatientRosterWithPendingUpdates(ownerId);
                 if (cached !== null) {
                     logMetric("patients.fetch.cache_fallback", 1, "count", {
                         requestId: generateRequestId(),

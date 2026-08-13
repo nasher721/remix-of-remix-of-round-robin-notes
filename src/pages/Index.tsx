@@ -99,7 +99,7 @@ function IndexContent(): React.ReactElement | null {
 
   // Fetch todos for all patients for print/export
   const patientIds = React.useMemo(() => patients.map(p => p.id), [patients]);
-  const { todosMap } = useAllPatientTodos(patientIds);
+  const { todosMap, verification: todosVerification } = useAllPatientTodos(patientIds);
 
   // Patient filtering and sorting
   const { searchQuery, setSearchQuery, filter, setFilter, filteredPatients } = usePatientFilter({
@@ -296,7 +296,12 @@ function IndexContent(): React.ReactElement | null {
     patientSaveStates,
   ]);
 
-  if (authLoading || patientsLoading || isMobile === undefined) {
+  if (
+    authLoading
+    || patientsLoading
+    || isMobile === undefined
+    || (patientIds.length > 0 && todosVerification === "loading")
+  ) {
     return (
       <div
         className="min-h-screen bg-background"
@@ -338,21 +343,23 @@ function IndexContent(): React.ReactElement | null {
 
   const dashboard = isMobile ? (
     <DashboardProvider {...dashboardContextValue}>
-      <DashboardTodosProvider todosMap={todosMap}>
+      <DashboardTodosProvider todosMap={todosMap} verification={todosVerification}>
         <MobileShellGate
           userId={user.id}
           patientIds={patientIds}
           patientSaveStates={patientSaveStates}
+          dataVerificationBlocked={todosVerification === "stale"}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
   ) : (
     <DashboardProvider {...dashboardContextValue}>
-      <DashboardTodosProvider todosMap={todosMap}>
+      <DashboardTodosProvider todosMap={todosMap} verification={todosVerification}>
         <DesktopShellGate
           userId={user.id}
           patientIds={patientIds}
           patientSaveStates={patientSaveStates}
+          dataVerificationBlocked={todosVerification === "stale"}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
@@ -391,10 +398,12 @@ function DesktopShellGate({
   userId,
   patientIds,
   patientSaveStates,
+  dataVerificationBlocked,
 }: {
   userId: string;
   patientIds: readonly string[];
   patientSaveStates: Readonly<Record<string, PatientSaveState>>;
+  dataVerificationBlocked: boolean;
 }): React.ReactElement {
   const roundRunnerOn = isRoundRunnerEnabled();
   const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
@@ -416,6 +425,7 @@ function DesktopShellGate({
       userId={userId}
       patientIds={patientIds}
       patientSaveStates={patientSaveStates}
+      dataVerificationBlocked={dataVerificationBlocked}
     >
       {useClassicWorkbench ? (
         <div className="relative" data-testid="classic-desktop-shell">
@@ -450,10 +460,12 @@ function MobileShellGate({
   userId,
   patientIds,
   patientSaveStates,
+  dataVerificationBlocked,
 }: {
   userId: string;
   patientIds: readonly string[];
   patientSaveStates: Readonly<Record<string, PatientSaveState>>;
+  dataVerificationBlocked: boolean;
 }): React.ReactElement {
   const roundRunnerOn = isRoundRunnerEnabled();
   const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
@@ -475,6 +487,7 @@ function MobileShellGate({
       userId={userId}
       patientIds={patientIds}
       patientSaveStates={patientSaveStates}
+      dataVerificationBlocked={dataVerificationBlocked}
     >
       {useClassicWorkbench ? (
         <div className="relative" data-testid="classic-mobile-shell">

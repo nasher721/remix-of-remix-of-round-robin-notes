@@ -52,4 +52,17 @@ describe("Round completion safety", () => {
     assert.equal(result.mutationFailedCount, 1);
     assert.equal(result.mutationConflictCount, 1);
   });
+
+  it("blocks completion while shared Todo truth cannot be server-verified", () => {
+    const result = deriveRoundCompletionSafety({
+      roundUnresolvedCount: 0,
+      roundConflictCount: 0,
+      mutations: [],
+      patientSaveStates: {},
+      dataVerificationBlockerCount: 1,
+    });
+
+    assert.equal(result.canComplete, false);
+    assert.equal(result.dataVerificationBlockerCount, 1);
+  });
 });

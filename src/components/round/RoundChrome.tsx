@@ -105,6 +105,8 @@ export const RoundChrome = ({
         ? `Saved locally · ${completionSafety.mutationUnresolvedCount} clinical pending`
         : completionSafety.patientSaveBlockerCount > 0
           ? "Saving patient changes…"
+          : completionSafety.dataVerificationBlockerCount > 0
+            ? "Todo data needs verification"
           : syncPresentation.label;
   const syncLabel = isStorageDegraded
     ? `${clinicalCompletionLabel} · storage limited`

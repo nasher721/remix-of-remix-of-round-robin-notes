@@ -125,6 +125,7 @@ test.describe("Data integrity", () => {
   test("offline: explicit warning, durable queue, reconnect drains without duplication", async ({
     page,
     context,
+    browserName,
   }) => {
     test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set");
     test.setTimeout(150_000);
@@ -133,8 +134,10 @@ test.describe("Data integrity", () => {
     let onlineStamp: string | undefined;
     let offlineStamp: string | undefined;
     let offline = false;
+    let webkitTransportBlocked = false;
     let captureOfflinePatientPatches = false;
     const offlinePatientPatches: string[] = [];
+    const abortSupabaseTransport = (route: Route) => route.abort("internetdisconnected");
     page.on("request", (request) => {
       const url = new URL(request.url());
       if (
@@ -148,7 +151,16 @@ test.describe("Data integrity", () => {
 
     try {
       await loginToDashboard(page);
-      const editor = await selectClassicPatient(page, DATA_PATIENT_NAME);
+      await page.evaluate(async () => {
+        if (!("serviceWorker" in navigator)) return;
+        await navigator.serviceWorker.ready;
+      });
+      await page.reload();
+      await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+      await page.waitForFunction(() => (
+        !("serviceWorker" in navigator) || navigator.serviceWorker.controller !== null
+      ));
+      let editor = await selectClassicPatient(page, DATA_PATIENT_NAME);
       originalHtml = await editor.evaluate((node) => node.innerHTML);
 
       // Baseline: an online edit saves normally (also warms lazy editor modules
@@ -180,10 +192,60 @@ test.describe("Data integrity", () => {
         "known-offline edits should queue locally without attempting patient PATCH requests",
       ).toEqual([]);
 
+      if (browserName === "webkit") {
+        captureOfflinePatientPatches = false;
+        await page.route("https://*.supabase.co/**", abortSupabaseTransport);
+        webkitTransportBlocked = true;
+        await page.evaluate(() => sessionStorage.setItem("__rr_e2e_force_offline", "1"));
+        await page.addInitScript(() => {
+          if (sessionStorage.getItem("__rr_e2e_force_offline") === "1") {
+            Object.defineProperty(navigator, "onLine", {
+              configurable: true,
+              get: () => false,
+            });
+          }
+        });
+        await context.setOffline(false);
+        offline = false;
+        offlinePatientPatches.length = 0;
+        captureOfflinePatientPatches = true;
+      }
+
+      // Cold-reload while the mutation is still pending. The stale roster
+      // snapshot must be projected through the durable queue before any chart
+      // or End/Export surface can render it.
+      await page.reload();
+      await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText("You are offline").first()).toBeVisible();
+      editor = await selectClassicPatient(page, DATA_PATIENT_NAME);
+      await expect(editor).toContainText(offlineStamp, { timeout: 15_000 });
+      await expect(
+        page.getByRole("status").filter({ hasText: /^Offline queued$/ }).first(),
+      ).toBeVisible();
+      expect(
+        offlinePatientPatches,
+        "cold offline hydration must not attempt a patient PATCH",
+      ).toEqual([]);
+
       // Reconnect: the sync engine drains the queue automatically.
       captureOfflinePatientPatches = false;
-      await context.setOffline(false);
-      offline = false;
+      if (browserName === "webkit") {
+        await page.evaluate(() => sessionStorage.removeItem("__rr_e2e_force_offline"));
+        await page.unroute("https://*.supabase.co/**", abortSupabaseTransport);
+        webkitTransportBlocked = false;
+        await page.reload();
+        await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
+        await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      } else {
+        await context.setOffline(false);
+        offline = false;
+        // After a service-worker navigation Chromium may already expose
+        // navigator.onLine=true and therefore omit the transition event. Real
+        // browsers emit `online` when transport returns; dispatch it here so
+        // the sticky known-offline guard and replay engine observe the same
+        // lifecycle under Playwright.
+        await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      }
       await expect(page.getByText(
         /confirm Queued clears or Saved appears/,
       ).first()).toBeVisible({ timeout: 10_000 });
@@ -208,7 +270,17 @@ test.describe("Data integrity", () => {
       const occurrences = ((await reloaded.textContent()) ?? "").split(offlineStamp).length - 1;
       expect(occurrences).toBe(1);
     } finally {
-      if (offline) await context.setOffline(false);
+      if (offline) {
+        await context.setOffline(false);
+        await page.evaluate(() => window.dispatchEvent(new Event("online"))).catch(() => undefined);
+      }
+      if (webkitTransportBlocked) {
+        await page.unroute("https://*.supabase.co/**", abortSupabaseTransport);
+      }
+      if (!page.isClosed()) {
+        await page.evaluate(() => sessionStorage.removeItem("__rr_e2e_force_offline")).catch(() => undefined);
+        await page.evaluate(() => window.dispatchEvent(new Event("online"))).catch(() => undefined);
+      }
       if (originalHtml !== undefined && !page.isClosed()) {
         await page.waitForTimeout(2_000);
         await page.reload();

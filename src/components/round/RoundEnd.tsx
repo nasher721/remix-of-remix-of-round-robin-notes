@@ -27,7 +27,7 @@ export const RoundEnd = ({
   className,
 }: RoundEndProps) => {
   const { patients, filteredPatients, onUpdatePatient } = useDashboard()
-  const todosMap = useDashboardTodos()
+  const { todosMap, verification: todosVerification } = useDashboardTodos(true)
   const {
     position,
     round,
@@ -63,6 +63,9 @@ export const RoundEnd = ({
       : null,
     completionSafety.patientSaveBlockerCount > 0
       ? `${completionSafety.patientSaveBlockerCount} active patient saves`
+      : null,
+    completionSafety.dataVerificationBlockerCount > 0
+      ? "Todo data not server-verified"
       : null,
   ].filter(Boolean).join(" · ")
 
@@ -139,6 +142,15 @@ export const RoundEnd = ({
               </p>
             </div>
           )}
+          {todosVerification === "stale" && patients.length > 0 ? (
+            <p
+              className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-left text-xs leading-relaxed text-amber-950 dark:text-amber-100"
+              role="status"
+              data-testid="round-end-todos-unverified"
+            >
+              Showing the last Todo snapshot saved on this device. Print / Export remains available for recovery, but reconnect before marking the Round complete so server Todo truth can be verified.
+            </p>
+          ) : null}
         </header>
 
         {!canCompleteRound && patients.length > 0 ? (

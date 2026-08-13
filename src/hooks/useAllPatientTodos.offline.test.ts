@@ -14,6 +14,7 @@ import { useAllPatientTodos } from './useAllPatientTodos';
 
 declare global {
   var __SUPABASE_AUTH_MOCK__: unknown;
+  var __SUPABASE_SELECT_MOCK__: unknown;
 }
 
 const serverTodo = (overrides: Partial<PatientTodo> = {}): PatientTodo => ({
@@ -159,5 +160,77 @@ test('cold offline hook exposes a durable queued Todo to the shared export map',
       Object.defineProperty(navigator, 'onLine', onlineDescriptor);
     }
     window.dispatchEvent(new Event('online'));
+  }
+});
+
+test('online-flagged Todo read failure preserves snapshot truth and marks it unverified', async () => {
+  const onlineDescriptor = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+  Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+  window.dispatchEvent(new Event('online'));
+  globalThis.__SUPABASE_AUTH_MOCK__ = {
+    getSession: async () => ({
+      data: { session: { user: { id: 'owner-1' } } },
+      error: null,
+    }),
+    onAuthStateChange: () => ({ unsubscribe: () => undefined }),
+  };
+  globalThis.__SUPABASE_SELECT_MOCK__ = (query: { table?: string }) => {
+    if (query.table === 'patient_todos') {
+      return { data: null, error: new Error('temporary backend outage') };
+    }
+    return { data: [], error: null };
+  };
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      React.createElement(AuthProvider, null, children),
+    )
+  );
+
+  try {
+    await indexedDBQueue.transitionOwner('owner-1', async () => undefined);
+    await indexedDBQueue.clear();
+    await indexedDBQueue.enqueue({
+      type: 'todo',
+      operation: 'create',
+      table: 'patient_todos',
+      entityId: 'todo-stale-fallback',
+      payload: {
+        id: 'todo-stale-fallback',
+        patient_id: 'patient-1',
+        user_id: 'owner-1',
+        section: null,
+        content: 'Preserve during backend outage',
+        completed: false,
+        created_at: '2026-08-13T10:00:00.000Z',
+        updated_at: '2026-08-13T10:00:00.000Z',
+      },
+    });
+
+    const { result } = renderHook(
+      () => useAllPatientTodos(['patient-1']),
+      { wrapper },
+    );
+    await waitFor(() => {
+      assert.equal(result.current.verification, 'stale');
+      assert.equal(
+        result.current.todosMap['patient-1']?.[0]?.content,
+        'Preserve during backend outage',
+      );
+    });
+  } finally {
+    cleanup();
+    queryClient.clear();
+    await indexedDBQueue.clear();
+    delete globalThis.__SUPABASE_AUTH_MOCK__;
+    delete globalThis.__SUPABASE_SELECT_MOCK__;
+    window.sessionStorage.removeItem('network.offline-event');
+    if (onlineDescriptor) {
+      Object.defineProperty(navigator, 'onLine', onlineDescriptor);
+    }
   }
 });

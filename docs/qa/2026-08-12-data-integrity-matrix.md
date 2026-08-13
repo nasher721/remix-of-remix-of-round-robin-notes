@@ -27,8 +27,8 @@ account and roster.)
 | Scenario | Coverage | Status 2026-08-12 |
 | --- | --- | --- |
 | 3. Multi-tab concurrency (same account, two tabs) | Automated — tab B's stale browser edit must surface an explicit "Save conflict," expose the matching `Review conflict` inline state, issue one revision-guarded patient `PATCH`, and never overwrite tab A's persisted content; unit coverage proves the queued-keystroke barrier | PASS (Chromium + WebKit) |
-| 5. Offline recovery (queue → reconnect → no duplication) | Automated — the owner-scoped roster and Todo snapshot remain available after an offline service-worker reload; chart edits and patient Todos show queued state, remain in IndexedDB across reload, feed the shared End/Export map, accept new post-reload Todo add/complete actions, drain on reconnect, and persist exactly once; known-offline work must issue zero clinical-data writes. Chromium additionally proves zero Supabase requests during the offline reload; WebKit must briefly re-enable document transport but blocks clinical-data writes while the shell loads. | PASS (Chromium + WebKit) |
-| 7. Completion guard | Automated — an offline Todo disables Done and Mark Complete while End review plus the preloaded Print / Export dialog remain usable; reconnect replay clears the guard without refresh | PASS (Chromium + WebKit) |
+| 5. Offline recovery (queue → reconnect → no duplication) | Automated — the owner-scoped roster and Todo snapshot remain available after an offline service-worker reload; queued chart payloads are projected over the last roster snapshot and restore their `Offline queued` state before chart/End/Export render; patient Todos show queued state, remain in IndexedDB across reload, feed the shared End/Export map, accept new post-reload Todo add/complete actions, drain on reconnect, and persist exactly once; known-offline work must issue zero clinical-data writes. Chromium additionally proves zero Supabase requests during the offline reload; WebKit must briefly re-enable document transport but blocks clinical-data writes while the shell loads. | PASS (Chromium + WebKit) |
+| 7. Completion guard | Automated — an offline Todo disables Done and Mark Complete while End review plus the preloaded Print / Export dialog remain usable; a transient Todo read outage preserves the last local snapshot for recovery export but marks it unverified and blocks completion; reconnect replay/verification clears the guard without refresh | PASS (Chromium + WebKit) |
 | 9. Reload truth | Automated for the two scenarios above (post-reload content match + occurrence count) | PASS (Chromium + WebKit) |
 
 Unit-level coverage that backs the matrix:
@@ -39,11 +39,12 @@ Unit-level coverage that backs the matrix:
 - `src/hooks/patients/__tests__/usePatientMutations.test.ts` — write
   serialization, rollback, stale-write rejection, revision tracking.
 - `src/lib/offline/patientRosterCache.test.ts` — complete patient snapshot
-  preservation and revision/timestamp handling.
+  preservation, revision/timestamp handling, and owner-scoped queued-update
+  projection over a stale snapshot.
 
 ## Defects found by this matrix and fixed (2026-08-12)
 
-All three were reachable in ordinary offline use and violated the
+All eight were reachable in ordinary offline use and violated the
 "no falsely reported saves / no silent loss" acceptance criteria:
 
 1. **Offline writes were not queued once the API circuit breaker opened.**
@@ -94,6 +95,25 @@ All three were reachable in ordinary offline use and violated the
    shells warm that chunk online. Persistent network notifications are
    non-blocking except for their own controls, so they cannot cover End or Todo
    recovery actions.
+7. **A cold offline reload could hide a queued chart edit behind the last
+   roster snapshot.** The durable mutation survived, but patient hydration
+   returned the snapshot without applying that newer payload and the per-patient
+   `Offline queued` indicator lived only in React memory. The roster query now
+   overlays unresolved owner-scoped patient updates on both offline snapshots
+   and successful server reads before publishing UI state. Queue subscription
+   also reconstructs queued, failed, and conflict save states after reload.
+   Credentialed Chromium and WebKit each cold-reload while the note is still
+   pending, verify the note and status remain visible, assert zero offline
+   patient `PATCH` attempts, then prove one reconnect replay and one persisted
+   occurrence.
+8. **A transient Todo read failure could empty End Round while the browser
+   still reported online.** The shared query previously consulted the durable
+   snapshot only when `navigator.onLine` was already false. Network/5xx read
+   failures now retain the snapshot plus pending queue overlay, label that map
+   `stale`, retry on focus/reconnect and a bounded timer, and block Round
+   completion until server verification succeeds. Review and Print / Export
+   remain available as recovery paths and explicitly disclose the unverified
+   state.
 
 ## Manual matrix (evidence required before sign-off)
 

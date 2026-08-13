@@ -120,10 +120,14 @@ function buildDashboardValue(patients: Patient[]) {
 function RoundProviders({
   patients,
   patientSaveStates = {},
+  todosVerification = "verified",
+  dataVerificationBlocked = false,
   children,
 }: {
   patients: Patient[];
   patientSaveStates?: Record<string, PatientSaveState>;
+  todosVerification?: "loading" | "verified" | "local" | "stale";
+  dataVerificationBlocked?: boolean;
   children: React.ReactNode;
 }) {
   const queryClient = React.useMemo(
@@ -143,11 +147,15 @@ function RoundProviders({
                   <TooltipProvider>
                     <ChangeTrackingProvider>
                       <DashboardProvider {...buildDashboardValue(patients)}>
-                        <DashboardTodosProvider todosMap={makeDashboardTodosMap(patients)}>
+                        <DashboardTodosProvider
+                          todosMap={makeDashboardTodosMap(patients)}
+                          verification={todosVerification}
+                        >
                           <RoundSessionProvider
                             userId="test-user"
                             patientIds={patientIds}
                             patientSaveStates={patientSaveStates}
+                            dataVerificationBlocked={dataVerificationBlocked}
                             disablePersistence
                           >
                             {children}
@@ -285,6 +293,27 @@ describe("Focus-first Round runner harness", () => {
       false,
       "Print/export remains a recovery path while completion is blocked",
     );
+  });
+
+  it("keeps stale local Todos visible for recovery export while blocking completion", async () => {
+    render(
+      <RoundProviders
+        patients={dashboardPatients3}
+        todosVerification="stale"
+        dataVerificationBlocked
+      >
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    assert.equal((screen.getByTestId("round-done") as HTMLButtonElement).disabled, true);
+    fireEvent.click(screen.getByTestId("round-end-entry"));
+    assert.match(
+      screen.getByTestId("round-end-todos-unverified").textContent ?? "",
+      /last Todo snapshot saved on this device/i,
+    );
+    assert.equal((screen.getByTestId("round-end-complete") as HTMLButtonElement).disabled, true);
+    assert.equal((screen.getByTestId("round-end-print") as HTMLButtonElement).disabled, false);
   });
 
   it("exposes first-class Import on Round Home", async () => {
