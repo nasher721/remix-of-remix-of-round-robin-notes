@@ -320,6 +320,10 @@
   .safe-area-right { padding-right: env(safe-area-inset-right); }
 }
 
+[data-browser-print-root] {
+  display: none;
+}
+
 /* Print Styles that must remain for clinical functionality */
 @media print {
   * {
@@ -329,6 +333,14 @@
   body {
     background-color: white;
     color: black;
+  }
+  html.print-export-active body > * {
+    display: none !important;
+  }
+  html.print-export-active body > [data-browser-print-root] {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
   }
   .no-print,
   [data-no-print],

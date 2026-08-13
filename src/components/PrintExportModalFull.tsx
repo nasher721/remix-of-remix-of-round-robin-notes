@@ -48,6 +48,8 @@ import {
   generateExportFilename,
 } from "./print/ExportHandlers";
 import type { PrintExportModalProps, PatientTodosMap } from "./print/types";
+import { printElement } from "@/lib/print/printElement";
+import { downloadTwoColumnRoundsText } from "@/lib/print/twoColumnRoundsText";
 
 export type { PrintExportModalProps, PatientTodosMap };
 
@@ -613,7 +615,16 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
   }), [patients, patientTodos, settings, isColumnEnabled, getPatientTodos, patientNotes, isFiltered, totalPatientCount, user?.id, patientImageSignedUrls]);
 
   const handlePrint = () => {
-    window.print();
+    try {
+      printElement(exportRef.current);
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Print Failed",
+        description: error instanceof Error ? error.message : "The print report could not be prepared.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle applying a layout from the designer
@@ -701,6 +712,16 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     }
   };
 
+  const onExportTwoColumnText = () => {
+    try {
+      const fileName = downloadTwoColumnRoundsText(patients, patientTodos);
+      toast({ title: "Two-Column Text Export Complete", description: fileName });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Export Failed", variant: "destructive" });
+    }
+  };
+
   const onExportRTF = () => {
     try {
       const fileName = handleExportRTF(getExportContext());
@@ -777,6 +798,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
                 onExportTXT={onExportTXT}
                 onExportRTF={onExportRTF}
                 onExportMarkdown={onExportMarkdown}
+                onExportTwoColumnText={onExportTwoColumnText}
                 isGenerating={isGenerating || patientImagesLoading}
               />
             </div>

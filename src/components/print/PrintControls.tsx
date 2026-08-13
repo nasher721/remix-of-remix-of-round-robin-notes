@@ -22,6 +22,7 @@ interface PrintControlsProps {
     onExportTXT: () => void;
     onExportRTF: () => void;
     onExportMarkdown: () => void;
+    onExportTwoColumnText: () => void;
     onPrint: () => void;
     isGenerating: boolean;
 }
@@ -41,6 +42,7 @@ export function PrintControls({
     onExportTXT,
     onExportRTF,
     onExportMarkdown,
+    onExportTwoColumnText,
     onPrint,
     isGenerating
 }: PrintControlsProps) {
@@ -113,6 +115,13 @@ export function PrintControls({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" role="menu">
+                        <DropdownMenuItem
+                            onClick={onExportTwoColumnText}
+                            aria-label="Export ICU rounds as two-column print text"
+                        >
+                            <FileText className="mr-2 h-4 w-4 text-blue-700" aria-hidden="true" />
+                            ICU Two-Column Print (.txt)
+                        </DropdownMenuItem>
                         <DropdownMenuItem 
                             onClick={onExportWord}
                             aria-label="Export as Word document"
