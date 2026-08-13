@@ -28,7 +28,6 @@ export const RoundEnd = ({
 }: RoundEndProps) => {
   const {
     patients,
-    filteredPatients,
     onUpdatePatient,
     patientVerification = "verified",
   } = useDashboard()
@@ -250,7 +249,7 @@ export const RoundEnd = ({
           <PrintExportModal
             open={printOpen}
             onOpenChange={setPrintOpen}
-            patients={filteredPatients.length > 0 ? filteredPatients : patients}
+            patients={patients}
             patientTodos={todosMap}
             onUpdatePatient={onUpdatePatient}
           />

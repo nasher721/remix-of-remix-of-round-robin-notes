@@ -12,6 +12,12 @@ import {
 import type { NewPatientSubmitPayload } from "@/components/dashboard/NewPatientSheet";
 import { parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
 import type { Json, TablesInsert } from "@/integrations/supabase/types";
+import {
+    acquirePatientImportAttempt,
+    clearPatientImportAttempt,
+    PatientImportStorageUnavailableError,
+    runPatientImportWrite,
+} from "@/lib/import/patientImportIdempotency";
 
 export interface PatientImportDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
@@ -65,6 +71,16 @@ export function usePatientImport({
         return combinedText.includes("patient_number");
     }, []);
 
+    const isPatientIdConflict = React.useCallback((error: unknown): boolean => {
+        if (typeof error !== "object" || error === null) return false;
+        const maybeCode = "code" in error ? (error as { code?: unknown }).code : undefined;
+        if (maybeCode !== "23505") return false;
+        const maybeDetails = "details" in error ? (error as { details?: unknown }).details : undefined;
+        const maybeMessage = "message" in error ? (error as { message?: unknown }).message : undefined;
+        const combinedText = `${String(maybeDetails ?? "")} ${String(maybeMessage ?? "")}`.toLowerCase();
+        return combinedText.includes("(id)") || combinedText.includes("patients_pkey");
+    }, []);
+
     const getLatestPatientNumber = React.useCallback(async (ownerId: string): Promise<number> => {
         const { data, error } = await supabase
             .from("patients")
@@ -74,6 +90,17 @@ export function usePatientImport({
             .limit(1);
         if (error) throw error;
         return data?.[0]?.patient_number ?? 0;
+    }, []);
+
+    const getPatientsByIds = React.useCallback(async (ownerId: string, ids: string[]) => {
+        if (ids.length === 0) return [];
+        const { data, error } = await supabase
+            .from("patients")
+            .select("*")
+            .eq("user_id", ownerId)
+            .in("id", ids);
+        if (error) throw error;
+        return data ?? [];
     }, []);
 
     const importPatients = React.useCallback(async (patientsToImport: Array<{
@@ -140,6 +167,20 @@ export function usePatientImport({
 
                         if (!isCurrentOwner(requestOwnerId)) return false;
 
+                        if (error && isPatientIdConflict(error)) {
+                            const existingRows = await getPatientsByIds(
+                                requestOwnerId,
+                                [String(rowPayload.id)],
+                            );
+                            if (!isCurrentOwner(requestOwnerId)) return false;
+                            if (existingRows[0]) {
+                                newPatients.push(mapPatientRecord(existingRows[0]));
+                            } else {
+                                failedPatients.push({ name: preparedRow.name, error });
+                            }
+                            break;
+                        }
+
                         if (error && isPatientNumberConflict(error) && attemptsRemaining > 1) {
                             const latestNumber = await getLatestPatientNumber(requestOwnerId);
                             if (!isCurrentOwner(requestOwnerId)) return false;
@@ -167,6 +208,8 @@ export function usePatientImport({
                 return true;
             };
 
+            const importAttempt = await acquirePatientImportAttempt(requestOwnerId, patientsToImport);
+            if (!isCurrentOwner(requestOwnerId)) return;
             const nextPatientNumber = getNextPatientCounter(patientsRef.current);
             const preparedRows = patientsToImport.map((patientToImport, index): PreparedImportRow => {
                 const systems = parseSystemsJson({
@@ -179,27 +222,30 @@ export function usePatientImport({
 
                 return {
                     name: patientToImport.name,
-                    payload: buildPatientInsertPayload({
-                        userId: requestOwnerId,
-                        patientNumber: nextPatientNumber + index,
-                        name: patientToImport.name,
-                        mrn: patientToImport.mrn ?? "",
-                        bed: patientToImport.bed,
-                        clinicalSummary: patientToImport.clinicalSummary,
-                        intervalEvents: patientToImport.intervalEvents || "",
-                        imaging: patientToImport.imaging || "",
-                        labs: patientToImport.labs || "",
-                        systems,
-                        medications,
-                        age: patientToImport.age,
-                        dateOfBirth: patientToImport.dateOfBirth,
-                        gender: patientToImport.gender,
-                        admissionDate: patientToImport.admissionDate,
-                        serviceLine: patientToImport.serviceLine,
-                        attendingPhysician: patientToImport.attendingPhysician,
-                        codeStatus: patientToImport.codeStatus,
-                        alerts: patientToImport.alerts,
-                    }),
+                    payload: {
+                        ...buildPatientInsertPayload({
+                            userId: requestOwnerId,
+                            patientNumber: nextPatientNumber + index,
+                            name: patientToImport.name,
+                            mrn: patientToImport.mrn ?? "",
+                            bed: patientToImport.bed,
+                            clinicalSummary: patientToImport.clinicalSummary,
+                            intervalEvents: patientToImport.intervalEvents || "",
+                            imaging: patientToImport.imaging || "",
+                            labs: patientToImport.labs || "",
+                            systems,
+                            medications,
+                            age: patientToImport.age,
+                            dateOfBirth: patientToImport.dateOfBirth,
+                            gender: patientToImport.gender,
+                            admissionDate: patientToImport.admissionDate,
+                            serviceLine: patientToImport.serviceLine,
+                            attendingPhysician: patientToImport.attendingPhysician,
+                            codeStatus: patientToImport.codeStatus,
+                            alerts: patientToImport.alerts,
+                        }),
+                        id: importAttempt.patientIds[index],
+                    },
                 };
             });
             const payloads = preparedRows.map((preparedRow) => preparedRow.payload);
@@ -207,40 +253,71 @@ export function usePatientImport({
             const failedPatients: { name: string; error: unknown }[] = [];
 
             if (payloads.length > 0) {
-                const { data, error } = await supabase
-                    .from("patients")
-                    .insert(payloads)
-                    .select();
-                if (!isCurrentOwner(requestOwnerId)) return;
-
-                if (error && isPatientNumberConflict(error)) {
-                    const latestNumber = await getLatestPatientNumber(requestOwnerId);
+                await runPatientImportWrite(async () => {
+                    const { data, error } = await supabase
+                        .from("patients")
+                        .insert(payloads)
+                        .select();
                     if (!isCurrentOwner(requestOwnerId)) return;
-                    // A bulk patient-number collision is recovered with bounded single-row retries.
-                    const recovered = await insertPreparedRowsIndividually(
-                        preparedRows,
-                        latestNumber + 1,
-                        newPatients,
-                        failedPatients,
-                    );
-                    if (!recovered) return;
-                } else if (error) {
-                    failedPatients.push(...preparedRows.map((preparedRow) => ({
-                        name: preparedRow.name,
-                        error,
-                    })));
-                } else if (data == null) {
-                    const noDataError = new Error("No data returned from insert");
-                    failedPatients.push(...preparedRows.map((preparedRow) => ({
-                        name: preparedRow.name,
-                        error: noDataError,
-                    })));
-                } else {
-                    newPatients.push(...mapInsertedRows(data));
-                }
+
+                    if (error && isPatientIdConflict(error)) {
+                        const existingRows = await getPatientsByIds(requestOwnerId, importAttempt.patientIds);
+                        if (!isCurrentOwner(requestOwnerId)) return;
+                        const existingById = new Map(existingRows.map((row) => [row.id, row]));
+                        newPatients.push(...mapInsertedRows(existingRows));
+                        const missingRows = preparedRows.filter(
+                            (preparedRow) => !existingById.has(String(preparedRow.payload.id)),
+                        );
+                        if (missingRows.length === 0) return;
+                        const latestNumber = await getLatestPatientNumber(requestOwnerId);
+                        if (!isCurrentOwner(requestOwnerId)) return;
+                        const recovered = await insertPreparedRowsIndividually(
+                            missingRows,
+                            latestNumber + 1,
+                            newPatients,
+                            failedPatients,
+                        );
+                        if (!recovered) return;
+                    } else if (error && isPatientNumberConflict(error)) {
+                        const latestNumber = await getLatestPatientNumber(requestOwnerId);
+                        if (!isCurrentOwner(requestOwnerId)) return;
+                        // A bulk patient-number collision is recovered with bounded single-row retries.
+                        await insertPreparedRowsIndividually(
+                            preparedRows,
+                            latestNumber + 1,
+                            newPatients,
+                            failedPatients,
+                        );
+                    } else if (error) {
+                        failedPatients.push(...preparedRows.map((preparedRow) => ({
+                            name: preparedRow.name,
+                            error,
+                        })));
+                    } else if (data == null) {
+                        const noDataError = new Error("No data returned from insert");
+                        failedPatients.push(...preparedRows.map((preparedRow) => ({
+                            name: preparedRow.name,
+                            error: noDataError,
+                        })));
+                    } else {
+                        newPatients.push(...mapInsertedRows(data));
+                    }
+                });
+                if (!isCurrentOwner(requestOwnerId)) return;
             }
 
             appendPatients(requestOwnerId, newPatients);
+
+            if (failedPatients.length === 0 && newPatients.length === preparedRows.length) {
+                try {
+                    await clearPatientImportAttempt(requestOwnerId, importAttempt.fingerprint);
+                } catch {
+                    // The server result and local roster are already committed.
+                    // Retaining the durable retry record is safer than reporting
+                    // the import as failed or risking a duplicate on retry.
+                    console.error("Patient import retry record cleanup failed");
+                }
+            }
 
             if (failedPatients.length > 0) {
                 if (newPatients.length === 0) {
@@ -263,13 +340,20 @@ export function usePatientImport({
         } catch (error) {
             if (!isCurrentOwner(requestOwnerId)) return;
             console.error("Patient import failed");
+            if (error instanceof PatientImportStorageUnavailableError) {
+                notifications.error({
+                    title: "Import unavailable",
+                    description: "Enable browser site storage before importing so retries cannot duplicate patients.",
+                });
+                throw error;
+            }
             notifications.error({
                 title: "Import Error",
                 description: "Failed to import some patients.",
             });
             throw error;
         }
-    }, [user, notifications, patientsRef, getLatestPatientNumber, isPatientNumberConflict, isCurrentOwner, appendPatients]);
+    }, [user, notifications, patientsRef, getLatestPatientNumber, getPatientsByIds, isPatientIdConflict, isPatientNumberConflict, isCurrentOwner, appendPatients]);
 
     const addPatientWithData = React.useCallback(async (patientData: NewPatientSubmitPayload) => {
         if (!user) {

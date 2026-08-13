@@ -73,7 +73,7 @@ Prefer putting them in gitignored `.env.local` (loaded by `playwright.config.ts`
 If these are not set, authenticated tests are skipped. The three `@public`
 scenarios always run in each configured browser.
 
-Main-branch CI sets `E2E_REQUIRE_FULL_SUITE=1` for both 26-test browser suites. In
+Main-branch CI sets `E2E_REQUIRE_FULL_SUITE=1` for both 29-test browser suites. In
 that mode missing credentials, an undersized seeded roster, or any skipped
 Playwright scenario fails the job. Setup and teardown reset the clinical
 summaries for exactly one `E2E Alpha`, `E2E Bravo`, and `E2E Charlie` row plus

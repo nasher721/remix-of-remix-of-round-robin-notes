@@ -81,11 +81,12 @@ const DEMOTED_PRIMARY_CHROME_TERMS = [
 function buildDashboardValue(
   patients: Patient[],
   patientVerification: PatientRosterVerification = "verified",
+  filteredPatients: Patient[] = patients,
 ) {
   return {
     user: { email: "clinician@example.test" },
     patients,
-    filteredPatients: patients,
+    filteredPatients,
     autotexts: [],
     templates: [],
     customDictionary: {},
@@ -124,6 +125,7 @@ function buildDashboardValue(
 
 function RoundProviders({
   patients,
+  filteredPatients = patients,
   patientSaveStates = {},
   patientVerification = "verified",
   todosVerification = "verified",
@@ -131,6 +133,7 @@ function RoundProviders({
   children,
 }: {
   patients: Patient[];
+  filteredPatients?: Patient[];
   patientSaveStates?: Record<string, PatientSaveState>;
   patientVerification?: PatientRosterVerification;
   todosVerification?: "loading" | "verified" | "local" | "stale";
@@ -153,7 +156,7 @@ function RoundProviders({
                 <ClinicalGuidelinesProvider>
                   <TooltipProvider>
                     <ChangeTrackingProvider>
-                      <DashboardProvider {...buildDashboardValue(patients, patientVerification)}>
+                      <DashboardProvider {...buildDashboardValue(patients, patientVerification, filteredPatients)}>
                         <DashboardTodosProvider
                           todosMap={makeDashboardTodosMap(patients)}
                           verification={todosVerification}
@@ -267,6 +270,28 @@ describe("Focus-first Round runner harness", () => {
     assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "end");
     assert.ok(screen.getByTestId("round-end"));
     assert.ok(screen.getByTestId("round-end-print"));
+  });
+
+  it("exports the full Round roster even when the dashboard has an unrelated filter", async () => {
+    render(
+      <RoundProviders
+        patients={dashboardPatients3}
+        filteredPatients={[dashboardPatients3[0]!]}
+      >
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    fireEvent.click(screen.getByTestId("round-end-entry"));
+    fireEvent.click(screen.getByTestId("round-end-print"));
+
+    const dialog = await screen.findByRole("dialog");
+    for (const patient of dashboardPatients3) {
+      assert.ok(
+        within(dialog).getAllByText(patient.name).length > 0,
+        `End Round export must include ${patient.name}`,
+      );
+    }
   });
 
   it("blocks completion for an unresolved patient save without hiding review and export", async () => {

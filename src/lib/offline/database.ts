@@ -11,6 +11,7 @@
  * - roundSessions: Today’s Round continuity cache (position, filters, drafts)
  * - roundOutbox: Round state + chart draft outbox for reconnect drain
  * - todoSnapshots: Owner-scoped Todo map for cold offline review/export
+ * - patientImportAttempts: Owner-scoped idempotency records for ambiguous imports
  */
 
 import Dexie, { type EntityTable } from 'dexie';
@@ -82,6 +83,14 @@ export interface CachedTodoSnapshot {
   cachedAt: number;
 }
 
+export interface PatientImportAttemptRecord {
+  id: string;
+  ownerId: string;
+  fingerprint: string;
+  patientIds: string[];
+  createdAt: number;
+}
+
 export type { CachedRoundSession, RoundOutboxEntry };
 
 // ============================================
@@ -97,6 +106,7 @@ class RoundRobinDatabase extends Dexie {
   roundSessions!: EntityTable<CachedRoundSession, 'id'>;
   roundOutbox!: EntityTable<RoundOutboxEntry, 'id'>;
   todoSnapshots!: EntityTable<CachedTodoSnapshot, 'id'>;
+  patientImportAttempts!: EntityTable<PatientImportAttemptRecord, 'id'>;
 
   constructor() {
     super('RoundRobinNotesDB');
@@ -127,6 +137,12 @@ class RoundRobinDatabase extends Dexie {
     this.version(5).stores({
       todoSnapshots: 'id, ownerId, cachedAt',
     });
+
+    // Stable client-generated IDs make patient-list import retry idempotent
+    // when the server commits but its response is lost.
+    this.version(6).stores({
+      patientImportAttempts: 'id, ownerId, fingerprint, createdAt',
+    });
   }
 }
 
@@ -149,7 +165,7 @@ export function decideDataOwnerAction(
   return nextOwnerId === null ? 'clear' : 'clear-and-claim';
 }
 
-const allDataTables = () => [
+const ownerBoundDataTables = () => [
   db.mutations,
   db.patients,
   db.phrases,
@@ -160,7 +176,12 @@ const allDataTables = () => [
   db.todoSnapshots,
 ];
 
-async function clearAllTables(): Promise<void> {
+const allDataTables = () => [
+  ...ownerBoundDataTables(),
+  db.patientImportAttempts,
+];
+
+async function clearOwnerBoundData(): Promise<void> {
   await Promise.all([
     db.mutations.clear(),
     db.patients.clear(),
@@ -170,6 +191,13 @@ async function clearAllTables(): Promise<void> {
     db.roundSessions.clear(),
     db.roundOutbox.clear(),
     db.todoSnapshots.clear(),
+  ]);
+}
+
+async function clearAllTables(): Promise<void> {
+  await Promise.all([
+    clearOwnerBoundData(),
+    db.patientImportAttempts.clear(),
   ]);
 }
 
@@ -186,7 +214,7 @@ export async function transitionDatabaseOwner(
 ): Promise<DataOwnerTransition> {
   await db.open();
 
-  return db.transaction('rw', allDataTables(), async (): Promise<DataOwnerTransition> => {
+  return db.transaction('rw', ownerBoundDataTables(), async (): Promise<DataOwnerTransition> => {
     const ownerRecord = await db.syncMetadata.get(AUTH_OWNER_METADATA_ID);
     const currentOwnerId = ownerRecord?.ownerId ?? null;
     const action = decideDataOwnerAction(currentOwnerId, nextOwnerId);
@@ -195,7 +223,10 @@ export async function transitionDatabaseOwner(
       return 'preserved';
     }
 
-    await clearAllTables();
+    // Retry identities contain no patient content and can represent a server
+    // commit whose response was lost. Retain them across auth transitions so
+    // the original owner can reconcile safely after signing back in.
+    await clearOwnerBoundData();
 
     if (nextOwnerId === null) {
       return 'cleared';
@@ -262,8 +293,9 @@ export async function getDatabaseStats(): Promise<{
   roundSessions: number;
   roundOutbox: number;
   todoSnapshots: number;
+  patientImportAttempts: number;
 }> {
-  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots] = await Promise.all([
+  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots, patientImportAttempts] = await Promise.all([
     db.mutations.count(),
     db.patients.count(),
     db.phrases.count(),
@@ -271,7 +303,8 @@ export async function getDatabaseStats(): Promise<{
     db.roundSessions.count(),
     db.roundOutbox.count(),
     db.todoSnapshots.count(),
+    db.patientImportAttempts.count(),
   ]);
   
-  return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots };
+  return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots, patientImportAttempts };
 }

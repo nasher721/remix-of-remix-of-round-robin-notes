@@ -22,3 +22,21 @@ test('offline storage does not expose a bulk PHI backup import or export API', a
   assert.doesNotMatch(source, /export\s+async\s+function\s+importDatabase\b/);
   assert.doesNotMatch(source, /export\s+async\s+function\s+exportDatabase\b/);
 });
+
+test('auth transitions retain only PHI-free ambiguous import retry identities', async () => {
+  const source = await readFile(fileURLToPath(new URL('./database.ts', import.meta.url)), 'utf8');
+  const ownerTables = source.slice(
+    source.indexOf('const ownerBoundDataTables'),
+    source.indexOf('const allDataTables'),
+  );
+  const transition = source.slice(
+    source.indexOf('export async function transitionDatabaseOwner'),
+    source.indexOf('export async function getDatabaseOwner'),
+  );
+
+  assert.doesNotMatch(ownerTables, /patientImportAttempts/);
+  assert.match(source, /const allDataTables = \(\) => \[[\s\S]*db\.patientImportAttempts/);
+  assert.match(source, /clearAllTables[\s\S]*db\.patientImportAttempts\.clear\(\)/);
+  assert.match(transition, /clearOwnerBoundData\(\)/);
+  assert.doesNotMatch(transition, /clearAllTables\(\)/);
+});

@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import * as React from "react";
 import { renderHook, act } from "@testing-library/react";
@@ -7,17 +7,49 @@ import { defaultSystemsValue, defaultMedicationsValue } from "@/services/patient
 import { AuthProvider } from "@/hooks/useAuth";
 import { usePatientImport } from "@/hooks/patients/usePatientImport";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  setPatientImportAttemptStorageForTests,
+  type PatientImportAttemptStorage,
+} from "@/lib/import/patientImportIdempotency";
 
 const authWrapper = ({ children }: { children: React.ReactNode }) =>
   React.createElement(AuthProvider, null, children);
 
+let restoreAttemptStorage: () => void = () => {};
+
+afterEach(() => {
+  localStorage.clear();
+  restoreAttemptStorage();
+});
+
+function installMemoryAttemptStorage() {
+  const attempts = new Map<string, string[]>();
+  const storage: PatientImportAttemptStorage = {
+    acquire: async (ownerId, fingerprint, patientCount, createPatientIds) => {
+      const key = `${ownerId}:${fingerprint}`;
+      const existing = attempts.get(key);
+      if (existing?.length === patientCount) return [...existing];
+      const patientIds = createPatientIds();
+      attempts.set(key, patientIds);
+      return [...patientIds];
+    },
+    clear: async (ownerId, fingerprint) => {
+      attempts.delete(`${ownerId}:${fingerprint}`);
+    },
+  };
+  restoreAttemptStorage();
+  restoreAttemptStorage = setPatientImportAttemptStorageForTests(storage);
+}
+
 function setupAuthMock() {
+  installMemoryAttemptStorage();
   (globalThis as unknown as { __SUPABASE_AUTH_MOCK__?: { getSession: () => Promise<{ data: { session: { user: { id: string } } }; error: null }> } }).__SUPABASE_AUTH_MOCK__ = {
     getSession: async () => ({ data: { session: { user: { id: "test-user-id" } } }, error: null }),
   };
 }
 
 function setupAuthTransitionMock(initialUserId = "user-a") {
+  installMemoryAttemptStorage();
   let authStateCallback: ((event: string, session: { user: { id: string } }) => void) | undefined;
   (globalThis as unknown as {
     __SUPABASE_AUTH_MOCK__?: {
@@ -85,6 +117,7 @@ function rowFromPayload(payload: Record<string, unknown>, id: string) {
 function installPatientImportSupabaseMock(options: {
   latestPatientNumber?: number;
   conflictNumbers?: number[];
+  commitThenTimeoutOnce?: boolean;
 } = {}) {
   const supabaseWithMutableFrom = supabase as unknown as { from: (table: string) => unknown };
   const originalFrom = supabaseWithMutableFrom.from.bind(supabase);
@@ -92,6 +125,8 @@ function installPatientImportSupabaseMock(options: {
   const insertPayloadBatches: Record<string, unknown>[][] = [];
   const latestNumberSelects: unknown[] = [];
   const conflictedNumbers = new Set(options.conflictNumbers ?? []);
+  const serverRows = new Map<string, ReturnType<typeof rowFromPayload>>();
+  let shouldCommitThenTimeout = options.commitThenTimeoutOnce ?? false;
 
   supabaseWithMutableFrom.from = (table: string) => {
     if (table !== "patients") return originalFrom(table);
@@ -125,6 +160,16 @@ function installPatientImportSupabaseMock(options: {
             query.limitCount = count;
             return result();
           },
+          in(column: string, values: unknown[]) {
+            assert.equal(column, "id");
+            return Promise.resolve({
+              data: values.flatMap((value) => {
+                const row = serverRows.get(String(value));
+                return row ? [row] : [];
+              }),
+              error: null,
+            });
+          },
           then(resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) {
             return result().then(resolve, reject);
           },
@@ -136,10 +181,31 @@ function installPatientImportSupabaseMock(options: {
         insertPayloadBatches.push(payloadBatch);
         insertPayloads.push(...payloadBatch);
         const shouldConflict = payloadBatch.some((payload) => conflictedNumbers.delete(Number(payload.patient_number)));
+        const hasIdConflict = payloadBatch.some((payload) => serverRows.has(String(payload.id)));
 
         return {
           select: () => {
             const selectResult = (async () => {
+              if (shouldCommitThenTimeout) {
+                shouldCommitThenTimeout = false;
+                payloadBatch.forEach((payload) => {
+                  const id = String(payload.id);
+                  serverRows.set(id, rowFromPayload(payload, id));
+                });
+                throw new Error("response lost after commit");
+              }
+
+              if (hasIdConflict) {
+                return {
+                  data: null,
+                  error: {
+                    code: "23505",
+                    details: "Key (id) already exists.",
+                    message: "duplicate key value violates unique constraint patients_pkey",
+                  },
+                };
+              }
+
               if (shouldConflict) {
                 return {
                   data: null,
@@ -151,8 +217,14 @@ function installPatientImportSupabaseMock(options: {
                 };
               }
 
+              const rows = payloadBatch.map((payload) => {
+                const id = String(payload.id ?? `inserted-${payload.patient_number}`);
+                const row = rowFromPayload(payload, id);
+                serverRows.set(id, row);
+                return row;
+              });
               return {
-                data: payloadBatch.map((payload) => rowFromPayload(payload, `inserted-${payload.patient_number}`)),
+                data: rows,
                 error: null,
               };
             })();
@@ -179,6 +251,7 @@ function installPatientImportSupabaseMock(options: {
     insertPayloads,
     insertPayloadBatches,
     latestNumberSelects,
+    serverRows,
     restore() {
       supabaseWithMutableFrom.from = originalFrom;
     },
@@ -394,6 +467,60 @@ test("usePatientImport importPatients preserves patient-number conflict retry wi
     assert.equal(setPatientsCalls, 1, "conflict recovery should still consolidate the cache update");
     assert.deepEqual(cachedPatients.map((patient) => patient.patientNumber), [43, 44]);
     assert.deepEqual(patientsRef.current.map((patient) => patient.patientNumber), [43, 44]);
+  } finally {
+    supabaseMock.restore();
+  }
+});
+
+test("usePatientImport reconciles a committed batch after its response is lost", async () => {
+  setupAuthMock();
+  const supabaseMock = installPatientImportSupabaseMock({ commitThenTimeoutOnce: true });
+  const patientsRef: React.MutableRefObject<Patient[]> = { current: [] };
+  let cachedPatients: Patient[] = [];
+  const setPatients = (action: React.SetStateAction<Patient[]>) => {
+    cachedPatients = typeof action === "function"
+      ? (action as (previous: Patient[]) => Patient[])(cachedPatients)
+      : action;
+  };
+  const rows = [
+    { name: "Ambiguous One", bed: "A1", clinicalSummary: "S1", intervalEvents: "" },
+    { name: "Ambiguous Two", bed: "A2", clinicalSummary: "S2", intervalEvents: "" },
+  ];
+
+  try {
+    const { result } = renderHook(
+      () => usePatientImport({ patientsRef, setPatients }),
+      { wrapper: authWrapper },
+    );
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    let firstFailure: unknown;
+    await act(async () => {
+      try {
+        await result.current.importPatients(rows);
+      } catch (error) {
+        firstFailure = error;
+      }
+    });
+    assert.ok(firstFailure instanceof Error);
+    assert.equal(supabaseMock.serverRows.size, 2, "the simulated server committed the first batch");
+    assert.equal(cachedPatients.length, 0, "the lost response did not update the local roster");
+
+    await act(async () => {
+      await result.current.importPatients(rows);
+    });
+
+    assert.equal(supabaseMock.serverRows.size, 2, "retry must not create duplicate server rows");
+    assert.equal(cachedPatients.length, 2, "retry reconciles the original committed rows");
+    assert.equal(patientsRef.current.length, 2);
+    assert.deepEqual(
+      supabaseMock.insertPayloadBatches[1].map((payload) => payload.id),
+      supabaseMock.insertPayloadBatches[0].map((payload) => payload.id),
+      "retry must reuse the original client-generated IDs",
+    );
+    assert.equal(supabaseMock.latestNumberSelects.length, 0);
   } finally {
     supabaseMock.restore();
   }

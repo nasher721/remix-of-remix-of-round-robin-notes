@@ -53,6 +53,6 @@ test('Todo snapshot storage participates in every auth-boundary purge', () => {
   const source = readFileSync('src/lib/offline/database.ts', 'utf8');
 
   assert.match(source, /version\(5\)\.stores\(\{\s*todoSnapshots:/);
-  assert.match(source, /const allDataTables = \(\) => \[[\s\S]*db\.todoSnapshots/);
-  assert.match(source, /clearAllTables[\s\S]*db\.todoSnapshots\.clear\(\)/);
+  assert.match(source, /const ownerBoundDataTables = \(\) => \[[\s\S]*db\.todoSnapshots/);
+  assert.match(source, /clearOwnerBoundData[\s\S]*db\.todoSnapshots\.clear\(\)/);
 });

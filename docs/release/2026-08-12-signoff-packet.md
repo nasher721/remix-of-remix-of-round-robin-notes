@@ -204,10 +204,10 @@ close. All engineering-controlled items are complete and evidenced below.
   already-open tab requests a previous deployment chunk after hosting cleanup
   returns 404. HTML 404 responses remain authoritative, and the worker cache
   generation is bumped again to distribute the chunk policy.
-- **Authenticated browser gate:** local isolated runs execute all 27 discovered
+- **Authenticated browser gate:** local isolated runs execute all 29 discovered
   scenarios in both Chromium and WebKit with zero skips, including multi-tab conflicts, offline
   queue drain, Round navigation, roster state, and real Excel/PDF downloads.
-  The 2026-08-13 release-candidate run passed **27/27** after the browser suite
+  The 2026-08-13 release-candidate run passed **29/29** after the browser suite
   exposed and engineering fixed a continuity-hydration race that could replace
   navigation performed before the restored Round was ready. Desktop and mobile
   shells now show an accessible restoring state until continuity is hydrated.
@@ -339,6 +339,25 @@ close. All engineering-controlled items are complete and evidenced below.
   collapsing patients or silently losing a duplicate column.
   Direct CSV uploads share the 15 MB spreadsheet limit, and pasted/extracted
   content shares the one-million-character patient-list parsing envelope.
+- **Idempotent patient-list commits:** every import batch receives stable,
+  client-generated patient IDs that are retained only while its outcome is
+  ambiguous. If Supabase commits the batch but its response is lost, retry
+  reconciles those exact owner-scoped rows instead of allocating new patient
+  numbers and duplicating the roster. The retry record contains only a SHA-256
+  content fingerprint, generated IDs, and a timestamp in the existing
+  owner-keyed IndexedDB ledger; it never stores patient content, and confirmed
+  imports remove it immediately. Ambiguous retry identities survive an auth
+  transition so a response-loss race cannot turn into a duplicate when the
+  original owner returns; all clinical caches and drafts are still purged, and
+  another account cannot address the retained owner-keyed record. A full local
+  data clear removes the ledger too. If durable site storage is unavailable,
+  the browser blocks the import before sending rather than permitting an
+  unsafe retry path.
+- **Complete End Round handoff:** End Round Print / Export always receives the
+  full Round patient roster. An unrelated Dashboard search or filter can no
+  longer silently reduce the handoff while the completion summary still shows
+  the full Round count; a regression harness opens the real lazy export dialog
+  and verifies every Round patient is present.
 
 ## 3. Final release gate status (from plan)
 
@@ -346,7 +365,7 @@ close. All engineering-controlled items are complete and evidenced below.
 | --- | --- |
 | CI/deployment workflows green at exact production SHA | PARTIAL — the current candidate is committed locally; it must pass required main-branch CI, deploy, and be verified byte-for-byte before it becomes the production SHA |
 | Backend migration deployed; revision/RLS proven | DONE (2026-08-11, evidence above) |
-| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 27 credentialed scenarios pass locally in Chromium and WebKit, plus the 14-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
+| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 29 credentialed scenarios pass locally in Chromium and WebKit, plus the 14-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
 | Accessibility/responsive validation on representative devices | PARTIAL — automated keyboard/ARIA/320px/390px/44px/200%-text/reduced-motion/dark/overflow checks pass; manual screen-reader and real-device evidence remains open |
 | Runtime audits clean; optional findings removed or time-bounded | DONE — clinical-mcp-server `npm audit` 0 vulns; risk acceptance time-bounded |
 | PHI/provider, telemetry, access-control, legal evidence | OPEN (human) — see section 4 |
@@ -358,7 +377,7 @@ close. All engineering-controlled items are complete and evidenced below.
 1. **Deploy-candidate proof** — configure matching GitHub/Vercel production
    contact, approved privacy notice, inactivity timeout, and approved
    observability destination variables; publish the committed candidate; confirm the
-   required authenticated main-branch CI job runs all 27 tests in Chromium and
+   required authenticated main-branch CI job runs all 29 tests in Chromium and
    WebKit with zero skips,
    deploy the exact SHA, and verify the live frontend asset matches it.
 2. **BAA/DPA and PHI/provider approvals** — evidence items in
@@ -387,7 +406,7 @@ close. All engineering-controlled items are complete and evidenced below.
 8. **E2E credential confirmation** — the workflow now requires
    `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` on main and fails closed without
    them. Both encrypted GitHub secrets are configured and the isolated local
-   production-preview runs pass 27/27 in Chromium and WebKit; confirm the next
+   production-preview runs pass 29/29 in Chromium and WebKit; confirm the next
    main run reproduces both results rather than the former smoke-only coverage.
 
 Read-only GitHub configuration inventory on 2026-08-13 confirms the public
