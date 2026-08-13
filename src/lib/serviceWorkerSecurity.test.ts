@@ -182,7 +182,7 @@ describe("service worker cache policy", () => {
     assert.equal(worker.getClaimCalls(), 1);
     assert.equal(JSON.stringify(worker.clientMessages), JSON.stringify([{
       type: "WORKER_ACTIVATED",
-      version: "v1.0.10",
+      version: "v1.0.11",
     }]));
     assert.deepEqual(worker.deletedCaches, ["dynamic-v1.0.8", "dynamic-v1.0.9"]);
   });
@@ -202,7 +202,7 @@ describe("service worker cache policy", () => {
         "dynamic-v1.0.7",
         "dynamic-v1.0.8",
         "dynamic-v1.0.9",
-        "dynamic-v1.0.10",
+        "dynamic-v1.0.11",
         "api-v1.0.8",
         "images-v1.0.8",
         "static-v1.0.8",
@@ -246,7 +246,7 @@ describe("service worker cache policy", () => {
       initialCacheNames: [
         "dynamic-v1.0.8",
         "dynamic-v1.0.9",
-        "dynamic-v1.0.10",
+        "dynamic-v1.0.11",
       ],
       networkResponse: new Response("missing", { status: 404 }),
     });
@@ -282,7 +282,7 @@ describe("service worker cache policy", () => {
           }),
         }],
       },
-      initialCacheNames: ["dynamic-v1.0.8", "dynamic-v1.0.10"],
+      initialCacheNames: ["dynamic-v1.0.8", "dynamic-v1.0.11"],
     });
     const activate = worker.listeners.get("activate");
     assert.ok(activate, "service worker must register an activate listener");
@@ -306,7 +306,7 @@ describe("service worker cache policy", () => {
           "sw-cache-time": Date.now().toString(),
         },
       }),
-      initialCacheNames: ["dynamic-v1.0.9", "dynamic-v1.0.10"],
+      initialCacheNames: ["dynamic-v1.0.9", "dynamic-v1.0.11"],
       networkResponse: new Response("missing", { status: 404 }),
     });
     const activate = worker.listeners.get("activate");

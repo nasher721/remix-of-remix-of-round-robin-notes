@@ -20,9 +20,21 @@ test("browser and installed-app icons use the Rolling Rounds asset set", () => {
   const desktopDashboard = readFileSync("src/components/dashboard/DesktopDashboard.tsx", "utf8");
   const compactBrandSurfaces = `${landing}\n${mobileHeader}\n${desktopDashboard}`;
   const manifest = JSON.parse(readFileSync("public/manifest.webmanifest", "utf8")) as {
-    icons: Array<{ src: string; sizes: string; type: string }>;
+    id: string;
+    start_url: string;
+    scope: string;
+    display: string;
+    background_color: string;
+    theme_color: string;
+    lang: string;
+    dir: string;
+    orientation: string;
+    categories: string[];
+    prefer_related_applications: boolean;
+    icons: Array<{ src: string; sizes: string; type: string; purpose: string }>;
   };
   const serviceWorker = readFileSync("public/sw.js", "utf8");
+  const themeBootstrap = readFileSync("public/theme-init.js", "utf8");
 
   assert.match(html, /href="\/icons\/favicon-64\.png"/);
   assert.match(html, /href="\/icons\/apple-touch-icon\.png"/);
@@ -34,12 +46,51 @@ test("browser and installed-app icons use the Rolling Rounds asset set", () => {
   assert.match(desktopDashboard, /\/icons\/favicon-64\.png/);
   assert.match(desktopDashboard, /\/icons\/icon-192\.png/);
   assert.doesNotMatch(compactBrandSurfaces, /rolling-rounds-logo\.png/);
-  assert.deepEqual(manifest.icons.map(({ src, sizes, type }) => ({ src, sizes, type })), [
-    { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-    { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+  assert.deepEqual({
+    id: manifest.id,
+    startUrl: manifest.start_url,
+    scope: manifest.scope,
+    display: manifest.display,
+    backgroundColor: manifest.background_color,
+    themeColor: manifest.theme_color,
+    lang: manifest.lang,
+    dir: manifest.dir,
+    orientation: manifest.orientation,
+    categories: manifest.categories,
+    preferRelatedApplications: manifest.prefer_related_applications,
+  }, {
+    id: "/",
+    startUrl: "/",
+    scope: "/",
+    display: "standalone",
+    backgroundColor: "#f8fafc",
+    themeColor: "#135776",
+    lang: "en",
+    dir: "ltr",
+    orientation: "any",
+    categories: ["medical", "productivity"],
+    preferRelatedApplications: false,
+  });
+  assert.deepEqual(manifest.icons.map(({ src, sizes, type, purpose }) => ({ src, sizes, type, purpose })), [
+    { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" },
+    { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
   ]);
   assert.match(serviceWorker, /'\/icons\/favicon-64\.png'/);
   assert.match(serviceWorker, /'\/icons\/icon-192\.png'/);
+  assert.match(serviceWorker, /'\/theme-init\.js'/);
+  assert.match(html, /<meta name="theme-color" content="#f8fafc" \/>/);
+  assert.match(html, /<script src="\/theme-init\.js"><\/script>/);
+  assert.ok(
+    html.indexOf('name="theme-color"') < html.indexOf('src="/theme-init.js"'),
+    "theme metadata must exist before the synchronous first-paint bootstrap",
+  );
+  assert.match(html, /<meta name="mobile-web-app-capable" content="yes" \/>/);
+  assert.match(html, /<meta name="apple-mobile-web-app-capable" content="yes" \/>/);
+  assert.match(html, /<meta name="apple-mobile-web-app-title" content="Rolling Rounds" \/>/);
+  assert.match(themeBootstrap, /window\.localStorage\.getItem\('vite-ui-theme'\)/);
+  assert.match(themeBootstrap, /window\.localStorage\.getItem\('vite-ui-high-contrast'\)/);
+  assert.match(themeBootstrap, /'#f8fafc'/);
+  assert.match(themeBootstrap, /'#0f172a'/);
   assert.doesNotMatch(`${html}\n${JSON.stringify(manifest)}\n${serviceWorker}`, /\/favicon\.ico/);
 
   assert.deepEqual(readPngDimensions("public/icons/favicon-64.png"), { width: 64, height: 64 });

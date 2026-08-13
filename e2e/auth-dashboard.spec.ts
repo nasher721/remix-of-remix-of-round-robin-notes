@@ -115,6 +115,53 @@ test.describe("Auth and dashboard", () => {
     expect(pageErrors).toEqual([]);
   });
 
+  test("saved and system themes are correct before the first painted frame @public", async ({ page }) => {
+    const expectFirstThemeFrame = async (className: "dark" | "light", themeColor: string) => {
+      await expect.poll(() => page.evaluate(() => (
+        window as Window & {
+          __rollingRoundsFirstThemeFrame?: { className: string; themeColor: string | null };
+        }
+      ).__rollingRoundsFirstThemeFrame)).toEqual({ className, themeColor });
+    };
+
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.addInitScript(() => {
+      if (window.localStorage.getItem("rolling-rounds-theme-e2e-seeded") !== "true") {
+        window.localStorage.setItem("vite-ui-theme", "dark");
+        window.localStorage.setItem("rolling-rounds-theme-e2e-seeded", "true");
+      }
+      const observedWindow = window as Window & {
+        __rollingRoundsFirstThemeFrame?: { className: string; themeColor: string | null };
+      };
+      document.addEventListener("DOMContentLoaded", () => {
+        window.requestAnimationFrame(() => {
+          observedWindow.__rollingRoundsFirstThemeFrame = {
+            className: document.documentElement.className,
+            themeColor: document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.content ?? null,
+          };
+        });
+      }, { once: true });
+    });
+
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0f172a");
+    await expectFirstThemeFrame("dark", "#0f172a");
+
+    await page.evaluate(() => window.localStorage.setItem("vite-ui-theme", "system"));
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.reload();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0f172a");
+    await expectFirstThemeFrame("dark", "#0f172a");
+
+    await page.evaluate(() => window.localStorage.setItem("vite-ui-theme", "light"));
+    await page.reload();
+    await expect(page.locator("html")).toHaveClass(/light/);
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#f8fafc");
+    await expectFirstThemeFrame("light", "#f8fafc");
+  });
+
   test("crawl assets publish only canonical public surfaces @public", async ({ request }) => {
     const robotsResponse = await request.get("/robots.txt");
     expect(robotsResponse.ok()).toBe(true);

@@ -14,11 +14,11 @@ npm run test:e2e
 
 Or with UI: `npm run test:e2e:ui`.
 
-Run the public compatibility suite in both Chromium and WebKit. The eight
+Run the public compatibility suite in both Chromium and WebKit. The nine
 checks per browser cover the login and cached-auth bootstrap paths, public
 metadata/contact surfaces, signed-out FHIR recovery, keyboard and responsive
-accessibility, the visible update prompt, and a real three-release service
-worker upgrade with exact old-chunk recovery:
+accessibility, flash-free saved/system theme startup, the visible update prompt,
+and a real three-release service worker upgrade with exact old-chunk recovery:
 
 ```bash
 npm run test:e2e:public
@@ -72,10 +72,10 @@ The **login → dashboard**, **print/export**, **roster sort**, and **Round runn
 
 Prefer putting them in gitignored `.env.local` (loaded by `playwright.config.ts`). Shell exports still override.
 
-If these are not set, authenticated tests are skipped. The three `@public`
+If these are not set, authenticated tests are skipped. The nine `@public`
 scenarios always run in each configured browser.
 
-Main-branch CI sets `E2E_REQUIRE_FULL_SUITE=1` for both 29-test browser suites. In
+Main-branch CI sets `E2E_REQUIRE_FULL_SUITE=1` for both 31-test browser suites. In
 that mode missing credentials, an undersized seeded roster, or any skipped
 Playwright scenario fails the job. Setup and teardown reset the clinical
 summaries for exactly one `E2E Alpha`, `E2E Bravo`, and `E2E Charlie` row plus

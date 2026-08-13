@@ -10,6 +10,8 @@ type ThemeProviderProps = {
 }
 
 const HIGH_CONTRAST_KEY = "vite-ui-high-contrast"
+const LIGHT_THEME_COLOR = "#f8fafc"
+const DARK_THEME_COLOR = "#0f172a"
 
 type ThemeProviderState = {
     theme: Theme
@@ -32,24 +34,40 @@ function getSystemTheme(): "dark" | "light" {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 }
 
+function isTheme(value: string | null): value is Theme {
+    return value === "dark" || value === "light" || value === "system"
+}
+
+function applyResolvedTheme(resolvedTheme: "dark" | "light") {
+    const root = window.document.documentElement
+    const themeColor = window.document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+
+    root.classList.remove("light", "dark")
+    root.classList.add(resolvedTheme)
+    root.style.colorScheme = resolvedTheme
+    themeColor?.setAttribute(
+        "content",
+        resolvedTheme === "dark" ? DARK_THEME_COLOR : LIGHT_THEME_COLOR,
+    )
+}
+
 export function ThemeProvider({
     children,
     defaultTheme = "system",
     storageKey = "vite-ui-theme",
 }: ThemeProviderProps) {
-    const [theme, setTheme] = React.useState<Theme>(
-        () => (safeLocalStorage.getItem(storageKey) as Theme | null) || defaultTheme
-    )
+    const [theme, setTheme] = React.useState<Theme>(() => {
+        const storedTheme = safeLocalStorage.getItem(storageKey)
+        return isTheme(storedTheme) ? storedTheme : defaultTheme
+    })
 
     const [highContrast, setHighContrastState] = React.useState<boolean>(() =>
         safeLocalStorage.getItem(HIGH_CONTRAST_KEY) === "true"
     )
 
-    React.useEffect(() => {
-        const root = window.document.documentElement
-        root.classList.remove("light", "dark")
+    React.useLayoutEffect(() => {
         const resolved = theme === "system" ? getSystemTheme() : theme
-        root.classList.add(resolved)
+        applyResolvedTheme(resolved)
     }, [theme])
 
     React.useEffect(() => {
@@ -62,9 +80,7 @@ export function ThemeProvider({
         if (theme === "system") {
             const mql = window.matchMedia("(prefers-color-scheme: dark)")
             const handler = () => {
-                const root = window.document.documentElement
-                root.classList.remove("light", "dark")
-                root.classList.add(getSystemTheme())
+                applyResolvedTheme(getSystemTheme())
             }
             mql.addEventListener("change", handler)
             return () => mql.removeEventListener("change", handler)

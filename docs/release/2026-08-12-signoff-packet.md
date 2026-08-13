@@ -35,6 +35,15 @@ close. All engineering-controlled items are complete and evidenced below.
   public auth layout at 320px and 200% text scaling, reduced-motion preference,
   dark-theme activation, and horizontal-overflow prevention. Device and
   screen-reader passes remain human gates.
+- **Flash-free page theme and aligned installed-app metadata:** a synchronous,
+  self-hosted first-paint
+  bootstrap applies a validated saved/system preference before content renders,
+  and keeps browser chrome aligned with the light and dark design tokens. The
+  installed-app manifest now declares the canonical app identity, medical and
+  productivity categories, language/direction, and the current brand palette;
+  the bootstrap is precached for offline launches. Production-preview Chromium
+  and WebKit verify dark, system, and explicit-light startup, including the
+  first animation frame.
 - **Security/dependency (Phase 5.3):** risk acceptance
   `docs/security/2026-08-11-optional-dependency-risk-acceptance.md`
   (expires 2026-11-12); SBOM `docs/security/sbom-2026-08-12.cyclonedx.json`;
@@ -382,7 +391,7 @@ close. All engineering-controlled items are complete and evidenced below.
 | --- | --- |
 | CI/deployment workflows green at exact production SHA | PARTIAL — the current candidate is committed locally; it must pass required main-branch CI, deploy, and be verified byte-for-byte before it becomes the production SHA |
 | Backend migration deployed; revision/RLS proven | DONE (2026-08-11, evidence above) |
-| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 44 credentialed browser executions pass locally in Chromium and WebKit, plus the 16-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
+| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 44 credentialed browser executions pass locally in Chromium and WebKit, plus the 18-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
 | Accessibility/responsive validation on representative devices | PARTIAL — automated keyboard/ARIA/320px/390px/44px/200%-text/reduced-motion/dark/overflow checks pass; manual screen-reader and real-device evidence remains open |
 | Runtime audits clean; optional findings removed or time-bounded | DONE — clinical-mcp-server `npm audit` 0 vulns; risk acceptance time-bounded |
 | PHI/provider, telemetry, access-control, legal evidence | OPEN (human) — see section 4 |
@@ -394,7 +403,7 @@ close. All engineering-controlled items are complete and evidenced below.
 1. **Deploy-candidate proof** — configure matching GitHub/Vercel production
    contact, approved privacy notice, inactivity timeout, and approved
    observability destination variables; publish the committed candidate; confirm the
-   required authenticated main-branch CI job runs all 60 public and
+   required authenticated main-branch CI job runs all 62 public and
    credentialed executions in Chromium and WebKit with zero skips,
    deploy the exact SHA, and verify the live frontend asset matches it.
 2. **BAA/DPA and PHI/provider approvals** — evidence items in
@@ -423,7 +432,7 @@ close. All engineering-controlled items are complete and evidenced below.
 8. **E2E credential confirmation** — the workflow now requires
    `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` on main and fails closed without
    them. Both encrypted GitHub secrets are configured and the isolated local
-   production-preview runs pass 44/44 credentialed and 16/16 public executions
+   production-preview runs pass 44/44 credentialed and 18/18 public executions
    in Chromium and WebKit; confirm the next
    main run reproduces both results rather than the former smoke-only coverage.
 

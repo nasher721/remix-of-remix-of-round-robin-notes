@@ -242,25 +242,41 @@ test('theme provider falls back to defaults and in-memory updates when storage m
     },
   };
 
-  await withMockLocalStorage(storage, async () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) =>
-      React.createElement(ThemeProvider, { defaultTheme: 'light', children });
+  const themeColor = document.createElement('meta');
+  themeColor.name = 'theme-color';
+  document.head.append(themeColor);
 
-    const { result } = renderHook(() => useTheme(), { wrapper });
+  try {
+    await withMockLocalStorage(storage, async () => {
+      const wrapper = ({ children }: { children: React.ReactNode }) =>
+        React.createElement(ThemeProvider, { defaultTheme: 'light', children });
 
-    assert.equal(result.current.theme, 'light');
-    assert.equal(result.current.highContrast, false);
+      const { result } = renderHook(() => useTheme(), { wrapper });
 
-    assert.doesNotThrow(() => {
-      act(() => result.current.setTheme('dark'));
+      assert.equal(result.current.theme, 'light');
+      assert.equal(result.current.highContrast, false);
+      assert.equal(document.documentElement.classList.contains('light'), true);
+      assert.equal(document.documentElement.style.colorScheme, 'light');
+      assert.equal(themeColor.content, '#f8fafc');
+
+      assert.doesNotThrow(() => {
+        act(() => result.current.setTheme('dark'));
+      });
+      assert.equal(result.current.theme, 'dark');
+      assert.equal(document.documentElement.classList.contains('dark'), true);
+      assert.equal(document.documentElement.style.colorScheme, 'dark');
+      assert.equal(themeColor.content, '#0f172a');
+
+      assert.doesNotThrow(() => {
+        act(() => result.current.setHighContrast(true));
+      });
+      assert.equal(result.current.highContrast, true);
     });
-    assert.equal(result.current.theme, 'dark');
-
-    assert.doesNotThrow(() => {
-      act(() => result.current.setHighContrast(true));
-    });
-    assert.equal(result.current.highContrast, true);
-  });
+  } finally {
+    themeColor.remove();
+    document.documentElement.classList.remove('light', 'dark', 'high-contrast');
+    document.documentElement.style.removeProperty('color-scheme');
+  }
 });
 
 test('motion preference hook tolerates storage failures for reads and writes', async () => {
