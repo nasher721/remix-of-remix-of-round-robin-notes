@@ -68,11 +68,23 @@ test.describe("Accessibility smoke", () => {
   });
 
   test("mobile Round honors touch, roving-tab, reduced-motion, and overflow contracts", async ({ page }) => {
+    const requestedWorkspaceScripts: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() !== "script") return;
+      const path = new URL(request.url()).pathname;
+      if (/(Mobile|Desktop)(RoundShell|Dashboard)/.test(path)) {
+        requestedWorkspaceScripts.push(path);
+      }
+    });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
     await stubRoundStateWrites(page);
     await loginWithShell(page, { roundRunner: true });
 
+    expect(requestedWorkspaceScripts.some((path) => path.includes("MobileRoundShell"))).toBe(true);
+    expect(requestedWorkspaceScripts.some((path) => (
+      path.includes("DesktopRoundShell") || path.includes("DesktopDashboard")
+    ))).toBe(false);
     expect(await page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(true);
     await expectNoDocumentOverflow(page);

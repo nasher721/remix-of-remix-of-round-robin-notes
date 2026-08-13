@@ -41,20 +41,20 @@ close. All engineering-controlled items are complete and evidenced below.
   bundle reachability assertion wired into CI
   (`scripts/assert-no-optional-native-in-bundle.mjs`).
 - **Bundle budgets (Phase 6):** local release candidate total initial
-  JavaScript is 613,519 bytes, down from 937,658 (35%). The public shell now
+  JavaScript is 614,613 bytes, down from 937,658 (34%). The public shell now
   defers the authenticated provider/state graph, Landing and workspace routes
   are separate chunks, and the EHR callback keeps only a small eager recovery
   shell. Login validation no longer ships the general-purpose Zod runtime for
-  two fields. The application entry is 230,405 bytes with stable React (139,836)
+  two fields. The application entry is 231,499 bytes with stable React (139,836)
   and Supabase (208,548) runtime chunks. CI now enforces 300,000-byte entry,
   750,000-byte total-initial, 160,000-byte React, and 230,000-byte Supabase
   ceilings in `scripts/check-bundle-size.mjs`. Device-specific shells,
   print/export, charts, and AI tools load on demand. Spreadsheet and Word
   parsers load only after a matching file is selected, reducing the normal
-  authenticated shared chunk from 1,285,010 to 294,138 bytes; CI separately
+  authenticated shared chunk from 1,285,010 to 298,078 bytes; CI separately
   budgets the deferred parser chunks. Excel, vector-PDF,
   table-PDF, and HTML-PDF engines now load only after the corresponding export
-  action, reducing the print/export modal from 1,393,480 to 228,850 bytes
+  action, reducing the print/export modal from 1,393,480 to 228,852 bytes
   (84%); CI separately budgets every deferred export engine.
 - **Launch branding:** browser, Apple touch, and 192/512 PWA icons now use a
   compact Rolling Rounds mark instead of the generic scaffold favicon. The
@@ -170,6 +170,16 @@ close. All engineering-controlled items are complete and evidenced below.
   native system font stack, eliminating Google Fonts requests and the related
   external CSP allowances. Production-browser capture shows zero third-party
   origins on the landing page while preserving the approved visual hierarchy.
+- **Viewport-correct first paint:** the mobile breakpoint is resolved from the
+  current viewport during the first browser render instead of coercing an
+  unresolved value to desktop. The workspace keeps its accessible loading shell
+  for the SSR/hydration fallback, so phones never mount or fetch the desktop
+  Round shell before switching to mobile. Hook/source contracts cover the first
+  render and unresolved fallback; the Chromium/WebKit mobile browser scenario
+  also proves the mobile shell loads without requesting either desktop chunk.
+  The deployment variable
+  inventory also names the required 300–3600 second hosted/browser inactivity
+  timeout, preventing an operator-complete setup from failing CI unexpectedly.
 - **Visible production updates:** a newly installed service worker now surfaces
   an accessible in-app refresh prompt instead of writing only to DevTools.
   Clinicians can refresh deliberately or defer it to avoid interrupting an
@@ -189,8 +199,9 @@ close. All engineering-controlled items are complete and evidenced below.
   `main` serializes the complete authenticated Chromium and WebKit suites
   against the dedicated seeded account. WebKit's service-worker navigation
   cannot use Playwright's browser-wide offline transport, so that engine loads
-  the shell with Supabase blocked and asserts zero offline writes; Chromium
-  additionally asserts zero Supabase reads or writes during the offline reload.
+  the shell with Supabase blocked and asserts zero offline clinical-data
+  writes; Chromium additionally asserts zero Supabase reads or writes during
+  the offline reload.
   Multi-tab coverage additionally counts patient requests: the first stale
   revision now blocks every keystroke already queued behind it, so one stale
   input burst produces one patient `PATCH` in unit coverage; Chromium and
@@ -219,7 +230,12 @@ close. All engineering-controlled items are complete and evidenced below.
   coalesce to the latest value, and `Offline queued` appears only after that
   latest value is stored. The credentialed browser scenario asserts zero
   patient `PATCH` attempts while offline before reconnecting and verifying the
-  exactly-once persisted result.
+  exactly-once persisted result. The shared Todo map now also maintains an
+  atomic owner-scoped IndexedDB snapshot. A cold offline reload overlays queued
+  create/update/delete mutations on that snapshot before publishing dashboard
+  context, so End Round counts and Print / Export cannot silently omit locally
+  available tasks. The snapshot is purged in the same transactional auth-owner
+  boundary as the roster and mutation queue.
 - **Fail-safe Round completion:** Done and Mark Complete now consider the Round
   continuity outbox, patient chart saves, and the shared patient/Todo queue.
   End review and Print / Export remain accessible while unresolved work blocks

@@ -266,6 +266,26 @@ test.describe("Data integrity", () => {
         .map((record) => `${record.status ?? "pending"}:${record.retryCount ?? 0}`);
     }, content);
 
+    const readTodoSnapshotContents = () => page.evaluate(async () => {
+      const snapshot = await new Promise<{ data?: Record<string, Array<{ content?: string }>> } | undefined>(
+        (resolve, reject) => {
+          const request = indexedDB.open("RoundRobinNotesDB");
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            const database = request.result;
+            const transaction = database.transaction("todoSnapshots", "readonly");
+            const get = transaction.objectStore("todoSnapshots").get("__patient_todo_snapshot__");
+            get.onerror = () => reject(get.error);
+            get.onsuccess = () => resolve(get.result);
+          };
+        },
+      );
+      return Object.values(snapshot?.data ?? {})
+        .flat()
+        .map((todo) => todo.content)
+        .filter((content): content is string => typeof content === "string");
+    });
+
     const openPatientTasks = async () => {
       await selectClassicPatient(page, DATA_PATIENT_NAME);
       const trigger = page.getByRole("button", {
@@ -305,6 +325,7 @@ test.describe("Data integrity", () => {
       expect(await readQueuedTodoStates()).toEqual(["pending:0"]);
       await expect(page.getByText(todoStamp, { exact: true })).toBeVisible();
       await expect(page.getByText("Queued", { exact: true })).toBeVisible();
+      await expect.poll(readTodoSnapshotContents).toContain(todoStamp);
 
       // WebKit currently raises an internal navigation error when Playwright's
       // browser-wide offline transport is combined with a service-worker
@@ -343,18 +364,24 @@ test.describe("Data integrity", () => {
       // sticky connectivity signal for new writes and edits after that reload.
       await openPatientTasks();
       await expect(page.getByText(todoStamp, { exact: true })).toBeVisible();
+      await expect.poll(readTodoSnapshotContents).toContain(todoStamp);
       await page.getByRole("textbox", { name: "New todo" }).fill(reloadTodoStamp);
       await page.getByRole("textbox", { name: "New todo" }).press("Enter");
       await expect(page.getByText(reloadTodoStamp, { exact: true })).toBeVisible();
       expect(await readQueuedTodoStates(reloadTodoStamp)).toEqual(["pending:0"]);
       await page.getByRole("checkbox", { name: `Mark todo complete: ${todoStamp}` }).click();
       await expect(page.getByRole("checkbox", { name: `Mark todo incomplete: ${todoStamp}` })).toBeVisible();
+      const isClinicalMutation = (request: string) => (
+        /^(POST|PATCH|PUT|DELETE) \/(rest\/v1|functions\/v1)\/(patients|patient_todos|round_state|patient_field_history)(?:\/|$)/
+          .test(request)
+      );
       const unexpectedOfflineRequests = browserName === "webkit"
         // Re-enabling WebKit's transport for the service-worker navigation can
-        // start one blocked roster read in the old document. The release
-        // invariant is that accepted offline edits never attempt a remote
-        // write; Chromium retains the stricter zero-request assertion.
-        ? offlineSupabaseRequests.filter((request) => !request.startsWith("GET "))
+        // start blocked reads and PHI-free telemetry in the old document. The
+        // release invariant is that accepted offline edits never attempt a
+        // remote clinical-data write; Chromium retains the stricter
+        // zero-request assertion.
+        ? offlineSupabaseRequests.filter(isClinicalMutation)
         : offlineSupabaseRequests;
       expect(
         unexpectedOfflineRequests,

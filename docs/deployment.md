@@ -59,6 +59,7 @@ CI production builds are intentionally independent of local `.env` files.
 | `PRODUCTION_CONTACT_EMAIL` | CI builds | Required public operator/contact address; builds reject missing, malformed, or example-domain values |
 | `PRODUCTION_PRIVACY_NOTICE_URL` | CI builds | Required HTTPS URL of the operator- and counsel-approved privacy notice |
 | `PRODUCTION_APP_URL` | CI builds + deploy + monitor | Canonical HTTPS production origin mapped to `VITE_PUBLIC_APP_URL`, release verification, and synthetic monitoring |
+| `PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS` | CI builds + deploy | Required whole-second inactivity timeout from 300–3600; deploy applies the same value to hosted Auth and the browser session boundary |
 | `VITE_APPROVED_OAUTH_PROVIDERS` | CI builds (optional) | Comma-separated `google`, `apple`, or both; absent means password-only sign-in |
 | `PRODUCTION_SENTRY_DSN` | CI builds + monitor (one sink required) | Hosted Sentry DSN permitted by the production CSP |
 | `PRODUCTION_TELEMETRY_INGEST_URL` | CI builds + monitor (one sink required) | Bundled endpoint: `https://<SUPABASE_PROJECT_ID>.supabase.co/functions/v1/telemetry` after operator approval |

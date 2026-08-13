@@ -6,6 +6,11 @@ import { CACHE_CONFIG, QUERY_KEYS } from '@/lib/cache/cacheConfig';
 import { PatientTodo } from '@/types/todo';
 import { indexedDBQueue } from '@/lib/offline/indexedDBQueue';
 import { applyQueuedTodoMutations } from '@/hooks/usePatientTodos';
+import {
+  readPatientTodoSnapshot,
+  writePatientTodoSnapshot,
+} from '@/lib/offline/patientTodoSnapshot';
+import { isBrowserKnownOffline } from '@/lib/networkConnectivity';
 
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
@@ -35,16 +40,56 @@ function mapTodoRow(todo: PatientTodoRow): PatientTodo {
   };
 }
 
+function emptyTodosMap(patientIds: readonly string[]): PatientTodosMap {
+  return Object.fromEntries(patientIds.map((patientId) => [patientId, []]));
+}
+
+export function applyQueuedTodoMap(
+  baseMap: PatientTodosMap | null,
+  queue: Awaited<ReturnType<typeof indexedDBQueue.getQueue>>,
+  ownerId: string,
+  patientIds: readonly string[],
+): PatientTodosMap {
+  const grouped = emptyTodosMap(patientIds);
+  patientIds.forEach((patientId) => {
+    const safeBase = (baseMap?.[patientId] ?? []).filter((todo) => (
+      todo.userId === ownerId && todo.patientId === patientId
+    ));
+    grouped[patientId] = applyQueuedTodoMutations(
+      safeBase,
+      queue,
+      ownerId,
+      patientId,
+    );
+  });
+  return grouped;
+}
+
+async function readOfflineTodoMap(
+  ownerId: string,
+  patientIds: readonly string[],
+  isOwnerActive: () => boolean,
+): Promise<PatientTodosMap> {
+  const [snapshot, queue] = await Promise.all([
+    readPatientTodoSnapshot(ownerId),
+    indexedDBQueue.getQueue(),
+  ]);
+  if (!isOwnerActive()) return emptyTodosMap(patientIds);
+  return applyQueuedTodoMap(snapshot, queue, ownerId, patientIds);
+}
+
 async function fetchTodosForPatients(
   ownerId: string,
   patientIds: string[],
   isOwnerActive: () => boolean,
 ): Promise<PatientTodosMap> {
-  const grouped: PatientTodosMap = {};
-  patientIds.forEach(id => { grouped[id] = []; });
+  const grouped = emptyTodosMap(patientIds);
 
-  if (patientIds.length === 0 || !hasSupabaseConfig) {
+  if (patientIds.length === 0) {
     return grouped;
+  }
+  if (!hasSupabaseConfig || isBrowserKnownOffline()) {
+    return readOfflineTodoMap(ownerId, patientIds, isOwnerActive);
   }
 
   const { data, error } = await supabase
@@ -55,7 +100,12 @@ async function fetchTodosForPatients(
     .order('created_at', { ascending: false });
 
   if (!isOwnerActive()) return grouped;
-  if (error) throw error;
+  if (error) {
+    if (isBrowserKnownOffline()) {
+      return readOfflineTodoMap(ownerId, patientIds, isOwnerActive);
+    }
+    throw error;
+  }
 
   const requestedPatientIds = new Set(patientIds);
   data?.forEach(todo => {
@@ -66,16 +116,10 @@ async function fetchTodosForPatients(
 
   const queue = await indexedDBQueue.getQueue();
   if (!isOwnerActive()) return grouped;
-  patientIds.forEach((patientId) => {
-    grouped[patientId] = applyQueuedTodoMutations(
-      grouped[patientId] ?? [],
-      queue,
-      ownerId,
-      patientId,
-    );
-  });
+  const resolved = applyQueuedTodoMap(grouped, queue, ownerId, patientIds);
+  await writePatientTodoSnapshot(ownerId, resolved);
 
-  return grouped;
+  return resolved;
 }
 
 export function useAllPatientTodos(patientIds: string[]) {
@@ -113,11 +157,15 @@ export function useAllPatientTodos(patientIds: string[]) {
     gcTime: CACHE_CONFIG.queries.todos,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
-    retry: 2,
+    refetchOnReconnect: 'always',
+    networkMode: 'always',
+    retry: (failureCount) => !isBrowserKnownOffline() && failureCount < 2,
   });
 
   useEffect(() => {
     if (!ownerId || activeOwnerRef.current !== ownerId || !query.data) return;
+
+    void writePatientTodoSnapshot(ownerId, query.data);
 
     Object.entries(query.data).forEach(([patientId, todos]) => {
       if (todos.some((todo) => todo.userId !== ownerId)) return;

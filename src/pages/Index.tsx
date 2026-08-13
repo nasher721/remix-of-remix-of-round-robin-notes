@@ -130,7 +130,7 @@ function IndexContent(): React.ReactElement | null {
   }, [user?.id]);
 
   React.useEffect(() => {
-    if (isMobile) return;
+    if (isMobile !== false) return;
     if (filteredPatients.length === 0) {
       setDesktopSelectedPatientId(null);
       return;
@@ -152,6 +152,7 @@ function IndexContent(): React.ReactElement | null {
 
   // IBCC context: mobile uses selected patient; desktop uses two-pane selection
   const currentPatient = React.useMemo(() => {
+    if (isMobile === undefined) return undefined;
     if (isMobile && selectedPatient) return selectedPatient;
     if (!isMobile && filteredPatients.length > 0) {
       const picked = desktopSelectedPatientId
@@ -295,7 +296,7 @@ function IndexContent(): React.ReactElement | null {
     patientSaveStates,
   ]);
 
-  if (authLoading || patientsLoading) {
+  if (authLoading || patientsLoading || isMobile === undefined) {
     return (
       <div
         className="min-h-screen bg-background"

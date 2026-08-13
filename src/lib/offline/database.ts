@@ -10,6 +10,7 @@
  * - syncMetadata: Track last sync timestamps and conflict state
  * - roundSessions: Today’s Round continuity cache (position, filters, drafts)
  * - roundOutbox: Round state + chart draft outbox for reconnect drain
+ * - todoSnapshots: Owner-scoped Todo map for cold offline review/export
  */
 
 import Dexie, { type EntityTable } from 'dexie';
@@ -74,6 +75,13 @@ export interface SyncMetadata {
   ownerId?: string;
 }
 
+export interface CachedTodoSnapshot {
+  id: string;
+  ownerId: string;
+  data: Record<string, unknown>;
+  cachedAt: number;
+}
+
 export type { CachedRoundSession, RoundOutboxEntry };
 
 // ============================================
@@ -88,6 +96,7 @@ class RoundRobinDatabase extends Dexie {
   syncMetadata!: EntityTable<SyncMetadata, 'id'>;
   roundSessions!: EntityTable<CachedRoundSession, 'id'>;
   roundOutbox!: EntityTable<RoundOutboxEntry, 'id'>;
+  todoSnapshots!: EntityTable<CachedTodoSnapshot, 'id'>;
 
   constructor() {
     super('RoundRobinNotesDB');
@@ -111,6 +120,12 @@ class RoundRobinDatabase extends Dexie {
     this.version(4).stores({
       roundSessions: 'id, userId, lastModified, syncStatus',
       roundOutbox: 'id, ownerId, kind, entityKey, timestamp, status, [kind+entityKey]',
+    });
+
+    // Owner-scoped Todo snapshot used by End Round and print/export after a
+    // cold offline reload. Pending mutations remain in the separate queue.
+    this.version(5).stores({
+      todoSnapshots: 'id, ownerId, cachedAt',
     });
   }
 }
@@ -142,6 +157,7 @@ const allDataTables = () => [
   db.syncMetadata,
   db.roundSessions,
   db.roundOutbox,
+  db.todoSnapshots,
 ];
 
 async function clearAllTables(): Promise<void> {
@@ -153,6 +169,7 @@ async function clearAllTables(): Promise<void> {
     db.syncMetadata.clear(),
     db.roundSessions.clear(),
     db.roundOutbox.clear(),
+    db.todoSnapshots.clear(),
   ]);
 }
 
@@ -244,15 +261,17 @@ export async function getDatabaseStats(): Promise<{
   guidelines: number;
   roundSessions: number;
   roundOutbox: number;
+  todoSnapshots: number;
 }> {
-  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox] = await Promise.all([
+  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots] = await Promise.all([
     db.mutations.count(),
     db.patients.count(),
     db.phrases.count(),
     db.guidelines.count(),
     db.roundSessions.count(),
     db.roundOutbox.count(),
+    db.todoSnapshots.count(),
   ]);
   
-  return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox };
+  return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots };
 }
