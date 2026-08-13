@@ -312,8 +312,69 @@ import { usePatients } from "@/hooks/usePatients";
 ## Testing
 
 - Uses Node.js native test runner with a custom TypeScript loader (`scripts/ts-loader.mjs`)
-- Test files: `src/services/__tests__/` (minimal coverage currently)
+- Test files are colocated across `src/**/*.test.ts(x)`; Playwright release scenarios live in `e2e/`
 - Run with: `npm test`
+
+## Release Hardening Playbooks
+
+### Theme startup without first-paint flash
+
+**Context**: Saved/system theme must be correct before React mounts, including hardened browsers where Web Storage throws.
+
+**Pattern**:
+
+- Keep `public/theme-init.js` parser-blocking and self-hosted after the default `theme-color` meta; inline bootstrap code violates the production CSP.
+- Accept only `light`, `dark`, or `system`, catch storage failures, and apply the resolved root class, `color-scheme`, high-contrast class, and fixed theme-color token before first paint.
+- Keep bootstrap tokens synchronized with `ThemeProvider`, `manifest.webmanifest`, and service-worker precaching. Verify the first animation frame—not only the final DOM—in production-preview Chromium and WebKit.
+
+**Avoid**: Applying initial theme only in a React passive effect; it produces a visible incorrect frame.
+
+**Confidence**: High — browser timing probes and cross-engine first-frame tests, 2026-08-13.
+
+### Safe retained-chunk recovery across deployments
+
+**Context**: An open tab may request an old hashed lazy chunk after a deploy, during an outage, or after a Vercel SPA rewrite returns `index.html` with HTTP 200.
+
+**Pattern**:
+
+- Apply retained fallback only to same-origin `/assets/*.(js|mjs|css)` requests after cross-origin, authenticated, Supabase, and sensitive-request exclusions.
+- Validate JavaScript/CSS MIME types before caching or serving; status alone is insufficient because missing assets can resolve to `200 text/html`.
+- Search retained dynamic generations by exact request URL and bounded TTL on non-OK responses, invalid MIME, and rejected network fetches. Keep HTML navigation fallback separate and authoritative 4xx responses visible.
+- Exercise real worker A→B→C activation in Chromium and WebKit, including 404, HTML rewrite, rejected-network, unrelated-URL, and expiry cases.
+
+**Avoid**: Unconditional `skipWaiting`, deleting all prior dynamic generations, or treating any successful response as executable code.
+
+**Confidence**: High — VM policy harness plus real cross-browser service-worker lifecycle, 2026-08-13.
+
+### Deliberate PWA activation during clinical work
+
+**Context**: Updating one tab claims sibling tabs that may still be running old code and editing notes.
+
+**Pattern**: Keep new workers waiting until explicit **Refresh now**, require both `controllerchange` and the fixed `WORKER_ACTIVATED` message before reload, and allow **Later** to preserve the incumbent session. Retain every fresh dynamic generation needed by suspended sibling tabs within the recovery TTL.
+
+**Avoid**: Reloading on install or reporting success before activation cleanup and controller handoff finish.
+
+**Confidence**: High — prompt contracts, multi-generation cache tests, and cross-browser upgrade harness, 2026-08-13.
+
+### Offline truth must reach completion and export
+
+**Context**: Round Focus, End Round, print/export, and cold reload must agree while server reads fail or queued mutations remain pending.
+
+**Pattern**: Build shared roster/Todo reads from owner-scoped durable snapshots overlaid with pending IndexedDB mutations. On backend errors—even when `navigator.onLine` is true—show stale local truth for recovery/export, mark it unverified, retry verification, and block irreversible Round completion until the server is authoritative.
+
+**Avoid**: Applying queue overlays only inside the focused-patient hook or returning an empty map after a failed server read; both silently omit clinical work from End Round/export.
+
+**Confidence**: High — cold-reload, transient-failure, completion-guard, and export regression coverage, 2026-08-13.
+
+### Patient-list import idempotency
+
+**Context**: A bulk insert may commit server-side while its response is lost, making a clinician retry ambiguous.
+
+**Pattern**: Atomically persist a PHI-free owner-plus-roster-fingerprint attempt record with stable client patient IDs in IndexedDB before sending. Hold the owner-transition barrier through write/reconciliation, reconcile only owner-filtered IDs, retain retry identities across normal owner transitions, and delete them only during full local-data clear.
+
+**Avoid**: Patient-number-only retry logic, per-tab/localStorage records, silent age/count eviction, or clearing pending attempt IDs on sign-out; each can duplicate a committed roster.
+
+**Confidence**: High — commit-then-timeout, concurrent acquisition, owner-transition, and durable-storage tests, 2026-08-13.
 
 ## Key Features (for context)
 
