@@ -248,8 +248,8 @@ describe('Supabase deployment workflow', () => {
 
     assert.match(workflow, /VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/)
     assert.match(workflow, /VITE_SUPABASE_PUBLISHABLE_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/)
-    assert.equal((workflow.match(/VITE_SUPABASE_URL:/g) ?? []).length, 2)
-    assert.equal((workflow.match(/VITE_SUPABASE_PUBLISHABLE_KEY:/g) ?? []).length, 2)
+    assert.equal((workflow.match(/VITE_SUPABASE_URL:/g) ?? []).length, 4)
+    assert.equal((workflow.match(/VITE_SUPABASE_PUBLISHABLE_KEY:/g) ?? []).length, 4)
     assert.match(gitignore, /^\.env$/m)
   })
 
@@ -298,6 +298,8 @@ describe('Supabase deployment workflow', () => {
     assert.match(workflow, /run: npm run test:e2e:webkit\n/)
     assert.equal((workflow.match(/E2E_USE_PREVIEW: "1"/g) ?? []).length, 3)
     assert.equal((workflow.match(/E2E_REQUIRE_FULL_SUITE: "1"/g) ?? []).length, 2)
+    assert.equal((workflow.match(/VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/g) ?? []).length, 4)
+    assert.equal((workflow.match(/VITE_SUPABASE_PUBLISHABLE_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/g) ?? []).length, 4)
     assert.match(workflow, /group: e2e-shared-account/)
     assert.doesNotMatch(workflow, /test:e2e:webkit -- --grep/)
     assert.match(packageJson.scripts['test:e2e:public'], /--grep "@public"/)
