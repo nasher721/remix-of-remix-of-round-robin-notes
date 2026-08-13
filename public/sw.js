@@ -1,12 +1,13 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.9';
+const CACHE_VERSION = 'v1.0.10';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
 
 // Cache TTL configurations (in milliseconds)
 const CACHE_TTL = {
+  dynamic: 24 * 60 * 60 * 1000, // 24 hours
   images: 24 * 60 * 60 * 1000, // 24 hours
   static: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
@@ -55,38 +56,33 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   console.log('[SW] Activating service worker...');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(async (cacheNames) => {
       // A Refresh now action in one tab claims every same-origin tab. Keep the
-      // immediately previous dynamic generation so a sibling still executing
-      // the previous app can resolve its exact lazy chunk after deployment.
-      // Older generations are no longer needed because updates activate in
-      // sequence, and every API cache remains unconditionally disposable.
-      const previousDynamicCache = cacheNames
-        .filter((name) => name.startsWith('dynamic-') && name !== DYNAMIC_CACHE)
-        .at(-1);
-      return Promise.all(
-        cacheNames
-          .filter((name) => {
-            return name.startsWith('static-') ||
-                   name.startsWith('dynamic-') ||
-                   name.startsWith('api-') ||
-                   name.startsWith('images-');
-          })
-          .filter((name) => {
-            // API caches from older workers may contain PHI. There is no active
-            // API cache, so every api-* cache is always removed.
-            return name.startsWith('api-') ||
-                   (name.startsWith('dynamic-') && name !== DYNAMIC_CACHE && name !== previousDynamicCache) ||
-                   (name !== STATIC_CACHE &&
-                   !name.startsWith('dynamic-') &&
-                   name !== DYNAMIC_CACHE &&
-                   name !== IMAGE_CACHE);
-          })
-          .map((name) => {
-            console.log('[SW] Deleting old cache:', name);
-            return caches.delete(name);
-          })
-      );
+      // fresh exact hashed chunks for every retained generation. This also
+      // covers a suspended sibling that spans two rapid deployments. Empty or
+      // expired generations are removed; API caches remain unconditional.
+      const managedCaches = cacheNames.filter((name) => {
+        return name.startsWith('static-') ||
+               name.startsWith('dynamic-') ||
+               name.startsWith('api-') ||
+               name.startsWith('images-');
+      });
+      return Promise.all(managedCaches.map(async (name) => {
+        let shouldDelete = name.startsWith('api-') ||
+          (name !== STATIC_CACHE &&
+           !name.startsWith('dynamic-') &&
+           name !== IMAGE_CACHE);
+
+        if (name.startsWith('dynamic-') && name !== DYNAMIC_CACHE) {
+          shouldDelete = !(await hasFreshVersionedAssets(name, CACHE_TTL.dynamic));
+        } else if (name === DYNAMIC_CACHE) {
+          shouldDelete = false;
+        }
+
+        if (!shouldDelete) return false;
+        console.log('[SW] Deleting old cache:', name);
+        return caches.delete(name);
+      }));
     }).then(async () => {
       // Clear stale dynamic cache entries on activation
       // This ensures old hashed chunks don't cause "Failed to fetch dynamically imported module" errors
@@ -132,12 +128,12 @@ self.addEventListener('fetch', (event) => {
   // Caching HTML with a SW can easily cause "Failed to fetch dynamically imported module"
   // after a deployment when the cached HTML points at old hashed chunk filenames.
   if (request.mode === 'navigate' || isHtmlRequest(request)) {
-    event.respondWith(networkFirstWithCache(request, DYNAMIC_CACHE, 24 * 60 * 60 * 1000));
+    event.respondWith(networkFirstWithCache(request, DYNAMIC_CACHE, CACHE_TTL.dynamic));
     return;
   }
 
   if (url.pathname.startsWith('/assets/') && /\.(js|mjs|css)$/i.test(url.pathname)) {
-    event.respondWith(networkFirstWithJsRetry(request, DYNAMIC_CACHE, 24 * 60 * 60 * 1000));
+    event.respondWith(networkFirstWithJsRetry(request, DYNAMIC_CACHE, CACHE_TTL.dynamic));
     return;
   }
 
@@ -187,11 +183,11 @@ async function networkFirstWithJsRetry(request, cacheName, ttl) {
       // host has removed it. Prefer the exact cached URL when available; this
       // never applies to HTML or unversioned responses.
       const cachedResponse = await getCachedResponse(request, cacheName, ttl);
-      const previousGenerationResponse = cachedResponse ??
-        await getPreviousDynamicResponse(request, cacheName, ttl);
-      if (previousGenerationResponse) {
+      const retainedGenerationResponse = cachedResponse ??
+        await getRetainedDynamicResponse(request, cacheName, ttl);
+      if (retainedGenerationResponse) {
         performanceMetrics.cacheHits++;
-        return previousGenerationResponse;
+        return retainedGenerationResponse;
       }
     }
     return response;
@@ -212,13 +208,35 @@ async function networkFirstWithJsRetry(request, cacheName, ttl) {
   }
 }
 
-async function getPreviousDynamicResponse(request, currentCacheName, ttl) {
+async function getRetainedDynamicResponse(request, currentCacheName, ttl) {
   const cacheNames = await caches.keys();
-  const previousCacheName = cacheNames
+  const retainedCacheNames = cacheNames
     .filter((name) => name.startsWith('dynamic-') && name !== currentCacheName)
-    .at(-1);
-  if (!previousCacheName) return null;
-  return getCachedResponse(request, previousCacheName, ttl);
+    .reverse();
+  for (const cacheName of retainedCacheNames) {
+    const response = await getCachedResponse(request, cacheName, ttl);
+    if (response) return response;
+  }
+  return null;
+}
+
+async function hasFreshVersionedAssets(cacheName, ttl) {
+  const cache = await caches.open(cacheName);
+  const requests = await cache.keys();
+  for (const request of requests) {
+    const url = new URL(request.url);
+    if (url.origin !== self.location.origin ||
+        !url.pathname.startsWith('/assets/') ||
+        !/\.(js|mjs|css)$/i.test(url.pathname)) {
+      continue;
+    }
+    const response = await cache.match(request);
+    const cachedAt = Number(response?.headers.get('sw-cache-time'));
+    if (response && Number.isFinite(cachedAt) && Date.now() - cachedAt <= ttl) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // Network First with Cache Fallback (for navigations and versioned assets)

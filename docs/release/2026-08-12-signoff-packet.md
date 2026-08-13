@@ -198,12 +198,15 @@ close. All engineering-controlled items are complete and evidenced below.
   hashed-chunk cache for the open session. `Refresh now` explicitly activates
   the waiting worker, waits for it to control the page, and only then reloads;
   an activation failure stays visible instead of pretending the update landed.
-  Because activation claims sibling tabs, the worker retains exactly the
-  immediately previous dynamic-cache generation so a sibling still executing
-  the prior app can resolve its exact lazy chunks; older dynamic generations,
-  all API caches, and obsolete static/image caches are deleted. Chromium/WebKit,
+  Because activation claims sibling tabs, the worker retains every dynamic
+  generation that still contains a fresh, exact hashed script/style asset for
+  the 24-hour recovery window. This covers suspended tabs spanning rapid
+  consecutive deployments without making retained HTML authoritative. Empty
+  or expired dynamic generations, all API caches, and obsolete static/image
+  caches are deleted. Chromium/WebKit,
   component contracts, and executable single- plus multi-client lifecycle
-  harnesses cover deferral, explicit activation, sibling-tab chunk safety, and
+  harnesses cover deferral, explicit activation, one- and two-release sibling-
+  tab chunk safety, bounded expiry, and
   the case where another tab activates first: its already-activated worker is
   treated as reload-ready instead of timing out on a second activation request.
 - **Resilient installed-app navigation:** a fresh cached app shell now covers
