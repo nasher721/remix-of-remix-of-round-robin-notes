@@ -68,10 +68,15 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: [
-    ["html"],
-    ["./e2e/no-skipped-reporter.ts"],
-  ],
+  reporter: process.env.CI
+    ? [
+        ["github"],
+        ["./e2e/no-skipped-reporter.ts"],
+      ]
+    : [
+        ["html"],
+        ["./e2e/no-skipped-reporter.ts"],
+      ],
   use: {
     baseURL: e2eBaseURL,
     trace: "on-first-retry",
