@@ -317,6 +317,16 @@ import { usePatients } from "@/hooks/usePatients";
 
 ## Release Hardening Playbooks
 
+### Prelaunch public configuration contracts
+
+**Context**: Contact and privacy details may be intentionally absent during a prelaunch deployment, but production must never invent placeholder operator details.
+
+**Pattern**: Treat configured launch state and explicit unconfigured prelaunch state as separate valid contracts. Hide contact actions and omit privacy crawl links when values are absent, render an honest prelaunch notice, and make production-preview E2E validate both branches. Before market launch, provision and verify the approved contact email and privacy-notice URL.
+
+**Avoid**: Hard-coding fallback addresses/URLs or writing browser tests that always require launch-only metadata; both either publish false information or block an intentional prelaunch build.
+
+**Confidence**: High — production-preview Chromium failure and corrected dual-state browser coverage, 2026-08-13.
+
 ### Theme startup without first-paint flash
 
 **Context**: Saved/system theme must be correct before React mounts, including hardened browsers where Web Storage throws.

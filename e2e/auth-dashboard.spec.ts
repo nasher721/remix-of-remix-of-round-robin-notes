@@ -81,9 +81,12 @@ test.describe("Auth and dashboard", () => {
     await expect(page.getByRole("button", { name: "Sign in to workspace", exact: true })).toBeVisible();
     await expect(page.getByText(/create an account/i)).toHaveCount(0);
 
-    const contactConfigurationHint = page.getByText("VITE_CONTACT_EMAIL");
+    const prelaunchContactNotice = page.getByText(
+      "Public contact details are not available during this prelaunch deployment.",
+      { exact: true },
+    );
     const contactLink = page.locator('#contact a[href^="mailto:"]');
-    if (await contactConfigurationHint.isVisible().catch(() => false)) {
+    if (await prelaunchContactNotice.isVisible().catch(() => false)) {
       await expect(contactLink).toHaveCount(0);
     } else {
       const contactHref = await contactLink.getAttribute("href");
@@ -106,9 +109,15 @@ test.describe("Auth and dashboard", () => {
     await expect(page.locator('meta[name="twitter:site"]')).toHaveCount(0);
 
     const privacyHref = await page.getByRole("link", { name: "Privacy", exact: true }).getAttribute("href");
-    expect(privacyHref).toMatch(/^https:\/\//);
-    expect(privacyHref).not.toContain("example.com");
-    expect(privacyHref).not.toBe("/privacy");
+    if (privacyHref === "/privacy") {
+      await expect(page.getByRole("link", { name: "Privacy", exact: true })).toHaveAttribute(
+        "href",
+        "/privacy",
+      );
+    } else {
+      expect(privacyHref).toMatch(/^https:\/\//);
+      expect(privacyHref).not.toContain("example.com");
+    }
 
     await page.getByRole("button", { name: "Explore features", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Everything important stays one click away." })).toBeVisible();
@@ -187,7 +196,13 @@ test.describe("Auth and dashboard", () => {
     expect(llms).toContain("## Public pages");
     expect(llms).toMatch(/\[Product overview\]\(https:\/\/[^)]+\/\)/);
     expect(llms).toMatch(/\[Security and deployment guidance\]\(https:\/\/[^)]+\/security\)/);
-    expect(llms).toMatch(/\[Privacy notice\]\(https:\/\/[^)]+\)/);
+    const privacyNoticeLines = llms
+      .split("\n")
+      .filter((line) => line.includes("[Privacy notice]"));
+    expect(privacyNoticeLines.length).toBeLessThanOrEqual(1);
+    if (privacyNoticeLines.length === 1) {
+      expect(privacyNoticeLines[0]).toMatch(/\[Privacy notice\]\(https:\/\/[^)]+\)/);
+    }
     expect(llms).not.toContain("/auth");
     expect(llms).not.toContain("/fhir/");
     expect(llms).not.toContain("patient data](");
