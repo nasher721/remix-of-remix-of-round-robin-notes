@@ -200,6 +200,10 @@ close. All engineering-controlled items are complete and evidenced below.
   entries remain bounded by the existing 24-hour navigation TTL. The worker
   cache generation is bumped so previously installed clients adopt the policy;
   an executable worker harness covers both 503 recovery and 404 pass-through.
+  Exact cached hashed JavaScript URLs also bridge the narrow interval where an
+  already-open tab requests a previous deployment chunk after hosting cleanup
+  returns 404. HTML 404 responses remain authoritative, and the worker cache
+  generation is bumped again to distribute the chunk policy.
 - **Authenticated browser gate:** local isolated runs execute all 27 discovered
   scenarios in both Chromium and WebKit with zero skips, including multi-tab conflicts, offline
   queue drain, Round navigation, roster state, and real Excel/PDF downloads.
@@ -329,6 +333,12 @@ close. All engineering-controlled items are complete and evidenced below.
   CRLF input is normalized inside the field, escaped quotes remain intact, and
   physically blank records do not create patients. Parser-to-mapping regression
   coverage proves the full multiline value reaches the imported patient.
+  Unclosed or misplaced quotes, duplicate or unnamed headers, and records whose
+  column count differs from the header now produce line-specific parse errors
+  and never reach mapping or preview, preventing malformed files from
+  collapsing patients or silently losing a duplicate column.
+  Direct CSV uploads share the 15 MB spreadsheet limit, and pasted/extracted
+  content shares the one-million-character patient-list parsing envelope.
 
 ## 3. Final release gate status (from plan)
 

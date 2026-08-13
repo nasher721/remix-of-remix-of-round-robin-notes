@@ -29,6 +29,12 @@ export interface CSVParseResult {
   headers: string[];
   rows: string[][];
   rowCount: number;
+  errors: CSVParseError[];
+}
+
+export interface CSVParseError {
+  line: number;
+  message: string;
 }
 
 export interface ValidationError {
@@ -49,18 +55,46 @@ export interface ImportResult {
  * Parse CSV string into structured data
  */
 export function parseCSV(csvText: string): CSVParseResult {
-  const records = parseCSVRecords(csvText.replace(/^\uFEFF/, ''));
+  const parsed = parseCSVRecords(csvText.replace(/^\uFEFF/, ''));
+  const [headerRecord, ...dataRecords] = parsed.records;
 
-  if (records.length === 0) {
-    return { headers: [], rows: [], rowCount: 0 };
+  if (!headerRecord) {
+    return { headers: [], rows: [], rowCount: 0, errors: parsed.errors };
   }
 
-  const [headers, ...rows] = records;
+  const headers = headerRecord.fields;
+  const errors = [...parsed.errors];
+  const normalizedHeaders = new Set<string>();
+  headers.forEach((header, index) => {
+    const normalized = header.trim().toLocaleLowerCase();
+    if (!normalized) {
+      errors.push({
+        line: headerRecord.line,
+        message: `Column ${index + 1} has no header. Name every column before importing.`,
+      });
+    } else if (normalizedHeaders.has(normalized)) {
+      errors.push({
+        line: headerRecord.line,
+        message: 'Duplicate column headers are not supported. Give every column a unique name.',
+      });
+    } else {
+      normalizedHeaders.add(normalized);
+    }
+  });
+  const rows = dataRecords.flatMap(({ fields, line }) => {
+    if (fields.length === headers.length) return [fields];
+    errors.push({
+      line,
+      message: `Expected ${headers.length} columns but found ${fields.length}. Check commas and quoted fields.`,
+    });
+    return [];
+  });
   
   return {
     headers,
     rows,
-    rowCount: rows.length
+    rowCount: rows.length,
+    errors,
   };
 }
 
@@ -69,22 +103,32 @@ export function parseCSV(csvText: string): CSVParseResult {
  * part of the same field. Splitting into physical lines first silently turns a
  * multiline note into a second, invalid patient row.
  */
-function parseCSVRecords(csvText: string): string[][] {
-  const records: string[][] = [];
+function parseCSVRecords(csvText: string): {
+  records: Array<{ fields: string[]; line: number }>;
+  errors: CSVParseError[];
+} {
+  const records: Array<{ fields: string[]; line: number }> = [];
+  const errors: CSVParseError[] = [];
   let row: string[] = [];
   let current = '';
   let inQuotes = false;
   let recordHasSyntax = false;
+  let currentLine = 1;
+  let recordLine = 1;
+  let quotedFieldLine = 1;
+  let quoteClosed = false;
 
   const pushField = () => {
     row.push(current.trim());
     current = '';
+    quoteClosed = false;
   };
   const pushRecord = () => {
     pushField();
-    if (recordHasSyntax) records.push(row);
+    if (recordHasSyntax) records.push({ fields: row, line: recordLine });
     row = [];
     recordHasSyntax = false;
+    recordLine = currentLine + 1;
   };
 
   for (let i = 0; i < csvText.length; i++) {
@@ -95,8 +139,19 @@ function parseCSVRecords(csvText: string): string[][] {
       if (inQuotes && csvText[i + 1] === '"') {
         current += '"';
         i++;
+      } else if (inQuotes) {
+        inQuotes = false;
+        quoteClosed = true;
+      } else if (current.trim().length === 0 && !quoteClosed) {
+        quotedFieldLine = currentLine;
+        inQuotes = true;
       } else {
-        inQuotes = !inQuotes;
+        errors.push({
+          line: currentLine,
+          message: quoteClosed
+            ? 'Unexpected quote after a quoted field. Separate fields with a comma.'
+            : 'Unexpected quote inside an unquoted field. Quote the complete field.',
+        });
       }
     } else if (char === ',' && !inQuotes) {
       recordHasSyntax = true;
@@ -104,18 +159,34 @@ function parseCSVRecords(csvText: string): string[][] {
     } else if ((char === '\n' || char === '\r') && !inQuotes) {
       if (char === '\r' && csvText[i + 1] === '\n') i++;
       pushRecord();
+      currentLine++;
     } else if ((char === '\n' || char === '\r') && inQuotes) {
       recordHasSyntax = true;
       if (char === '\r' && csvText[i + 1] === '\n') i++;
       current += '\n';
+      currentLine++;
+    } else if (quoteClosed && !/\s/.test(char)) {
+      errors.push({
+        line: currentLine,
+        message: 'Unexpected content after a closing quote. Separate fields with a comma.',
+      });
+      quoteClosed = false;
+      current += char;
     } else {
       current += char;
       if (!/\s/.test(char)) recordHasSyntax = true;
     }
   }
 
-  if (recordHasSyntax || row.length > 0 || current.length > 0) pushRecord();
-  return records;
+  if (inQuotes) {
+    errors.push({
+      line: quotedFieldLine,
+      message: 'Unclosed quoted field. Add the missing closing quote before importing.',
+    });
+  } else if (recordHasSyntax || row.length > 0 || current.length > 0) {
+    pushRecord();
+  }
+  return { records, errors };
 }
 
 /**
@@ -326,6 +397,8 @@ export function mapValidRowsToPatients(
   csvData: CSVParseResult,
   mapping: FieldMapping[]
 ): Record<string, string>[] {
+  if (csvData.errors.length > 0) return [];
+
   return csvData.rows
     .filter(row => validateRow(row, csvData.headers, mapping).length === 0)
     .map(row => mapRowToPatient(row, csvData.headers, mapping));

@@ -16,12 +16,14 @@ type ServiceWorkerListener = (event: FetchEvent | ActivationEvent) => void;
 
 type ServiceWorkerOptions = {
   cachedResponse?: Response;
+  cachedRequestUrl?: string;
   initialCacheNames?: string[];
   networkResponse?: Response;
 };
 
 const loadServiceWorker = ({
   cachedResponse,
+  cachedRequestUrl,
   initialCacheNames = [],
   networkResponse,
 }: ServiceWorkerOptions = {}) => {
@@ -31,7 +33,10 @@ const loadServiceWorker = ({
     addAll: async () => undefined,
     delete: async () => true,
     keys: async () => [],
-    match: async () => cachedResponse?.clone(),
+    match: async (request: Request) => {
+      if (cachedRequestUrl && request.url !== cachedRequestUrl) return undefined;
+      return cachedResponse?.clone();
+    },
     put: async () => undefined,
   };
   const caches = {
@@ -235,5 +240,36 @@ describe("service worker cache policy", () => {
 
     assert.equal(response.status, 404);
     assert.equal(await response.text(), "not found");
+  });
+
+  it("uses a cached hashed JavaScript chunk when deployment cleanup returns HTTP 404", async () => {
+    const { listeners } = loadServiceWorker({
+      cachedRequestUrl: "https://round-robin.test/assets/chunk-OLD.js",
+      cachedResponse: new Response("cached chunk", {
+        status: 200,
+        headers: {
+          "content-type": "text/javascript",
+          "sw-cache-time": Date.now().toString(),
+        },
+      }),
+      networkResponse: new Response("missing", { status: 404 }),
+    });
+    const listener = listeners.get("fetch");
+    assert.ok(listener, "service worker must register a fetch listener");
+
+    const response = await getServiceWorkerResponse(
+      listener,
+      new Request("https://round-robin.test/assets/chunk-OLD.js"),
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "cached chunk");
+
+    const unrelatedResponse = await getServiceWorkerResponse(
+      listener,
+      new Request("https://round-robin.test/assets/chunk-NEW.js"),
+    );
+    assert.equal(unrelatedResponse.status, 404);
+    assert.equal(await unrelatedResponse.text(), "missing");
   });
 });

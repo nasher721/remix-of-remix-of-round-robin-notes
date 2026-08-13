@@ -21,3 +21,10 @@ test("CSV mapping controls expose a unique label and id for every header", () =>
   assert.match(source, /id=\{mappingSelectId\}/);
   assert.match(source, /aria-label=\{`Map CSV column \$\{header\} to patient field`\}/);
 });
+
+test("CSV import blocks malformed structure and oversized browser input before mapping", () => {
+  assert.match(source, /content\.length > MAX_EXTRACTED_PATIENT_LIST_CHARS/);
+  assert.match(source, /file\.size > MAX_PATIENT_LIST_SPREADSHEET_BYTES/);
+  assert.match(source, /if \(parsed\.errors\.length > 0\)/);
+  assert.match(source, /title: "CSV needs correction"/);
+});

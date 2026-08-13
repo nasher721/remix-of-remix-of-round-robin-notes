@@ -1,6 +1,6 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.7';
+const CACHE_VERSION = 'v1.0.8';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
@@ -172,7 +172,18 @@ function isHtmlRequest(request) {
 
 async function networkFirstWithJsRetry(request, cacheName, ttl) {
   try {
-    return await networkFirstWithCache(request, cacheName, ttl);
+    const response = await networkFirstWithCache(request, cacheName, ttl);
+    if (!response.ok) {
+      // An open tab can request a previous deployment's hashed chunk after the
+      // host has removed it. Prefer the exact cached URL when available; this
+      // never applies to HTML or unversioned responses.
+      const cachedResponse = await getCachedResponse(request, cacheName, ttl);
+      if (cachedResponse) {
+        performanceMetrics.cacheHits++;
+        return cachedResponse;
+      }
+    }
+    return response;
   } catch (error) {
     const errorMessage = error?.message || '';
     const isStaleChunkError = errorMessage.includes('Failed to fetch') || errorMessage.includes('imported');

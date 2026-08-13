@@ -30,6 +30,10 @@ import {
   type CSVParseResult,
   type ValidationError,
 } from "@/lib/import/csvImport";
+import {
+  MAX_PATIENT_LIST_SPREADSHEET_BYTES,
+  MAX_EXTRACTED_PATIENT_LIST_CHARS,
+} from "@/lib/import/patientListImportSafety";
 
 interface CSVColumnMapperProps {
   onImportPatients: (patients: Record<string, string>[]) => Promise<void>;
@@ -50,7 +54,25 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
   const { toast } = useToast();
 
   const processCSV = useCallback((content: string) => {
+    if (content.length > MAX_EXTRACTED_PATIENT_LIST_CHARS) {
+      toast({
+        title: "CSV is too large",
+        description: "Split the patient list into smaller files before importing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const parsed = parseCSV(content);
+
+    if (parsed.errors.length > 0) {
+      toast({
+        title: "CSV needs correction",
+        description: `Line ${parsed.errors[0].line}: ${parsed.errors[0].message}`,
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (parsed.headers.length === 0) {
       toast({
@@ -85,6 +107,15 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (file.size > MAX_PATIENT_LIST_SPREADSHEET_BYTES) {
+      toast({
+        title: "CSV is too large",
+        description: "Select a CSV file smaller than 15 MB or split the list into sections.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (!file.name.endsWith('.csv') && !file.type.includes('csv') && !file.type.includes('text')) {
       toast({
