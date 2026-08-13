@@ -46,6 +46,7 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
   const [surface, setSurface] = React.useState<RoundShellSurface>(() =>
     patients.length === 0 ? "home" : "focus",
   )
+  const [hasStartedRound, setHasStartedRound] = React.useState(() => patients.length > 0)
 
   const patient = React.useMemo((): Patient | null => {
     if (!currentPatientId) return null
@@ -55,6 +56,7 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
   React.useEffect(() => {
     if (patients.length === 0) {
       setSurface("home")
+      setHasStartedRound(false)
     }
   }, [patients.length])
 
@@ -95,6 +97,7 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
   }, [])
 
   const handleStartRound = React.useCallback(() => {
+    setHasStartedRound(true)
     setSurface("focus")
   }, [])
 
@@ -160,6 +163,7 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
           <main id="main-content" tabIndex={-1} className="min-h-0 flex-1 overflow-hidden">
             {surface === "home" && (
               <RoundHome
+                isResume={hasStartedRound}
                 touchFriendly
                 onStartRound={handleStartRound}
                 onEndRound={handleEndRound}

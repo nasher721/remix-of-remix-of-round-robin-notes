@@ -384,6 +384,32 @@ describe("Focus-first Round runner harness", () => {
     assert.ok(screen.getByTestId("round-home-start"));
   });
 
+  it("labels a newly populated Round as Start until Focus has been entered", async () => {
+    const view = render(
+      <RoundProviders patients={[]}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    assert.equal(screen.queryByTestId("round-home-start"), null);
+
+    view.rerender(
+      <RoundProviders patients={dashboardPatients3}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start Round");
+    assert.equal(screen.getByTestId("round-home-start").getAttribute("aria-label"), "Start Round");
+
+    fireEvent.click(screen.getByTestId("round-home-start"));
+    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "focus");
+
+    fireEvent.click(screen.getByTestId("round-go-home"));
+    assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Resume Round");
+    assert.equal(screen.getByTestId("round-home-start").getAttribute("aria-label"), "Resume Round");
+  });
+
   it("expands only one systems row at a time in Patient Focus", async () => {
     render(
       <RoundProviders patients={dashboardPatients3}>

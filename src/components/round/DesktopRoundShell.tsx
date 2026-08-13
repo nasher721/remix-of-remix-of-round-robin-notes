@@ -50,6 +50,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   const [surface, setSurface] = React.useState<RoundShellSurface>(() =>
     patients.length === 0 ? "home" : "focus",
   )
+  const [hasStartedRound, setHasStartedRound] = React.useState(() => patients.length > 0)
 
   const patient = React.useMemo((): Patient | null => {
     if (!currentPatientId) return null
@@ -59,6 +60,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   React.useEffect(() => {
     if (patients.length === 0) {
       setSurface("home")
+      setHasStartedRound(false)
     }
   }, [patients.length])
 
@@ -85,6 +87,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   }, [])
 
   const handleStartRound = React.useCallback(() => {
+    setHasStartedRound(true)
     setSurface("focus")
   }, [])
 
@@ -167,7 +170,11 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
       />
       <main id="main-content" tabIndex={-1} className="min-h-0 flex-1">
         {surface === "home" && (
-          <RoundHome onStartRound={handleStartRound} onEndRound={handleEndRound} />
+          <RoundHome
+            isResume={hasStartedRound}
+            onStartRound={handleStartRound}
+            onEndRound={handleEndRound}
+          />
         )}
         {surface === "focus" && (
           <PatientFocus patient={patient} onGoHome={handleGoHome} />

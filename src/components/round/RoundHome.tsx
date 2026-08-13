@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 export interface RoundHomeProps {
   onStartRound: () => void
   onEndRound: () => void
+  isResume: boolean
   touchFriendly?: boolean
   className?: string
 }
@@ -22,6 +23,7 @@ export interface RoundHomeProps {
 export const RoundHome = ({
   onStartRound,
   onEndRound,
+  isResume,
   touchFriendly = false,
   className,
 }: RoundHomeProps) => {
@@ -30,7 +32,6 @@ export const RoundHome = ({
   const [importOpen, setImportOpen] = React.useState(false)
 
   const hasPatients = patients.length > 0
-  const isResume = hasPatients && position.current > 0
   const doneCount = round.patients.filter((ref) => ref.status === "done").length
 
   const handleOpenImport = () => {
