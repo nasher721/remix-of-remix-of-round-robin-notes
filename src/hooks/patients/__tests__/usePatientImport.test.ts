@@ -1,10 +1,10 @@
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import * as React from "react";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, cleanup, waitFor } from "@testing-library/react";
 import type { Patient } from "@/types/patient";
 import { defaultSystemsValue, defaultMedicationsValue } from "@/services/patientService";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { usePatientImport } from "@/hooks/patients/usePatientImport";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -18,9 +18,25 @@ const authWrapper = ({ children }: { children: React.ReactNode }) =>
 let restoreAttemptStorage: () => void = () => {};
 
 afterEach(() => {
+  cleanup();
   localStorage.clear();
   restoreAttemptStorage();
+  delete (globalThis as unknown as { __SUPABASE_AUTH_MOCK__?: unknown }).__SUPABASE_AUTH_MOCK__;
 });
+
+function useAuthenticatedPatientImport(deps: Parameters<typeof usePatientImport>[0]) {
+  return {
+    auth: useAuth(),
+    patientImport: usePatientImport(deps),
+  };
+}
+
+async function waitForAuthenticatedUser(
+  getUserId: () => string | undefined,
+  expectedUserId = "test-user-id",
+) {
+  await waitFor(() => assert.equal(getUserId(), expectedUserId));
+}
 
 function installMemoryAttemptStorage() {
   const attempts = new Map<string, string[]>();
@@ -267,18 +283,16 @@ test("usePatientImport addPatientWithData calls supabase insert and maps correct
 
   const { result } = renderHook(
     () =>
-      usePatientImport({
+      useAuthenticatedPatientImport({
         patientsRef,
         setPatients,
       }),
     { wrapper: authWrapper }
   );
 
+  await waitForAuthenticatedUser(() => result.current.auth.user?.id);
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 20));
-  });
-  await act(async () => {
-    await result.current.addPatientWithData({
+    await result.current.patientImport.addPatientWithData({
       name: "FHIR Patient",
       bed: "B2",
       clinicalSummary: "Summary",
@@ -319,18 +333,16 @@ test("usePatientImport importPatients performs a single multi-row insert on the 
   try {
     const { result } = renderHook(
       () =>
-        usePatientImport({
+        useAuthenticatedPatientImport({
           patientsRef,
           setPatients,
         }),
       { wrapper: authWrapper }
     );
 
+    await waitForAuthenticatedUser(() => result.current.auth.user?.id);
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-    await act(async () => {
-      await result.current.importPatients([
+      await result.current.patientImport.importPatients([
         {
           name: "Imported One",
           bed: "C1",
@@ -388,18 +400,16 @@ test("usePatientImport importPatients commits a multi-patient roster once with i
   try {
     const { result } = renderHook(
       () =>
-        usePatientImport({
+        useAuthenticatedPatientImport({
           patientsRef,
           setPatients,
         }),
       { wrapper: authWrapper }
     );
 
+    await waitForAuthenticatedUser(() => result.current.auth.user?.id);
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-    await act(async () => {
-      await result.current.importPatients(
+      await result.current.patientImport.importPatients(
         [4, 5, 6, 7, 8].map((patientNumber) => ({
           name: `Imported ${patientNumber}`,
           bed: `B${patientNumber}`,
@@ -441,18 +451,16 @@ test("usePatientImport importPatients preserves patient-number conflict retry wi
   try {
     const { result } = renderHook(
       () =>
-        usePatientImport({
+        useAuthenticatedPatientImport({
           patientsRef,
           setPatients,
         }),
       { wrapper: authWrapper }
     );
 
+    await waitForAuthenticatedUser(() => result.current.auth.user?.id);
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-    await act(async () => {
-      await result.current.importPatients([
+      await result.current.patientImport.importPatients([
         { name: "Conflict Then Retry", bed: "C1", clinicalSummary: "S1", intervalEvents: "" },
         { name: "Next Patient", bed: "C2", clinicalSummary: "S2", intervalEvents: "" },
       ]);
@@ -489,17 +497,15 @@ test("usePatientImport reconciles a committed batch after its response is lost",
 
   try {
     const { result } = renderHook(
-      () => usePatientImport({ patientsRef, setPatients }),
+      () => useAuthenticatedPatientImport({ patientsRef, setPatients }),
       { wrapper: authWrapper },
     );
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
+    await waitForAuthenticatedUser(() => result.current.auth.user?.id);
 
     let firstFailure: unknown;
     await act(async () => {
       try {
-        await result.current.importPatients(rows);
+        await result.current.patientImport.importPatients(rows);
       } catch (error) {
         firstFailure = error;
       }
@@ -509,7 +515,7 @@ test("usePatientImport reconciles a committed batch after its response is lost",
     assert.equal(cachedPatients.length, 0, "the lost response did not update the local roster");
 
     await act(async () => {
-      await result.current.importPatients(rows);
+      await result.current.patientImport.importPatients(rows);
     });
 
     assert.equal(supabaseMock.serverRows.size, 2, "retry must not create duplicate server rows");
@@ -565,17 +571,15 @@ test("usePatientImport ignores a deferred user-A insert after switching to user 
 
   try {
     const { result } = renderHook(
-      () => usePatientImport({ patientsRef, setPatients }),
+      () => useAuthenticatedPatientImport({ patientsRef, setPatients }),
       { wrapper: authWrapper },
     );
 
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 30));
-    });
+    await waitForAuthenticatedUser(() => result.current.auth.user?.id, "user-a");
 
     let pendingInsert!: Promise<void>;
     await act(async () => {
-      pendingInsert = result.current.addPatientWithData({
+      pendingInsert = result.current.patientImport.addPatientWithData({
         name: "Late User A",
         bed: "A1",
         clinicalSummary: "A-only summary",
@@ -611,13 +615,13 @@ test("usePatientImport returns importPatients and addPatientWithData", () => {
 
   const { result } = renderHook(
     () =>
-      usePatientImport({
+      useAuthenticatedPatientImport({
         patientsRef,
         setPatients,
       }),
     { wrapper: authWrapper }
   );
 
-  assert.equal(typeof result.current.importPatients, "function");
-  assert.equal(typeof result.current.addPatientWithData, "function");
+  assert.equal(typeof result.current.patientImport.importPatients, "function");
+  assert.equal(typeof result.current.patientImport.addPatientWithData, "function");
 });

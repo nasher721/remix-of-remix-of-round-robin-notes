@@ -1,8 +1,8 @@
 import * as React from "react";
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { AuthProvider } from "@/hooks/useAuth";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { useFieldHistory } from "@/hooks/useFieldHistory";
 
 afterEach(() => {
@@ -45,17 +45,20 @@ test("clearHistory preserves visible history when Supabase returns a delete erro
     error: new Error("delete rejected"),
   });
 
-  const { result } = renderHook(() => useFieldHistory("patient-1"), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
-  await act(async () => { await result.current.fetchHistory(); });
-  assert.equal(result.current.history.length, 1);
+  const { result } = renderHook(() => ({
+    auth: useAuth(),
+    fieldHistory: useFieldHistory("patient-1"),
+  }), { wrapper });
+  await waitFor(() => assert.equal(result.current.auth.user?.id, "owner-1"));
+  await act(async () => { await result.current.fieldHistory.fetchHistory(); });
+  assert.equal(result.current.fieldHistory.history.length, 1);
 
   let cleared: boolean | undefined;
-  await act(async () => { cleared = await result.current.clearHistory(); });
+  await act(async () => { cleared = await result.current.fieldHistory.clearHistory(); });
 
   assert.equal(cleared, false);
-  assert.equal(result.current.history.length, 1);
-  assert.equal(result.current.history[0]?.newValue, "new");
+  assert.equal(result.current.fieldHistory.history.length, 1);
+  assert.equal(result.current.fieldHistory.history[0]?.newValue, "new");
 });
 
 test("addHistoryEntry reports a returned Supabase insert error", async () => {
@@ -65,12 +68,15 @@ test("addHistoryEntry reports a returned Supabase insert error", async () => {
     error: new Error("insert rejected"),
   });
 
-  const { result } = renderHook(() => useFieldHistory("patient-1"), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  const { result } = renderHook(() => ({
+    auth: useAuth(),
+    fieldHistory: useFieldHistory("patient-1"),
+  }), { wrapper });
+  await waitFor(() => assert.equal(result.current.auth.user?.id, "owner-1"));
 
   let inserted: boolean | undefined;
   await act(async () => {
-    inserted = await result.current.addHistoryEntry("systems.neuro", "old", "new");
+    inserted = await result.current.fieldHistory.addHistoryEntry("systems.neuro", "old", "new");
   });
   assert.equal(inserted, false);
 });
