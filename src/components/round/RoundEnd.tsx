@@ -26,7 +26,12 @@ export const RoundEnd = ({
   touchFriendly = false,
   className,
 }: RoundEndProps) => {
-  const { patients, filteredPatients, onUpdatePatient } = useDashboard()
+  const {
+    patients,
+    filteredPatients,
+    onUpdatePatient,
+    patientVerification = "verified",
+  } = useDashboard()
   const { todosMap, verification: todosVerification } = useDashboardTodos(true)
   const {
     position,
@@ -65,7 +70,7 @@ export const RoundEnd = ({
       ? `${completionSafety.patientSaveBlockerCount} active patient saves`
       : null,
     completionSafety.dataVerificationBlockerCount > 0
-      ? "Todo data not server-verified"
+      ? "Clinical data not server-verified"
       : null,
   ].filter(Boolean).join(" · ")
 
@@ -149,6 +154,15 @@ export const RoundEnd = ({
               data-testid="round-end-todos-unverified"
             >
               Showing the last Todo snapshot saved on this device. Print / Export remains available for recovery, but reconnect before marking the Round complete so server Todo truth can be verified.
+            </p>
+          ) : null}
+          {patientVerification === "stale" ? (
+            <p
+              className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-left text-xs leading-relaxed text-amber-950 dark:text-amber-100"
+              role="status"
+              data-testid="round-end-patients-unverified"
+            >
+              Patient roster is not server-verified. Review and Print / Export use the roster data available on this device, which may be incomplete. Reconnect before marking the Round complete.
             </p>
           ) : null}
         </header>

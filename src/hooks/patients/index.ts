@@ -13,6 +13,7 @@ export const usePatients = () => {
     const {
         patients,
         loading,
+        verification: patientVerification,
         patientCounter,
         patientsRef,
         setPatients,
@@ -48,6 +49,7 @@ export const usePatients = () => {
     return {
         patients,
         loading,
+        patientVerification,
         addPatient,
         addPatientWithData,
         updatePatient,

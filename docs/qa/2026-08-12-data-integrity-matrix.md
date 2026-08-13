@@ -28,7 +28,7 @@ account and roster.)
 | --- | --- | --- |
 | 3. Multi-tab concurrency (same account, two tabs) | Automated — tab B's stale browser edit must surface an explicit "Save conflict," expose the matching `Review conflict` inline state, issue one revision-guarded patient `PATCH`, and never overwrite tab A's persisted content; unit coverage proves the queued-keystroke barrier | PASS (Chromium + WebKit) |
 | 5. Offline recovery (queue → reconnect → no duplication) | Automated — the owner-scoped roster and Todo snapshot remain available after an offline service-worker reload; queued chart payloads are projected over the last roster snapshot and restore their `Offline queued` state before chart/End/Export render; patient Todos show queued state, remain in IndexedDB across reload, feed the shared End/Export map, accept new post-reload Todo add/complete actions, drain on reconnect, and persist exactly once; known-offline work must issue zero clinical-data writes. Chromium additionally proves zero Supabase requests during the offline reload; WebKit must briefly re-enable document transport but blocks clinical-data writes while the shell loads. | PASS (Chromium + WebKit) |
-| 7. Completion guard | Automated — an offline Todo disables Done and Mark Complete while End review plus the preloaded Print / Export dialog remain usable; a transient Todo read outage preserves the last local snapshot for recovery export but marks it unverified and blocks completion; reconnect replay/verification clears the guard without refresh | PASS (Chromium + WebKit) |
+| 7. Completion guard | Automated — an offline Todo disables Done and Mark Complete while End review plus the preloaded Print / Export dialog remain usable; transient Todo or patient-roster read outages preserve locally available clinical truth, mark it unverified, show a persistent retry surface, and block completion; a successful forced read clears the guard without refresh | PASS (Chromium + WebKit) |
 | 9. Reload truth | Automated for the two scenarios above (post-reload content match + occurrence count) | PASS (Chromium + WebKit) |
 
 Unit-level coverage that backs the matrix:
@@ -41,10 +41,13 @@ Unit-level coverage that backs the matrix:
 - `src/lib/offline/patientRosterCache.test.ts` — complete patient snapshot
   preservation, revision/timestamp handling, and owner-scoped queued-update
   projection over a stale snapshot.
+- `src/hooks/patients/__tests__/usePatientAuthBoundary.test.tsx` — owner
+  isolation plus patient-roster fallback when the browser remains online but
+  the server read fails.
 
 ## Defects found by this matrix and fixed (2026-08-12)
 
-All eight were reachable in ordinary offline use and violated the
+All nine were reachable during ordinary offline or degraded-network use and violated the
 "no falsely reported saves / no silent loss" acceptance criteria:
 
 1. **Offline writes were not queued once the API circuit breaker opened.**
@@ -114,6 +117,19 @@ All eight were reachable in ordinary offline use and violated the
    completion until server verification succeeds. Review and Print / Export
    remain available as recovery paths and explicitly disclose the unverified
    state.
+9. **A transient patient-roster read failure could empty the entire workspace
+   while the browser still reported online.** Patient hydration previously
+   consulted IndexedDB only after the browser's connectivity flag changed, so
+   a backend 5xx, DNS failure, or captive portal discarded a valid local
+   roster from the visible workspace. Patient reads now fall back to the
+   owner-scoped roster plus pending mutation overlay on any remote failure,
+   label the result `stale`, retry on focus/reconnect and a bounded timer, and
+   expose a persistent forced-retry banner. Done and Mark Complete stay blocked
+   until a successful server read verifies the roster; Review and Print /
+   Export remain available and disclose that local data may be incomplete.
+   Credentialed Chromium and WebKit each inject a patient-read 503 while the
+   browser remains online, confirm the roster stays navigable, and prove the
+   retry removes the warning only after an actual successful patient read.
 
 ## Manual matrix (evidence required before sign-off)
 

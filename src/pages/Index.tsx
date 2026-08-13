@@ -21,6 +21,7 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import type { Patient } from "@/types/patient";
 import { EdgeHealthProvider } from "@/contexts/EdgeHealthContext";
 import { BackendStatusBanner } from "@/components/BackendStatusBanner";
+import { PatientRosterStatusBanner } from "@/components/PatientRosterStatusBanner";
 import { NewPatientSheet, type NewPatientSubmitPayload } from "@/components/dashboard/NewPatientSheet";
 import { syncEngine } from "@/lib/offline/syncEngine";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
@@ -74,6 +75,7 @@ function IndexContent(): React.ReactElement | null {
   const {
     patients,
     loading: patientsLoading,
+    patientVerification,
     addPatientWithData,
     updatePatient,
     removePatient,
@@ -207,7 +209,7 @@ function IndexContent(): React.ReactElement | null {
     } catch (e) {
       console.error("[Sync] Offline queue sync failed:", e);
     }
-    await refetchPatients();
+    await refetchPatients({ force: true });
   }, [refetchPatients]);
 
   const handleSignOut = React.useCallback(async () => {
@@ -257,6 +259,7 @@ function IndexContent(): React.ReactElement | null {
     patientListViewMode,
     setPatientListViewMode,
     patientSaveStates,
+    patientVerification,
   }), [
     user,
     patients,
@@ -294,11 +297,13 @@ function IndexContent(): React.ReactElement | null {
     patientListViewMode,
     setPatientListViewMode,
     patientSaveStates,
+    patientVerification,
   ]);
 
   if (
     authLoading
     || patientsLoading
+    || patientVerification === "loading"
     || isMobile === undefined
     || (patientIds.length > 0 && todosVerification === "loading")
   ) {
@@ -341,6 +346,9 @@ function IndexContent(): React.ReactElement | null {
     return null;
   }
 
+  const dataVerificationBlocked = patientVerification === "stale"
+    || todosVerification === "stale";
+
   const dashboard = isMobile ? (
     <DashboardProvider {...dashboardContextValue}>
       <DashboardTodosProvider todosMap={todosMap} verification={todosVerification}>
@@ -348,7 +356,7 @@ function IndexContent(): React.ReactElement | null {
           userId={user.id}
           patientIds={patientIds}
           patientSaveStates={patientSaveStates}
-          dataVerificationBlocked={todosVerification === "stale"}
+          dataVerificationBlocked={dataVerificationBlocked}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
@@ -359,7 +367,7 @@ function IndexContent(): React.ReactElement | null {
           userId={user.id}
           patientIds={patientIds}
           patientSaveStates={patientSaveStates}
-          dataVerificationBlocked={todosVerification === "stale"}
+          dataVerificationBlocked={dataVerificationBlocked}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
@@ -368,6 +376,10 @@ function IndexContent(): React.ReactElement | null {
   return (
     <EdgeHealthProvider>
       <BackendStatusBanner />
+      <PatientRosterStatusBanner
+        verification={patientVerification}
+        onRetry={handleRefetchPatients}
+      />
       <NewPatientSheet
         open={newPatientSheetOpen}
         onOpenChange={setNewPatientSheetOpen}

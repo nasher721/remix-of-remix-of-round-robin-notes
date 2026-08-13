@@ -5,6 +5,7 @@ import { MobileTab } from "@/components/layout";
 import { PatientFilterType } from "@/constants/config";
 import { type usePatients } from "@/hooks/usePatients";
 import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
+import type { PatientRosterVerification } from "@/hooks/patients/usePatientFetch";
 
 type PatientActions = ReturnType<typeof usePatients>;
 
@@ -30,6 +31,8 @@ interface DashboardContextType {
     patientListViewMode: "rich" | "compact";
     setPatientListViewMode: (mode: "rich" | "compact") => void;
     patientSaveStates?: Record<string, PatientSaveState>;
+    /** Trust level for the visible patient roster. */
+    patientVerification?: PatientRosterVerification;
 
     // Actions
     onAddPatient: () => void;

@@ -26,12 +26,30 @@ import {
 export interface PatientFetchState {
     patients: Patient[];
     loading: boolean;
+    /** Whether the visible roster is remote truth, expected offline truth, or an unverified fallback. */
+    verification: PatientRosterVerification;
     patientCounter: number;
     /** Ref that always holds the latest patients array (avoids stale closures). */
     patientsRef: React.MutableRefObject<Patient[]>;
     setPatients: React.Dispatch<React.SetStateAction<Patient[]>>;
     setPatientCounter: React.Dispatch<React.SetStateAction<number>>;
     fetchPatients: (options?: { force?: boolean }) => Promise<void>;
+}
+
+export type PatientRosterVerification = "loading" | "verified" | "local" | "stale";
+
+export interface PatientRosterReadResult {
+    patients: Patient[];
+    verification: Exclude<PatientRosterVerification, "loading">;
+    hasLocalSnapshot: boolean;
+}
+
+interface PatientRosterReadDependencies {
+    isKnownOffline: () => boolean;
+    fetchRemote: (ownerId: string) => Promise<Patient[]>;
+    readLocal: (ownerId: string) => Promise<Patient[] | null>;
+    writeSnapshot: (ownerId: string, patients: readonly Patient[]) => Promise<boolean>;
+    overlayPending: (ownerId: string, patients: readonly Patient[]) => Promise<Patient[]>;
 }
 
 async function fetchPatientsFromSupabase(ownerId: string): Promise<Patient[]> {
@@ -79,6 +97,57 @@ async function fetchPatientsFromSupabase(ownerId: string): Promise<Patient[]> {
     }
 }
 
+const defaultPatientRosterReadDependencies: PatientRosterReadDependencies = {
+    isKnownOffline: isBrowserKnownOffline,
+    fetchRemote: fetchPatientsFromSupabase,
+    readLocal: readPatientRosterWithPendingUpdates,
+    writeSnapshot: writePatientRosterSnapshot,
+    overlayPending: overlayPendingPatientUpdates,
+};
+
+/**
+ * Resolve the safest available patient roster without equating
+ * `navigator.onLine` with a successful backend read. A browser can remain
+ * "online" during a Supabase outage, captive portal, DNS failure, or 5xx.
+ */
+export async function resolvePatientRosterRead(
+    ownerId: string,
+    dependencies: PatientRosterReadDependencies = defaultPatientRosterReadDependencies,
+): Promise<PatientRosterReadResult> {
+    if (dependencies.isKnownOffline()) {
+        const local = await dependencies.readLocal(ownerId);
+        return {
+            patients: local ?? [],
+            verification: "local",
+            hasLocalSnapshot: local !== null,
+        };
+    }
+
+    try {
+        const remote = await dependencies.fetchRemote(ownerId);
+        await dependencies.writeSnapshot(ownerId, remote);
+        return {
+            patients: await dependencies.overlayPending(ownerId, remote),
+            verification: "verified",
+            hasLocalSnapshot: true,
+        };
+    } catch {
+        let local: Patient[] | null = null;
+        try {
+            local = await dependencies.readLocal(ownerId);
+        } catch {
+            // The verification state remains stale even if local storage is
+            // unavailable; rendering uncertainty is safer than an empty list
+            // that looks server-authoritative.
+        }
+        return {
+            patients: local ?? [],
+            verification: dependencies.isKnownOffline() ? "local" : "stale",
+            hasLocalSnapshot: local !== null,
+        };
+    }
+}
+
 /**
  * Handles fetching patients from Supabase via React Query and exposes core list state.
  * Single source of truth: the authenticated owner's patient-list cache (Patient[]).
@@ -89,38 +158,39 @@ export function usePatientFetch(): PatientFetchState {
     const notifications = useNotifications();
     const ownerId = user?.id ?? null;
     const activeOwnerIdRef = React.useRef<string | null>(ownerId);
+    const mountedRef = React.useRef(true);
     activeOwnerIdRef.current = ownerId;
     const patientListQueryKey = React.useMemo(
         () => QUERY_KEYS.patientList(ownerId),
         [ownerId]
     );
+    const [verificationState, setVerificationState] = React.useState<{
+        ownerId: string;
+        verification: Exclude<PatientRosterVerification, "loading">;
+    } | null>(null);
+
+    React.useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
 
     const query = useQuery({
         queryKey: patientListQueryKey,
         queryFn: async () => {
             if (!ownerId) return [];
-            if (isBrowserKnownOffline()) {
-                return (await readPatientRosterWithPendingUpdates(ownerId)) ?? [];
+            const result = await resolvePatientRosterRead(ownerId);
+            if (!mountedRef.current || activeOwnerIdRef.current !== ownerId) return [];
+            setVerificationState({ ownerId, verification: result.verification });
+            if (result.verification !== "verified") {
+                logMetric("patients.fetch.cache_fallback", 1, "count", {
+                    requestId: generateRequestId(),
+                    hasLocalSnapshot: result.hasLocalSnapshot,
+                    verification: result.verification,
+                });
             }
-
-            try {
-                const patients = await fetchPatientsFromSupabase(ownerId);
-                if (activeOwnerIdRef.current !== ownerId) return [];
-                await writePatientRosterSnapshot(ownerId, patients);
-                if (activeOwnerIdRef.current !== ownerId) return [];
-                return overlayPendingPatientUpdates(ownerId, patients);
-            } catch (error) {
-                if (activeOwnerIdRef.current !== ownerId) return [];
-                if (!isBrowserKnownOffline()) throw error;
-                const cached = await readPatientRosterWithPendingUpdates(ownerId);
-                if (cached !== null) {
-                    logMetric("patients.fetch.cache_fallback", 1, "count", {
-                        requestId: generateRequestId(),
-                    });
-                    return cached;
-                }
-                throw error;
-            }
+            return result.patients;
         },
         enabled: hasSupabaseConfig && !!user,
         // The query function has its own owner-scoped IndexedDB path. Let it
@@ -134,11 +204,16 @@ export function usePatientFetch(): PatientFetchState {
         // An offline snapshot is intentionally usable but never considered a
         // substitute for remote truth after connectivity returns.
         refetchOnReconnect: "always",
-        retry: (failureCount) => !isBrowserKnownOffline() && failureCount < 2,
+        retry: false,
     });
 
     const patients: Patient[] = React.useMemo(() => query.data ?? [], [query.data]);
     const loading = !!user && query.isPending;
+    const verification: PatientRosterVerification = !ownerId
+        ? "verified"
+        : verificationState?.ownerId === ownerId
+            ? verificationState.verification
+            : "loading";
     const refetchPatientsQuery = query.refetch;
     const patientCounter = React.useMemo(
         () => getNextPatientCounter(patients),
@@ -193,6 +268,21 @@ export function usePatientFetch(): PatientFetchState {
     }, [ownerId, notifications, refetchPatientsQuery, queryClient, patientListQueryKey]);
 
     React.useEffect(() => {
+        if (verification !== "stale" || !ownerId) return;
+        const retryOnFocus = () => {
+            void refetchPatientsQuery();
+        };
+        const retryTimer = window.setTimeout(() => {
+            void refetchPatientsQuery();
+        }, 30_000);
+        window.addEventListener("focus", retryOnFocus);
+        return () => {
+            window.clearTimeout(retryTimer);
+            window.removeEventListener("focus", retryOnFocus);
+        };
+    }, [ownerId, refetchPatientsQuery, verification]);
+
+    React.useEffect(() => {
         if (!ownerId) {
             queryClient.setQueryData<Patient[]>(patientListQueryKey, [], {
                 updatedAt: 0,
@@ -237,6 +327,7 @@ export function usePatientFetch(): PatientFetchState {
     return {
         patients,
         loading,
+        verification,
         patientCounter,
         patientsRef,
         setPatients,

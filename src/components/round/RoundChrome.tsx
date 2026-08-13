@@ -106,7 +106,7 @@ export const RoundChrome = ({
         : completionSafety.patientSaveBlockerCount > 0
           ? "Saving patient changes…"
           : completionSafety.dataVerificationBlockerCount > 0
-            ? "Todo data needs verification"
+            ? "Clinical data needs verification"
           : syncPresentation.label;
   const syncLabel = isStorageDegraded
     ? `${clinicalCompletionLabel} · storage limited`

@@ -296,6 +296,84 @@ test.describe("Data integrity", () => {
     }
   });
 
+  test("backend outage: locally cached roster remains visible and completion waits for verification", async ({
+    browser,
+  }) => {
+    test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set");
+    test.setTimeout(120_000);
+
+    const context = await browser.newContext({ serviceWorkers: "block" });
+    const page = await context.newPage();
+    const patientReadPattern = "**/rest/v1/patients**";
+    const failPatientReads = async (route: Route) => {
+      if (route.request().method() !== "GET") {
+        await route.continue();
+        return;
+      }
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "temporary patient roster outage" }),
+      });
+    };
+    let patientReadsBlocked = false;
+    const expectRosterPatient = async () => {
+      await page.getByTestId("round-roster-entry").click();
+      const roster = page.getByTestId("roster-overlay");
+      await expect(roster).toBeVisible();
+      await expect(roster.getByText(DATA_PATIENT_NAME, { exact: true })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(roster).toBeHidden();
+    };
+
+    try {
+      // A successful first load persists the owner-scoped roster snapshot.
+      await loginWithShell(page, { roundRunner: true });
+      await expectRosterPatient();
+
+      // Keep the browser online while only the patient-read endpoint fails.
+      // This reproduces backend 5xx/captive-portal behavior that navigator.onLine cannot detect.
+      await page.route(patientReadPattern, failPatientReads);
+      patientReadsBlocked = true;
+      await page.reload();
+
+      await expect(page.getByTestId("desktop-round-shell")).toBeVisible({ timeout: 30_000 });
+      await expectRosterPatient();
+      await expect(page.getByTestId("patient-roster-status-banner")).toContainText(
+        "Server patient list could not be verified",
+      );
+      await expect(page.getByTestId("round-sync-cue")).toContainText(
+        "Clinical data needs verification",
+      );
+      await expect(page.getByTestId("round-done")).toBeDisabled();
+
+      await page.getByTestId("round-end-entry").click();
+      await expect(page.getByTestId("round-end-patients-unverified")).toBeVisible();
+      await expect(page.getByTestId("round-end-complete")).toBeDisabled();
+      await expect(page.getByTestId("round-end-print")).toBeEnabled();
+
+      // Restore the endpoint and prove the user-facing retry performs a real
+      // forced read instead of accepting the fresh timestamp on stale cache data.
+      await page.unroute(patientReadPattern, failPatientReads);
+      patientReadsBlocked = false;
+      const verifiedRead = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return response.request().method() === "GET"
+          && url.pathname === "/rest/v1/patients"
+          && response.ok();
+      }, { timeout: 30_000 });
+      await page.getByRole("button", { name: "Retry patient list" }).click();
+      await verifiedRead;
+      await expect(page.getByTestId("patient-roster-status-banner")).toBeHidden({ timeout: 20_000 });
+      await expect(page.getByTestId("round-end-patients-unverified")).toBeHidden();
+    } finally {
+      if (patientReadsBlocked) {
+        await page.unroute(patientReadPattern, failPatientReads);
+      }
+      await context.close();
+    }
+  });
+
   test("offline todo: task survives reload, replays once, and remains removable", async ({
     page,
     context,

@@ -41,11 +41,11 @@ close. All engineering-controlled items are complete and evidenced below.
   bundle reachability assertion wired into CI
   (`scripts/assert-no-optional-native-in-bundle.mjs`).
 - **Bundle budgets (Phase 6):** local release candidate total initial
-  JavaScript is 614,579 bytes, down from 937,658 (34%). The public shell now
+  JavaScript is 614,594 bytes, down from 937,658 (34%). The public shell now
   defers the authenticated provider/state graph, Landing and workspace routes
   are separate chunks, and the EHR callback keeps only a small eager recovery
   shell. Login validation no longer ships the general-purpose Zod runtime for
-  two fields. The application entry is 231,465 bytes with stable React (139,836)
+  two fields. The application entry is 231,480 bytes with stable React (139,836)
   and Supabase (208,548) runtime chunks. CI now enforces 300,000-byte entry,
   750,000-byte total-initial, 160,000-byte React, and 230,000-byte Supabase
   ceilings in `scripts/check-bundle-size.mjs`. Device-specific shells,
@@ -245,9 +245,13 @@ close. All engineering-controlled items are complete and evidenced below.
   surfaces. The separate durable queue remains replay authority and the base
   snapshot remains server-derived. Per-patient queued/error/conflict state is
   rebuilt from that queue after reload, so recovered text cannot appear without
-  its corresponding save warning. The targeted credentialed matrix passed
-  **6/6** across Chromium and WebKit: multi-tab conflict, cold-offline patient
-  edit recovery, Todo recovery, exactly-once reconnect replay, and cleanup.
+  its corresponding save warning. Remote patient-read failures now also retain
+  the owner-scoped roster when `navigator.onLine` remains true, show a
+  persistent retry warning, and block completion until a forced server read
+  succeeds. The targeted credentialed matrix passed **8/8** across Chromium
+  and WebKit: multi-tab conflict, cold-offline patient edit recovery, online-
+  flagged backend outage recovery, Todo recovery, exactly-once reconnect
+  replay, and cleanup.
 - **Fail-safe Round completion:** Done and Mark Complete now consider the Round
   continuity outbox, patient chart saves, and the shared patient/Todo queue.
   End review and Print / Export remain accessible while unresolved work blocks

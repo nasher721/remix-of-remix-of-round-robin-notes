@@ -53,7 +53,7 @@ describe("Round completion safety", () => {
     assert.equal(result.mutationConflictCount, 1);
   });
 
-  it("blocks completion while shared Todo truth cannot be server-verified", () => {
+  it("blocks completion while shared clinical truth cannot be server-verified", () => {
     const result = deriveRoundCompletionSafety({
       roundUnresolvedCount: 0,
       roundConflictCount: 0,

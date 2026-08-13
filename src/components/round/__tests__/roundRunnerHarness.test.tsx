@@ -24,6 +24,7 @@ import { dashboardPatients3, makeDashboardTodosMap } from "@/test/dashboardRegre
 import { PatientFilterType } from "@/constants/config";
 import type { Patient } from "@/types/patient";
 import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
+import type { PatientRosterVerification } from "@/hooks/patients/usePatientFetch";
 
 globalThis.MutationObserver = window.MutationObserver;
 globalThis.NodeFilter = window.NodeFilter;
@@ -77,7 +78,10 @@ const DEMOTED_PRIMARY_CHROME_TERMS = [
   /ai command/i,
 ] as const;
 
-function buildDashboardValue(patients: Patient[]) {
+function buildDashboardValue(
+  patients: Patient[],
+  patientVerification: PatientRosterVerification = "verified",
+) {
   return {
     user: { email: "clinician@example.test" },
     patients,
@@ -95,6 +99,7 @@ function buildDashboardValue(patients: Patient[]) {
     lastSaved: new Date("2026-08-11T12:00:00.000Z"),
     patientListViewMode: "compact" as const,
     setPatientListViewMode: () => {},
+    patientVerification,
     onAddPatient: () => {},
     onAddPatientWithData: async () => {},
     onUpdatePatient: async () => {},
@@ -120,12 +125,14 @@ function buildDashboardValue(patients: Patient[]) {
 function RoundProviders({
   patients,
   patientSaveStates = {},
+  patientVerification = "verified",
   todosVerification = "verified",
   dataVerificationBlocked = false,
   children,
 }: {
   patients: Patient[];
   patientSaveStates?: Record<string, PatientSaveState>;
+  patientVerification?: PatientRosterVerification;
   todosVerification?: "loading" | "verified" | "local" | "stale";
   dataVerificationBlocked?: boolean;
   children: React.ReactNode;
@@ -146,7 +153,7 @@ function RoundProviders({
                 <ClinicalGuidelinesProvider>
                   <TooltipProvider>
                     <ChangeTrackingProvider>
-                      <DashboardProvider {...buildDashboardValue(patients)}>
+                      <DashboardProvider {...buildDashboardValue(patients, patientVerification)}>
                         <DashboardTodosProvider
                           todosMap={makeDashboardTodosMap(patients)}
                           verification={todosVerification}
@@ -311,6 +318,28 @@ describe("Focus-first Round runner harness", () => {
     assert.match(
       screen.getByTestId("round-end-todos-unverified").textContent ?? "",
       /last Todo snapshot saved on this device/i,
+    );
+    assert.equal((screen.getByTestId("round-end-complete") as HTMLButtonElement).disabled, true);
+    assert.equal((screen.getByTestId("round-end-print") as HTMLButtonElement).disabled, false);
+  });
+
+  it("keeps a stale local patient roster visible for recovery export while blocking completion", async () => {
+    render(
+      <RoundProviders
+        patients={dashboardPatients3}
+        patientVerification="stale"
+        dataVerificationBlocked
+      >
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    assert.match(screen.getByTestId("round-sync-cue").textContent ?? "", /clinical data needs verification/i);
+    assert.equal((screen.getByTestId("round-done") as HTMLButtonElement).disabled, true);
+    fireEvent.click(screen.getByTestId("round-end-entry"));
+    assert.match(
+      screen.getByTestId("round-end-patients-unverified").textContent ?? "",
+      /roster data available on this device/i,
     );
     assert.equal((screen.getByTestId("round-end-complete") as HTMLButtonElement).disabled, true);
     assert.equal((screen.getByTestId("round-end-print") as HTMLButtonElement).disabled, false);

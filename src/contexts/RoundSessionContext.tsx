@@ -103,7 +103,7 @@ export interface RoundSessionProviderProps {
   disablePersistence?: boolean;
   /** Live patient field save states from the dashboard mutation owner. */
   patientSaveStates?: Readonly<Record<string, PatientSaveState>>;
-  /** Prevent completion when the shared Todo map could not be server-verified. */
+  /** Prevent completion when patient or Todo clinical truth could not be server-verified. */
   dataVerificationBlocked?: boolean;
 }
 

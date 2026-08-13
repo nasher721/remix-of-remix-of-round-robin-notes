@@ -4,8 +4,12 @@ import * as React from "react";
 import { cleanup, renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider, timeoutManager } from "@tanstack/react-query";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { usePatientFetch } from "@/hooks/patients/usePatientFetch";
+import {
+  resolvePatientRosterRead,
+  usePatientFetch,
+} from "@/hooks/patients/usePatientFetch";
 import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
+import { mapPatientRecord, type PatientRecord } from "@/services/patientService";
 
 declare global {
   var __SUPABASE_AUTH_MOCK__: unknown;
@@ -158,4 +162,22 @@ test("usePatientFetch completes offline hydration instead of pausing before the 
     if (onlineDescriptor) Object.defineProperty(navigator, "onLine", onlineDescriptor);
     else Reflect.deleteProperty(navigator, "onLine");
   }
+});
+
+test("patient roster read preserves local truth when an online-flagged server read fails", async () => {
+  const cachedPatient = mapPatientRecord(
+    patientRow("patient-local", "user-a", "Locally preserved") as unknown as PatientRecord,
+  );
+  const result = await resolvePatientRosterRead("user-a", {
+    isKnownOffline: () => false,
+    fetchRemote: async () => {
+      throw new Error("temporary backend outage");
+    },
+    readLocal: async () => [cachedPatient],
+    writeSnapshot: async () => true,
+    overlayPending: async (_ownerId, patients) => [...patients],
+  });
+
+  assert.equal(result.patients[0]?.name, "Locally preserved");
+  assert.equal(result.verification, "stale");
 });
