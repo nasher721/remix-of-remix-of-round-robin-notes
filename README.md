@@ -47,14 +47,17 @@ Create a `.env` file based on `.env.example`:
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 VITE_PUBLIC_APP_URL=https://rounds.hospital.org
-VITE_CONTACT_EMAIL=rounds-team@hospital.org
-VITE_PRIVACY_NOTICE_URL=https://privacy.hospital.org/rolling-rounds
+# Required before market launch; may be omitted for an explicit prelaunch deployment.
+# VITE_CONTACT_EMAIL=rounds-team@hospital.org
+# VITE_PRIVACY_NOTICE_URL=https://privacy.hospital.org/rolling-rounds
 # Production also requires one approved central sink; see .env.example.
 # VITE_SENTRY_DSN=https://publickey@o123.ingest.sentry.io/456
 ```
 
-Production builds fail closed when launch identity, legal, or observability
-configuration is missing or unsafe. See [`.env.example`](.env.example) and the
+Production builds fail closed when core runtime or observability configuration
+is missing or unsafe. Prelaunch builds may omit contact and privacy publication
+values; the UI then hides contact CTAs and labels the privacy page as unapproved.
+See [`.env.example`](.env.example) and the
 [deployment guide](docs/deployment.md) for the complete contract.
 
 ## Available Scripts

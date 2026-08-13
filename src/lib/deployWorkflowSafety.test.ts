@@ -149,7 +149,7 @@ describe('Supabase deployment workflow', () => {
     assert.match(envExample, /Required production inactivity timeout/)
   })
 
-  it('fails closed rather than shipping an unconfigured public contact address', async () => {
+  it('keeps an unconfigured prelaunch contact surface honest', async () => {
     const viteConfig = await readFile('vite.config.ts', 'utf8')
     const marketing = await readFile('src/config/marketing.ts', 'utf8')
     const landing = await readFile('src/components/landing/FeatureHighlights.tsx', 'utf8')
@@ -157,18 +157,20 @@ describe('Supabase deployment workflow', () => {
     const envExample = await readFile('.env.example', 'utf8')
     const browserSmoke = await readFile('e2e/auth-dashboard.spec.ts', 'utf8')
 
+    assert.match(viteConfig, /if \(env\.VITE_CONTACT_EMAIL\?\.trim\(\)\)/)
     assert.match(viteConfig, /validateProductionContactEmail/)
     assert.match(viteConfig, /VITE_CONTACT_EMAIL/)
     assert.match(viteConfig, /endsWith\("\.local"\)/)
     assert.match(viteConfig, /command === "build" && mode === "production"/)
     assert.doesNotMatch(marketing, /hello@rollingrounds\.app/)
     assert.match(landing, /CONTACT_EMAIL[\s\S]*mailto:/)
+    assert.match(landing, /Public contact details are not available during this prelaunch deployment/)
     assert.match(workflow, /VITE_CONTACT_EMAIL: \$\{\{ vars\.PRODUCTION_CONTACT_EMAIL \}\}/)
-    assert.match(envExample, /Required public launch contact/)
+    assert.match(envExample, /Required before market launch; optional for an explicitly prelaunch deployment/)
     assert.match(browserSmoke, /mailto:hello@rollingrounds\.app/)
   })
 
-  it('fails closed rather than linking production users to the privacy placeholder', async () => {
+  it('uses an honest placeholder until an approved privacy notice is configured', async () => {
     const viteConfig = await readFile('vite.config.ts', 'utf8')
     const legalPolicy = await readFile('src/config/legalPolicy.ts', 'utf8')
     const legalConfig = await readFile('src/config/legal.ts', 'utf8')
@@ -177,6 +179,7 @@ describe('Supabase deployment workflow', () => {
     const workflow = await readFile('.github/workflows/ci.yml', 'utf8')
     const envExample = await readFile('.env.example', 'utf8')
 
+    assert.match(viteConfig, /if \(env\.VITE_PRIVACY_NOTICE_URL\?\.trim\(\)\)/)
     assert.match(viteConfig, /validateProductionPrivacyNoticeUrl/)
     assert.match(viteConfig, /VITE_PRIVACY_NOTICE_URL/)
     assert.match(legalPolicy, /parsePrivacyNoticeUrl/)
@@ -185,7 +188,7 @@ describe('Supabase deployment workflow', () => {
     assert.doesNotMatch(landing, /<Link to="\/privacy"[^>]*>\s*Privacy/)
     assert.match(privacy, /PRIVACY_NOTICE_IS_CONFIGURED/)
     assert.equal((workflow.match(/VITE_PRIVACY_NOTICE_URL:/g) ?? []).length, 2)
-    assert.match(envExample, /approved privacy notice/i)
+    assert.match(envExample, /privacy renders honest setup guidance rather than an approved notice/i)
   })
 
   it('renders only explicitly approved OAuth providers', async () => {

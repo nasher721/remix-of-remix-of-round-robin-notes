@@ -164,14 +164,16 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
               Use the same product for small team pilots or organization-wide rollout. We can match security review, training, and procurement needs.
             </p>
           </div>
-          <a
-            href="#contact"
-            onClick={() => recordMarketingEvent("pricingContact")}
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            Talk to us
-            <Mail className="h-4 w-4" aria-hidden="true" />
-          </a>
+          {CONTACT_EMAIL_IS_CONFIGURED && (
+            <a
+              href="#contact"
+              onClick={() => recordMarketingEvent("pricingContact")}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Talk to us
+              <Mail className="h-4 w-4" aria-hidden="true" />
+            </a>
+          )}
         </div>
       </section>
 
@@ -181,7 +183,9 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
             <p className="text-sm font-semibold text-sky-700">Contact</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Questions about fit or rollout?</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
-              Reach out for pilots, training, security reviews, or clinical workflow questions.
+              {CONTACT_EMAIL_IS_CONFIGURED
+                ? "Reach out for pilots, training, security reviews, or clinical workflow questions."
+                : "Public contact details are not available during this prelaunch deployment."}
             </p>
           </div>
           {CONTACT_EMAIL_IS_CONFIGURED && (

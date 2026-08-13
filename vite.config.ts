@@ -115,8 +115,6 @@ export default defineConfig(({ mode, command }) => {
     const missing = [
       "VITE_SUPABASE_URL",
       "VITE_SUPABASE_PUBLISHABLE_KEY",
-      "VITE_CONTACT_EMAIL",
-      "VITE_PRIVACY_NOTICE_URL",
       "VITE_PUBLIC_APP_URL",
       "VITE_SESSION_IDLE_TIMEOUT_SECONDS",
     ].filter(
@@ -125,8 +123,12 @@ export default defineConfig(({ mode, command }) => {
     if (missing.length > 0) {
       throw new Error(`Production build blocked: missing ${missing.join(", ")}`);
     }
-    validateProductionContactEmail(env.VITE_CONTACT_EMAIL);
-    validateProductionPrivacyNoticeUrl(env.VITE_PRIVACY_NOTICE_URL, publicOrigin);
+    if (env.VITE_CONTACT_EMAIL?.trim()) {
+      validateProductionContactEmail(env.VITE_CONTACT_EMAIL);
+    }
+    if (env.VITE_PRIVACY_NOTICE_URL?.trim()) {
+      validateProductionPrivacyNoticeUrl(env.VITE_PRIVACY_NOTICE_URL, publicOrigin);
+    }
     validateApprovedOAuthProviders(env.VITE_APPROVED_OAUTH_PROVIDERS);
     try {
       validateProductionObservabilityConfig({

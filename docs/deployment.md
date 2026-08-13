@@ -56,8 +56,8 @@ CI production builds are intentionally independent of local `.env` files.
 | Variable | Used by | Purpose |
 |----------|---------|---------|
 | `VITE_SUPABASE_URL` | CI builds | Public Supabase project URL required by the browser runtime |
-| `PRODUCTION_CONTACT_EMAIL` | CI builds | Required public operator/contact address; builds reject missing, malformed, or example-domain values |
-| `PRODUCTION_PRIVACY_NOTICE_URL` | CI builds | Required HTTPS URL of the operator- and counsel-approved privacy notice |
+| `PRODUCTION_CONTACT_EMAIL` | CI builds (required before market launch) | Public operator/contact address; prelaunch omission hides contact CTAs, while configured values are validated |
+| `PRODUCTION_PRIVACY_NOTICE_URL` | CI builds (required before market launch) | Operator- and counsel-approved HTTPS privacy notice; prelaunch omission shows explicit setup guidance |
 | `PRODUCTION_APP_URL` | CI builds + deploy + monitor | Canonical HTTPS production origin mapped to `VITE_PUBLIC_APP_URL`, release verification, and synthetic monitoring |
 | `PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS` | CI builds + deploy | Required whole-second inactivity timeout from 300–3600; deploy applies the same value to hosted Auth and the browser session boundary |
 | `VITE_APPROVED_OAUTH_PROVIDERS` | CI builds (optional) | Comma-separated `google`, `apple`, or both; absent means password-only sign-in |
@@ -100,18 +100,18 @@ placeholder, or includes a port, path, query, or fragment. CI maps
 approved Security surface are crawlable. Authenticated, callback, unknown, and
 placeholder Privacy routes are explicitly marked `noindex`.
 
-Set Vercel `VITE_CONTACT_EMAIL` to the same real public address as the GitHub
-`PRODUCTION_CONTACT_EMAIL` variable. Production builds intentionally fail when
-the address is missing, malformed, or uses a reserved example domain so the
-pilot/enterprise contact CTA cannot silently ship as a dead end.
+Before market launch, set Vercel `VITE_CONTACT_EMAIL` to the same real public
+address as the GitHub `PRODUCTION_CONTACT_EMAIL` variable. An explicit prelaunch
+deployment may omit it; contact CTAs are then hidden. Configured values still
+fail validation when malformed or when they use a reserved example domain.
 
-Set Vercel `VITE_PRIVACY_NOTICE_URL` to the same real notice as the GitHub
-`PRODUCTION_PRIVACY_NOTICE_URL` variable. It must be a public HTTPS URL for the
-deployment operator's reviewed privacy notice. Credentials, URL fragments,
-localhost/IP destinations, reserved example hosts, and the app's own
-development `/privacy` placeholder are rejected. Public and in-workspace
-Privacy links use this approved destination; the internal placeholder remains
-available only as honest setup guidance outside an approved production build.
+Before market launch, set Vercel `VITE_PRIVACY_NOTICE_URL` to the same real
+notice as the GitHub `PRODUCTION_PRIVACY_NOTICE_URL` variable. An explicit
+prelaunch deployment may omit it; `/privacy` then remains honest setup guidance.
+When configured, it must be a public HTTPS URL for the deployment operator's
+reviewed notice. Credentials, URL fragments, localhost/IP destinations,
+reserved example hosts, and the app's own development `/privacy` placeholder
+are rejected.
 
 OAuth is fail-closed. Password sign-in is always available for provisioned
 accounts, while Google and Apple controls are hidden unless
