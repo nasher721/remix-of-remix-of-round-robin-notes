@@ -1,6 +1,6 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.8';
+const CACHE_VERSION = 'v1.0.9';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
@@ -48,7 +48,6 @@ self.addEventListener('install', (event) => {
         console.log('[SW] Precaching static assets');
         return cache.addAll(PRECACHE_ASSETS);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -57,6 +56,14 @@ self.addEventListener('activate', (event) => {
   console.log('[SW] Activating service worker...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
+      // A Refresh now action in one tab claims every same-origin tab. Keep the
+      // immediately previous dynamic generation so a sibling still executing
+      // the previous app can resolve its exact lazy chunk after deployment.
+      // Older generations are no longer needed because updates activate in
+      // sequence, and every API cache remains unconditionally disposable.
+      const previousDynamicCache = cacheNames
+        .filter((name) => name.startsWith('dynamic-') && name !== DYNAMIC_CACHE)
+        .at(-1);
       return Promise.all(
         cacheNames
           .filter((name) => {
@@ -69,7 +76,9 @@ self.addEventListener('activate', (event) => {
             // API caches from older workers may contain PHI. There is no active
             // API cache, so every api-* cache is always removed.
             return name.startsWith('api-') ||
+                   (name.startsWith('dynamic-') && name !== DYNAMIC_CACHE && name !== previousDynamicCache) ||
                    (name !== STATIC_CACHE &&
+                   !name.startsWith('dynamic-') &&
                    name !== DYNAMIC_CACHE &&
                    name !== IMAGE_CACHE);
           })
@@ -178,9 +187,11 @@ async function networkFirstWithJsRetry(request, cacheName, ttl) {
       // host has removed it. Prefer the exact cached URL when available; this
       // never applies to HTML or unversioned responses.
       const cachedResponse = await getCachedResponse(request, cacheName, ttl);
-      if (cachedResponse) {
+      const previousGenerationResponse = cachedResponse ??
+        await getPreviousDynamicResponse(request, cacheName, ttl);
+      if (previousGenerationResponse) {
         performanceMetrics.cacheHits++;
-        return cachedResponse;
+        return previousGenerationResponse;
       }
     }
     return response;
@@ -199,6 +210,15 @@ async function networkFirstWithJsRetry(request, cacheName, ttl) {
     }
     throw error;
   }
+}
+
+async function getPreviousDynamicResponse(request, currentCacheName, ttl) {
+  const cacheNames = await caches.keys();
+  const previousCacheName = cacheNames
+    .filter((name) => name.startsWith('dynamic-') && name !== currentCacheName)
+    .at(-1);
+  if (!previousCacheName) return null;
+  return getCachedResponse(request, previousCacheName, ttl);
 }
 
 // Network First with Cache Fallback (for navigations and versioned assets)
@@ -355,6 +375,13 @@ self.addEventListener('message', (event) => {
   const { type, payload } = event.data || {};
   
   switch (type) {
+    case 'SKIP_WAITING':
+      // Updates stay in the waiting phase until the in-app prompt receives an
+      // explicit Refresh now action. This preserves the incumbent worker and
+      // its hashed-chunk cache for open clinical sessions that choose Later.
+      event.waitUntil(self.skipWaiting());
+      break;
+
     case 'GET_METRICS':
       event.ports[0]?.postMessage({
         ...performanceMetrics,

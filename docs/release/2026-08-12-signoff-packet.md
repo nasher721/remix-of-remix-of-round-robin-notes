@@ -193,7 +193,19 @@ close. All engineering-controlled items are complete and evidenced below.
 - **Visible production updates:** a newly installed service worker now surfaces
   an accessible in-app refresh prompt instead of writing only to DevTools.
   Clinicians can refresh deliberately or defer it to avoid interrupting an
-  active note edit; Chromium/WebKit and component contracts cover both paths.
+  active note edit. Installed updates remain in the browser's waiting phase
+  when `Later` is selected, preserving the incumbent worker and its exact
+  hashed-chunk cache for the open session. `Refresh now` explicitly activates
+  the waiting worker, waits for it to control the page, and only then reloads;
+  an activation failure stays visible instead of pretending the update landed.
+  Because activation claims sibling tabs, the worker retains exactly the
+  immediately previous dynamic-cache generation so a sibling still executing
+  the prior app can resolve its exact lazy chunks; older dynamic generations,
+  all API caches, and obsolete static/image caches are deleted. Chromium/WebKit,
+  component contracts, and executable single- plus multi-client lifecycle
+  harnesses cover deferral, explicit activation, sibling-tab chunk safety, and
+  the case where another tab activates first: its already-activated worker is
+  treated as reload-ready instead of timing out on a second activation request.
 - **Resilient installed-app navigation:** a fresh cached app shell now covers
   transient hosting and edge HTTP 5xx responses as well as rejected network
   requests. Authoritative 4xx responses still reach the browser, and cached

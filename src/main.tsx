@@ -17,12 +17,15 @@ installObservabilityDebugApi();
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
     .then((registration) => {
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        markServiceWorkerUpdateReady(registration.waiting);
+      }
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              markServiceWorkerUpdateReady();
+              markServiceWorkerUpdateReady(newWorker);
             }
           });
         }

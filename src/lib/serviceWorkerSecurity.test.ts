@@ -12,9 +12,16 @@ type ActivationEvent = {
   waitUntil: (completion: Promise<unknown>) => void;
 };
 
-type ServiceWorkerListener = (event: FetchEvent | ActivationEvent) => void;
+type MessageEvent = {
+  data?: { type?: string };
+  ports: MessagePort[];
+  waitUntil: (completion: Promise<unknown>) => void;
+};
+
+type ServiceWorkerListener = (event: FetchEvent | ActivationEvent | MessageEvent) => void;
 
 type ServiceWorkerOptions = {
+  cachedCacheName?: string;
   cachedResponse?: Response;
   cachedRequestUrl?: string;
   initialCacheNames?: string[];
@@ -22,6 +29,7 @@ type ServiceWorkerOptions = {
 };
 
 const loadServiceWorker = ({
+  cachedCacheName,
   cachedResponse,
   cachedRequestUrl,
   initialCacheNames = [],
@@ -29,29 +37,32 @@ const loadServiceWorker = ({
 }: ServiceWorkerOptions = {}) => {
   const listeners = new Map<string, ServiceWorkerListener>();
   const deletedCaches: string[] = [];
-  const cache = {
+  let skipWaitingCalls = 0;
+  let claimCalls = 0;
+  const createCache = (cacheName: string) => ({
     addAll: async () => undefined,
     delete: async () => true,
     keys: async () => [],
     match: async (request: Request) => {
+      if (cachedCacheName && cacheName !== cachedCacheName) return undefined;
       if (cachedRequestUrl && request.url !== cachedRequestUrl) return undefined;
       return cachedResponse?.clone();
     },
     put: async () => undefined,
-  };
+  });
   const caches = {
     delete: async (name: string) => {
       deletedCaches.push(name);
       return true;
     },
     keys: async () => initialCacheNames,
-    open: async () => cache,
+    open: async (name: string) => createCache(name),
   };
   const self = {
     addEventListener: (type: string, listener: ServiceWorkerListener) => listeners.set(type, listener),
-    clients: { claim: async () => undefined },
+    clients: { claim: async () => { claimCalls += 1; } },
     location: { origin: "https://round-robin.test" },
-    skipWaiting: async () => undefined,
+    skipWaiting: async () => { skipWaitingCalls += 1; },
   };
 
   vm.runInNewContext(readFileSync("public/sw.js", "utf8"), {
@@ -65,7 +76,12 @@ const loadServiceWorker = ({
     self,
   });
 
-  return { deletedCaches, listeners };
+  return {
+    deletedCaches,
+    getClaimCalls: () => claimCalls,
+    getSkipWaitingCalls: () => skipWaitingCalls,
+    listeners,
+  };
 };
 
 const loadFetchListener = () => {
@@ -107,12 +123,107 @@ describe("service worker cache policy", () => {
     const main = readFileSync("src/main.tsx", "utf8");
     const app = readFileSync("src/App.tsx", "utf8");
 
-    assert.match(main, /markServiceWorkerUpdateReady\(\)/);
+    assert.match(main, /markServiceWorkerUpdateReady\((?:registration\.waiting|newWorker)\)/);
     assert.doesNotMatch(main, /New content available, refresh to update/);
     assert.match(app, /<ServiceWorkerUpdatePrompt \/>/);
   });
 
-  it("deletes cache generations that may contain sensitive responses", async () => {
+  it("keeps an installed update waiting until the clinician explicitly activates it", async () => {
+    const worker = loadServiceWorker({
+      initialCacheNames: ["dynamic-v1.0.7", "dynamic-v1.0.8"],
+    });
+    const install = worker.listeners.get("install");
+    const activate = worker.listeners.get("activate");
+    const message = worker.listeners.get("message");
+    assert.ok(install && activate && message, "worker lifecycle listeners must be registered");
+
+    let installCompletion = Promise.resolve<unknown>(undefined);
+    install({
+      waitUntil: (promise) => { installCompletion = promise; },
+    } as ActivationEvent);
+    await installCompletion;
+
+    assert.equal(worker.getSkipWaitingCalls(), 0);
+    assert.equal(worker.getClaimCalls(), 0);
+    assert.deepEqual(worker.deletedCaches, []);
+
+    let activationRequest = Promise.resolve<unknown>(undefined);
+    message({
+      data: { type: "SKIP_WAITING" },
+      ports: [],
+      waitUntil: (promise) => { activationRequest = promise; },
+    } as MessageEvent);
+    await activationRequest;
+    assert.equal(worker.getSkipWaitingCalls(), 1);
+
+    let activationCompletion = Promise.resolve<unknown>(undefined);
+    activate({
+      waitUntil: (promise) => { activationCompletion = promise; },
+    } as ActivationEvent);
+    await activationCompletion;
+    assert.equal(worker.getClaimCalls(), 1);
+    assert.deepEqual(worker.deletedCaches, ["dynamic-v1.0.7"]);
+  });
+
+  it("retains the prior dynamic generation for sibling tabs running old chunks", async () => {
+    const worker = loadServiceWorker({
+      initialCacheNames: [
+        "dynamic-v1.0.6",
+        "dynamic-v1.0.7",
+        "dynamic-v1.0.8",
+        "dynamic-v1.0.9",
+        "api-v1.0.8",
+        "images-v1.0.8",
+        "static-v1.0.8",
+      ],
+    });
+    const activate = worker.listeners.get("activate");
+    assert.ok(activate, "service worker must register an activate listener");
+
+    let completion = Promise.resolve<unknown>(undefined);
+    activate({ waitUntil: (promise) => { completion = promise; } } as ActivationEvent);
+    await completion;
+
+    assert.deepEqual(worker.deletedCaches.sort(), [
+      "api-v1.0.8",
+      "dynamic-v1.0.6",
+      "dynamic-v1.0.7",
+      "images-v1.0.8",
+      "static-v1.0.8",
+    ]);
+    assert.equal(worker.deletedCaches.includes("dynamic-v1.0.8"), false);
+  });
+
+  it("serves an old lazy chunk from the retained sibling-tab cache generation", async () => {
+    const oldChunkUrl = "https://round-robin.test/assets/chunk-v108.js";
+    const worker = loadServiceWorker({
+      cachedCacheName: "dynamic-v1.0.8",
+      cachedRequestUrl: oldChunkUrl,
+      cachedResponse: new Response("previous-generation chunk", {
+        status: 200,
+        headers: {
+          "content-type": "text/javascript",
+          "sw-cache-time": Date.now().toString(),
+        },
+      }),
+      initialCacheNames: ["dynamic-v1.0.8", "dynamic-v1.0.9"],
+      networkResponse: new Response("missing", { status: 404 }),
+    });
+    const activate = worker.listeners.get("activate");
+    const fetchListener = worker.listeners.get("fetch");
+    assert.ok(activate && fetchListener, "worker must register lifecycle and fetch listeners");
+
+    let activation = Promise.resolve<unknown>(undefined);
+    activate({ waitUntil: (promise) => { activation = promise; } } as ActivationEvent);
+    await activation;
+
+    const response = await getServiceWorkerResponse(fetchListener, new Request(oldChunkUrl));
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "previous-generation chunk");
+    assert.equal(worker.deletedCaches.includes("dynamic-v1.0.8"), false);
+  });
+
+  it("deletes API and obsolete public cache generations", async () => {
     const { deletedCaches, listeners } = loadServiceWorker({
       initialCacheNames: [
         "api-v1.0.3",
@@ -135,7 +246,7 @@ describe("service worker cache policy", () => {
 
     assert.deepEqual(
       deletedCaches.sort(),
-      ["api-v1.0.3", "dynamic-v1.0.3", "images-v1.0.3", "static-v1.0.3", "static-v1.0.4"],
+      ["api-v1.0.3", "images-v1.0.3", "static-v1.0.3", "static-v1.0.4"],
     );
   });
 
