@@ -120,7 +120,7 @@ export const RoundHome = ({
             </p>
           )}
 
-          {hasPatients && (
+          {hasPatients && isResume && (
             <Button
               type="button"
               variant="outline"

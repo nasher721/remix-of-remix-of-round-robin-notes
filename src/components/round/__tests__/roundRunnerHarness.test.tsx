@@ -401,6 +401,11 @@ describe("Focus-first Round runner harness", () => {
 
     assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start Round");
     assert.equal(screen.getByTestId("round-home-start").getAttribute("aria-label"), "Start Round");
+    assert.equal(
+      screen.queryByTestId("round-home-end"),
+      null,
+      "A Round that has never entered Focus cannot be ended",
+    );
 
     fireEvent.click(screen.getByTestId("round-home-start"));
     assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "focus");
@@ -408,6 +413,7 @@ describe("Focus-first Round runner harness", () => {
     fireEvent.click(screen.getByTestId("round-go-home"));
     assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Resume Round");
     assert.equal(screen.getByTestId("round-home-start").getAttribute("aria-label"), "Resume Round");
+    assert.ok(screen.getByTestId("round-home-end"));
   });
 
   it("expands only one systems row at a time in Patient Focus", async () => {
