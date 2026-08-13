@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useSettings } from '@/contexts/SettingsContext';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage, UserFacingError } from '@/lib/userFacingErrors';
 
@@ -46,7 +45,6 @@ const getMicrophoneErrorMessage = (error: unknown): string => {
 
 export const useDictation = (options: UseDictationOptions = {}): UseDictationReturn => {
   const { onTranscript, enhanceMedical = true } = options;
-  const { getModelForFeature } = useSettings();
   
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -236,7 +234,6 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
                     audio: base64,
                     mimeType: mimeType.split(';')[0],
                     enhanceMedical,
-                    model: getModelForFeature('transcription'),
                   },
                 }),
                 'transcription',
@@ -249,7 +246,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
               
               if (data?.error) {
                 if (data.needsApiKey) {
-                  throw new Error('Please configure OPENAI_API_KEY in your secrets for dictation.');
+                  throw new Error('Dictation is not available for this deployment. Contact your administrator.');
                 }
                 throw new Error(data.error);
               }
@@ -310,7 +307,7 @@ export const useDictation = (options: UseDictationOptions = {}): UseDictationRet
       
       mediaRecorder.stop();
     });
-  }, [enhanceMedical, onTranscript, toast, stopAudioAnalysis, getModelForFeature, releaseStream]);
+  }, [enhanceMedical, onTranscript, toast, stopAudioAnalysis, releaseStream]);
 
   const toggleRecording = useCallback(async () => {
     if (isRecording) {

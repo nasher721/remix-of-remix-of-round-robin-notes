@@ -6,7 +6,6 @@ import type { PatientTodo } from '@/types/todo';
 import { ensureString } from '@/lib/ai-response-utils';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useAssertBackendReady } from '@/contexts/EdgeHealthContext';
 
 export type BatchGenerationType = 'course' | 'intervalEvents' | 'dailySummary';
@@ -27,7 +26,6 @@ export type BatchProgress = {
 
 export const useBatchCourseGenerator = () => {
   const assertBackendReady = useAssertBackendReady();
-  const { getModelForFeature } = useSettings();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [progress, setProgress] = React.useState<BatchProgress>({
     total: 0,
@@ -117,7 +115,6 @@ export const useBatchCourseGenerator = () => {
                 systems: patient.systems,
                 existingIntervalEvents: patient.intervalEvents,
                 patientName: patient.name,
-                model: getModelForFeature('interval_events'),
               },
             }),
             'aiEdgeFunction',
@@ -150,7 +147,6 @@ export const useBatchCourseGenerator = () => {
                 medications: patient.medications,
                 todos: todoRows,
                 existingIntervalEvents: patient.intervalEvents,
-                model: getModelForFeature('daily_summary'),
               },
             }),
             'aiEdgeFunction',
@@ -170,7 +166,6 @@ export const useBatchCourseGenerator = () => {
                   labs: patient.labs,
                   systems: patient.systems,
                 },
-                model: getModelForFeature('patient_course'),
               },
             }),
             'aiEdgeFunction',
@@ -246,7 +241,7 @@ export const useBatchCourseGenerator = () => {
     }
 
     return results;
-  }, [getModelForFeature, assertBackendReady]);
+  }, [assertBackendReady]);
 
   const cancelGeneration = React.useCallback(() => {
     if (abortControllerRef.current) {

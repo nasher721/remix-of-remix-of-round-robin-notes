@@ -2,6 +2,7 @@ import { recordTelemetryEvent } from "@/lib/observability/telemetry";
 import { getCircuitBreaker, CircuitOpenError, type CircuitState } from "@/lib/circuitBreaker";
 import { logError, logInfo, generateRequestId } from "@/lib/observability/logger";
 import { captureEdgeFetchFailureToSentry } from "@/lib/observability/sentryClient";
+import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
 
 export class ApiError extends Error {
   readonly status?: number;
@@ -21,6 +22,13 @@ class CallerCancelledError extends ApiError {
   constructor(url: string, cause?: unknown) {
     super('Request cancelled', { url, cause });
     this.name = 'CallerCancelledError';
+  }
+}
+
+class KnownOfflineError extends ApiError {
+  constructor(url: string, cause?: unknown) {
+    super('Network unavailable while offline', { url, cause });
+    this.name = 'KnownOfflineError';
   }
 }
 
@@ -195,6 +203,13 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
       throw new CallerCancelledError(urlString, callerSignal.reason);
     }
 
+    // Browser offline state is authoritative enough to avoid guaranteed-failure
+    // network attempts. Fail before retry/circuit accounting so an offline round
+    // cannot create an auth-request storm or mark a healthy backend unavailable.
+    if (isBrowserKnownOffline()) {
+      throw new KnownOfflineError(urlString);
+    }
+
     const cbName = circuitNameFromUrl(urlString);
     const cb = getCircuitBreaker(cbName, {
       failureThreshold: isEdgeFunction ? 3 : 5,
@@ -221,6 +236,10 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
     }
 
     const executeFetch = async (): Promise<Response> => {
+      if (isBrowserKnownOffline()) {
+        throw new KnownOfflineError(urlString);
+      }
+
       const controller = new AbortController();
       let abortSource: 'caller' | 'timeout' | null = null;
       const abortFromCaller = () => {
@@ -248,6 +267,9 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
         }
         if (abortSource === 'timeout' && (isAbortError(error) || controller.signal.aborted)) {
           throw normalizeError(new Error("Request timed out"), urlString);
+        }
+        if (isBrowserKnownOffline()) {
+          throw new KnownOfflineError(urlString, error);
         }
         throw normalizeError(error, urlString);
       } finally {
@@ -311,7 +333,7 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
           return response;
         } catch (error) {
           lastError = normalizeError(error, urlString);
-          if (lastError instanceof CallerCancelledError) {
+          if (lastError instanceof CallerCancelledError || lastError instanceof KnownOfflineError) {
             throw lastError;
           }
           if (attempt >= retryCount) {
@@ -375,7 +397,9 @@ export const createApiClient = (fetchImpl: typeof fetch = fetch) => {
       }
       throw lastError ?? normalizeError(new Error("Request failed"), urlString);
     }, {
-      shouldCountFailure: (error) => !(error instanceof CallerCancelledError),
+      shouldCountFailure: (error) => (
+        !(error instanceof CallerCancelledError) && !(error instanceof KnownOfflineError)
+      ),
     });
 
     if (canDedupe) {

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { defaultMedicationsValue, defaultSystemsValue } from "@/services/patientService";
-import type { PatientSystems, PatientMedications, AcuityLevel, CodeStatus } from "@/types/patient";
+import type { Patient, PatientSystems, PatientMedications, AcuityLevel, CodeStatus } from "@/types/patient";
 import { Loader2, ChevronDown, AlertTriangle, Users, Activity } from "lucide-react";
 import {
   Select,
@@ -90,6 +90,10 @@ export type NewPatientSubmitPayload = {
   acuity?: AcuityLevel;
   codeStatus?: CodeStatus;
   alerts?: string[];
+  age?: number;
+  dateOfBirth?: string;
+  gender?: Patient["gender"];
+  admissionDate?: string;
 };
 
 type NewPatientSheetProps = {
@@ -227,6 +231,9 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
             .map((a) => a.trim())
             .filter((a) => a.length > 0)
         : []);
+      const parsedAlerts = isolation !== "none"
+        ? normalizePatientAlerts([...parsedAllergies, `Isolation: ${isolation}`])
+        : parsedAllergies;
 
       const parsedConsultingTeam = consultingTeam
         ? consultingTeam
@@ -250,7 +257,7 @@ export const NewPatientSheet = ({ open, onOpenChange, onSubmit }: NewPatientShee
         consultingTeam: parsedConsultingTeam.length > 0 ? parsedConsultingTeam : undefined,
         acuity: acuity || undefined,
         codeStatus: codeStatus || undefined,
-        alerts: parsedAllergies.length > 0 ? parsedAllergies : undefined,
+        alerts: parsedAlerts.length > 0 ? parsedAlerts : undefined,
       });
       onOpenChange(false);
     } finally {

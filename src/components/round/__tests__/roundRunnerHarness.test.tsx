@@ -23,6 +23,7 @@ import { MobileRoundShell } from "@/components/round/MobileRoundShell";
 import { dashboardPatients3, makeDashboardTodosMap } from "@/test/dashboardRegressionFixtures";
 import { PatientFilterType } from "@/constants/config";
 import type { Patient } from "@/types/patient";
+import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
 
 globalThis.MutationObserver = window.MutationObserver;
 globalThis.NodeFilter = window.NodeFilter;
@@ -118,9 +119,11 @@ function buildDashboardValue(patients: Patient[]) {
 
 function RoundProviders({
   patients,
+  patientSaveStates = {},
   children,
 }: {
   patients: Patient[];
+  patientSaveStates?: Record<string, PatientSaveState>;
   children: React.ReactNode;
 }) {
   const queryClient = React.useMemo(
@@ -144,6 +147,7 @@ function RoundProviders({
                           <RoundSessionProvider
                             userId="test-user"
                             patientIds={patientIds}
+                            patientSaveStates={patientSaveStates}
                             disablePersistence
                           >
                             {children}
@@ -250,6 +254,39 @@ describe("Focus-first Round runner harness", () => {
     assert.ok(screen.getByTestId("round-end-print"));
   });
 
+  it("blocks completion for an unresolved patient save without hiding review and export", async () => {
+    render(
+      <RoundProviders
+        patients={dashboardPatients3}
+        patientSaveStates={{ [dashboardPatients3[0]!.id]: "saving" }}
+      >
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    const done = screen.getByTestId("round-done") as HTMLButtonElement;
+    assert.equal(done.disabled, true, "Done must wait for the active patient save");
+
+    const endEntry = screen.getByTestId("round-end-entry") as HTMLButtonElement;
+    assert.equal(endEntry.disabled, false, "End must remain available for review and recovery export");
+    fireEvent.click(endEntry);
+
+    assert.ok(screen.getByTestId("round-completion-guard"));
+    assert.match(
+      screen.getByTestId("round-completion-guard").textContent ?? "",
+      /finish syncing before marking complete/i,
+    );
+    assert.equal(
+      (screen.getByTestId("round-end-complete") as HTMLButtonElement).disabled,
+      true,
+    );
+    assert.equal(
+      (screen.getByTestId("round-end-print") as HTMLButtonElement).disabled,
+      false,
+      "Print/export remains a recovery path while completion is blocked",
+    );
+  });
+
   it("exposes first-class Import on Round Home", async () => {
     render(
       <RoundProviders patients={dashboardPatients3}>
@@ -316,6 +353,9 @@ describe("Focus-first Round runner harness", () => {
     assert.ok(document.getElementById("focus-summary-panel"));
     assert.ok(document.getElementById("focus-system-panel"));
     assert.ok(document.getElementById("focus-todos-panel"));
+    const initialPanel = screen.getByRole("tabpanel");
+    assert.equal(initialPanel.id, "focus-summary-panel");
+    assert.equal(initialPanel.getAttribute("aria-labelledby"), "focus-mobile-tab-clinicalSummary");
 
     summaryTab.focus();
     fireEvent.keyDown(summaryTab, { key: "ArrowRight" });
@@ -323,11 +363,17 @@ describe("Focus-first Round runner harness", () => {
     assert.equal(document.activeElement, systemsTab);
     assert.equal(systemsTab.getAttribute("aria-selected"), "true");
     assert.equal(systemsTab.getAttribute("aria-controls"), "focus-system-panel");
+    const systemsPanel = screen.getByRole("tabpanel");
+    assert.equal(systemsPanel.id, "focus-system-panel");
+    assert.equal(systemsPanel.getAttribute("aria-labelledby"), "focus-mobile-tab-systems");
 
     fireEvent.keyDown(systemsTab, { key: "End" });
     await new Promise((resolve) => window.requestAnimationFrame(() => resolve(undefined)));
     assert.equal(document.activeElement, todosTab);
     assert.equal(todosTab.tabIndex, 0);
     assert.ok(document.getElementById("focus-todos-panel"));
+    const todosPanel = screen.getByRole("tabpanel");
+    assert.equal(todosPanel.id, "focus-todos-panel");
+    assert.equal(todosPanel.getAttribute("aria-labelledby"), "focus-mobile-tab-todos");
   });
 });

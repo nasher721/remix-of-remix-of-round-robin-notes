@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { QUERY_KEYS, CACHE_CONFIG } from './cacheConfig';
 import { logInfo } from '@/lib/observability/logger';
 import {
+  getPatientRosterSelectColumns,
+  markPatientRosterProjectionLegacy,
   mapPatientRecord,
-  PATIENT_SELECT_COLUMNS,
   PATIENT_SELECT_COLUMNS_LEGACY,
   isMissingPatientContractColumnError,
   type PatientRecord,
@@ -127,13 +128,19 @@ export const cacheWarming = {
     isOwnerCurrent: OwnerFence = () => true,
   ): Promise<void> {
     assertOwnerCurrent(isOwnerCurrent);
+    const selectedColumns = getPatientRosterSelectColumns();
     let { data, error } = await supabase
       .from('patients')
-      .select(PATIENT_SELECT_COLUMNS)
+      .select(selectedColumns)
       .eq('user_id', userId)
       .order('patient_number');
 
-    if (error && isMissingPatientContractColumnError(error)) {
+    if (
+      selectedColumns !== PATIENT_SELECT_COLUMNS_LEGACY
+      && error
+      && isMissingPatientContractColumnError(error)
+    ) {
+      markPatientRosterProjectionLegacy();
       ({ data, error } = await supabase
         .from('patients')
         .select(PATIENT_SELECT_COLUMNS_LEGACY)

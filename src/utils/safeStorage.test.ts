@@ -4,7 +4,6 @@ import test, { afterEach } from 'node:test';
 import React from 'react';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { ThemeProvider, useTheme } from '@/components/theme-provider';
-import { useLLMModelSelection } from '@/hooks/useLLMModelSelection';
 import { DEFAULT_SYSTEMS, useSystemsConfig } from '@/hooks/useSystemsConfig';
 import { useMotionPreference } from '@/hooks/useReducedMotion';
 import { createSafeSessionStorage, createSafeStorage, readStoredJson } from './safeStorage';
@@ -23,7 +22,6 @@ const MIGRATED_STORAGE_MODULES = [
   'src/lib/dashboardPrefs.ts',
   'src/components/theme-provider.tsx',
   'src/hooks/useReducedMotion.tsx',
-  'src/hooks/useLLMModelSelection.ts',
   'src/hooks/useSystemsConfig.ts',
 ];
 
@@ -302,39 +300,6 @@ test('motion preference hook tolerates storage failures for reads and writes', a
         assert.equal(result.current.prefersReducedMotion, false);
       });
     });
-  });
-});
-
-test('LLM model selection preserves UI state when storage access is blocked', async () => {
-  const storage: StorageLike = {
-    getItem: () => {
-      throw new Error('Storage unavailable');
-    },
-    setItem: () => {
-      throw new Error('Storage unavailable');
-    },
-    removeItem: () => {
-      throw new Error('Storage unavailable');
-    },
-  };
-
-  await withMockLocalStorage(storage, async () => {
-    const { result } = renderHook(() => useLLMModelSelection());
-
-    assert.equal(result.current.selectedProvider, 'openai');
-    assert.equal(result.current.selectedModel, 'gpt-4o-mini');
-
-    assert.doesNotThrow(() => {
-      act(() => result.current.setModel('openai', 'gpt-4o'));
-    });
-    assert.equal(result.current.selectedProvider, 'openai');
-    assert.equal(result.current.selectedModel, 'gpt-4o');
-
-    assert.doesNotThrow(() => {
-      act(() => result.current.resetToDefault());
-    });
-    assert.equal(result.current.selectedProvider, 'openai');
-    assert.equal(result.current.selectedModel, 'gpt-4o-mini');
   });
 });
 

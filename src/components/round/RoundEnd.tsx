@@ -1,15 +1,14 @@
 import * as React from "react"
-import { ArrowLeft, CheckCircle2, Printer } from "lucide-react"
+import { AlertTriangle, ArrowLeft, CheckCircle2, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { useDashboard } from "@/contexts/DashboardContext"
 import { useDashboardTodos } from "@/contexts/DashboardTodosContext"
 import { useRoundSession } from "@/contexts/RoundSessionContext"
 import { cn } from "@/lib/utils"
+import { loadRoundPrintExport } from "./roundPrintExportLoader"
 
-const PrintExportModal = React.lazy(() =>
-  import("@/components/PrintExportModal").then((m) => ({ default: m.PrintExportModal })),
-)
+const PrintExportModal = React.lazy(loadRoundPrintExport)
 
 export interface RoundEndProps {
   onBackToFocus: () => void
@@ -36,7 +35,9 @@ export const RoundEnd = ({
     canCompleteRound,
     pendingCount,
     failedCount,
+    softFailedCount,
     conflicts,
+    completionSafety,
   } = useRoundSession()
   const [printOpen, setPrintOpen] = React.useState(false)
 
@@ -45,6 +46,25 @@ export const RoundEnd = ({
     .flat()
     .filter((todo) => !todo.completed).length
   const isComplete = round.status === "completed"
+  const activePendingCount = Math.max(0, pendingCount - softFailedCount)
+  const blockedSyncParts = [
+    activePendingCount > 0 ? `${activePendingCount} pending` : null,
+    softFailedCount > 0 ? `${softFailedCount} stalled` : null,
+    failedCount > 0 ? `${failedCount} failed` : null,
+    conflicts.length > 0 ? `${conflicts.length} conflicts` : null,
+    completionSafety.mutationPendingCount > 0
+      ? `${completionSafety.mutationPendingCount} patient changes pending`
+      : null,
+    completionSafety.mutationFailedCount > 0
+      ? `${completionSafety.mutationFailedCount} patient changes failed`
+      : null,
+    completionSafety.mutationConflictCount > 0
+      ? `${completionSafety.mutationConflictCount} patient conflicts`
+      : null,
+    completionSafety.patientSaveBlockerCount > 0
+      ? `${completionSafety.patientSaveBlockerCount} active patient saves`
+      : null,
+  ].filter(Boolean).join(" · ")
 
   const handleOpenPrint = () => {
     setPrintOpen(true)
@@ -114,12 +134,29 @@ export const RoundEnd = ({
                 <span>
                   {canCompleteRound
                     ? "All changes saved"
-                    : `${pendingCount} pending · ${failedCount} failed · ${conflicts.length} conflicts`}
+                    : blockedSyncParts || "Waiting for sync"}
                 </span>
               </p>
             </div>
           )}
         </header>
+
+        {!canCompleteRound && patients.length > 0 ? (
+          <div
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-100"
+            role="status"
+            data-testid="round-completion-guard"
+          >
+            <p className="flex items-start gap-2 font-semibold">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              Finish syncing before marking complete
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/80">
+              {blockedSyncParts || "One or more patient changes still need attention."}
+              {" "}Use the sync control in the top bar to retry or review. Print / Export remains available for recovery.
+            </p>
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-3">
           <Button
@@ -127,7 +164,7 @@ export const RoundEnd = ({
             size={touchFriendly ? "lg" : "default"}
             className={cn(
               "w-full justify-center gap-2",
-              touchFriendly && "min-h-11 text-base",
+              touchFriendly && "min-h-[44px] text-base",
             )}
             onClick={handleOpenPrint}
             disabled={patients.length === 0}
@@ -145,7 +182,7 @@ export const RoundEnd = ({
               size={touchFriendly ? "lg" : "default"}
               className={cn(
                 "w-full justify-center gap-2",
-                touchFriendly && "min-h-11 text-base",
+                touchFriendly && "min-h-[44px] text-base",
               )}
               disabled={!canCompleteRound || patients.length === 0}
               onClick={handleMarkComplete}
@@ -162,7 +199,7 @@ export const RoundEnd = ({
           <Button
             type="button"
             variant="ghost"
-            className={cn("gap-2", touchFriendly && "min-h-11")}
+            className={cn("gap-2", touchFriendly && "min-h-[44px]")}
             onClick={onBackToFocus}
             disabled={patients.length === 0}
             aria-label="Back to patient Focus"
@@ -173,7 +210,7 @@ export const RoundEnd = ({
           <Button
             type="button"
             variant="ghost"
-            className={cn(touchFriendly && "min-h-11")}
+            className={cn(touchFriendly && "min-h-[44px]")}
             onClick={onBackToHome}
             aria-label="Back to Round Home"
           >
@@ -182,15 +219,17 @@ export const RoundEnd = ({
         </div>
       </div>
 
-      <React.Suspense fallback={null}>
-        <PrintExportModal
-          open={printOpen}
-          onOpenChange={setPrintOpen}
-          patients={filteredPatients.length > 0 ? filteredPatients : patients}
-          patientTodos={todosMap}
-          onUpdatePatient={onUpdatePatient}
-        />
-      </React.Suspense>
+      {printOpen ? (
+        <React.Suspense fallback={null}>
+          <PrintExportModal
+            open={printOpen}
+            onOpenChange={setPrintOpen}
+            patients={filteredPatients.length > 0 ? filteredPatients : patients}
+            patientTodos={todosMap}
+            onUpdatePatient={onUpdatePatient}
+          />
+        </React.Suspense>
+      ) : null}
     </div>
   )
 }

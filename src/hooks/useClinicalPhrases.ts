@@ -75,6 +75,46 @@ const mapVersion = (row: Record<string, unknown>): PhraseVersion => ({
   createdAt: row.created_at as string,
 });
 
+const getSessionUser = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return session?.user ?? null;
+};
+
+type ClinicalPhraseLibrary = {
+  phrases: ClinicalPhrase[];
+  folders: PhraseFolder[];
+};
+
+const clinicalPhraseLibraryRequests = new Map<string, Promise<ClinicalPhraseLibrary>>();
+
+const fetchClinicalPhraseLibrary = (ownerId: string): Promise<ClinicalPhraseLibrary> => {
+  const existing = clinicalPhraseLibraryRequests.get(ownerId);
+  if (existing) return existing;
+
+  const request = Promise.all([
+    supabase.from('clinical_phrases').select('*').order('name'),
+    supabase.from('phrase_folders').select('*').order('sort_order'),
+  ]).then(([phrasesRes, foldersRes]) => {
+    if (phrasesRes.error) throw phrasesRes.error;
+    if (foldersRes.error) throw foldersRes.error;
+
+    return {
+      phrases: (phrasesRes.data || []).map(mapPhrase),
+      folders: (foldersRes.data || []).map(mapFolder),
+    };
+  });
+
+  clinicalPhraseLibraryRequests.set(ownerId, request);
+  const clearRequest = () => {
+    if (clinicalPhraseLibraryRequests.get(ownerId) === request) {
+      clinicalPhraseLibraryRequests.delete(ownerId);
+    }
+  };
+  void request.then(clearRequest, clearRequest);
+  return request;
+};
+
 export const useClinicalPhrases = () => {
   const [phrases, setPhrases] = React.useState<ClinicalPhrase[]>([]);
   const [folders, setFolders] = React.useState<PhraseFolder[]>([]);
@@ -83,7 +123,7 @@ export const useClinicalPhrases = () => {
   // Fetch all phrases and folders
   const fetchData = React.useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getSessionUser();
       if (!user) {
         setPhrases([]);
         setFolders([]);
@@ -91,16 +131,9 @@ export const useClinicalPhrases = () => {
         return;
       }
 
-      const [phrasesRes, foldersRes] = await Promise.all([
-        supabase.from('clinical_phrases').select('*').order('name'),
-        supabase.from('phrase_folders').select('*').order('sort_order'),
-      ]);
-
-      if (phrasesRes.error) throw phrasesRes.error;
-      if (foldersRes.error) throw foldersRes.error;
-
-      setPhrases((phrasesRes.data || []).map(mapPhrase));
-      setFolders((foldersRes.data || []).map(mapFolder));
+      const library = await fetchClinicalPhraseLibrary(user.id);
+      setPhrases(library.phrases);
+      setFolders(library.folders);
     } catch (error) {
       console.error('Error fetching phrases:', error);
       toast.error('Failed to load clinical phrases');
@@ -148,7 +181,7 @@ export const useClinicalPhrases = () => {
   // Create a new phrase
   const createPhrase = React.useCallback(async (phrase: Omit<ClinicalPhrase, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'usageCount' | 'version'>): Promise<ClinicalPhrase | null> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getSessionUser();
       if (!user) {
         toast.error('You must be logged in');
         return null;
@@ -191,7 +224,7 @@ export const useClinicalPhrases = () => {
     saveVersion = true
   ): Promise<boolean> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getSessionUser();
       if (!user) return false;
 
       // Get current phrase for version history
@@ -422,7 +455,7 @@ export const useClinicalPhrases = () => {
   // Folder operations
   const createFolder = React.useCallback(async (folder: Omit<PhraseFolder, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<PhraseFolder | null> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getSessionUser();
       if (!user) return null;
 
       const { data, error } = await supabase

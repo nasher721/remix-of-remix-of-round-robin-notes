@@ -9,11 +9,16 @@
  * Evidence captured here feeds docs/qa/2026-08-12-data-integrity-matrix.md.
  */
 
-import { test, expect, type Browser, type Page } from "@playwright/test";
+import { test, expect, type Browser, type Page, type Route } from "@playwright/test";
+import {
+  appendEditorMarker,
+  deleteEditorMarker,
+  hasCredentials,
+  loginWithShell,
+  selectClassicPatient,
+} from "./helpers";
 
-const E2E_EMAIL = process.env.E2E_TEST_EMAIL;
-const E2E_PASSWORD = process.env.E2E_TEST_PASSWORD;
-const hasCredentials = Boolean(E2E_EMAIL && E2E_PASSWORD);
+const DATA_PATIENT_NAME = "E2E Bravo";
 
 async function loginToDashboard(page: Page) {
   test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set for data-integrity E2E");
@@ -29,25 +34,7 @@ async function loginToDashboard(page: Page) {
     if (msg.type() === "error") console.log("[console.error]", msg.text().slice(0, 300));
   });
 
-  await page.goto("/auth");
-  await page.getByLabel(/email/i).fill(E2E_EMAIL!);
-  await page.locator("#password").fill(E2E_PASSWORD!);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/(\?.*)?$/);
-
-  // The Focus-first Round runner shell is default ON; force the classic
-  // dashboard chrome where the inline clinical-summary editors live.
-  await page.evaluate(() => {
-    window.localStorage.setItem("rr-round-runner", "0");
-  });
-  await page.reload();
-
-  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
-}
-
-/** First clinical summary editor on the current dashboard/workspace. */
-function firstSummaryEditor(page: Page) {
-  return page.locator('[data-editor-type="clinical-summary"]').first();
+  await loginWithShell(page, { roundRunner: false });
 }
 
 test.describe("Data integrity", () => {
@@ -66,40 +53,72 @@ test.describe("Data integrity", () => {
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
+    let originalHtml: string | undefined;
+    let stampA: string | undefined;
+    let captureStalePatientPatches = false;
+    const stalePatientPatches: string[] = [];
+    pageB.on("request", (request) => {
+      const url = new URL(request.url());
+      if (
+        captureStalePatientPatches
+        && request.method() === "PATCH"
+        && url.pathname === "/rest/v1/patients"
+      ) {
+        stalePatientPatches.push(request.url());
+      }
+    });
 
     try {
       // Both tabs load the same roster. Tab B's copy becomes stale once A saves.
       await loginToDashboard(pageA);
       await loginToDashboard(pageB);
 
-      const editorB = firstSummaryEditor(pageB);
-      await expect(editorB).toBeVisible({ timeout: 15_000 });
+      const editorB = await selectClassicPatient(pageB, DATA_PATIENT_NAME);
 
       // Tab A edits and persists first.
-      const editorA = firstSummaryEditor(pageA);
-      await expect(editorA).toBeVisible({ timeout: 15_000 });
-      await editorA.click();
-      const stampA = `TAB-A ${new Date().toISOString()}`;
-      await pageA.keyboard.type(` ${stampA}`);
-      await expect(
-        pageA.getByRole("status").filter({ hasText: /^Saved/ }).first(),
-      ).toBeVisible({ timeout: 20_000 });
+      const editorA = await selectClassicPatient(pageA, DATA_PATIENT_NAME);
+      originalHtml = await editorA.evaluate((node) => node.innerHTML);
+      stampA = `TAB-A ${new Date().toISOString()}`;
+      await appendEditorMarker(pageA, editorA, stampA);
 
       // Tab B edits from its stale snapshot and attempts to save.
+      captureStalePatientPatches = true;
       await editorB.click();
-      await pageB.keyboard.type(` TAB-B ${new Date().toISOString()}`);
+      await pageB.keyboard.press("End");
+      await pageB.keyboard.insertText(` TAB-B ${new Date().toISOString()}`);
 
       // The stale write must surface an explicit conflict notification and the
       // save-state indicator must not claim a successful save.
       await expect(pageB.getByText("Save conflict")).toBeVisible({ timeout: 25_000 });
+      await expect(pageB.getByRole("status").filter({ hasText: "Review conflict" })).toBeVisible();
+      captureStalePatientPatches = false;
+      expect(
+        stalePatientPatches,
+        "one stale browser edit must issue one revision-guarded write",
+      ).toHaveLength(1);
 
       // Truth check: after B refreshes, A's content is what persisted.
       await pageB.reload();
       await expect(pageB.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
-      await expect(firstSummaryEditor(pageB)).toContainText(stampA, { timeout: 15_000 });
+      await expect(await selectClassicPatient(pageB, DATA_PATIENT_NAME)).toContainText(stampA, { timeout: 15_000 });
     } finally {
-      await contextA.close();
-      await contextB.close();
+      try {
+        if (originalHtml !== undefined && stampA && !pageA.isClosed()) {
+          await pageA.reload();
+          await expect(pageA.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+          let cleanupEditor = await selectClassicPatient(pageA, DATA_PATIENT_NAME);
+          if (!await deleteEditorMarker(pageA, cleanupEditor, stampA)) {
+            await expect.poll(() => cleanupEditor.evaluate((node) => node.innerHTML)).toBe(originalHtml);
+          }
+          await pageA.reload();
+          await expect(pageA.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+          cleanupEditor = await selectClassicPatient(pageA, DATA_PATIENT_NAME);
+          await expect.poll(() => cleanupEditor.evaluate((node) => node.innerHTML)).toBe(originalHtml);
+        }
+      } finally {
+        await contextA.close();
+        await contextB.close();
+      }
     }
   });
 
@@ -110,55 +129,296 @@ test.describe("Data integrity", () => {
     test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set");
     test.setTimeout(150_000);
 
-    await loginToDashboard(page);
+    let originalHtml: string | undefined;
+    let onlineStamp: string | undefined;
+    let offlineStamp: string | undefined;
+    let offline = false;
+    let captureOfflinePatientPatches = false;
+    const offlinePatientPatches: string[] = [];
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (
+        captureOfflinePatientPatches
+        && request.method() === "PATCH"
+        && url.pathname === "/rest/v1/patients"
+      ) {
+        offlinePatientPatches.push(request.url());
+      }
+    });
 
-    const editor = firstSummaryEditor(page);
-    await expect(editor).toBeVisible({ timeout: 15_000 });
+    try {
+      await loginToDashboard(page);
+      const editor = await selectClassicPatient(page, DATA_PATIENT_NAME);
+      originalHtml = await editor.evaluate((node) => node.innerHTML);
 
-    // Baseline: an online edit saves normally (also warms lazy editor modules
-    // so going offline does not trip the lazy-panel error boundary).
-    await editor.click();
-    const onlineStamp = `ONLINE ${new Date().toISOString()}`;
-    await page.keyboard.type(` ${onlineStamp}`);
-    await expect(
-      page.getByRole("status").filter({ hasText: /^Saved/ }).first(),
-    ).toBeVisible({ timeout: 20_000 });
+      // Baseline: an online edit saves normally (also warms lazy editor modules
+      // so going offline does not trip the lazy-panel error boundary).
+      onlineStamp = `ONLINE ${new Date().toISOString()}`;
+      await appendEditorMarker(page, editor, onlineStamp);
 
-    // Go offline: the app must surface an explicit, persistent warning.
-    await context.setOffline(true);
-    await expect(page.getByText("You are offline").first()).toBeVisible({ timeout: 15_000 });
+      // Go offline: the app must surface an explicit, persistent warning.
+      captureOfflinePatientPatches = true;
+      await context.setOffline(true);
+      offline = true;
+      await expect(page.getByText("You are offline").first()).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(
+        /Only patient changes showing Offline queued or Queued are stored on this device/,
+      ).first()).toBeVisible();
 
-    // An offline edit must NOT be silently lost: the write fails as retryable,
-    // lands in the durable IndexedDB queue, and the header reports it.
-    const offlineStamp = `OFFLINE ${new Date().toISOString()}`;
-    await editor.click();
-    await page.keyboard.type(` ${offlineStamp}`);
+      // An offline edit must NOT be silently lost: the write fails as retryable,
+      // lands in the durable IndexedDB queue, and the header reports it.
+      offlineStamp = `OFFLINE ${new Date().toISOString()}`;
+      await editor.click();
+      await page.keyboard.press("End");
+      await page.keyboard.type(` ${offlineStamp}`);
 
-    await expect(
-      page.getByRole("status").filter({ hasText: /^Offline queued$/ }).first(),
-    ).toBeVisible({ timeout: 25_000 });
+      await expect(
+        page.getByRole("status").filter({ hasText: /^Offline queued$/ }).first(),
+      ).toBeVisible({ timeout: 25_000 });
+      expect(
+        offlinePatientPatches,
+        "known-offline edits should queue locally without attempting patient PATCH requests",
+      ).toEqual([]);
 
-    // Reconnect: the sync engine drains the queue automatically.
-    await context.setOffline(false);
+      // Reconnect: the sync engine drains the queue automatically.
+      captureOfflinePatientPatches = false;
+      await context.setOffline(false);
+      offline = false;
+      await expect(page.getByText(
+        /confirm Queued clears or Saved appears/,
+      ).first()).toBeVisible({ timeout: 10_000 });
 
-    // A failed lazy fetch while offline may have tripped the panel error
-    // boundary; recover it before asserting the drained state.
-    const tryAgain = page.getByRole("button", { name: "Try Again" });
-    if (await tryAgain.isVisible().catch(() => false)) {
-      await tryAgain.click();
-      await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
+      // A failed lazy fetch while offline may have tripped the panel error
+      // boundary; recover it before asserting the drained state.
+      const tryAgain = page.getByRole("button", { name: "Try Again" });
+      if (await tryAgain.isVisible().catch(() => false)) {
+        await tryAgain.click();
+        await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
+      }
+
+      await expect(
+        page.getByRole("status").filter({ hasText: /^Saved/ }).first(),
+      ).toBeVisible({ timeout: 45_000 });
+
+      // Reload truth: the queued content persisted exactly once.
+      await page.reload();
+      await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+      const reloaded = await selectClassicPatient(page, DATA_PATIENT_NAME);
+      await expect(reloaded).toContainText(offlineStamp, { timeout: 15_000 });
+      const occurrences = ((await reloaded.textContent()) ?? "").split(offlineStamp).length - 1;
+      expect(occurrences).toBe(1);
+    } finally {
+      if (offline) await context.setOffline(false);
+      if (originalHtml !== undefined && !page.isClosed()) {
+        await page.waitForTimeout(2_000);
+        await page.reload();
+        await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+        let cleanupEditor = await selectClassicPatient(page, DATA_PATIENT_NAME);
+        if (offlineStamp) await deleteEditorMarker(page, cleanupEditor, offlineStamp);
+        if (onlineStamp) await deleteEditorMarker(page, cleanupEditor, onlineStamp);
+        await page.reload();
+        await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+        cleanupEditor = await selectClassicPatient(page, DATA_PATIENT_NAME);
+        await expect.poll(() => cleanupEditor.evaluate((node) => node.innerHTML)).toBe(originalHtml);
+      }
     }
+  });
 
-    await expect(
-      page.getByRole("status").filter({ hasText: /^Saved/ }).first(),
-    ).toBeVisible({ timeout: 45_000 });
+  test("offline todo: task survives reload, replays once, and remains removable", async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set");
+    test.setTimeout(150_000);
+    const todoStamp = `RR-OFFLINE-TODO-${Date.now()}`;
+    const reloadTodoStamp = `RR-OFFLINE-RELOAD-TODO-${Date.now()}`;
+    let offline = false;
+    let webkitTransportBlocked = false;
+    let captureOfflineSupabaseRequests = false;
+    const offlineSupabaseRequests: string[] = [];
+    const abortSupabaseTransport = (route: Route) => route.abort("internetdisconnected");
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (captureOfflineSupabaseRequests && url.hostname.endsWith(".supabase.co")) {
+        offlineSupabaseRequests.push(`${request.method()} ${url.pathname}`);
+      }
+    });
 
-    // Reload truth: the queued content persisted exactly once.
-    await page.reload();
-    await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
-    const reloaded = firstSummaryEditor(page);
-    await expect(reloaded).toContainText(offlineStamp, { timeout: 15_000 });
-    const occurrences = ((await reloaded.textContent()) ?? "").split(offlineStamp).length - 1;
-    expect(occurrences).toBe(1);
+    const readQueuedTodoStates = (content = todoStamp) => page.evaluate(async (queuedContent) => {
+      const records = await new Promise<Array<{
+        payload?: { content?: string };
+        status?: string;
+        retryCount?: number;
+      }>>((resolve, reject) => {
+        const request = indexedDB.open("RoundRobinNotesDB");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction("mutations", "readonly");
+          const getAll = transaction.objectStore("mutations").getAll();
+          getAll.onerror = () => reject(getAll.error);
+          getAll.onsuccess = () => resolve(getAll.result);
+        };
+      });
+      return records
+        .filter((record) => record.payload?.content === queuedContent)
+        .map((record) => `${record.status ?? "pending"}:${record.retryCount ?? 0}`);
+    }, content);
+
+    const openPatientTasks = async () => {
+      await selectClassicPatient(page, DATA_PATIENT_NAME);
+      const trigger = page.getByRole("button", {
+        name: /^Patient tasks: add or manage tasks\./,
+      }).first();
+      await expect(trigger).toBeVisible({ timeout: 20_000 });
+      await trigger.click();
+      await expect(page.getByRole("textbox", { name: "New todo" })).toBeVisible();
+    };
+
+    try {
+      await loginToDashboard(page);
+      await page.evaluate(async () => {
+        if (!("serviceWorker" in navigator)) return;
+        await navigator.serviceWorker.ready;
+      });
+      // The first navigation can finish before the production service worker
+      // claims the page. Reload once online so the app shell is controlled and
+      // cached before exercising an offline reload.
+      await page.reload();
+      await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+      await page.waitForFunction(() => (
+        !("serviceWorker" in navigator) || navigator.serviceWorker.controller !== null
+      ));
+      await openPatientTasks();
+      await context.setOffline(true);
+      offline = true;
+      await expect(page.getByText("You are offline").first()).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(
+        /Only patient changes showing Offline queued or Queued are stored on this device/,
+      ).first()).toBeVisible();
+      captureOfflineSupabaseRequests = true;
+
+      const input = page.getByRole("textbox", { name: "New todo" });
+      await input.fill(todoStamp);
+      await input.press("Enter");
+      expect(await readQueuedTodoStates()).toEqual(["pending:0"]);
+      await expect(page.getByText(todoStamp, { exact: true })).toBeVisible();
+      await expect(page.getByText("Queued", { exact: true })).toBeVisible();
+
+      // WebKit currently raises an internal navigation error when Playwright's
+      // browser-wide offline transport is combined with a service-worker
+      // navigation. Keep the app logically offline and abort only Supabase
+      // transport while allowing WebKit to load the cached shell. This still
+      // proves the owner-scoped queue survives a real document reload and that
+      // the reloaded app makes no clinical-data request while known offline.
+      if (browserName === "webkit") {
+        captureOfflineSupabaseRequests = false;
+        await page.route("https://*.supabase.co/**", abortSupabaseTransport);
+        webkitTransportBlocked = true;
+        await page.evaluate(() => sessionStorage.setItem("__rr_e2e_force_offline", "1"));
+        await page.addInitScript(() => {
+          if (sessionStorage.getItem("__rr_e2e_force_offline") === "1") {
+            Object.defineProperty(navigator, "onLine", {
+              configurable: true,
+              get: () => false,
+            });
+          }
+        });
+        await context.setOffline(false);
+        offline = false;
+        offlineSupabaseRequests.length = 0;
+        captureOfflineSupabaseRequests = true;
+      }
+
+      // Prove the task survives a document reload in the owner-scoped queue,
+      // not just in React state.
+      await page.reload();
+      await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText("You are offline").first()).toBeVisible();
+      expect(await readQueuedTodoStates()).toEqual(["pending:0"]);
+
+      // The reloaded document can expose navigator.onLine=true while its CDP
+      // transport remains offline. Prove the cached patient workspace uses the
+      // sticky connectivity signal for new writes and edits after that reload.
+      await openPatientTasks();
+      await expect(page.getByText(todoStamp, { exact: true })).toBeVisible();
+      await page.getByRole("textbox", { name: "New todo" }).fill(reloadTodoStamp);
+      await page.getByRole("textbox", { name: "New todo" }).press("Enter");
+      await expect(page.getByText(reloadTodoStamp, { exact: true })).toBeVisible();
+      expect(await readQueuedTodoStates(reloadTodoStamp)).toEqual(["pending:0"]);
+      await page.getByRole("checkbox", { name: `Mark todo complete: ${todoStamp}` }).click();
+      await expect(page.getByRole("checkbox", { name: `Mark todo incomplete: ${todoStamp}` })).toBeVisible();
+      const unexpectedOfflineRequests = browserName === "webkit"
+        // Re-enabling WebKit's transport for the service-worker navigation can
+        // start one blocked roster read in the old document. The release
+        // invariant is that accepted offline edits never attempt a remote
+        // write; Chromium retains the stricter zero-request assertion.
+        ? offlineSupabaseRequests.filter((request) => !request.startsWith("GET "))
+        : offlineSupabaseRequests;
+      expect(
+        unexpectedOfflineRequests,
+        "known-offline reload and post-reload mutations must not attempt Supabase writes",
+      ).toEqual([]);
+
+      captureOfflineSupabaseRequests = false;
+      if (webkitTransportBlocked) {
+        await page.unroute("https://*.supabase.co/**", abortSupabaseTransport);
+        webkitTransportBlocked = false;
+        await page.evaluate(() => {
+          sessionStorage.removeItem("__rr_e2e_force_offline");
+          Object.defineProperty(navigator, "onLine", {
+            configurable: true,
+            get: () => true,
+          });
+        });
+      } else {
+        await context.setOffline(false);
+        offline = false;
+      }
+      await expect.poll(() => page.evaluate(() => navigator.onLine)).toBe(true);
+      // A browser offline toggle can restore transport without emitting a
+      // second DOM `online` event after an offline service-worker navigation.
+      // Dispatch it explicitly so this test exercises the browser contract the
+      // sync engine listens to in real devices.
+      await page.evaluate(() => window.dispatchEvent(new Event("online")));
+      await expect.poll(() => readQueuedTodoStates(todoStamp), { timeout: 45_000 }).toEqual([]);
+      await expect.poll(() => readQueuedTodoStates(reloadTodoStamp), { timeout: 45_000 }).toEqual([]);
+      // Refresh the network-backed roster after the deliberately offline boot,
+      // then verify the replay produced exactly one removable server row.
+      await page.reload();
+      await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+      await openPatientTasks();
+      await expect(page.getByText(todoStamp, { exact: true })).toHaveCount(1);
+      await expect(page.getByText(reloadTodoStamp, { exact: true })).toHaveCount(1);
+      await expect(page.getByText("Queued", { exact: true })).toBeHidden();
+    } finally {
+      captureOfflineSupabaseRequests = false;
+      if (offline) await context.setOffline(false);
+      if (webkitTransportBlocked) {
+        await page.unroute("https://*.supabase.co/**", abortSupabaseTransport);
+        webkitTransportBlocked = false;
+      }
+      if (!page.isClosed()) {
+        await page.evaluate(() => {
+          sessionStorage.removeItem("__rr_e2e_force_offline");
+          Object.defineProperty(navigator, "onLine", {
+            configurable: true,
+            get: () => true,
+          });
+        }).catch(() => undefined);
+        await page.evaluate(() => window.dispatchEvent(new Event("online")));
+        await page.reload();
+        await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
+        await openPatientTasks();
+        for (const content of [todoStamp, reloadTodoStamp]) {
+          const deleteButton = page.getByRole("button", { name: `Delete todo: ${content}` });
+          if (await deleteButton.isVisible().catch(() => false)) {
+            await deleteButton.click();
+            await expect(deleteButton).toBeHidden({ timeout: 20_000 });
+          }
+        }
+      }
+    }
   });
 });

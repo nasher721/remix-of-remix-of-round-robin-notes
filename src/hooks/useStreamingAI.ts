@@ -2,7 +2,6 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Patient } from '@/types/patient';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import type {
   AIFeature,
@@ -69,7 +68,6 @@ export const useStreamingAI = (
   options: UseStreamingAIOptions = {}
 ): UseStreamingAIReturn => {
   const { onChunk, onComplete, onError } = options;
-  const { getModelForFeature } = useSettings();
   const { user } = useAuth();
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -175,7 +173,6 @@ export const useStreamingAI = (
           text,
           context: finalContext,
           customPrompt: combinedCustomPrompt,
-          model: getModelForFeature('clinical_assistant'),
           stream: true,
         }),
         signal: abortControllerRef.current.signal,
@@ -353,7 +350,7 @@ export const useStreamingAI = (
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [onChunk, onComplete, onError, toast, getModelForFeature, user]);
+  }, [onChunk, onComplete, onError, toast, user]);
 
   return {
     isStreaming,

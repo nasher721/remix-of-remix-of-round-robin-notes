@@ -26,7 +26,7 @@ export const RoundHome = ({
   className,
 }: RoundHomeProps) => {
   const { patients, onImportPatients, onSignOut, user } = useDashboard()
-  const { position, round, canCompleteRound } = useRoundSession()
+  const { position, round } = useRoundSession()
   const [importOpen, setImportOpen] = React.useState(false)
 
   const hasPatients = patients.length > 0
@@ -82,7 +82,7 @@ export const RoundHome = ({
             size={touchFriendly ? "lg" : "default"}
             className={cn(
               "w-full justify-center gap-2 font-semibold shadow-sm",
-              touchFriendly && "min-h-11 text-base",
+              touchFriendly && "min-h-[44px] text-base",
             )}
             onClick={handleOpenImport}
             aria-label="Import Patient List"
@@ -99,7 +99,7 @@ export const RoundHome = ({
               size={touchFriendly ? "lg" : "default"}
               className={cn(
                 "w-full justify-center gap-2 font-semibold",
-                touchFriendly && "min-h-11 text-base",
+                touchFriendly && "min-h-[44px] text-base",
               )}
               onClick={onStartRound}
               aria-label={isResume ? "Resume Round" : "Start Round"}
@@ -126,9 +126,8 @@ export const RoundHome = ({
               size={touchFriendly ? "lg" : "default"}
               className={cn(
                 "w-full justify-center gap-2 font-medium",
-                touchFriendly && "min-h-11 text-base",
+                touchFriendly && "min-h-[44px] text-base",
               )}
-              disabled={!canCompleteRound}
               onClick={onEndRound}
               aria-label="End Round and print or export"
               data-testid="round-home-end"
@@ -160,7 +159,7 @@ export const RoundHome = ({
             type="button"
             variant="ghost"
             size="sm"
-            className={cn(touchFriendly && "min-h-11")}
+            className={cn(touchFriendly && "min-h-[44px]")}
             onClick={onSignOut}
             aria-label="Sign out"
           >

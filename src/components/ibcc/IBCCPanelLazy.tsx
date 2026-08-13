@@ -19,7 +19,12 @@ type IBCCPanelProps = {
 };
 
 function IBCCPanelComponent({ variant = "embedded" }: IBCCPanelProps) {
-  const { isOpen } = useIBCCState();
+  const { isOpen, isDataLoaded, ensureDataLoaded } = useIBCCState();
+  const shouldLoad = variant === "embedded" || isOpen;
+
+  React.useEffect(() => {
+    if (shouldLoad) void ensureDataLoaded();
+  }, [ensureDataLoaded, shouldLoad]);
 
   if (variant === "overlay" && !isOpen) return null;
 
@@ -56,7 +61,14 @@ function IBCCPanelComponent({ variant = "embedded" }: IBCCPanelProps) {
             </div>
           }
         >
-          <IBCCPanelContent />
+          {isDataLoaded ? <IBCCPanelContent /> : (
+            <div className="h-full w-full flex items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" aria-hidden />
+                <p className="text-sm text-muted-foreground">Loading Clinical Reference…</p>
+              </div>
+            </div>
+          )}
         </Suspense>
       </div>
     </LazyPanelErrorBoundary>

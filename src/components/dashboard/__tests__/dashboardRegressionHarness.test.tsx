@@ -317,15 +317,11 @@ describe("production dashboard roster regression harness", () => {
       assert.equal(screen.queryByRole("heading", { name: "Customize Patient Info Toolbar" }), null);
     });
 
-    fireEvent.focus(editor);
-    const modelSelector = await screen.findByRole("button", { name: /AI model:.*Open menu to change model/i });
-    modelSelector.focus();
-    fireEvent.keyDown(modelSelector, { key: "Enter" });
-    assert.ok(await screen.findByText("Intelligence Engines"));
-    fireEvent.keyDown(modelSelector, { key: "Escape" });
-    await waitFor(() => {
-      assert.equal(screen.queryByText("Intelligence Engines"), null);
-    });
+    assert.equal(
+      screen.queryByRole("button", { name: /AI model:.*Open menu to change model/i }),
+      null,
+      "clinical model selection must remain organization-managed",
+    );
 
     fireEvent.focus(editor);
     const phraseButton = await screen.findByRole("button", { name: "Insert clinical phrase from library" });
@@ -712,7 +708,7 @@ describe("production dashboard roster regression harness", () => {
 
     const aiButton = await screen.findByRole("button", { name: /Open AI command palette/i });
     assert.match(aiButton.getAttribute("title") ?? "", /AI workspace/i);
-    assert.match(aiButton.getAttribute("aria-label") ?? "", /model/i);
+    assert.match(aiButton.getAttribute("aria-label") ?? "", /organization-managed provider/i);
 
     const retrySyncButton = screen.getByRole("button", { name: "Retry sync and refresh patient list" });
     assert.ok(retrySyncButton);

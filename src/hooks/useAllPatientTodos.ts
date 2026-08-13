@@ -4,6 +4,8 @@ import { hasSupabaseConfig, supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { CACHE_CONFIG, QUERY_KEYS } from '@/lib/cache/cacheConfig';
 import { PatientTodo } from '@/types/todo';
+import { indexedDBQueue } from '@/lib/offline/indexedDBQueue';
+import { applyQueuedTodoMutations } from '@/hooks/usePatientTodos';
 
 export interface PatientTodosMap {
   [patientId: string]: PatientTodo[];
@@ -60,6 +62,17 @@ async function fetchTodosForPatients(
     const mappedTodo = mapTodoRow(todo as PatientTodoRow);
     if (mappedTodo.userId !== ownerId || !requestedPatientIds.has(mappedTodo.patientId)) return;
     grouped[mappedTodo.patientId].push(mappedTodo);
+  });
+
+  const queue = await indexedDBQueue.getQueue();
+  if (!isOwnerActive()) return grouped;
+  patientIds.forEach((patientId) => {
+    grouped[patientId] = applyQueuedTodoMutations(
+      grouped[patientId] ?? [],
+      queue,
+      ownerId,
+      patientId,
+    );
   });
 
   return grouped;

@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { useCacheMonitor } from '@/hooks/useCacheMonitor';
 import { useCacheWarming } from '@/hooks/useCacheWarming';
 import { toast } from 'sonner';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 export function CacheMonitorPanel() {
   const { 
@@ -27,21 +28,7 @@ export function CacheMonitorPanel() {
     usagePercentage: number;
   } | null>(null);
   
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  
-  // Update online status
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+  const isOnline = useOnlineStatus();
   
   // Load cache size
   useEffect(() => {

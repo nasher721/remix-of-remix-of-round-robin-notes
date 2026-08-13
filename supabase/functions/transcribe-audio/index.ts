@@ -10,7 +10,11 @@ import {
   safeErrorMessage,
   safeLog,
 } from "../_shared/mod.ts";
-import { callLLM, getLLMConfig } from "../_shared/llm-client.ts";
+import {
+  callLLM,
+  getLLMConfig,
+  resolveApprovedClinicalProvider,
+} from "../_shared/llm-client.ts";
 
 // Process base64 in chunks to prevent memory issues
 function processBase64Chunks(
@@ -181,11 +185,18 @@ Deno.serve(async (req: Request) => {
     formData.append("language", "en");
     formData.append("prompt", WHISPER_MEDICAL_PROMPT);
 
-    // Transcribe with Whisper via OpenAI API
-    // We strictly need OpenAI for Whisper, so we check if it's the configured provider or explicitly available
-    const llmConfig = getLLMConfig("openai");
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ||
-      (llmConfig.provider === "openai" ? llmConfig.apiKey : undefined);
+    // Whisper is an OpenAI service. Audio may leave the Edge boundary only
+    // when OpenAI is the deployment-approved clinical provider.
+    const providerPolicy = resolveApprovedClinicalProvider();
+    if (!providerPolicy.valid || providerPolicy.provider !== "openai") {
+      return createErrorResponse(
+        req,
+        "Audio transcription is not approved for this deployment.",
+        503,
+      );
+    }
+    const llmConfig = getLLMConfig(providerPolicy.provider);
+    const OPENAI_API_KEY = llmConfig.apiKey;
 
     if (!OPENAI_API_KEY) {
       return createErrorResponse(

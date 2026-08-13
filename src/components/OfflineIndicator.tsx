@@ -17,7 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { useOfflineMode } from '@/hooks/useOfflineMode';
 import { formatDistanceToNow } from 'date-fns';
 
-export function OfflineIndicator() {
+export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: boolean } = {}) {
   const {
     isOnline,
     pendingCount,
@@ -44,7 +44,8 @@ export function OfflineIndicator() {
         <Button
           variant="ghost"
           size="sm"
-          className={`gap-2 ${!isOnline || failedCount > 0 ? 'text-destructive' : pendingCount > 0 ? 'text-yellow-500' : ''}`}
+          className={`gap-2 ${touchFriendly ? 'min-h-[44px] min-w-[44px]' : ''} ${!isOnline || failedCount > 0 ? 'text-destructive' : pendingCount > 0 ? 'text-yellow-500' : ''}`}
+          data-testid="offline-indicator"
           aria-label={
             !isOnline
               ? `Offline${pendingCount > 0 ? `, ${pendingCount} pending changes` : ""}`

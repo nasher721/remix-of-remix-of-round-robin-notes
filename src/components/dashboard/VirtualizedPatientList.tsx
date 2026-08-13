@@ -22,7 +22,7 @@ import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import { toLayoutMode, toPrefsMode } from "@/lib/dashboardLayoutModes";
 import { getPatientDocumentationSummary, DOCUMENTATION_STATUS_LABELS } from "@/lib/patientDocumentation";
 import { patientSafetyLabel } from "@/lib/patientIdentity";
-import { Hospital, ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronLeft, ChevronRight, CheckCircle2, Circle, CloudOff, Loader2, AlertCircle, Cloud } from "lucide-react";
+import { Hospital, ListTodo, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronLeft, ChevronRight, CheckCircle2, Circle, CloudOff, Loader2, AlertCircle, AlertTriangle, Cloud } from "lucide-react";
 
 /**
  * Desktop workspace: left = selectable list, right = full card for the selected patient.
@@ -384,7 +384,8 @@ export const VirtualizedPatientList = React.memo(() => {
                           {saveState === "saved" && <Cloud className="h-3.5 w-3.5 text-primary" aria-hidden="true" />}
                           {saveState === "queued" && <CloudOff className="h-3.5 w-3.5 text-warning" aria-hidden="true" />}
                           {saveState === "error" && <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />}
-                          <span>{saveState === "idle" ? "Ready" : saveState === "queued" ? "Offline queued" : saveState === "error" ? "Save failed" : saveState === "saving" ? "Saving" : "Saved"}</span>
+                          {saveState === "conflict" && <AlertTriangle className="h-3.5 w-3.5 text-warning" aria-hidden="true" />}
+                          <span>{saveState === "idle" ? "Ready" : saveState === "queued" ? "Offline queued" : saveState === "conflict" ? "Review conflict" : saveState === "error" ? "Save failed" : saveState === "saving" ? "Saving" : "Saved"}</span>
                         </div>
                         <Button type="button" variant="outline" size="icon" className="min-h-11 min-w-11 h-11 w-11" onClick={() => selectRelativePatient(-1)} disabled={selectedIndex <= 0} aria-label="Previous patient">
                           <ChevronLeft className="h-4 w-4" aria-hidden="true" />

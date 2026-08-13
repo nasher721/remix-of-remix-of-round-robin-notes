@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 import type { PatientTodo } from '@/types/todo';
 import { ensureString } from '@/lib/ai-response-utils';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
@@ -22,7 +21,6 @@ function mapPatientTodoToRow(t: PatientTodo): TodoRow {
 }
 
 export const useDailySummaryGenerator = () => {
-  const { getModelForFeature } = useSettings();
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -94,7 +92,6 @@ export const useDailySummaryGenerator = () => {
             medications: patient.medications,
             todos: todos ?? [],
             existingIntervalEvents: patient.intervalEvents,
-            model: getModelForFeature('daily_summary'),
           },
         }),
         'aiEdgeFunction',
@@ -159,7 +156,7 @@ export const useDailySummaryGenerator = () => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, [getModelForFeature, user]);
+  }, [user]);
 
   const cancelGeneration = useCallback(() => {
     if (abortControllerRef.current) {

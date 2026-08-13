@@ -7,7 +7,6 @@
 import { useMemo } from 'react';
 import type { Patient } from '@/types/patient';
 import type { IBCCChapter } from '@/types/ibcc';
-import { useLazyData } from '@/lib/lazyData';
 import {
   MEDICATION_KEYWORD_PATTERNS,
   SYSTEM_KEYWORD_PATTERNS,
@@ -21,12 +20,12 @@ export interface ContextMatch {
   matchReasons: string[];
 }
 
-export function useIBCCContext(currentPatient?: Patient) {
-  // Lazy-load IBCC data
-  const { data: ibccData } = useLazyData(
-    () => import('@/data/ibccContent'),
-    (mod) => ({ chapters: mod.IBCC_CHAPTERS, patterns: mod.KEYWORD_PATTERNS }),
-  );
+interface IBCCContextData {
+  chapters: IBCCChapter[];
+  patterns: Record<string, string[]>;
+}
+
+export function useIBCCContext(currentPatient?: Patient, ibccData?: IBCCContextData) {
 
   // Enhanced context suggestions with relevance scoring
   const contextSuggestions = useMemo((): ContextMatch[] => {

@@ -5,7 +5,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { ClinicalGuideline } from '@/types/clinicalGuidelines';
-import { useLazyData } from '@/lib/lazyData';
 import { safeLocalStorage } from '@/utils/safeStorage';
 
 const BOOKMARKS_KEY = 'clinical-guidelines-bookmarks';
@@ -23,13 +22,9 @@ interface UseGuidelinesBookmarksReturn {
   clearRecent: () => void;
 }
 
-export function useGuidelinesBookmarks(): UseGuidelinesBookmarksReturn {
-  // Lazy-load guidelines data
-  const { data: guidelinesData } = useLazyData(
-    () => import('@/data/clinicalGuidelinesData'),
-    (mod) => mod.CLINICAL_GUIDELINES,
-  );
-
+export function useGuidelinesBookmarks(
+  guidelinesData: ClinicalGuideline[] = [],
+): UseGuidelinesBookmarksReturn {
   const [bookmarks, setBookmarks] = useState<string[]>(() => {
     try {
       const stored = safeLocalStorage.getItem(BOOKMARKS_KEY);
@@ -97,17 +92,15 @@ export function useGuidelinesBookmarks(): UseGuidelinesBookmarksReturn {
 
   // Get full guideline objects for bookmarked IDs
   const bookmarkedGuidelines = useMemo(() => {
-    const guidelines = guidelinesData ?? [];
     return bookmarks
-      .map(id => guidelines.find(g => g.id === id))
+      .map(id => guidelinesData.find(g => g.id === id))
       .filter((g): g is ClinicalGuideline => g !== undefined);
   }, [bookmarks, guidelinesData]);
 
   // Get full guideline objects for recent IDs
   const recentGuidelines = useMemo(() => {
-    const guidelines = guidelinesData ?? [];
     return recentlyViewed
-      .map(id => guidelines.find(g => g.id === id))
+      .map(id => guidelinesData.find(g => g.id === id))
       .filter((g): g is ClinicalGuideline => g !== undefined);
   }, [recentlyViewed, guidelinesData]);
 

@@ -8,33 +8,38 @@
  * Credential-gated (real Supabase). Without credentials, tests skip.
  */
 
-import { test, expect, type Page } from "@playwright/test";
-
-const E2E_EMAIL = process.env.E2E_TEST_EMAIL;
-const E2E_PASSWORD = process.env.E2E_TEST_PASSWORD;
-const hasCredentials = Boolean(E2E_EMAIL && E2E_PASSWORD);
+import { test, expect, type Locator, type Page } from "@playwright/test";
+import {
+  deleteEditorMarker,
+  loginWithShell,
+  waitForPatientSave,
+} from "./helpers";
 
 async function loginToRoundRunner(page: Page) {
-  test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set");
+  await loginWithShell(page, { roundRunner: true });
 
-  await page.goto("/auth");
-  await page.getByLabel(/email/i).fill(E2E_EMAIL!);
-  await page.locator("#password").fill(E2E_PASSWORD!);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/(\?.*)?$/);
-
-  // Round runner is default ON; make sure the flag does not disable it.
-  await page.evaluate(() => {
-    window.localStorage.setItem("rr-round-runner", "1");
-  });
-  await page.reload();
+  await page.getByTestId("round-roster-entry").click();
+  const roster = page.getByTestId("roster-overlay");
+  await expect(roster).toBeVisible({ timeout: 5_000 });
+  await roster.getByRole("button", { name: /^E2E Charlie, bed / }).click();
 
   await expect(page.getByTestId("patient-focus")).toBeVisible({ timeout: 20_000 });
 }
 
+async function openSummaryEditor(page: Page): Promise<Locator> {
+  const editor = page
+    .getByTestId("patient-focus")
+    .locator('[contenteditable="true"]')
+    .first();
+  if (!await editor.isVisible().catch(() => false)) {
+    await page.getByRole("button", { name: /Clinical summary/i }).first().click();
+  }
+  await expect(editor).toBeVisible({ timeout: 15_000 });
+  return editor;
+}
+
 test.describe("Round runner editing", () => {
   test("typing in a Focus editor never raises self-conflict UI", async ({ page }) => {
-    test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set");
     test.setTimeout(150_000);
 
     await loginToRoundRunner(page);
@@ -44,42 +49,43 @@ test.describe("Round runner editing", () => {
     const conflictDialog = page.getByRole("dialog").filter({ hasText: /conflict/i });
     const conflictToast = page.getByText(/Save conflict/i);
 
-    // Expand the collapsed Clinical summary section to mount its editor.
-    const summaryToggle = page.getByRole("button", { name: /Clinical summary/i }).first();
-    if (await summaryToggle.isVisible().catch(() => false)) {
-      const expanded = await summaryToggle.getAttribute("aria-expanded");
-      if (expanded === "false") await summaryToggle.click();
-    }
-
-    const editor = page
-      .getByTestId("patient-focus")
-      .locator('[contenteditable="true"]')
-      .first();
-    await expect(editor).toBeVisible({ timeout: 15_000 });
-    await editor.click();
-
-    // Type with human-ish pacing so both write paths interleave per keystroke.
+    let editor = await openSummaryEditor(page);
+    const originalHtml = await editor.evaluate((node) => node.innerHTML);
     const stamp = `ROUND ${new Date().toISOString()}`;
-    for (const ch of ` ${stamp}`) {
-      await page.keyboard.type(ch, { delay: 120 });
+
+    try {
+      await editor.click();
+      await page.keyboard.press("End");
+
+      // Type with human-ish pacing so both write paths interleave per keystroke.
+      await waitForPatientSave(page, async () => {
+        for (const ch of ` ${stamp}`) {
+          await page.keyboard.type(ch, { delay: 120 });
+        }
+      }, { requireSavedStatus: false });
+
+      // Give the drain loop time to process every queued keystroke write.
+      await page.waitForTimeout(6_000);
+
+      await expect(conflictDialog).toHaveCount(0);
+      await expect(conflictToast).toHaveCount(0);
+
+      // Truth check: the typed content persists after a reload.
+      await page.reload();
+      await expect(page.getByTestId("patient-focus")).toBeVisible({ timeout: 20_000 });
+      editor = await openSummaryEditor(page);
+      await expect(editor).toContainText(stamp, { timeout: 15_000 });
+    } finally {
+      await page.reload();
+      await expect(page.getByTestId("patient-focus")).toBeVisible({ timeout: 20_000 });
+      editor = await openSummaryEditor(page);
+      if (!await deleteEditorMarker(page, editor, stamp, { requireSavedStatus: false })) {
+        await expect.poll(() => editor.evaluate((node) => node.innerHTML)).toBe(originalHtml);
+      }
+      await page.reload();
+      await expect(page.getByTestId("patient-focus")).toBeVisible({ timeout: 20_000 });
+      editor = await openSummaryEditor(page);
+      await expect.poll(() => editor.evaluate((node) => node.innerHTML)).toBe(originalHtml);
     }
-
-    // Give the drain loop time to process every queued keystroke write.
-    await page.waitForTimeout(6_000);
-
-    await expect(conflictDialog).toHaveCount(0);
-    await expect(conflictToast).toHaveCount(0);
-
-    // Truth check: the typed content persists after a reload.
-    await page.reload();
-    await expect(page.getByTestId("patient-focus")).toBeVisible({ timeout: 20_000 });
-    const summaryToggleAfter = page.getByRole("button", { name: /Clinical summary/i }).first();
-    if (await summaryToggleAfter.isVisible().catch(() => false)) {
-      const expanded = await summaryToggleAfter.getAttribute("aria-expanded");
-      if (expanded === "false") await summaryToggleAfter.click();
-    }
-    await expect(
-      page.getByTestId("patient-focus").locator('[contenteditable="true"]').first(),
-    ).toContainText(stamp, { timeout: 15_000 });
   });
 });

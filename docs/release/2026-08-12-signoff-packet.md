@@ -1,5 +1,7 @@
 # Release Sign-off Packet — 2026-08-12
 
+Last engineering update: 2026-08-13
+
 Plan: `docs/plans/2026-08-11-clinical-production-readiness-plan.md`
 Status: **NO-GO for clinical production** until the human gates in section 4
 close. All engineering-controlled items are complete and evidenced below.
@@ -8,10 +10,10 @@ close. All engineering-controlled items are complete and evidenced below.
 
 | Item | Value |
 | --- | --- |
-| Repo SHA (deployed) | `c9aaf44` — chore(db): placeholder files for 18 out-of-band migration versions (tree identical to `613ddf5` offline/conflict fixes) |
-| CI run | `31563682430` (green) |
-| Supabase deploy workflow | run `31563844814` **success** — migration history reconciled, SHA revalidated, `disable_signup: true` enforced and confirmed in the Auth settings response |
-| Frontend production deploy | **Shipped and verified** — Vercel hook job `PlPVAMoedP6LxP3K3am6`; live entry `index-DC1nPnrW.js` is byte-identical in size (2,099,063) to the local release build and contains the revision/queue code (`revision`, `Offline queued`, `CircuitOpen` markers present) |
+| Repo SHA (last deployed) | `75025291b3e41c8170492bcc1bbfc9c50fa09e37` — verified 2026-08-13. The hardening changes described below are the next local release candidate and are not yet deployed. |
+| CI run | `31663117609` (green at deployed SHA; authenticated scenarios were not yet required in that run) |
+| Supabase deploy workflow | run `31663280818` **success** at deployed SHA — SHA revalidated, migrations/functions deployed, healthcheck green, Vercel hook completed |
+| Frontend production deploy | **Last deployed SHA verified** — live entry `index-BWIrTsQc.js` was byte-identical to the local build at `7502529`. Re-verify after the release candidate is committed and deployed. |
 | Supabase project | `zsavxqvnseqxusfwdovu` (RollingRounds) |
 | Latest migration versions in prod | through `20260811133644_create_round_state`; history repaired per `supabase/manual/2026-08-11-migration-history-repair.sql` plus 18 placeholder files for out-of-band versions |
 
@@ -26,82 +28,331 @@ close. All engineering-controlled items are complete and evidenced below.
 - **Data-integrity matrix (Phase 3):** `docs/qa/2026-08-12-data-integrity-matrix.md`
   — automated multi-tab-conflict and offline-queue-recovery scenarios pass;
   manual matrix defined for WebKit/real-device/failure-injection evidence.
-  Includes the three offline/conflict defects found and fixed on 2026-08-12.
-- **Accessibility/responsive (Phase 4):** `MobilePatientDetail` hook-dependency
-  fix; Fast Refresh exception documented in `eslint.config.js`
-  (expires 2026-10-01). Device/screen-reader passes remain human gates.
+  Includes the offline/conflict defects found and fixed on 2026-08-12/13.
+- **Accessibility/responsive (Phase 4):** automated browser coverage now
+  verifies keyboard skip navigation, roster focus restoration, roving mobile
+  tabs, live `aria-controls` targets, 44px primary Round targets at 390px,
+  public auth layout at 320px and 200% text scaling, reduced-motion preference,
+  dark-theme activation, and horizontal-overflow prevention. Device and
+  screen-reader passes remain human gates.
 - **Security/dependency (Phase 5.3):** risk acceptance
   `docs/security/2026-08-11-optional-dependency-risk-acceptance.md`
   (expires 2026-11-12); SBOM `docs/security/sbom-2026-08-12.cyclonedx.json`;
   bundle reachability assertion wired into CI
   (`scripts/assert-no-optional-native-in-bundle.mjs`).
-- **Bundle budgets (Phase 6):** entry 2,098,050 bytes (was 2,283,487);
-  per-chunk budgets in `scripts/check-bundle-size.mjs`; zero ineffective
-  dynamic-import warnings. Residual: 15%-headroom criterion not yet met
-  (entry at ~95% of the 2.2 MB budget) — tracked as post-release work to
-  lazy-split analytics/print subgraphs.
+- **Bundle budgets (Phase 6):** local release candidate total initial
+  JavaScript is 613,519 bytes, down from 937,658 (35%). The public shell now
+  defers the authenticated provider/state graph, Landing and workspace routes
+  are separate chunks, and the EHR callback keeps only a small eager recovery
+  shell. Login validation no longer ships the general-purpose Zod runtime for
+  two fields. The application entry is 230,405 bytes with stable React (139,836)
+  and Supabase (208,548) runtime chunks. CI now enforces 300,000-byte entry,
+  750,000-byte total-initial, 160,000-byte React, and 230,000-byte Supabase
+  ceilings in `scripts/check-bundle-size.mjs`. Device-specific shells,
+  print/export, charts, and AI tools load on demand. Spreadsheet and Word
+  parsers load only after a matching file is selected, reducing the normal
+  authenticated shared chunk from 1,285,010 to 294,138 bytes; CI separately
+  budgets the deferred parser chunks. Excel, vector-PDF,
+  table-PDF, and HTML-PDF engines now load only after the corresponding export
+  action, reducing the print/export modal from 1,393,480 to 228,850 bytes
+  (84%); CI separately budgets every deferred export engine.
+- **Launch branding:** browser, Apple touch, and 192/512 PWA icons now use a
+  compact Rolling Rounds mark instead of the generic scaffold favicon. The
+  auth/loading shell uses the 55 KB icon rather than shrinking and downloading
+  the 277 KB full wordmark; compact landing and workspace placements now reuse
+  that same mark, and the unreferenced wordmark has been removed. A source
+  contract verifies every icon path and PNG dimension, and browser review
+  passed on the production build. The obsolete
+  1 MB intro video, gradient favicon, placeholder SVG, and unused poster were
+  removed from the shipped `public/` payload, reducing the built deployment
+  from approximately 7.6 MB to 6.5 MB.
+- **Provisioned-access funnel:** production landing CTAs now say `Sign in`
+  instead of implying self-service account creation, the secondary action
+  scrolls to product detail instead of duplicating the login action, and the
+  developer-only contact configuration hint is hidden from production. The
+  public Chromium/WebKit suite asserts the copy, interaction, and absence of
+  configuration instructions.
+- **Public metadata:** production builds inject one explicit HTTPS canonical
+  origin across canonical, Open Graph, and social-image metadata. The build
+  fails closed if those URLs are absent or diverge, the public browser suite
+  verifies the rendered tags, and the unverified scaffold social handle was
+  removed. CI maps the required `PRODUCTION_APP_URL` to
+  `VITE_PUBLIC_APP_URL`; missing, placeholder, private, credential-bearing, or
+  non-origin values block production builds. Post-deploy verification checks
+  the exact release SHA, matching canonical origin, and public machine-readable
+  index before the deploy job can pass. Route-aware
+  metadata keeps the public landing page and Security page independently
+  canonical and indexable while marking authenticated, callback, unknown, and
+  placeholder Privacy surfaces `noindex`. The landing page publishes a factual
+  `SoftwareApplication` JSON-LD record, and the build emits origin-correct
+  `robots.txt` and `sitemap.xml` assets that list only approved public surfaces.
+  The package, lockfiles, release version, and CycloneDX root component now use
+  the `rolling-rounds@1.0.0` production identity instead of the Vite scaffold.
+  An origin-correct `llms.txt` index describes only the approved public product,
+  Security, and operator privacy pages; the authenticated workspace and patient
+  routes remain intentionally undisclosed.
+- **Fail-closed launch contact:** the logged-out conversion path no longer
+  falls back to the unconfigured `hello@rollingrounds.app` address. Production
+  builds require a syntactically valid, non-example `VITE_CONTACT_EMAIL`; CI
+  obtains it from the required `PRODUCTION_CONTACT_EMAIL` repository variable,
+  and the browser suite verifies the rendered `mailto:` destination. Vercel
+  must use the same public operator address.
+- **Fail-closed privacy destination:** public builds require a real HTTPS URL
+  for the deployment operator's reviewed privacy notice. Footer and AI
+  transparency links use that destination; reserved/example hosts, embedded
+  credentials, fragments, and the in-app development placeholder are rejected.
+  CI receives the URL from `PRODUCTION_PRIVACY_NOTICE_URL`, and Vercel must use
+  the same value as `VITE_PRIVACY_NOTICE_URL`.
+- **PHI-safe launch funnel:** the public page now emits a fixed event vocabulary
+  for landing view and sign-in, feature, security, pricing/contact, email, and
+  workspace intent. Events contain no dynamic page, account, contact, or
+  patient content. Production now requires hosted Sentry or an approved
+  same-origin/Supabase collector. The Sentry bridge preserves only fixed tags
+  and bounded measurements; custom collector delivery remains serialized and
+  bounded. Receipt verification and alert rules remain deployment gates.
+- **PHI-safe sign-in outcomes:** password sign-in success and fixed failure
+  categories, plus OAuth redirect/error outcomes, emit bounded count and
+  duration metrics. The telemetry API accepts no email, credential, account
+  identifier, redirect URL, or provider message, so the launch funnel can be
+  measured through authentication without widening the data boundary.
+- **Single clinical-AI trust boundary:** every clinical completion, document
+  import, medication formatter, and dictation request now traverses an
+  authenticated Supabase Edge Function. The browser no longer accepts vendor
+  API keys, connects directly to AI providers, or selects the deployment
+  provider/model. `CLINICAL_PHI_LLM_PROVIDER` and
+  `CLINICAL_PHI_LLM_MODEL` define one approved pair; the server rejects
+  cross-provider and same-provider model overrides and never discovers or
+  fails over to another configured vendor. Deployment verifies that the
+  matching Edge credential exists before releasing functions, while the
+  production bundle gate rejects every supported direct-provider origin. The
+  dormant browser multi-provider router, direct provider adapters, runtime-key
+  setter, provider health checks, and model-selection hook were deleted rather
+  than relying on tree-shaking to keep that obsolete capability unreachable.
+  Settings hydration removes legacy provider/model fields from both local and
+  synced preferences.
+- **Fail-closed federated sign-in:** production is password-only by default.
+  Google and Apple controls render only when the provider is configured in
+  Supabase Auth and explicitly allowlisted through
+  `VITE_APPROVED_OAUTH_PROVIDERS`. Unsupported or malformed provider values
+  block the production build, preventing a visible sign-in path that cannot
+  complete.
+- **Alertable operational telemetry:** the PHI-safe logger now preserves flat
+  metric name/value/unit fields instead of silently discarding every
+  measurement at its allowlist boundary. Patient-write outcome/latency and
+  offline queue length/age/replay results use fixed vocabularies with no chart
+  identifiers or content. Saved/queued per-input writes and rapid enqueue
+  pressure aggregate over five seconds, while conflicts and hard errors emit
+  immediately. The optional
+  collector now serializes flushes, treats non-2xx as failures, requeues failed
+  batches even when newer events arrive, and caps retained memory. An approved
+  ingest endpoint and production alert rules remain deployment gates.
+- **Clean CI runtime configuration:** both production-build jobs now receive
+  the public Supabase URL and browser publishable key explicitly from GitHub
+  Actions configuration. CI no longer depends on a tracked developer `.env`;
+  that file is ignored and remains local-only. Repository variables
+  `VITE_SUPABASE_URL` and `PRODUCTION_APP_URL` were configured on 2026-08-13.
+- **Interaction-lazy references:** the two secondary clinical-reference
+  datasets are no longer preloaded after sign-in or redundantly loaded by
+  provider hooks. An authenticated production-browser test proves that neither
+  dataset is requested on dashboard entry, then verifies that IBCC and guideline
+  assets load independently only after their corresponding reference surface is
+  opened. The Focus-first Round shell also no longer mounts the redundant
+  floating AI assistant over bedside content; AI remains available from Tools,
+  while the explicitly selected classic workbench retains its global assistant.
+- **Network-resilient typography:** public and authenticated pages now use a
+  native system font stack, eliminating Google Fonts requests and the related
+  external CSP allowances. Production-browser capture shows zero third-party
+  origins on the landing page while preserving the approved visual hierarchy.
+- **Visible production updates:** a newly installed service worker now surfaces
+  an accessible in-app refresh prompt instead of writing only to DevTools.
+  Clinicians can refresh deliberately or defer it to avoid interrupting an
+  active note edit; Chromium/WebKit and component contracts cover both paths.
+- **Authenticated browser gate:** local isolated runs execute all 27 discovered
+  scenarios in both Chromium and WebKit with zero skips, including multi-tab conflicts, offline
+  queue drain, Round navigation, roster state, and real Excel/PDF downloads.
+  The 2026-08-13 release-candidate run passed **27/27** after the browser suite
+  exposed and engineering fixed a continuity-hydration race that could replace
+  navigation performed before the restored Round was ready. Desktop and mobile
+  shells now show an accessible restoring state until continuity is hydrated.
+  Main-branch CI now fails closed when credentials are missing or any test
+  skips. Owner-scoped setup and teardown reset exactly the three named
+  synthetic patients plus Round continuity, preventing failed or repeated runs
+  from accumulating test markers; the reset does not run for the production
+  canary. Pull requests retain the public Chromium/WebKit compatibility suite;
+  `main` serializes the complete authenticated Chromium and WebKit suites
+  against the dedicated seeded account. WebKit's service-worker navigation
+  cannot use Playwright's browser-wide offline transport, so that engine loads
+  the shell with Supabase blocked and asserts zero offline writes; Chromium
+  additionally asserts zero Supabase reads or writes during the offline reload.
+  Multi-tab coverage additionally counts patient requests: the first stale
+  revision now blocks every keystroke already queued behind it, so one stale
+  input burst produces one patient `PATCH` in unit coverage; Chromium and
+  WebKit each measure one revision-guarded `PATCH` for the native stale browser
+  edit, one conflict notification, and a matching `Review conflict` inline
+  state. A new edit waits for the forced refresh before writing against the
+  updated revision.
+- **Durable Round Todos:** add, complete/reopen, and delete now use the same
+  owner-scoped durable queue standard as chart edits. Accepted offline tasks
+  render an explicit `Queued` state, survive document reload in IndexedDB,
+  replay idempotently by client-generated ID, retain stale-delete conflicts for
+  review, and invalidate patient plus roster Todo caches after sync. The
+  credentialed browser scenarios verify durable storage, reconnect replay,
+  exactly-one persistence, final deletion, and continued patient navigation
+  plus Todo add/complete after an offline service-worker reload. The roster is
+  restored from an atomic owner-scoped IndexedDB snapshot and remains inside
+  the existing auth-transition purge boundary. Mobile task deletion remains a
+  visible 44px touch target without relying on hover, and the Focus-first empty
+  state no longer advertises the intentionally demoted AI action. Global
+  connectivity notices are
+  capability-scoped: offline copy identifies only changes showing `Offline
+  queued` or `Queued` as device-resident, and reconnect copy requires users to
+  confirm `Queued` clears or `Saved` appears before leaving the device.
+  Known-offline chart edits now bypass doomed patient network writes and go
+  directly to the durable owner-scoped queue. Superseded same-field keystrokes
+  coalesce to the latest value, and `Offline queued` appears only after that
+  latest value is stored. The credentialed browser scenario asserts zero
+  patient `PATCH` attempts while offline before reconnecting and verifying the
+  exactly-once persisted result.
+- **Fail-safe Round completion:** Done and Mark Complete now consider the Round
+  continuity outbox, patient chart saves, and the shared patient/Todo queue.
+  End review and Print / Export remain accessible while unresolved work blocks
+  completion. The export dialog is warmed online and no longer mounts its lazy
+  chunk while closed, so opening End offline cannot trip the route boundary.
+  Persistent network toasts no longer intercept underlying lifecycle controls.
+  Authenticated Chromium and WebKit scenarios prove offline Todo queueing,
+  blocked completion, offline review/export access, replay, and automatic
+  unlock after reconnect.
+- **Protected healthcheck:** the local candidate uses `SUPABASE_ANON_KEY`, not
+  the service-role key or the service-role-backed rate limiter. It requires
+  either a validated app-user session or a dedicated monitor secret before it calls the
+  dedicated `healthcheck_database()` RPC after anonymous access to all other
+  current and future public-schema tables, sequences, and routines is revoked.
+  The Edge auth CI invariant rejects a privileged or table-reading public
+  handler.
+- **Browser PHI ownership:** IndexedDB, Round outbox/session data, Yjs stores,
+  telemetry, cache hydration, and SMART-on-FHIR state are quarantined across
+  sign-out and A→B account changes before the next identity reaches the UI.
+  The unused bulk IndexedDB PHI import/export API was removed, and a regression
+  invariant prevents it from returning without an owner-aware design.
+- **Hosted Auth baseline:** the deployment candidate disables public signup,
+  enables HaveIBeenPwned leaked-password protection through the Management API,
+  enforces the operator-selected 5–60 minute hosted inactivity timeout, and
+  fails unless the returned hosted configuration confirms all three controls.
+  The authenticated browser uses the same timeout, warns one minute before
+  closing the workspace, and clears the local session plus clinical caches even
+  if remote token revocation fails. Interaction resets the client deadline;
+  returning to an expired background tab does not. The exact value remains a
+  deployment-policy decision recorded through
+  `PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS`.
+  Supabase Pro or above and Auth-config write permissions are required.
 - **Operations (Phase 7):** `docs/operations/runbooks.md` — sync incidents,
   stale-client conflicts, provider outage, migration failure,
   Vercel/Supabase mismatch, escalation/breach paths, RPO/RTO, monitoring
   gaps, staged rollout with stop conditions.
+- **Production synthetic:** the local candidate adds an hourly Edge/database
+  health probe plus a reversible deployed-app save/reload/restore canary. A
+  live manual run passed against the deployed Vercel URL on 2026-08-13 and
+  restored `E2E Alpha`; `PRODUCTION_APP_URL` is now configured, and scheduled
+  proof begins after the candidate workflow is committed/deployed. GitHub now
+  has the production URL and generated healthcheck token; deployment must sync
+  the token to Supabase before the first scheduled run. Failures deduplicate
+  into one GitHub incident and recovery closes it.
 - **Deployment procedure:** `docs/deployment.md` (verify:local pre-push
-  checklist).
+  checklist). The candidate now fails closed unless the Vercel deploy hook is
+  configured and the canonical production page publishes an `app-version`
+  marker matching the exact CI-verified backend SHA.
+- **Structured roster import:** CSV and SMART-on-FHIR identity fields now stay
+  structured end to end (DOB, normalized sex/gender, admission, attending,
+  service, code status, isolation/allergies) instead of being flattened into
+  clinical prose. CSV imports submit only validated rows, and keyboard/screen-
+  reader contracts cover the entry cards, mapping controls, and mobile Round
+  tab panels. Migration `20260813010000_add_patient_roster_identity_fields.sql`
+  adds the missing durable roster columns.
 
 ## 3. Final release gate status (from plan)
 
 | Gate | Status |
 | --- | --- |
-| CI/deployment workflows green at exact production SHA | DONE — CI `31563682430` + deploy `31563844814` green at `c9aaf44`; live bundle verified |
+| CI/deployment workflows green at exact production SHA | PARTIAL — the current candidate is committed locally; it must pass required main-branch CI, deploy, and be verified byte-for-byte before it becomes the production SHA |
 | Backend migration deployed; revision/RLS proven | DONE (2026-08-11, evidence above) |
-| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — Chromium e2e automated and passing; cross-device/WebKit manual cells open |
-| Accessibility/responsive validation on representative devices | OPEN (human) |
+| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 27 credentialed scenarios pass locally in Chromium and WebKit, plus the 12-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
+| Accessibility/responsive validation on representative devices | PARTIAL — automated keyboard/ARIA/320px/390px/44px/200%-text/reduced-motion/dark/overflow checks pass; manual screen-reader and real-device evidence remains open |
 | Runtime audits clean; optional findings removed or time-bounded | DONE — clinical-mcp-server `npm audit` 0 vulns; risk acceptance time-bounded |
 | PHI/provider, telemetry, access-control, legal evidence | OPEN (human) — see section 4 |
-| Monitoring/backup/rollback/support runbooks tested | PARTIAL — runbooks written; restore drill and alert tests undone |
+| Monitoring/backup/rollback/support runbooks tested | PARTIAL — live save canary passed locally against production and scheduled issue alerting is implemented; post-deploy scheduled proof and restore drill remain open |
 | Clinical UAT and hazard review signed off | OPEN (human) |
 
 ## 4. Open human gates (required before GO)
 
-1. ~~**GitHub secrets**~~ — DONE 2026-08-12: secrets added, deploy run
-   `31563844814` green, live bundle verified at `c9aaf44`.
+1. **Deploy-candidate proof** — configure matching GitHub/Vercel production
+   contact, approved privacy notice, inactivity timeout, and approved
+   observability destination variables; publish the committed candidate; confirm the
+   required authenticated main-branch CI job runs all 27 tests in Chromium and
+   WebKit with zero skips,
+   deploy the exact SHA, and verify the live frontend asset matches it.
 2. **BAA/DPA and PHI/provider approvals** — evidence items in
-   `docs/clinical-data-flow.md` (allowlist, retention, key custody,
-   redaction tests, clinician review, legacy credential rotation).
+   `docs/clinical-data-flow.md` (approved provider/model pair, retention, key custody,
+   redaction tests, clinician review, legacy credential rotation). Approve the
+   managed-device, shared-device, session-retention, and local-site-data policy;
+   browser offline storage remains an intentional product capability.
 3. **Clinical UAT + hazard review** — scenario-based UAT with ICU
    attendings/residents/fellows; written sign-off from engineering, QA,
    security/privacy, operations, clinical safety owner.
-4. **Accessibility passes** — keyboard-only, VoiceOver/Safari + one more
-   screen reader, touch targets at 320–900 px, 200% text zoom, reduced
-   motion, high contrast, dark theme.
-5. **Manual data-integrity cells** — WebKit/Safari, real phone,
-   failure-injection, completion-guard, recovery-export rows in
+4. **Accessibility passes** — automated keyboard, ARIA relationship, 320px and
+   390px layout, 44px primary Round target, 200% text, reduced-motion, dark
+   theme, and overflow checks are complete. Run VoiceOver/Safari plus one more
+   screen reader, real touch devices at 320–900px, and manual high-contrast
+   review.
+5. **Manual data-integrity cells** — real Safari/VoiceOver and phone workflows,
+   cross-device concurrency, failure-injection, completion-guard, and
+   recovery-export rows in
    `docs/qa/2026-08-12-data-integrity-matrix.md`.
-6. **Restore drill + alert tests** — quarterly restore drill (first one
-   before GA) and synthetic-failure alert validation; monitoring gaps in
+6. **Restore drill + scheduled alert proof** — quarterly restore drill (first
+   one before GA), deploy the protected healthcheck and monitor workflow,
+   observe a scheduled canary, and validate failure/recovery issue lifecycle;
+   remaining monitoring gaps in
    `docs/operations/runbooks.md` §8 closed or formally accepted.
 7. **On-call owner + decision-makers** — named in runbooks §9.
-8. **E2E credentials in CI** — `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` as
-   GitHub secrets if the data-integrity spec should run in CI.
+8. **E2E credential confirmation** — the workflow now requires
+   `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` on main and fails closed without
+   them. Both encrypted GitHub secrets are configured and the isolated local
+   production-preview runs pass 27/27 in Chromium and WebKit; confirm the next
+   main run reproduces both results rather than the former smoke-only coverage.
 
-## 5. Security advisor findings (need owner decision — not executed)
+Read-only GitHub configuration inventory on 2026-08-13 confirms the public
+Supabase URL, Supabase/deploy/healthcheck credentials, Vercel deploy hook, and
+full-suite E2E credentials are present. The production contact, approved privacy
+notice, inactivity timeout, central observability destination, and approved
+clinical PHI provider/model repository variables are not yet configured. The
+release and deploy workflows intentionally fail closed until they are supplied.
+
+## 5. Security advisor findings
 
 From the Supabase security advisors on 2026-08-11/12:
 
-- `pg_graphql` extension exposes tables to `anon`/`authenticated`; the app
-  does not use GraphQL. **Proposed:** `DROP EXTENSION pg_graphql` after
-  confirming nothing depends on it.
-- `rls_auto_enable()` is `SECURITY DEFINER` and executable by `anon`.
-  **Proposed:** `REVOKE EXECUTE FROM anon, authenticated`.
-- Auth **leaked-password protection is disabled** (HaveIBeenPwned check).
-  **Proposed:** enable in Supabase Auth settings.
-- Several RLS policies lack `TO authenticated` (hygiene; default is PUBLIC
-  role scoping). **Proposed:** tighten in a follow-up migration.
+- ~~`pg_graphql` exposes the REST-backed clinical tables through an unused
+  second API surface~~ — RESOLVED in the local candidate by
+  `20260813000000_harden_public_database_surface.sql`, which drops the unused
+  extension and revokes anonymous public-schema object access. Confirm the
+  advisor is clear after deployment.
+- ~~`rls_auto_enable()` is `SECURITY DEFINER` and executable by `anon`~~ —
+  RESOLVED in the local candidate by revoking all browser-role execution from
+  every matching production overload. Confirm the advisor is clear after
+  deployment.
+- ~~Auth leaked-password protection is disabled~~ — RESOLVED in the local
+  candidate by enforcing `password_hibp_enabled: true` through the deployment
+  workflow and verifying the returned hosted Auth configuration. Confirm the
+  advisor is clear after deployment.
+- ~~Several RLS policies lack `TO authenticated`~~ — RESOLVED in the local
+  candidate by narrowing every legacy PUBLIC-scoped policy on app-owned tables
+  to `authenticated`. Confirm the advisor is clear after deployment.
 - ~~`disable_signup` unverified~~ — RESOLVED 2026-08-12: the deploy workflow
   enforced `disable_signup: true` and the Auth settings response confirmed
   restricted enrollment is active.
 
-Any one of these changes can affect production behavior — they are listed
-for explicit owner approval, not applied.
+All four repository-addressable advisor findings now have fail-closed candidate
+controls. Their live status remains unproven until this exact candidate deploys
+and the Security Advisor is checked again.
 
 ## 6. Sign-off
 

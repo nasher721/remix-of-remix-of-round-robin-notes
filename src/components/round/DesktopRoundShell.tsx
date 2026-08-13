@@ -4,6 +4,7 @@ import { RosterOverlay } from "./RosterOverlay"
 import { PatientFocus } from "./PatientFocus"
 import { RoundHome } from "./RoundHome"
 import { RoundEnd } from "./RoundEnd"
+import { preloadRoundPrintExport } from "./roundPrintExportLoader"
 import { ToolsSheet } from "./ToolsSheet"
 import { useDashboard } from "@/contexts/DashboardContext"
 import { useRoundSession } from "@/contexts/RoundSessionContext"
@@ -38,6 +39,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   const {
     currentPatientId,
     round,
+    isHydrated,
     nextPatient,
     prevPatient,
     markDoneAndNext,
@@ -61,9 +63,14 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   }, [patients.length])
 
   React.useEffect(() => {
-    if (!currentPatientId) return
+    if (!navigator.onLine) return
+    void preloadRoundPrintExport().catch(() => undefined)
+  }, [])
+
+  React.useEffect(() => {
+    if (!isHydrated || !currentPatientId) return
     setDesktopSelectedPatientId(currentPatientId)
-  }, [currentPatientId, setDesktopSelectedPatientId])
+  }, [currentPatientId, isHydrated, setDesktopSelectedPatientId])
 
   const handleOpenRoster = React.useCallback(() => {
     setRosterOpen(true)
@@ -86,6 +93,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   }, [])
 
   React.useEffect(() => {
+    if (!isHydrated) return
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (isTypingTarget(event.target)) return
@@ -125,13 +133,29 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [rosterOpen, surface, nextPatient, prevPatient, markDoneAndNext])
+  }, [isHydrated, rosterOpen, surface, nextPatient, prevPatient, markDoneAndNext])
+
+  if (!isHydrated) {
+    return (
+      <div
+        className="flex h-[100dvh] min-h-screen items-center justify-center bg-background px-6"
+        data-testid="desktop-round-shell"
+        data-round-surface={surface}
+        data-round-ready="false"
+      >
+        <p role="status" className="text-sm font-medium text-muted-foreground" data-testid="round-session-loading">
+          Restoring today&apos;s Round…
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div
       className="flex h-[100dvh] min-h-screen flex-col bg-background"
       data-testid="desktop-round-shell"
       data-round-surface={surface}
+      data-round-ready="true"
     >
       <RoundChrome
         onOpenRoster={handleOpenRoster}

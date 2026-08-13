@@ -10,6 +10,7 @@ describe("roundSyncEngine deriveChromeStatus", () => {
         pendingCount: 0,
         conflictCount: 0,
         failedCount: 0,
+        softFailedCount: 0,
       }),
       "offline",
     );
@@ -22,6 +23,7 @@ describe("roundSyncEngine deriveChromeStatus", () => {
         pendingCount: 0,
         conflictCount: 2,
         failedCount: 0,
+        softFailedCount: 0,
       }),
       "conflict",
     );
@@ -34,6 +36,7 @@ describe("roundSyncEngine deriveChromeStatus", () => {
         pendingCount: 3,
         conflictCount: 0,
         failedCount: 2,
+        softFailedCount: 0,
       }),
       "failed",
     );
@@ -46,8 +49,22 @@ describe("roundSyncEngine deriveChromeStatus", () => {
         pendingCount: 3,
         conflictCount: 0,
         failedCount: 0,
+        softFailedCount: 0,
       }),
       "syncing",
+    );
+  });
+
+  it("returns failed when a soft-failed write needs attention", () => {
+    assert.equal(
+      roundSyncEngine.deriveChromeStatus({
+        isOnline: true,
+        pendingCount: 1,
+        conflictCount: 0,
+        failedCount: 0,
+        softFailedCount: 1,
+      }),
+      "failed",
     );
   });
 });

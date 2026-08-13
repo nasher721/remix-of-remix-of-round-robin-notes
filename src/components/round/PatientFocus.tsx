@@ -79,12 +79,8 @@ export const PatientFocus = ({
   const sharedPatientTodos = usePatientTodos(patient?.id ?? null, {
     initialTodos: patient ? (todosMap[patient.id] ?? []) : undefined,
   });
-  /*
-   * Todos stay on patient_todos row CRUD (usePatientTodos), not the versioned
-   * draft_field outbox used for clinicalSummary / systems.*. Enqueue deferred:
-   * that path patches the patients table; todos need a separate outbox kind +
-   * remote adapter. Online/offline todo edits still use the existing hook.
-   */
+  // Todos use their own patient_todos durable queue adapter; chart fields use
+  // the versioned patient/draft outbox because their conflict models differ.
 
   React.useEffect(() => {
     setSummaryExpanded(false);
@@ -111,7 +107,7 @@ export const PatientFocus = ({
         {onGoHome && (
           <Button
             type="button"
-            className={cn("gap-2", touchFriendly && "min-h-11")}
+            className={cn("gap-2", touchFriendly && "min-h-[44px]")}
             onClick={onGoHome}
             aria-label="Go to Round Home to import patient list"
             data-testid="patient-focus-go-home"
@@ -211,7 +207,7 @@ export const PatientFocus = ({
   const showSystems = !touchFriendly || round.activeSection === "systems";
   const showTodos = !touchFriendly || round.activeSection === "todos";
   const rowBtnClass = touchFriendly
-    ? "flex min-h-11 w-full items-center gap-2 px-3 py-3 text-left"
+    ? "flex min-h-[44px] w-full items-center gap-2 px-3 py-3 text-left"
     : "flex w-full items-center gap-2 px-3 py-2.5 text-left";
   const cueClass = touchFriendly ? "text-sm text-foreground/75" : "text-xs text-foreground/70";
   const mutedLabelClass = touchFriendly
@@ -236,7 +232,8 @@ export const PatientFocus = ({
   const summarySection = touchFriendly ? (
     <section
       className="rounded-lg border border-border/30 bg-card/50 p-3"
-      aria-labelledby="focus-summary-heading"
+      role="tabpanel"
+      aria-labelledby="focus-mobile-tab-clinicalSummary"
       id="focus-summary-panel"
       data-active-section="true"
     >
@@ -273,11 +270,13 @@ export const PatientFocus = ({
           </span>
         )}
       </button>
-      {summaryExpanded && (
-        <div id="focus-summary-body" className="border-t border-border/20 px-3 pb-3 pt-2">
-          {summaryEditor}
-        </div>
-      )}
+      <div
+        id="focus-summary-body"
+        className="border-t border-border/20 px-3 pb-3 pt-2"
+        hidden={!summaryExpanded}
+      >
+        {summaryExpanded ? summaryEditor : null}
+      </div>
     </section>
   );
 
@@ -285,7 +284,8 @@ export const PatientFocus = ({
     <section
       id="focus-system-panel"
       className={cn(!touchFriendly && "mb-4")}
-      aria-labelledby="focus-systems-heading"
+      role={touchFriendly ? "tabpanel" : undefined}
+      aria-labelledby={touchFriendly ? "focus-mobile-tab-systems" : "focus-systems-heading"}
       data-active-section={round.activeSection === "systems" ? "true" : undefined}
     >
       <h2 id="focus-systems-heading" className={cn("mb-2", mutedLabelClass)}>
@@ -381,7 +381,9 @@ export const PatientFocus = ({
     <section
       id="focus-todos-panel"
       className={cn(!touchFriendly && "pb-6")}
-      aria-label="Todos"
+      role={touchFriendly ? "tabpanel" : undefined}
+      aria-labelledby={touchFriendly ? "focus-mobile-tab-todos" : undefined}
+      aria-label={touchFriendly ? undefined : "Todos"}
       onFocusCapture={handleFocusTodos}
       data-active-section={round.activeSection === "todos" ? "true" : undefined}
       data-testid="focus-todos"
@@ -420,6 +422,8 @@ export const PatientFocus = ({
             ["MRN", identity.mrn],
             ["Room / bed", identity.room],
             ["DOB", identity.dob],
+            ["Sex / gender", identity.gender],
+            ["Admission", identity.admissionDate],
             ["Attending", identity.attending],
             ["Diagnosis", identity.diagnosis],
           ].map(([label, value]) => (
@@ -442,6 +446,16 @@ export const PatientFocus = ({
             </dt>
             <dd className="mt-0.5 break-words text-sm font-semibold text-red-950 dark:text-red-200">{identity.codeStatus}</dd>
           </div>
+          {identity.isolation !== "Not documented" ? (
+            <div className="min-w-0 rounded-lg border border-orange-500/40 bg-orange-500/10 p-2.5 sm:col-span-2">
+              <dt className="text-xs font-semibold uppercase tracking-wider text-orange-900 dark:text-orange-300">
+                Isolation precautions
+              </dt>
+              <dd className="mt-0.5 break-words text-sm font-semibold text-orange-950 dark:text-orange-200">
+                {identity.isolation}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </div>
 
@@ -470,7 +484,7 @@ export const PatientFocus = ({
                 }
                 tabIndex={isActive ? 0 : -1}
                 className={cn(
-                  "round-section-tab min-h-11 shrink-0 rounded-lg px-4 text-sm font-semibold transition-colors",
+                  "round-section-tab min-h-[44px] shrink-0 rounded-lg px-4 text-sm font-semibold transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "bg-muted/60 text-muted-foreground hover:bg-muted/80 hover:text-foreground",

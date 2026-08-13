@@ -47,6 +47,9 @@ export const PATIENT_SELECT_COLUMNS = [
   "last_modified",
   "revision",
   "age",
+  "date_of_birth",
+  "gender",
+  "admission_date",
   "service_line",
   "attending_physician",
   "consulting_team",
@@ -78,12 +81,36 @@ export const PATIENT_SELECT_COLUMNS_LEGACY = [
   "revision",
 ].join(", ");
 
+let patientRosterProjection: "expanded" | "legacy" = "expanded";
+
+/**
+ * Keep the additive-schema fallback sticky for this browser tab. During a
+ * backend-first rollout, one confirmed missing-column response is enough to
+ * avoid repeating the same failed expanded query on every roster read.
+ */
+export const getPatientRosterSelectColumns = (): string => (
+  patientRosterProjection === "legacy"
+    ? PATIENT_SELECT_COLUMNS_LEGACY
+    : PATIENT_SELECT_COLUMNS
+);
+
+export const markPatientRosterProjectionLegacy = (): void => {
+  patientRosterProjection = "legacy";
+};
+
+export const resetPatientRosterProjectionForTesting = (): void => {
+  patientRosterProjection = "expanded";
+};
+
 export const isMissingPatientContractColumnError = (error: { code?: string; message?: string } | null): boolean => {
   if (!error) return false;
   const message = (error.message ?? "").toLowerCase();
   return error.code === "PGRST204"
     || (message.includes("column") && (
       message.includes("age")
+      || message.includes("date_of_birth")
+      || message.includes("gender")
+      || message.includes("admission_date")
       || message.includes("service_line")
       || message.includes("assigned_to")
       || message.includes("consulting_team")
@@ -112,6 +139,9 @@ export interface PatientRecord {
   last_modified: string | null;
   revision?: number | null;
   age?: number | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  admission_date?: string | null;
   service_line?: string | null;
   attending_physician?: string | null;
   consulting_team?: string[] | null;
@@ -140,6 +170,9 @@ export const mapPatientRecord = (record: PatientRecord): Patient => ({
   lastModified: record.last_modified ?? record.created_at,
   revision: record.revision ?? 0,
   age: record.age ?? undefined,
+  dateOfBirth: record.date_of_birth ?? undefined,
+  gender: record.gender as Patient["gender"] ?? undefined,
+  admissionDate: record.admission_date ?? undefined,
   serviceLine: record.service_line ?? undefined,
   attendingPhysician: record.attending_physician ?? undefined,
   consultingTeam: record.consulting_team ?? undefined,
@@ -163,6 +196,9 @@ export const buildPatientInsertPayload = (input: {
   systems?: PatientSystems;
   medications?: PatientMedications;
   age?: number;
+  dateOfBirth?: string;
+  gender?: Patient["gender"];
+  admissionDate?: string;
   serviceLine?: string;
   attendingPhysician?: string;
   consultingTeam?: string[];
@@ -185,6 +221,9 @@ export const buildPatientInsertPayload = (input: {
   medications: (input.medications ?? defaultMedicationsValue) as unknown as Json,
   collapsed: false,
   ...(input.age !== undefined ? { age: input.age } : {}),
+  ...(input.dateOfBirth !== undefined ? { date_of_birth: input.dateOfBirth } : {}),
+  ...(input.gender !== undefined ? { gender: input.gender } : {}),
+  ...(input.admissionDate !== undefined ? { admission_date: input.admissionDate } : {}),
   ...(input.serviceLine !== undefined ? { service_line: input.serviceLine } : {}),
   ...(input.attendingPhysician !== undefined ? { attending_physician: input.attendingPhysician } : {}),
   ...(input.consultingTeam !== undefined ? { consulting_team: input.consultingTeam } : {}),

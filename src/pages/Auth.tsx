@@ -1,29 +1,38 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { z } from "zod";
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { getSafeAuthErrorMessage, type AuthProviderLabel } from "@/lib/auth/authErrorMessage";
+import {
+  classifyAuthError,
+  getSafeAuthErrorMessage,
+  type AuthProviderLabel,
+} from "@/lib/auth/authErrorMessage";
+import {
+  validateLoginField,
+  validateLoginForm,
+  type LoginFieldErrors,
+} from "@/lib/auth/loginValidation";
 import { supabase } from "@/integrations/supabase/client";
-import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
+import { recordAuthAttempt } from "@/lib/observability/authTelemetry";
+import { APPROVED_OAUTH_PROVIDERS } from "@/config/authProviders";
+import type { ApprovedOAuthProvider } from "@/config/authProviderPolicy";
 
-const authSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+const OAUTH_PROVIDER_LABELS: Record<ApprovedOAuthProvider, AuthProviderLabel> = {
+  google: "Google",
+  apple: "Apple",
+};
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [oauthLoadingProvider, setOAuthLoadingProvider] = useState<ApprovedOAuthProvider | null>(null);
+  const [errors, setErrors] = useState<LoginFieldErrors>({});
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -35,62 +44,64 @@ const Auth = () => {
   }, [user, navigate]);
 
   const validateForm = () => {
-    try {
-      authSchema.parse({ email, password });
-      setErrors({});
-      return true;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const fieldErrors: { email?: string; password?: string } = {};
-        error.errors.forEach((err) => {
-          if (err.path[0] === "email") fieldErrors.email = err.message;
-          if (err.path[0] === "password") fieldErrors.password = err.message;
-        });
-        setErrors(fieldErrors);
-      }
-      return false;
-    }
+    const fieldErrors = validateLoginForm(email, password);
+    setErrors(fieldErrors);
+    return Object.keys(fieldErrors).length === 0;
   };
 
   const validateField = (field: "email" | "password", value: string) => {
-    try {
-      if (field === "email") {
-        z.string().email("Please enter a valid email address").parse(value);
-        setErrors((prev) => ({ ...prev, email: undefined }));
-      } else {
-        z.string().min(6, "Password must be at least 6 characters").parse(value);
-        setErrors((prev) => ({ ...prev, password: undefined }));
-      }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        setErrors((prev) => ({ ...prev, [field]: error.errors[0]?.message }));
-      }
-    }
+    setErrors((prev) => ({
+      ...prev,
+      [field]: validateLoginField(field, value),
+    }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const startedAt = performance.now();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      recordAuthAttempt({
+        method: "password",
+        outcome: "invalid_input",
+        durationMs: performance.now() - startedAt,
+      });
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      const { error } = await signIn(email.trim(), password);
       if (error) {
+        recordAuthAttempt({
+          method: "password",
+          outcome: classifyAuthError(error),
+          durationMs: performance.now() - startedAt,
+        });
         toast({
           title: "Login failed",
           description: getSafeAuthErrorMessage(error),
           variant: "destructive",
         });
       } else {
+        recordAuthAttempt({
+          method: "password",
+          outcome: "success",
+          durationMs: performance.now() - startedAt,
+        });
         toast({
           title: "Welcome back",
           description: "You have successfully logged in.",
         });
         navigate("/");
       }
-    } catch (error) {
+    } catch {
+      recordAuthAttempt({
+        method: "password",
+        outcome: "unexpected_error",
+        durationMs: performance.now() - startedAt,
+      });
       toast({
         title: "Authentication error",
         description: "Something went wrong while processing your request.",
@@ -101,10 +112,10 @@ const Auth = () => {
     }
   };
 
-  const handleOAuthSignIn = async (provider: "google" | "apple") => {
-    const setProviderLoading = provider === "google" ? setGoogleLoading : setAppleLoading;
-    const label: AuthProviderLabel = provider === "google" ? "Google" : "Apple";
-    setProviderLoading(true);
+  const handleOAuthSignIn = async (provider: ApprovedOAuthProvider) => {
+    const startedAt = performance.now();
+    const label = OAUTH_PROVIDER_LABELS[provider];
+    setOAuthLoadingProvider(provider);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -113,36 +124,57 @@ const Auth = () => {
         },
       });
       if (error) {
+        recordAuthAttempt({
+          method: provider,
+          outcome: classifyAuthError(error),
+          durationMs: performance.now() - startedAt,
+        });
         toast({
           title: `${label} sign-in failed`,
           description: getSafeAuthErrorMessage(error, { providerLabel: label }),
           variant: "destructive",
         });
+      } else {
+        recordAuthAttempt({
+          method: provider,
+          outcome: "redirect_started",
+          durationMs: performance.now() - startedAt,
+        });
       }
-    } catch (err) {
+    } catch {
+      recordAuthAttempt({
+        method: provider,
+        outcome: "unexpected_error",
+        durationMs: performance.now() - startedAt,
+      });
       toast({
         title: `${label} sign-in failed`,
         description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setProviderLoading(false);
+      setOAuthLoadingProvider(null);
     }
   };
 
   return (
-    <main className="min-h-[100dvh] bg-[#f7f9fb] px-4 py-6 text-slate-950 sm:px-6 lg:px-8" aria-labelledby="auth-heading">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-[100dvh] bg-[#f7f9fb] px-4 py-6 text-slate-950 sm:px-6 lg:px-8"
+      aria-labelledby="auth-heading"
+    >
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="inline-flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-white hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back
         </button>
         <div className="flex items-center gap-2.5 text-sm font-semibold text-slate-950">
-          <img src={rollingRoundsLogo} alt="" className="h-7 w-auto" aria-hidden="true" />
+          <img src="/icons/icon-192.png" alt="" className="h-7 w-7 rounded-md" aria-hidden="true" />
           Rolling Rounds
         </div>
       </div>
@@ -205,7 +237,7 @@ const Auth = () => {
                   aria-invalid={Boolean(errors.email)}
                   aria-describedby={errors.email ? "email-error" : undefined}
                   showSuccess={!errors.email && email.length > 0}
-                  className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                  className={`h-[44px] ${errors.email ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />
                 {errors.email && (
                   <p id="email-error" className="text-xs text-destructive" role="alert">
@@ -239,12 +271,12 @@ const Auth = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
                       aria-pressed={showPassword}
-                      className="rounded-md text-slate-400 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      className="inline-flex h-[44px] w-[44px] items-center justify-center rounded-md text-slate-400 transition-colors hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   }
-                  className={errors.password ? "border-destructive focus-visible:ring-destructive" : ""}
+                  className={`h-[44px] pr-16 ${errors.password ? "border-destructive focus-visible:ring-destructive" : ""}`}
                 />
                 {errors.password && (
                   <p id="password-error" className="text-xs text-destructive" role="alert">
@@ -253,7 +285,7 @@ const Auth = () => {
                 )}
               </div>
 
-              <Button type="submit" className="h-11 w-full rounded-xl font-semibold" disabled={loading}>
+              <Button type="submit" className="h-[44px] w-full rounded-xl font-semibold" disabled={loading}>
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -265,37 +297,35 @@ const Auth = () => {
               </Button>
             </form>
 
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-100" />
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">or</span>
-              <div className="h-px flex-1 bg-slate-100" />
-            </div>
+            {APPROVED_OAUTH_PROVIDERS.length > 0 ? (
+              <>
+                <div className="my-6 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-slate-100" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">or</span>
+                  <div className="h-px flex-1 bg-slate-100" />
+                </div>
 
-            <div className="space-y-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full rounded-xl border-slate-200 bg-white hover:bg-slate-50"
-                onClick={() => handleOAuthSignIn("google")}
-                disabled={loading || googleLoading || appleLoading}
-              >
-                {googleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Continue with Google
-              </Button>
+                <div className="space-y-3">
+                  {APPROVED_OAUTH_PROVIDERS.map((provider) => (
+                    <Button
+                      key={provider}
+                      type="button"
+                      variant="outline"
+                      className="h-[44px] w-full rounded-xl border-slate-200 bg-white hover:bg-slate-50"
+                      onClick={() => handleOAuthSignIn(provider)}
+                      disabled={loading || oauthLoadingProvider !== null}
+                    >
+                      {oauthLoadingProvider === provider ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Continue with {OAUTH_PROVIDER_LABELS[provider]}
+                    </Button>
+                  ))}
+                </div>
+              </>
+            ) : null}
 
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full rounded-xl border-slate-200 bg-white hover:bg-slate-50"
-                onClick={() => handleOAuthSignIn("apple")}
-                disabled={loading || googleLoading || appleLoading}
-              >
-                {appleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Continue with Apple
-              </Button>
-            </div>
-
-            <p className="mt-6 text-center text-xs text-slate-400">
+            <p className="mt-6 text-center text-xs text-slate-600">
               Access is restricted to accounts provisioned by your administrator.
             </p>
           </div>

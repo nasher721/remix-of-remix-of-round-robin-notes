@@ -1,6 +1,6 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.5';
+const CACHE_VERSION = 'v1.0.6';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
@@ -13,7 +13,11 @@ const CACHE_TTL = {
 
 // Assets to precache on install.
 // Avoid precaching HTML/navigations: stale HTML can reference deleted hashed chunks after deploy.
-const PRECACHE_ASSETS = ['/favicon.ico', '/placeholder.svg'];
+const PRECACHE_ASSETS = [
+  '/icons/favicon-64.png',
+  '/icons/apple-touch-icon.png',
+  '/icons/icon-192.png',
+];
 
 const SENSITIVE_API_PATHS = ['/rest/v1/', '/functions/v1/', '/storage/v1/'];
 const SENSITIVE_QUERY_KEYS = [

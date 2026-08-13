@@ -28,19 +28,25 @@ test("builds a complete identity without duplicate allergies", () => {
     collapsed: false,
     createdAt: "",
     lastModified: "",
-    alerts: ["Penicillin", "penicillin", "[No Allergies]"],
     attendingPhysician: "[Attending]",
+    dateOfBirth: "1980-01-02",
+    gender: "female",
+    admissionDate: "2026-08-01T12:00:00Z",
     codeStatus: undefined,
+    alerts: ["Penicillin", "penicillin", "[No Allergies]", "Isolation: Contact"],
   });
 
   assert.deepEqual(identity, {
     name: "Ada Lovelace",
     mrn: "Not documented",
     room: "7A",
-    dob: "Not documented",
+    dob: "1980-01-02",
+    gender: "Female",
     allergies: "Penicillin",
+    isolation: "Contact",
     codeStatus: "Not documented",
     attending: "Not documented",
+    admissionDate: "2026-08-01T12:00:00Z",
     diagnosis: "Not documented",
   });
 });

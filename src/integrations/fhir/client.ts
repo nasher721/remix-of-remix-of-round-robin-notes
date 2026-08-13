@@ -1,8 +1,13 @@
-import FHIR from 'fhirclient';
+import type FHIRClientImplementation from 'fhirclient/lib/Client';
 import { supabase } from '@/integrations/supabase/client';
 import { safeSessionStorage } from '@/utils/safeStorage';
 
-export type FHIRClient = ReturnType<typeof FHIR.client>;
+export type FHIRClient = FHIRClientImplementation;
+
+async function loadFHIRClient() {
+  const module = await import('fhirclient');
+  return module.default;
+}
 
 export interface FHIRPatientResource {
   id?: string;
@@ -172,6 +177,7 @@ export async function launchSMART(config?: {
   });
 
   try {
+    const FHIR = await loadFHIRClient();
     await FHIR.oauth2.authorize({
       clientId: config?.clientId || import.meta.env.VITE_FHIR_CLIENT_ID || '',
       scope: FHIR_SCOPES,
@@ -187,6 +193,7 @@ export async function launchSMART(config?: {
 export async function handleCallback(ownerId: string): Promise<FHIRClient> {
   try {
     assertFHIRLaunchOwner(ownerId);
+    const FHIR = await loadFHIRClient();
     const client = await FHIR.oauth2.ready();
     assertFHIRLaunchOwner(ownerId);
     return client;

@@ -1,12 +1,10 @@
 import * as React from 'react';
 import type { User } from '@supabase/supabase-js';
-import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_GATEWAY_MODEL, DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS, normalizeGlobalFontSizeToPx, type SectionVisibility, type AIFeatureCategory, type AIFeatureModels, type Theme } from '@/constants/config';
+import { STORAGE_KEYS, DEFAULT_CONFIG, DEFAULT_SECTION_VISIBILITY, DEFAULT_PATIENT_INFO_TOOLBAR_BUTTONS, normalizeGlobalFontSizeToPx, type SectionVisibility, type Theme } from '@/constants/config';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { getRoleById, type SpecialtyFeature } from '@/constants/specialties';
-import type { LLMProviderName } from '@/services/llm';
-import { clearRuntimeCredentials, setRuntimeCredentials } from '@/services/llm';
 import { safeLocalStorage } from '@/utils/safeStorage';
 
 export type SortBy = 'number' | 'room' | 'name';
@@ -39,18 +37,6 @@ interface SettingsContextType {
   setSelectedSpecialty: (specialtyId: string | null) => void;
   isFeatureEnabledForRole: (feature: SpecialtyFeature) => boolean;
 
-  aiProvider: LLMProviderName;
-  aiModel: string;
-  aiCredentials: Partial<Record<LLMProviderName, string>>;
-  setAiModel: (provider: LLMProviderName, model: string) => void;
-  resetAiModel: () => void;
-  setAiCredential: (provider: LLMProviderName, credential: string) => void;
-
-  // Per-feature AI model overrides
-  aiFeatureModels: AIFeatureModels;
-  setAiFeatureModel: (feature: AIFeatureCategory, model: string) => void;
-  getModelForFeature: (feature: AIFeatureCategory) => string;
-
   // Editor toolbar (affects all text boxes)
   editorToolbarMode: 'minimal' | 'full' | 'custom';
   setEditorToolbarMode: (mode: 'minimal' | 'full' | 'custom') => void;
@@ -78,20 +64,27 @@ interface AppPreferences {
   sortBy: SortBy;
   showLabFishbones: boolean;
   selectedSpecialty: string | null;
-  aiProvider: LLMProviderName;
-  aiModel: string;
-  aiFeatureModels?: AIFeatureModels;
   editorToolbarMode?: 'minimal' | 'full' | 'custom';
   editorToolbarButtons?: string[];
   patientInfoToolbarMode?: 'minimal' | 'full' | 'custom';
   patientInfoToolbarButtons?: string[];
 }
 
-const withoutCredentialFields = (
-  preferences: AppPreferences & { aiCredentials?: unknown },
+type LegacyClinicalAIFields = {
+  aiCredentials?: unknown;
+  aiProvider?: unknown;
+  aiModel?: unknown;
+  aiFeatureModels?: unknown;
+};
+
+const withoutLegacyClinicalAIFields = (
+  preferences: AppPreferences & LegacyClinicalAIFields,
 ): AppPreferences => {
-  const sanitized = { ...preferences };
+  const sanitized = { ...preferences } as AppPreferences & LegacyClinicalAIFields;
   delete sanitized.aiCredentials;
+  delete sanitized.aiProvider;
+  delete sanitized.aiModel;
+  delete sanitized.aiFeatureModels;
   return sanitized;
 };
 
@@ -167,42 +160,18 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     ) || null;
   });
 
-  const [aiProvider, setAiProviderState] = React.useState<LLMProviderName>(() => {
-    const saved = safeLocalStorage.getItem(
-      getPreferenceStorageKey(STORAGE_KEYS.AI_PROVIDER, ownerId),
-    ) as LLMProviderName | null;
-    return saved || DEFAULT_CONFIG.DEFAULT_AI_PROVIDER;
-  });
-
-  const [aiModel, setAiModelState] = React.useState(() => {
-    const saved = safeLocalStorage.getItem(
-      getPreferenceStorageKey(STORAGE_KEYS.AI_MODEL, ownerId),
-    );
-    return saved || DEFAULT_CONFIG.DEFAULT_AI_MODEL;
-  });
-
-  const [aiFeatureModels, setAiFeatureModelsState] = React.useState<AIFeatureModels>(() => {
-    const saved = safeLocalStorage.getItem(
-      getPreferenceStorageKey(STORAGE_KEYS.AI_FEATURE_MODELS, ownerId),
-    );
-    if (!saved) return {};
-    try {
-      return JSON.parse(saved) as AIFeatureModels;
-    } catch {
-      return {};
-    }
-  });
-
-  const [aiCredentials, setAiCredentialsState] = React.useState<Partial<Record<LLMProviderName, string>>>(() => {
-    // Remove credentials written by older versions; new values are memory-only.
-    safeLocalStorage.removeItem(STORAGE_KEYS.AI_CREDENTIALS);
-    return {};
-  });
-
   React.useLayoutEffect(() => {
-    // Provider instances are owner-keyed. Never let an in-memory credential
-    // from the previous instance survive into the next owner's effects.
-    clearRuntimeCredentials();
+    // Remove browser-side provider settings written by older builds. Clinical
+    // AI policy is organization-managed and exists only on the Edge runtime.
+    for (const key of [
+      STORAGE_KEYS.AI_CREDENTIALS,
+      STORAGE_KEYS.AI_PROVIDER,
+      STORAGE_KEYS.AI_MODEL,
+      STORAGE_KEYS.AI_FEATURE_MODELS,
+    ]) {
+      safeLocalStorage.removeItem(key);
+      safeLocalStorage.removeItem(getPreferenceStorageKey(key, ownerId));
+    }
   }, [ownerId]);
 
   const [sectionVisibility, setSectionVisibilityState] = React.useState<SectionVisibility>(() => {
@@ -265,14 +234,11 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     sortBy,
     showLabFishbones,
     selectedSpecialty,
-    aiProvider,
-    aiModel,
-    aiFeatureModels,
     editorToolbarMode,
     editorToolbarButtons,
     patientInfoToolbarMode,
     patientInfoToolbarButtons,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, aiProvider, aiModel, aiFeatureModels, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons]);
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons]);
 
   const buildAppPreferencesRef = React.useRef(buildAppPreferences);
   buildAppPreferencesRef.current = buildAppPreferences;
@@ -311,26 +277,6 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
       const storageKey = preferenceStorageKey(STORAGE_KEYS.SELECTED_SPECIALTY);
       if (prefs.selectedSpecialty) {
         safeLocalStorage.setItem(storageKey, prefs.selectedSpecialty);
-      } else {
-        safeLocalStorage.removeItem(storageKey);
-      }
-    }
-
-    if (prefs.aiProvider !== undefined) {
-      setAiProviderState(prefs.aiProvider);
-      safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_PROVIDER), prefs.aiProvider);
-    }
-
-    if (prefs.aiModel !== undefined) {
-      setAiModelState(prefs.aiModel);
-      safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_MODEL), prefs.aiModel);
-    }
-
-    if (prefs.aiFeatureModels !== undefined) {
-      setAiFeatureModelsState(prefs.aiFeatureModels ?? {});
-      const storageKey = preferenceStorageKey(STORAGE_KEYS.AI_FEATURE_MODELS);
-      if (prefs.aiFeatureModels) {
-        safeLocalStorage.setItem(storageKey, JSON.stringify(prefs.aiFeatureModels));
       } else {
         safeLocalStorage.removeItem(storageKey);
       }
@@ -418,11 +364,17 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
         }
 
         if (data?.app_preferences) {
-          const rawDbPreferences = data.app_preferences as unknown as AppPreferences & { aiCredentials?: unknown };
-          const dbPreferences = withoutCredentialFields(rawDbPreferences);
+          const rawDbPreferences = data.app_preferences as unknown as AppPreferences & LegacyClinicalAIFields;
+          const dbPreferences = withoutLegacyClinicalAIFields(rawDbPreferences);
           applyAppPreferences(dbPreferences);
 
-          if (Object.prototype.hasOwnProperty.call(rawDbPreferences, 'aiCredentials')) {
+          const hasLegacyClinicalAIFields = [
+            'aiCredentials',
+            'aiProvider',
+            'aiModel',
+            'aiFeatureModels',
+          ].some((key) => Object.prototype.hasOwnProperty.call(rawDbPreferences, key));
+          if (hasLegacyClinicalAIFields) {
             const { error: scrubError } = await supabase
               .from('user_settings')
               .upsert({
@@ -477,8 +429,6 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
   React.useEffect(() => {
     if (!user) {
       initialSyncDone.current = false;
-      setAiCredentialsState({});
-      clearRuntimeCredentials();
     }
   }, [user]);
 
@@ -490,7 +440,6 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
         clearTimeout(syncTimeoutRef.current);
         syncTimeoutRef.current = null;
       }
-      clearRuntimeCredentials();
     };
   }, []);
 
@@ -620,61 +569,6 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     }
   }, [preferenceStorageKey]);
 
-  const setAiModel = React.useCallback((provider: LLMProviderName, model: string) => {
-    setAiProviderState(provider);
-    setAiModelState(model);
-    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_PROVIDER), provider);
-    safeLocalStorage.setItem(preferenceStorageKey(STORAGE_KEYS.AI_MODEL), model);
-  }, [preferenceStorageKey]);
-
-  const resetAiModel = React.useCallback(() => {
-    setAiProviderState(DEFAULT_CONFIG.DEFAULT_AI_PROVIDER);
-    setAiModelState(DEFAULT_CONFIG.DEFAULT_AI_MODEL);
-    safeLocalStorage.setItem(
-      preferenceStorageKey(STORAGE_KEYS.AI_PROVIDER),
-      DEFAULT_CONFIG.DEFAULT_AI_PROVIDER,
-    );
-    safeLocalStorage.setItem(
-      preferenceStorageKey(STORAGE_KEYS.AI_MODEL),
-      DEFAULT_CONFIG.DEFAULT_AI_MODEL,
-    );
-  }, [preferenceStorageKey]);
-
-  const setAiCredential = React.useCallback((provider: LLMProviderName, credential: string) => {
-    if (!isActiveRef.current) return;
-    setAiCredentialsState((prev) => {
-      if (!isActiveRef.current) return prev;
-      const next = { ...prev } as Partial<Record<LLMProviderName, string>>;
-      if (credential) {
-        next[provider] = credential;
-      } else {
-        delete next[provider];
-      }
-      setRuntimeCredentials(next);
-      return next;
-    });
-  }, []);
-
-  const setAiFeatureModel = React.useCallback((feature: AIFeatureCategory, model: string) => {
-    setAiFeatureModelsState((prev) => {
-      const next = { ...prev };
-      if (model) {
-        next[feature] = model;
-      } else {
-        delete next[feature];
-      }
-      safeLocalStorage.setItem(
-        preferenceStorageKey(STORAGE_KEYS.AI_FEATURE_MODELS),
-        JSON.stringify(next),
-      );
-      return next;
-    });
-  }, [preferenceStorageKey]);
-
-  const getModelForFeature = React.useCallback((feature: AIFeatureCategory): string => {
-    return aiFeatureModels[feature] || DEFAULT_GATEWAY_MODEL;
-  }, [aiFeatureModels]);
-
   const isFeatureEnabledForRole = React.useCallback((feature: SpecialtyFeature): boolean => {
     if (!selectedSpecialty) return true; // No role selected = all features enabled
     const role = getRoleById(selectedSpecialty);
@@ -707,15 +601,6 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     selectedSpecialty,
     setSelectedSpecialty,
     isFeatureEnabledForRole,
-    aiProvider,
-    aiModel,
-    aiCredentials,
-    setAiModel,
-    resetAiModel,
-    setAiCredential,
-    aiFeatureModels,
-    setAiFeatureModel,
-    getModelForFeature,
     editorToolbarMode,
     setEditorToolbarMode,
     editorToolbarButtons,
@@ -733,10 +618,6 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     showLabFishbones,
     sectionVisibility,
     selectedSpecialty,
-    aiProvider,
-    aiModel,
-    aiCredentials,
-    aiFeatureModels,
     editorToolbarMode,
     editorToolbarButtons,
     patientInfoToolbarMode,
@@ -749,11 +630,6 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     setShowLabFishbones,
     setSelectedSpecialty,
     isFeatureEnabledForRole,
-    setAiModel,
-    resetAiModel,
-    setAiCredential,
-    setAiFeatureModel,
-    getModelForFeature,
     setEditorToolbarMode,
     setEditorToolbarButtons,
     setPatientInfoToolbarMode,

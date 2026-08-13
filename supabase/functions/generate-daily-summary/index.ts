@@ -271,7 +271,7 @@ RULES:
     let summary: string | null | undefined = null;
     try {
       summary = await callLLM(systemPrompt, userPrompt, {
-        model: requestedModel || "gpt-4o-mini",
+        model: requestedModel,
         temperature: 0.4,
       });
       safeLog("info", "Generate daily summary response received", {

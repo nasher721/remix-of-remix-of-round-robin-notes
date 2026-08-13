@@ -258,7 +258,19 @@ test("usePatientImport importPatients performs a single multi-row insert on the 
     });
     await act(async () => {
       await result.current.importPatients([
-        { name: "Imported One", bed: "C1", clinicalSummary: "S1", intervalEvents: "" },
+        {
+          name: "Imported One",
+          bed: "C1",
+          clinicalSummary: "S1",
+          intervalEvents: "",
+          dateOfBirth: "1980-01-02",
+          gender: "female",
+          admissionDate: "2026-08-01T00:00:00.000Z",
+          serviceLine: "MICU",
+          attendingPhysician: "Dr Smith",
+          codeStatus: "dnr",
+          alerts: ["Isolation: Contact"],
+        },
         { name: "Imported Two", bed: "C2", clinicalSummary: "S2", intervalEvents: "" },
       ]);
     });
@@ -273,6 +285,13 @@ test("usePatientImport importPatients performs a single multi-row insert on the 
     assert.equal(firstPayload.name, "Imported One");
     assert.equal(firstPayload.bed, "C1");
     assert.equal(firstPayload.patient_number, 1);
+    assert.equal(firstPayload.date_of_birth, "1980-01-02");
+    assert.equal(firstPayload.gender, "female");
+    assert.equal(firstPayload.admission_date, "2026-08-01T00:00:00.000Z");
+    assert.equal(firstPayload.service_line, "MICU");
+    assert.equal(firstPayload.attending_physician, "Dr Smith");
+    assert.equal(firstPayload.code_status, "dnr");
+    assert.deepEqual(firstPayload.alerts, ["Isolation: Contact"]);
     assert.equal(secondPayload.name, "Imported Two");
     assert.equal(secondPayload.bed, "C2");
     assert.equal(secondPayload.patient_number, 2);

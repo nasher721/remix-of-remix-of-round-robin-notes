@@ -100,7 +100,10 @@ test('team resolution deterministically selects one membership inside the reques
 test('SettingsProvider quarantines user-A settings and cancels A debounce work on an A-to-B transition', async () => {
   const auth = setupAuthTransitionMock();
   const pendingUserB = deferred<{ data: unknown; error: null }>();
-  const upserts: Array<{ user_id: string; app_preferences: { selectedSpecialty?: string | null } }> = [];
+  const upserts: Array<{
+    user_id: string;
+    app_preferences: Record<string, unknown> & { selectedSpecialty?: string | null };
+  }> = [];
   const observed: Array<{ ownerId: string; specialty: string | null }> = [];
 
   const supabaseWithMutableFrom = supabase as unknown as { from: (table: string) => unknown };
@@ -120,14 +123,23 @@ test('SettingsProvider quarantines user-A settings and cancels A debounce work o
             : Promise.resolve({
                 data: {
                   section_visibility: DEFAULT_SECTION_VISIBILITY,
-                  app_preferences: { selectedSpecialty: 'user-a-private-specialty' },
+                  app_preferences: {
+                    selectedSpecialty: 'user-a-private-specialty',
+                    aiCredentials: { openai: 'legacy-browser-secret' },
+                    aiProvider: 'openai',
+                    aiModel: 'gpt-4o-mini',
+                    aiFeatureModels: { todos: 'gpt-4o-mini' },
+                  },
                 },
                 error: null,
               }),
         };
         return query;
       },
-      upsert: (payload: { user_id: string; app_preferences: { selectedSpecialty?: string | null } }) => {
+      upsert: (payload: {
+        user_id: string;
+        app_preferences: Record<string, unknown> & { selectedSpecialty?: string | null };
+      }) => {
         upserts.push(payload);
         return Promise.resolve({ error: null });
       },
@@ -157,6 +169,10 @@ test('SettingsProvider quarantines user-A settings and cancels A debounce work o
       assert.equal(result.current.auth.user?.id, 'user-a');
       assert.equal(result.current.settings.selectedSpecialty, 'user-a-private-specialty');
     });
+    await waitFor(() => assert.equal(upserts.length, 1));
+    assert.deepEqual(upserts[0]?.app_preferences, {
+      selectedSpecialty: 'user-a-private-specialty',
+    }, 'legacy browser provider fields must be removed from synced preferences');
 
     await act(async () => {
       result.current.settings.setSelectedSpecialty('user-a-unsaved-specialty');

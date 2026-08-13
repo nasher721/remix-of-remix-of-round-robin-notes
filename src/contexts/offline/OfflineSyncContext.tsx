@@ -2,6 +2,7 @@ import * as React from "react";
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { syncEngine, type SyncStatus } from "@/lib/offline/syncEngine";
 import { indexedDBQueue, type ConflictData } from "@/lib/offline/indexedDBQueue";
+import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
 
 export type { ConflictData };
 
@@ -48,7 +49,7 @@ export function OfflineSyncProvider({ children }: OfflineSyncProviderProps): Rea
   const [status, setStatus] = useState<SyncStatus>("idle");
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [conflicts, setConflicts] = useState<ConflictData[]>([]);
-  const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+  const [isOnline, setIsOnline] = useState<boolean>(() => !isBrowserKnownOffline());
 
   useEffect(() => {
     const unsubscribeStatus = syncEngine.on("status-change", (newStatus: SyncStatus) => {

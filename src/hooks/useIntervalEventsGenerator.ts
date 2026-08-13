@@ -3,14 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { PatientSystems } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const useIntervalEventsGenerator = () => {
-  const { getModelForFeature } = useSettings();
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -67,7 +65,7 @@ export const useIntervalEventsGenerator = () => {
 
       const { data, error } = await withCategoryTimeout(
         supabase.functions.invoke('generate-interval-events', {
-          body: { systems, existingIntervalEvents, patientName, model: getModelForFeature('interval_events') },
+          body: { systems, existingIntervalEvents, patientName },
         }),
         'aiEdgeFunction',
         'generate-interval-events',
@@ -122,7 +120,7 @@ export const useIntervalEventsGenerator = () => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, [getModelForFeature, user]);
+  }, [user]);
 
   const cancelGeneration = useCallback(() => {
     if (abortControllerRef.current) {

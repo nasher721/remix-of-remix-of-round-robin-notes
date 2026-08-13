@@ -18,6 +18,15 @@ globalThis.localStorage = dom.window.localStorage;
 globalThis.DOMParser = dom.window.DOMParser;
 globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
 
+// jsdom exposes scrollTo but routes it to a noisy "not implemented" error.
+// Tests only need to verify the call path; browser scrolling is covered by E2E.
+Object.defineProperty(dom.window, "scrollTo", {
+  configurable: true,
+  writable: true,
+  value: () => undefined,
+});
+globalThis.scrollTo = dom.window.scrollTo.bind(dom.window);
+
 // Anime.js target parsing uses global NodeList (jsdom only puts it on window).
 globalThis.NodeList = dom.window.NodeList;
 globalThis.HTMLCollection = dom.window.HTMLCollection;

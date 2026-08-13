@@ -64,9 +64,11 @@ test('dictation disclosures describe both transcription and optional enhancement
   assert.match(dictationCopy, /(?:resulting )?transcript[^.\n]*selected AI provider/i);
 });
 
-test('privacy page is clearly a deployment placeholder rather than an approved policy', () => {
+test('privacy page keeps an honest development fallback behind the approved notice gate', () => {
   const privacy = readFileSync('src/pages/Privacy.tsx', 'utf8');
 
+  assert.match(privacy, /PRIVACY_NOTICE_IS_CONFIGURED/);
+  assert.match(privacy, /Open approved privacy notice/i);
   assert.match(privacy, /not an approved privacy notice/i);
   assert.match(privacy, /deployment operator/i);
   assert.match(privacy, /before (?:a )?production/i);

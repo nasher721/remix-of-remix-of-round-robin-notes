@@ -115,7 +115,7 @@ export const PatientInfoToolbar = ({
         value = identity.diagnosis;
         break;
       case "admissionDate":
-        value = NOT_DOCUMENTED;
+        value = identity.admissionDate;
         break;
       case "allergies":
         value = identity.allergies;

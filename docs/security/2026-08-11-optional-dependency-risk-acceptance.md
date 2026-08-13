@@ -18,10 +18,11 @@ reports **0 vulnerabilities** and remains a blocking CI check.
 
 ## Evidence
 
-1. **Browser reachability:** `fhirclient` is imported only by
-   `src/integrations/fhir/client.ts` (SMART on FHIR launch/callback flow).
-   `isomorphic-webcrypto` is a Node-environment shim; fhirclient uses native
-   `window.crypto` in browsers.
+1. **Browser reachability:** `fhirclient` is dynamically imported only for the
+   SMART on FHIR launch/callback flow. The Vite browser build aliases its
+   `isomorphic-webcrypto` fallback to the native Web Crypto API required by the
+   app's supported browsers, so the optional native dependency tree is not
+   included in the EHR chunk.
 2. **Bundle inspection (2026-08-12 build):** zero occurrences of
    `expo-modules-core`, `ExpoModulesCore`, `isomorphic-webcrypto`,
    `react-native/Libraries`, or `@expo/config-plugins` in any `dist/assets`
@@ -34,13 +35,13 @@ reports **0 vulnerabilities** and remains a blocking CI check.
    production dependencies only, generated from a clean Node 22/npm 10
    install matching CI).
 
-## Why not remove/upgrade
+## Why not remove/upgrade the installed optional tree
 
-`isomorphic-webcrypto` is a **required** dependency of fhirclient; removing it
-means patching or replacing fhirclient, which owns the SMART launch/session
-machinery — an unjustified change inside the clinical release window. The
-advisories affect packages that are (a) optional, (b) build-time-only, and
-(c) absent from shipped artifacts.
+`isomorphic-webcrypto` remains a **required installed** dependency of
+fhirclient. Replacing fhirclient would change the SMART launch/session
+machinery. The browser build now supplies the native Web Crypto implementation;
+the advisories affect packages that are optional, absent from shipped artifacts,
+and excluded from the production audit gate.
 
 ## Conditions of acceptance
 

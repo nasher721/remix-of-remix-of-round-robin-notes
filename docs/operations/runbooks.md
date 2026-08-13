@@ -123,14 +123,16 @@ exactly this (see `docs/release/2026-08-11-release-hold-phase0.md`).
 
 **Rule:** frontend deploys only via the Vercel deploy hook
 (`vercel.json` disables git-triggered deploys for `main`), and only after
-the Supabase deploy workflow succeeds for the same SHA.
+the Supabase deploy workflow succeeds for the same SHA. The deploy job remains
+red until the live page's `app-version` marker matches that SHA.
 
 **If a mismatch reaches production anyway**
 
 1. Immediately redeploy the last known-good frontend from the Vercel
    dashboard (instant rollback).
-2. Verify with the bundle-content check: the deployed `index-*.js` must
-   contain `revision` references when the DB has the column.
+2. Verify the live page's `app-version` meta value matches the intended
+   package version plus seven-character Git SHA. For schema-sensitive releases,
+   also confirm the deployed bundle contains the matching feature markers.
 3. Record the incident and re-run Phase 0 of the release checklist before
    the next attempt.
 
@@ -179,24 +181,36 @@ Drill log: (date / operator / backup point / RTO measured / result)
   CSP allows only the approved Sentry ingest origin.
 - Structured client logger (`src/lib/observability/logger.ts`) with stable
   event names (`patient.update.failed`, etc.).
+- Fixed PHI-safe operational metrics for patient-write outcome/latency and
+  offline queue length/age/replay results. Saved/queued per-input writes and
+  rapid enqueue pressure aggregate over five seconds; conflicts and hard errors
+  emit immediately. Collector delivery is
+  serialized, bounded, and requeues network/non-2xx failures.
 - Supabase logs for Postgres, Auth, and Edge Functions; edge rate-limit
   table `edge_rate_limits` / `consume_edge_rate_limit`.
 - CI bundle assertions: `scripts/check-bundle-size.mjs`,
   `scripts/assert-no-optional-native-in-bundle.mjs`.
+- Hourly production monitor (`.github/workflows/production-monitor.yml`):
+  calls the least-privileged Edge/database healthcheck, signs in with the
+  dedicated non-PHI account, writes a unique marker to `E2E Alpha`, proves the
+  marker from a cold reload, and restores the exact original summary. Failures
+  create or update one deduplicated GitHub issue; the next successful run
+  records recovery and closes it.
 
 **Open gaps (must close or formally accept before GA)**
 
-- No alerting on sustained `patient.update.failed` volume, queue age, or
-  queue growth. Recommended: a Sentry alert rule on
-  `message:"patient.update.failed"` (rate > N/5 min) and a scheduled
-  Supabase SQL check on queue-age proxies.
-- No synthetic canary for the save path. Recommended: a scheduled Playwright
-  run of `e2e/data-integrity.e2e.spec.ts` against production with the E2E
-  account, alerting on failure (doubles as the "tested with synthetic
-  failures" acceptance item).
-- No uptime monitor on the healthcheck Edge Function. Recommended: any
-  external pinger hitting `/functions/v1/healthcheck` expecting
-  `{"status":"healthy"}`.
+- Production builds and the hourly monitor now fail closed unless hosted
+  Sentry or an approved same-origin/Supabase collector is configured. The
+  operator must still provision the selected project/endpoint, verify receipt,
+  and configure an alert destination. Alert on
+  degraded `auth.sign_in.total` outcomes and auth latency,
+  `patient.update.failed` volume, `patients.mutation.total` degraded outcomes,
+  `offline.sync.oldest_age_ms`, and sustained `offline.sync.queue_length`.
+- The repository now contains an hourly uptime/save synthetic with GitHub-issue
+  alerting. It becomes an operating control only after `PRODUCTION_APP_URL`
+  and the required E2E/Supabase secrets are configured and a scheduled run is
+  observed. GitHub Actions is not an independent third-party uptime service;
+  operations may still add an external pinger for provider-level redundancy.
 
 ---
 

@@ -3,14 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { Patient } from '@/types/patient';
 import { ensureString } from '@/lib/ai-response-utils';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const usePatientCourseGenerator = () => {
-  const { getModelForFeature } = useSettings();
   const { user } = useAuth();
   const [isGenerating, setIsGenerating] = React.useState(false);
   const abortControllerRef = React.useRef<AbortController | null>(null);
@@ -79,7 +77,6 @@ export const usePatientCourseGenerator = () => {
               systems: patient.systems,
             },
             existingCourse,
-            model: getModelForFeature('patient_course'),
           },
         }),
         'aiEdgeFunction',
@@ -141,7 +138,7 @@ export const usePatientCourseGenerator = () => {
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, [getModelForFeature, user]);
+  }, [user]);
 
   const cancelGeneration = React.useCallback(() => {
     if (abortControllerRef.current) {

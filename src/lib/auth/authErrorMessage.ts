@@ -1,5 +1,12 @@
 export type AuthProviderLabel = 'Google' | 'Apple';
 
+export type AuthFailureCategory =
+  | 'invalid_credentials'
+  | 'email_not_confirmed'
+  | 'rate_limited'
+  | 'unavailable'
+  | 'provider_error';
+
 interface SafeAuthErrorOptions {
   providerLabel?: AuthProviderLabel;
 }
@@ -23,6 +30,20 @@ const PASSWORD_ERROR_BY_MESSAGE: Readonly<Record<string, string>> = {
   'too many requests': 'Too many sign-in attempts. Wait a few minutes, then try again.',
 };
 
+const AUTH_CATEGORY_BY_CODE: Readonly<Record<string, AuthFailureCategory>> = {
+  invalid_credentials: 'invalid_credentials',
+  email_not_confirmed: 'email_not_confirmed',
+  over_email_send_rate_limit: 'rate_limited',
+  over_request_rate_limit: 'rate_limited',
+};
+
+const AUTH_CATEGORY_BY_MESSAGE: Readonly<Record<string, AuthFailureCategory>> = {
+  'authentication is not configured.': 'unavailable',
+  'email not confirmed': 'email_not_confirmed',
+  'invalid login credentials': 'invalid_credentials',
+  'too many requests': 'rate_limited',
+};
+
 function readAuthError(error: unknown): { code: string; message: string } {
   if (!error || (typeof error !== 'object' && typeof error !== 'function')) {
     return { code: '', message: '' };
@@ -33,6 +54,18 @@ function readAuthError(error: unknown): { code: string; message: string } {
     code: typeof candidate.code === 'string' ? candidate.code.trim().toLowerCase() : '',
     message: typeof candidate.message === 'string' ? candidate.message.trim().toLowerCase() : '',
   };
+}
+
+/**
+ * Reduce provider failures to a fixed category before they cross an
+ * observability or user-interface boundary. Unknown messages may contain
+ * tenant or account details and are deliberately collapsed.
+ */
+export function classifyAuthError(error: unknown): AuthFailureCategory {
+  const { code, message } = readAuthError(error);
+  return AUTH_CATEGORY_BY_CODE[code]
+    ?? AUTH_CATEGORY_BY_MESSAGE[message]
+    ?? 'provider_error';
 }
 
 /**

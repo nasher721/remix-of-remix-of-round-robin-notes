@@ -6,10 +6,63 @@ import {
   MAX_LLM_OUTPUT_TOKENS,
   normalizeOutputTokenLimit,
   providerForModel,
+  resolveApprovedClinicalProvider,
   resolveRequestedModel,
   sanitizeOutboundLLMPrompts,
   selectModelForConfig,
 } from "./llm-client.ts";
+
+Deno.test("clinical AI requires an explicitly approved PHI provider", () => {
+  const missing = resolveApprovedClinicalProvider(undefined, () => undefined);
+  if (missing.valid) {
+    throw new Error(
+      "Expected missing clinical provider approval to fail closed",
+    );
+  }
+
+  const approved = resolveApprovedClinicalProvider(
+    undefined,
+    (key) => {
+      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "gemini";
+      if (key === "CLINICAL_PHI_LLM_MODEL") return "gemini-2.5-flash";
+      return undefined;
+    },
+  );
+  if (
+    !approved.valid || approved.provider !== "gemini" ||
+    approved.model !== "gemini-2.5-flash"
+  ) {
+    throw new Error("Expected the deployment-approved provider to be selected");
+  }
+});
+
+Deno.test("clinical AI rejects cross-provider model selection", () => {
+  const result = resolveApprovedClinicalProvider(
+    "gpt-4o-mini",
+    (key) => {
+      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "gemini";
+      if (key === "CLINICAL_PHI_LLM_MODEL") return "gemini-2.5-flash";
+      return undefined;
+    },
+  );
+  if (result.valid) {
+    throw new Error("Expected cross-provider clinical model selection to fail");
+  }
+});
+
+Deno.test("clinical AI rejects non-approved models within the approved provider", () => {
+  const result = resolveApprovedClinicalProvider(
+    "gemini-2.0-flash",
+    (key) => {
+      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "gemini";
+      if (key === "CLINICAL_PHI_LLM_MODEL") return "gemini-2.5-flash";
+      return undefined;
+    },
+  );
+  if (result.valid) {
+    throw new Error("Expected a same-provider model override to fail closed");
+  }
+});
 
 Deno.test("LLM model selection accepts only canonical allowlisted models", () => {
   const allowed = resolveRequestedModel("gpt-4o-mini");
@@ -46,7 +99,7 @@ Deno.test("LLM model selection fails closed across provider families", () => {
   }
 });
 
-Deno.test("explicit providers never auto-discover another configured vendor", () => {
+Deno.test("provider configuration never auto-discovers another vendor", () => {
   const environment = (key: string) =>
     key === "OPENAI_API_KEY" ? "openai-test-key-long-enough" : undefined;
 
@@ -57,10 +110,10 @@ Deno.test("explicit providers never auto-discover another configured vendor", ()
     );
   }
 
-  const discovered = getLLMConfig(undefined, environment);
-  if (discovered.provider !== "openai" || !discovered.apiKey) {
+  const explicitOpenAI = getLLMConfig("openai", environment);
+  if (explicitOpenAI.provider !== "openai" || !explicitOpenAI.apiKey) {
     throw new Error(
-      "Expected requests without a model to auto-discover OpenAI",
+      "Expected an explicitly selected configured provider to resolve",
     );
   }
 });

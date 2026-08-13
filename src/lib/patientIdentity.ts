@@ -49,8 +49,25 @@ export const normalizePatientAlerts = (alerts: Patient["alerts"]): string[] => {
 };
 
 const formatAllergies = (alerts: Patient["alerts"]): string => {
-  const allergies = normalizePatientAlerts(alerts);
+  const allergies = normalizePatientAlerts(alerts).filter(
+    (alert) => !alert.toLowerCase().startsWith("isolation:"),
+  );
   return allergies.length > 0 ? allergies.join(", ") : NOT_DOCUMENTED;
+};
+
+const formatIsolation = (alerts: Patient["alerts"]): string => {
+  const isolation = normalizePatientAlerts(alerts)
+    .filter((alert) => alert.toLowerCase().startsWith("isolation:"))
+    .map((alert) => alert.slice(alert.indexOf(":") + 1).trim())
+    .filter(Boolean);
+  return isolation.length > 0 ? isolation.join(", ") : NOT_DOCUMENTED;
+};
+
+const GENDER_LABELS: Record<string, string> = {
+  male: "Male",
+  female: "Female",
+  other: "Other",
+  unknown: "Unknown",
 };
 
 const CODE_STATUS_LABELS: Record<string, string> = {
@@ -65,23 +82,29 @@ export interface PatientIdentity {
   mrn: string;
   room: string;
   dob: string;
+  gender: string;
   allergies: string;
+  isolation: string;
   codeStatus: string;
   attending: string;
+  admissionDate: string;
   diagnosis: string;
 }
 
 /**
- * Build the explicitly available identity fields. Patient has no DOB or
- * diagnosis field, so those remain Not documented rather than inferred.
+ * Build explicitly stored identity fields; never infer DOB or diagnosis from
+ * free-text clinical notes.
  */
 export const getPatientIdentity = (patient: Patient): PatientIdentity => ({
   name: normalizePatientIdentityValue(patient.name),
   mrn: normalizePatientIdentityValue(patient.mrn),
   room: normalizePatientIdentityValue(patient.bed),
-  dob: NOT_DOCUMENTED,
+  dob: normalizePatientIdentityValue(patient.dateOfBirth),
+  gender: GENDER_LABELS[patient.gender ?? ""] ?? normalizePatientIdentityValue(patient.gender),
   allergies: formatAllergies(patient.alerts),
+  isolation: formatIsolation(patient.alerts),
   codeStatus: CODE_STATUS_LABELS[patient.codeStatus ?? ""] ?? normalizePatientIdentityValue(patient.codeStatus),
   attending: normalizePatientIdentityValue(patient.attendingPhysician),
+  admissionDate: normalizePatientIdentityValue(patient.admissionDate),
   diagnosis: NOT_DOCUMENTED,
 });

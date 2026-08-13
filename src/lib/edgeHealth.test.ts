@@ -3,26 +3,30 @@ import { afterEach, test } from 'node:test';
 
 import { invalidateEdgeHealthCache, probeEdgeHealth } from './edgeHealth';
 
-const originalFetch = globalThis.fetch;
+type FunctionsMockGlobal = {
+  __SUPABASE_FUNCTIONS_INVOKE_MOCK__?: (
+    name: string,
+    options?: { method?: string },
+  ) => Promise<{ data: unknown; error: unknown }>;
+};
+
+const testGlobal = globalThis as unknown as FunctionsMockGlobal;
 
 afterEach(() => {
-  globalThis.fetch = originalFetch;
+  delete testGlobal.__SUPABASE_FUNCTIONS_INVOKE_MOCK__;
   invalidateEdgeHealthCache();
 });
 
-test('edge health uses the endpoint GET contract without retrying a healthy response', async () => {
-  const calls: Array<{ input: string; method: string | undefined }> = [];
-  globalThis.fetch = async (input, init) => {
-    calls.push({ input: String(input), method: init?.method });
-    return new Response(JSON.stringify({ status: 'healthy' }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+test('edge health uses the authenticated SDK GET contract without retrying a healthy response', async () => {
+  const calls: Array<{ name: string; method: string | undefined }> = [];
+  testGlobal.__SUPABASE_FUNCTIONS_INVOKE_MOCK__ = async (name, options) => {
+    calls.push({ name, method: options?.method });
+    return { data: { status: 'healthy' }, error: null };
   };
 
   invalidateEdgeHealthCache();
   assert.equal(await probeEdgeHealth({ force: true }), 'healthy');
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.method, 'GET');
-  assert.match(calls[0]?.input ?? '', /\/functions\/v1\/healthcheck$/);
+  assert.equal(calls[0]?.name, 'healthcheck');
 });

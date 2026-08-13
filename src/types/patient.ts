@@ -11,6 +11,9 @@ export type AcuityLevel = 'low' | 'moderate' | 'high' | 'critical';
  */
 export type CodeStatus = 'full' | 'dnr' | 'dni' | 'comfort';
 
+/** Administrative sex/gender value supplied by an upstream patient roster. */
+export type PatientGender = 'male' | 'female' | 'other' | 'unknown';
+
 /**
  * Vitals data structure for patient monitoring
  */
@@ -106,6 +109,12 @@ export interface DbPatient {
   last_modified: string;
   revision?: number;
   age?: number;
+  /** ISO calendar date from the source roster; never inferred from age. */
+  date_of_birth?: string;
+  /** Normalized administrative sex/gender value from the source roster. */
+  gender?: PatientGender;
+  /** ISO timestamp for the current admission when supplied. */
+  admission_date?: string;
   /** ICU service line (MICU, SICU, CVICU, etc.) */
   service_line?: string;
   /** Primary attending physician name */
@@ -148,6 +157,12 @@ export interface Patient {
   /** Monotonic server revision used to reject stale cross-tab writes. */
   revision?: number;
   age?: number;
+  /** ISO calendar date from the source roster; never inferred from age. */
+  dateOfBirth?: string;
+  /** Normalized administrative sex/gender value from the source roster. */
+  gender?: PatientGender;
+  /** ISO timestamp for the current admission when supplied. */
+  admissionDate?: string;
   /** ICU service line (MICU, SICU, CVICU, etc.) */
   serviceLine?: string;
   /** Primary attending physician name */

@@ -2,7 +2,6 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Patient } from '@/types/patient';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import type {
   AIFeature,
@@ -77,7 +76,6 @@ export const useAIClinicalAssistant = (
 ): UseAIClinicalAssistantReturn => {
   const { onSuccess, onError } = options;
   const assertBackendReady = useAssertBackendReady();
-  const { getModelForFeature } = useSettings();
   const { user } = useAuth();
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -191,7 +189,6 @@ export const useAIClinicalAssistant = (
             text,
             context: sanitizedContext,
             customPrompt: combinedCustomPrompt,
-            model: getModelForFeature('clinical_assistant'),
           },
         }),
         TIMEOUT_DEFAULTS.aiEdgeFunction,
@@ -255,7 +252,7 @@ export const useAIClinicalAssistant = (
       setIsProcessing(false);
       abortControllerRef.current = null;
     }
-  }, [onSuccess, onError, toast, getModelForFeature, user, assertBackendReady]);
+  }, [onSuccess, onError, toast, user, assertBackendReady]);
 
   // Convenience methods
   const smartExpand = useCallback(

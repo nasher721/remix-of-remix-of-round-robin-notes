@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from './useAuth';
 import type { Json } from '@/integrations/supabase/types';
-import { useSettings } from '@/contexts/SettingsContext';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
@@ -56,7 +55,6 @@ safeLocalStorage.removeItem('ai-custom-prompts');
 
 export const useTextTransform = () => {
   const { user } = useAuth();
-  const { getModelForFeature } = useSettings();
   const [isTransforming, setIsTransforming] = React.useState(false);
   const [isSyncing, setIsSyncing] = React.useState(false);
   const syncTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -223,7 +221,7 @@ export const useTextTransform = () => {
 
       const { data, error } = await withCategoryTimeout(
         supabase.functions.invoke('transform-text', {
-          body: { text, transformType, customPrompt: combinedCustomPrompt, model: getModelForFeature('text_transform') },
+          body: { text, transformType, customPrompt: combinedCustomPrompt },
         }),
         'textTransform',
         'transform-text',
@@ -284,7 +282,7 @@ export const useTextTransform = () => {
     } finally {
       setIsTransforming(false);
     }
-  }, [getModelForFeature, user]);
+  }, [user]);
 
   return {
     transformText,

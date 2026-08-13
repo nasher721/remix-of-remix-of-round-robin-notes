@@ -26,6 +26,70 @@ export interface LLMConfig {
   provider: "openai" | "gemini" | "anthropic" | "grok" | "glm";
 }
 
+export type ClinicalLLMProvider = "openai" | "gemini" | "grok";
+
+export type ClinicalProviderPolicyResult =
+  | { valid: true; provider: ClinicalLLMProvider; model: string }
+  | { valid: false; error: string };
+
+/**
+ * Resolve the single deployment-approved provider allowed to receive clinical
+ * data. API-key presence alone is never approval.
+ */
+export function resolveApprovedClinicalProvider(
+  requestedModel?: string,
+  getEnvironmentValue: (name: string) => string | undefined = Deno.env.get,
+): ClinicalProviderPolicyResult {
+  const configured = getEnvironmentValue("CLINICAL_PHI_LLM_PROVIDER")
+    ?.trim()
+    .toLowerCase();
+  if (
+    configured !== "openai" && configured !== "gemini" && configured !== "grok"
+  ) {
+    return {
+      valid: false,
+      error: "Clinical AI provider is not approved for this deployment",
+    };
+  }
+
+  const configuredModel = resolveRequestedModel(
+    getEnvironmentValue("CLINICAL_PHI_LLM_MODEL")?.trim(),
+  );
+  if (!configuredModel.valid || !configuredModel.model) {
+    return {
+      valid: false,
+      error: "Clinical AI model is not approved for this deployment",
+    };
+  }
+  if (providerForModel(configuredModel.model) !== configured) {
+    return {
+      valid: false,
+      error: "Clinical AI model does not match the approved provider",
+    };
+  }
+
+  const requestedProvider = providerForModel(requestedModel);
+  if (requestedProvider && requestedProvider !== configured) {
+    return {
+      valid: false,
+      error: "Requested model is not approved for clinical AI",
+    };
+  }
+
+  if (requestedModel && requestedModel !== configuredModel.model) {
+    return {
+      valid: false,
+      error: "Requested model is not approved for clinical AI",
+    };
+  }
+
+  return {
+    valid: true,
+    provider: configured,
+    model: configuredModel.model,
+  };
+}
+
 export const DEFAULT_LLM_OUTPUT_TOKENS = 4_000;
 export const MAX_LLM_OUTPUT_TOKENS = 8_000;
 
@@ -104,7 +168,7 @@ function normalizeTemperature(value?: number): number {
 }
 
 export function getLLMConfig(
-  preferredProvider?: "openai" | "gemini" | "grok" | "glm",
+  preferredProvider: "openai" | "gemini" | "grok" | "glm",
   getEnvironmentValue: (name: string) => string | undefined = Deno.env.get,
 ): LLMConfig {
   // Helper to check OpenAI
@@ -172,23 +236,7 @@ export function getLLMConfig(
     return emptyConfigForProvider(preferredProvider);
   }
 
-  // Requests without an explicit model may auto-discover a configured vendor.
-  const openAI = getOpenAI();
-  if (openAI) return openAI;
-
-  const gemini = getGemini();
-  if (gemini) return gemini;
-
-  const grok = getGrok();
-  if (grok) return grok;
-
-  // Default fallback (no providers configured)
-  return {
-    apiKey: "",
-    baseURL: "https://api.openai.com/v1",
-    defaultModel: "gpt-4o-mini",
-    provider: "openai",
-  };
+  return emptyConfigForProvider(preferredProvider);
 }
 
 function emptyConfigForProvider(
@@ -353,9 +401,11 @@ export async function callLLM(
   if (!requestedModel.valid) {
     throw new InvalidLLMModelError(requestedModel.error);
   }
-  const preferredProvider = providerForModel(requestedModel.model);
-
-  const config = getLLMConfig(preferredProvider);
+  const providerPolicy = resolveApprovedClinicalProvider(requestedModel.model);
+  if (!providerPolicy.valid) {
+    throw new InvalidLLMModelError(providerPolicy.error);
+  }
+  const config = getLLMConfig(providerPolicy.provider);
 
   if (!config.apiKey) {
     throw new MissingAPIKeyError(
@@ -363,7 +413,7 @@ export async function callLLM(
     );
   }
 
-  const model = selectModelForConfig(requestedModel.model, config);
+  const model = selectModelForConfig(providerPolicy.model, config);
 
   const sanitizedPrompts = sanitizeOutboundLLMPrompts(systemPrompt, userPrompt);
   const messages = [
@@ -423,15 +473,17 @@ export async function* streamLLM(
   if (!requestedModel.valid) {
     throw new InvalidLLMModelError(requestedModel.error);
   }
-  const preferredProvider = providerForModel(requestedModel.model);
-
-  const config = getLLMConfig(preferredProvider);
+  const providerPolicy = resolveApprovedClinicalProvider(requestedModel.model);
+  if (!providerPolicy.valid) {
+    throw new InvalidLLMModelError(providerPolicy.error);
+  }
+  const config = getLLMConfig(providerPolicy.provider);
 
   if (!config.apiKey) {
     throw new MissingAPIKeyError("No LLM API key configured.");
   }
 
-  const model = selectModelForConfig(requestedModel.model, config);
+  const model = selectModelForConfig(providerPolicy.model, config);
   const sanitizedPrompts = sanitizeOutboundLLMPrompts(systemPrompt, userPrompt);
 
   const body = {

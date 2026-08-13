@@ -121,7 +121,7 @@ class RoundRobinDatabase extends Dexie {
 
 export const db = new RoundRobinDatabase();
 
-const AUTH_OWNER_METADATA_ID = '__auth_owner__';
+export const AUTH_OWNER_METADATA_ID = '__auth_owner__';
 
 export type DataOwnerTransition = 'preserved' | 'cleared' | 'claimed';
 export type DataOwnerAction = 'preserve' | 'clear' | 'clear-and-claim';
@@ -255,67 +255,4 @@ export async function getDatabaseStats(): Promise<{
   ]);
   
   return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox };
-}
-
-/**
- * Export database contents for backup
- */
-export async function exportDatabase(): Promise<{
-  version: number;
-  exportedAt: number;
-  data: {
-    mutations: QueuedMutationDB[];
-    patients: CachedPatient[];
-    phrases: CachedPhrase[];
-    guidelines: CachedGuideline[];
-    roundSessions: CachedRoundSession[];
-    roundOutbox: RoundOutboxEntry[];
-  };
-}> {
-  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox] = await Promise.all([
-    db.mutations.toArray(),
-    db.patients.toArray(),
-    db.phrases.toArray(),
-    db.guidelines.toArray(),
-    db.roundSessions.toArray(),
-    db.roundOutbox.toArray(),
-  ]);
-  
-  return {
-    version: 2,
-    exportedAt: Date.now(),
-    data: { mutations, patients, phrases, guidelines, roundSessions, roundOutbox }
-  };
-}
-
-/**
- * Import database contents from backup
- */
-export async function importDatabase(backup: {
-  version: number;
-  data: {
-    mutations: QueuedMutationDB[];
-    patients: CachedPatient[];
-    phrases: CachedPhrase[];
-    guidelines: CachedGuideline[];
-    roundSessions?: CachedRoundSession[];
-    roundOutbox?: RoundOutboxEntry[];
-  };
-}): Promise<void> {
-  await db.transaction(
-    'rw',
-    [db.mutations, db.patients, db.phrases, db.guidelines, db.roundSessions, db.roundOutbox],
-    async () => {
-      await Promise.all([
-        db.mutations.bulkPut(backup.data.mutations),
-        db.patients.bulkPut(backup.data.patients),
-        db.phrases.bulkPut(backup.data.phrases),
-        db.guidelines.bulkPut(backup.data.guidelines),
-        db.roundSessions.bulkPut(backup.data.roundSessions ?? []),
-        db.roundOutbox.bulkPut(backup.data.roundOutbox ?? []),
-      ]);
-    },
-  );
-  
-  logInfo('[IndexedDB] Database restored from backup');
 }

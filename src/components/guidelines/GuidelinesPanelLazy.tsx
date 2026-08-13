@@ -22,7 +22,11 @@ function PanelSkeleton() {
 }
 
 export function GuidelinesPanelLazy() {
-  const { isOpen } = useClinicalGuidelinesState();
+  const { isOpen, isDataLoaded, ensureDataLoaded } = useClinicalGuidelinesState();
+
+  React.useEffect(() => {
+    if (isOpen) void ensureDataLoaded();
+  }, [ensureDataLoaded, isOpen]);
 
   if (!isOpen) return null;
 
@@ -32,7 +36,7 @@ export function GuidelinesPanelLazy() {
       fallbackClassName="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-card border-l border-border shadow-xl flex items-center justify-center p-6"
     >
       <Suspense fallback={<PanelSkeleton />}>
-        <GuidelinesPanelContent />
+        {isDataLoaded ? <GuidelinesPanelContent /> : <PanelSkeleton />}
       </Suspense>
     </LazyPanelErrorBoundary>
   );

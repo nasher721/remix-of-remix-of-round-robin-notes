@@ -14,7 +14,6 @@ import {
 } from "../_shared/mod.ts";
 import {
   callLLM,
-  getLLMConfig,
   resolveRequestedModel,
   streamLLM,
 } from "../_shared/llm-client.ts";
@@ -953,7 +952,7 @@ export async function handler(req: Request): Promise<Response> {
           "assessment_plan",
         ].includes(feature),
       });
-      modelUsed = getLLMConfig().provider;
+      modelUsed = requestedModel || "organization-managed";
       safeLog("info", "AI clinical assistant response received", {
         feature,
         outputChars: result?.length || 0,

@@ -24,7 +24,6 @@ import { ActivityFeed } from "./patient/ActivityFeed";
 import { SectionFooterChrome } from "./patient/SectionFooterChrome";
 import { AIDraftPreviewDialog } from "./dashboard/AIDraftPreviewDialog";
 import { toast } from "sonner";
-import { AVAILABLE_MODELS } from "@/services/llm";
 import type { AutoText } from "@/types/autotext";
 import { defaultAutotexts } from "@/data/autotexts";
 import type { Patient, PatientSystems, PatientMedications } from "@/types/patient";
@@ -110,13 +109,10 @@ const PatientCardComponent = ({
   chrome = "card",
 }: PatientCardProps) => {
   const isWorkspace = chrome === "workspace";
-  const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility, aiProvider, aiModel } = useSettings();
+  const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
   const { teamMembers } = useTeam();
-  const activeAiModelLabel = React.useMemo(() => {
-    const m = AVAILABLE_MODELS.find((x) => x.provider === aiProvider && x.model === aiModel);
-    return m?.label ?? aiModel ?? "Default";
-  }, [aiProvider, aiModel]);
+  const activeAiModelLabel = "Organization managed";
 
   const [expandedSection, setExpandedSection] = React.useState<string | null>(null);
   const [showSystemsConfig, setShowSystemsConfig] = React.useState(false);

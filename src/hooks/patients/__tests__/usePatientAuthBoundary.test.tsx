@@ -123,3 +123,39 @@ test("usePatientFetch keeps a deferred user-A response out of user B's patient c
   unmount();
   queryClient.clear();
 });
+
+test("usePatientFetch completes offline hydration instead of pausing before the roster cache", async () => {
+  const onlineDescriptor = Object.getOwnPropertyDescriptor(navigator, "onLine");
+  Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+  window.dispatchEvent(new Event("offline"));
+  let patientFetchCount = 0;
+  globalThis.__SUPABASE_AUTH_MOCK__ = {
+    getSession: async () => ({ data: { session: { user: { id: "user-a" } } }, error: null }),
+    onAuthStateChange: () => ({ unsubscribe: () => {} }),
+  };
+  globalThis.__SUPABASE_SELECT_MOCK__ = (query: { table: string }) => {
+    if (query.table === "patients") patientFetchCount += 1;
+    return { data: [], error: null };
+  };
+
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  });
+  queryClients.push(queryClient);
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
+
+  try {
+    const { result } = renderHook(() => usePatientFetch(), { wrapper });
+    await waitFor(() => assert.equal(result.current.loading, false));
+    assert.deepEqual(result.current.patients, []);
+    assert.equal(patientFetchCount, 0, "offline hydration must not reach Supabase");
+  } finally {
+    window.dispatchEvent(new Event("online"));
+    if (onlineDescriptor) Object.defineProperty(navigator, "onLine", onlineDescriptor);
+    else Reflect.deleteProperty(navigator, "onLine");
+  }
+});

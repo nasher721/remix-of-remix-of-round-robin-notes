@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { isBrowserKnownOffline } from '@/lib/networkConnectivity';
 
 /**
  * Minimal hook that tracks online/offline connectivity.
  * Single source of truth – consumed by useOfflineMode and useNetworkStatus.
  */
 export function useOnlineStatus(): boolean {
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [isOnline, setIsOnline] = useState(() => !isBrowserKnownOffline());
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);

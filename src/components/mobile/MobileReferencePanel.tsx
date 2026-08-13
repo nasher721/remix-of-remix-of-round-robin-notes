@@ -1,10 +1,15 @@
-import { BookOpen, ExternalLink, ClipboardList, Stethoscope, Calculator, Info, ShieldCheck } from "lucide-react";
+import * as React from "react";
+import { BookOpen, ExternalLink, ClipboardList, Stethoscope, Calculator, Info, Loader2, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useIBCCState } from "@/contexts/IBCCContext";
 
 export const MobileReferencePanel = () => {
-  const { allChapters, openPanel, viewChapter } = useIBCCState();
+  const { allChapters, isDataLoaded, ensureDataLoaded, openPanel, viewChapter } = useIBCCState();
+
+  React.useEffect(() => {
+    void ensureDataLoaded();
+  }, [ensureDataLoaded]);
 
   const handleOpenChapter = (chapter: typeof allChapters[0]) => {
     viewChapter(chapter);
@@ -44,8 +49,14 @@ export const MobileReferencePanel = () => {
         Quick access to IBCC clinical guidelines and protocols.
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
-        {popularChapters.map((chapter) => (
+      {!isDataLoaded ? (
+        <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Loading clinical reference…
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {popularChapters.map((chapter) => (
           <button
             key={chapter.id}
             type="button"
@@ -69,8 +80,9 @@ export const MobileReferencePanel = () => {
               </div>
             </div>
           </button>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <div className="pt-4 border-t border-border">
         <Button variant="secondary" className="w-full min-h-11" onClick={openPanel}>

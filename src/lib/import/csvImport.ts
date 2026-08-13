@@ -115,7 +115,7 @@ export const PATIENT_TARGET_FIELDS = [
   { key: 'name', label: 'Patient Name', type: 'string' },
   { key: 'mrn', label: 'MRN', type: 'string' },
   { key: 'dob', label: 'Date of Birth', type: 'date' },
-  { key: 'gender', label: 'Gender', type: 'select', options: ['M', 'F', 'Other'] },
+  { key: 'gender', label: 'Gender', type: 'select', options: ['M', 'F', 'Male', 'Female', 'Other', 'Unknown'] },
   { key: 'room', label: 'Room', type: 'string' },
   { key: 'bed', label: 'Bed', type: 'string' },
   { key: 'admissionDate', label: 'Admission Date', type: 'date' },
@@ -220,22 +220,43 @@ export function validateRow(
     if (!targetField) continue;
     
     if (!value || value.trim() === '') {
-      if (map.defaultValue) continue;
-      errors.push({
-        row: 0,
-        column: map.csvColumn,
-        message: `Required field "${targetField.label}" is empty`,
-        value: value || '(empty)'
-      });
+      if (targetField.key === 'name' && !map.defaultValue) {
+        errors.push({
+          row: 0,
+          column: map.csvColumn,
+          message: `Required field "${targetField.label}" is empty`,
+          value: value || '(empty)'
+        });
+      }
       continue;
     }
     
     if (targetField.type === 'select' && targetField.options) {
-      if (!targetField.options.includes(value)) {
+      const allowedValues = targetField.options.map(option => option.toLowerCase());
+      if (!allowedValues.includes(value.trim().toLowerCase())) {
         errors.push({
           row: 0,
           column: map.csvColumn,
           message: `Invalid value "${value}". Must be one of: ${targetField.options.join(', ')}`,
+          value
+        });
+      }
+    }
+
+    if (targetField.type === 'date') {
+      const parsedDate = new Date(value);
+      if (Number.isNaN(parsedDate.getTime())) {
+        errors.push({
+          row: 0,
+          column: map.csvColumn,
+          message: `Invalid date: ${value}`,
+          value
+        });
+      } else if (targetField.key === 'dob' && parsedDate.getTime() > Date.now()) {
+        errors.push({
+          row: 0,
+          column: map.csvColumn,
+          message: 'Date of birth cannot be in the future',
           value
         });
       }
@@ -275,6 +296,16 @@ export function mapRowToPatient(
   }
   
   return patient;
+}
+
+/** Map only rows that satisfy the currently selected field contract. */
+export function mapValidRowsToPatients(
+  csvData: CSVParseResult,
+  mapping: FieldMapping[]
+): Record<string, string>[] {
+  return csvData.rows
+    .filter(row => validateRow(row, csvData.headers, mapping).length === 0)
+    .map(row => mapRowToPatient(row, csvData.headers, mapping));
 }
 
 /**

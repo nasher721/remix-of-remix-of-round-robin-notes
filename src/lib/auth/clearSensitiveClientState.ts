@@ -1,13 +1,7 @@
 import { cacheHydration } from '@/lib/cache/queryClientConfig';
-import { reconcileFHIRStateForAuthOwner } from '@/integrations/fhir/client';
 import { clearTelemetry } from '@/lib/observability/telemetry';
-import {
-  decideDataOwnerAction,
-  getDatabaseOwner,
-  transitionDatabaseOwner,
-} from '@/lib/offline/database';
-import { indexedDBQueue } from '@/lib/offline/indexedDBQueue';
-import { syncEngine } from '@/lib/offline/syncEngine';
+import { offlineOwnerTransitionBarrier } from '@/lib/offline/ownerTransitionBarrier';
+import { syncAuthTransitionGate } from '@/lib/offline/syncAuthTransitionGate';
 
 type EnumerableIDBFactory = IDBFactory & {
   databases?: () => Promise<Array<{ name?: string }>>;
@@ -45,27 +39,37 @@ export async function clearCrdtDatabases(
  * data are purged before the new identity is published to React.
  */
 export async function prepareSensitiveClientState(ownerId: string | null): Promise<void> {
-  let resumeSync: (() => void) | undefined;
+  await offlineOwnerTransitionBarrier.runTransition(async () => {
+    const resumeSync = await syncAuthTransitionGate.pause();
+    try {
+      const [
+        { reconcileFHIRStateForAuthOwner },
+        { decideDataOwnerAction, getDatabaseOwner, transitionDatabaseOwner },
+        { indexedDBQueue },
+      ] = await Promise.all([
+        import('@/integrations/fhir/client'),
+        import('@/lib/offline/database'),
+        import('@/lib/offline/indexedDBQueue'),
+      ]);
 
-  try {
-    await indexedDBQueue.transitionOwner(ownerId, async () => {
-      resumeSync = await syncEngine.pauseForAuthTransition();
-      cacheHydration.clear();
-      reconcileFHIRStateForAuthOwner(ownerId);
+      await indexedDBQueue.transitionOwnerWithinBarrier(ownerId, async () => {
+        cacheHydration.clear();
+        reconcileFHIRStateForAuthOwner(ownerId);
 
-      if (typeof globalThis.indexedDB !== 'undefined') {
-        const currentOwnerId = await getDatabaseOwner();
-        if (decideDataOwnerAction(currentOwnerId, ownerId) !== 'preserve') {
-          await clearCrdtDatabases();
+        if (typeof globalThis.indexedDB !== 'undefined') {
+          const currentOwnerId = await getDatabaseOwner();
+          if (decideDataOwnerAction(currentOwnerId, ownerId) !== 'preserve') {
+            await clearCrdtDatabases();
+          }
+          await transitionDatabaseOwner(ownerId);
         }
-        await transitionDatabaseOwner(ownerId);
-      }
 
-      await clearTelemetry();
-    });
-  } finally {
-    resumeSync?.();
-  }
+        await clearTelemetry();
+      });
+    } finally {
+      resumeSync();
+    }
+  });
 }
 
 export async function clearSensitiveClientState(): Promise<void> {

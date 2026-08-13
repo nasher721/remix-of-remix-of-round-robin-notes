@@ -1,5 +1,6 @@
 import { push as collect } from './collector';
 import { safeSessionStorage } from '@/utils/safeStorage';
+import { captureOperationalSignalToSentry } from '@/lib/observability/sentryClient';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -11,11 +12,24 @@ const REMOTE_CONTEXT_KEYS = new Set([
   'attempt',
   'attempts',
   'category',
+  'circuitState',
+  'code',
+  'correlationId',
+  'count',
   'durationMs',
+  'entity',
   'errorType',
   'feature',
   'function',
+  'functionName',
+  'hasSession',
+  'maxAttempts',
+  'metricName',
+  'metricUnit',
+  'metricValue',
   'model',
+  'operation',
+  'outcome',
   'provider',
   'requestId',
   'status',
@@ -49,7 +63,7 @@ export function generateRequestId(): string {
 function basePayload() {
   return {
     app: APP_NAME,
-    env: import.meta.env.MODE ?? 'unknown',
+    env: import.meta.env?.MODE ?? 'unknown',
     sessionId: getSessionId(),
   };
 }
@@ -86,12 +100,15 @@ export function createRemoteLogPayload(
 }
 
 function emitLog(level: LogLevel, message: string, context: LogContext = {}) {
+  // Console output is an external observability boundary too: browser devtools,
+  // managed-device agents, and support captures may retain it. Apply the same
+  // allowlist used for remote collection before writing either destination.
   const payload = {
     timestamp: new Date().toISOString(),
     level,
-    message,
+    message: remoteEventName(message),
     ...basePayload(),
-    context,
+    context: sanitizeRemoteContext(context),
   };
 
   const line = JSON.stringify(payload);
@@ -111,6 +128,12 @@ function emitLog(level: LogLevel, message: string, context: LogContext = {}) {
     collect(createRemoteLogPayload(level, message, context));
   } catch {
     // Collector optional; never break logging
+  }
+
+  try {
+    captureOperationalSignalToSentry(level, payload.message, payload.context);
+  } catch {
+    // Central monitoring must never alter the user workflow.
   }
 }
 
@@ -133,7 +156,12 @@ export function logMetric(
   context: LogContext = {}
 ) {
   emitLog('info', 'metric', {
-    metric: { name, value, unit },
+    // Keep the measurement flat so each field crosses the same scalar-only,
+    // PHI-safe allowlist as ordinary log context. Nested metric objects were
+    // previously discarded wholesale by sanitizeRemoteContext().
+    metricName: name,
+    metricValue: value,
+    metricUnit: unit,
     ...context,
     type: 'metric',
   });

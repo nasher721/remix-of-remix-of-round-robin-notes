@@ -6,7 +6,6 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
-import { useSettings } from '@/contexts/SettingsContext';
 import {
   Shield,
   Lock,
@@ -18,6 +17,10 @@ import {
   ListChecks,
   Stethoscope,
 } from 'lucide-react';
+import {
+  PRIVACY_NOTICE_IS_CONFIGURED,
+  PRIVACY_NOTICE_URL,
+} from '@/config/legal';
 
 interface AITransparencyPanelProps {
   open: boolean;
@@ -66,34 +69,10 @@ const AI_LIMITATIONS = [
   { id: 'no-tx', text: 'Make treatment recommendations without physician review' },
 ];
 
-const MODEL_DISPLAY_NAMES: Record<string, string> = {
-  'glm-4-flash': 'GLM-4 Flash',
-  'glm-4': 'GLM-4',
-  'gpt-4o': 'GPT-4o',
-  'gpt-4o-mini': 'GPT-4o Mini',
-  'gpt-4-turbo-preview': 'GPT-4 Turbo',
-  'claude-sonnet-4-20250514': 'Claude Sonnet 4',
-  'gemini-2.5-flash': 'Gemini 2.5 Flash',
-  'gemini-2.0-flash': 'Gemini 2.0 Flash',
-  'grok-2': 'Grok 2',
-};
-
-const getProviderName = (model: string): string => {
-  if (model.includes('glm')) return 'Zhipu AI';
-  if (model.includes('gpt')) return 'OpenAI';
-  if (model.includes('claude')) return 'Anthropic';
-  if (model.includes('gemini')) return 'Google';
-  if (model.includes('grok')) return 'xAI';
-  return 'AI Provider';
-};
-
 export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
   open,
   onOpenChange,
 }) => {
-  const { getModelForFeature } = useSettings();
-  const currentModel = getModelForFeature('clinical_assistant');
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
@@ -108,25 +87,17 @@ export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
-          {/* Current Model Section */}
+          {/* Provider policy */}
           <section className="space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <Info className="h-4 w-4" />
-              Current AI Model
+              Provider policy
             </h3>
             <div className="bg-muted/50 rounded-lg p-4 border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{MODEL_DISPLAY_NAMES[currentModel] || currentModel}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Powered by {getProviderName(currentModel)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Model</p>
-                  <p className="text-sm font-mono">{currentModel}</p>
-                </div>
-              </div>
+              <p className="font-medium">Organization managed</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Requests use the single provider approved by the deployment operator. Provider credentials are not exposed to this browser.
+              </p>
             </div>
           </section>
 
@@ -257,11 +228,13 @@ export const AITransparencyPanel: React.FC<AITransparencyPanelProps> = ({
           {/* Deployment privacy-notice guidance */}
           <section className="pt-4 border-t">
             <a
-              href="/privacy"
+              href={PRIVACY_NOTICE_URL || '/privacy'}
               className="flex items-center justify-center gap-2 text-sm text-primary hover:underline w-full py-2"
             >
               <FileText className="h-4 w-4" />
-              Review Deployment Privacy Notice Requirements
+              {PRIVACY_NOTICE_IS_CONFIGURED
+                ? 'Review Approved Privacy Notice'
+                : 'Review Deployment Privacy Notice Requirements'}
             </a>
           </section>
 

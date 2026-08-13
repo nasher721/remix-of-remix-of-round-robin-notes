@@ -24,7 +24,13 @@ const phraseRow = {
 
 function setup() {
   (globalThis as unknown as { __SUPABASE_AUTH_MOCK__?: unknown }).__SUPABASE_AUTH_MOCK__ = {
-    getUser: async () => ({ data: { user: { id: "owner-1" } }, error: null }),
+    getSession: async () => ({
+      data: { session: { user: { id: "owner-1" } } },
+      error: null,
+    }),
+    getUser: async () => {
+      throw new Error("useClinicalPhrases must not validate the user over the network");
+    },
   };
   (globalThis as unknown as { __SUPABASE_SELECT_MOCK__?: unknown }).__SUPABASE_SELECT_MOCK__ = (
     query: { table: string },
@@ -79,6 +85,35 @@ test("logUsage records usage through one atomic RPC and trusts the server count"
   );
   assert.equal((globalThis as unknown as { __supabaseInsertCapture?: unknown[] }).__supabaseInsertCapture?.length, 0);
   assert.equal((globalThis as unknown as { __supabaseUpdateCapture?: unknown[] }).__supabaseUpdateCapture?.length, 0);
+});
+
+test("concurrent phrase consumers share one owner-scoped library request", async () => {
+  setup();
+  const pending: Array<() => void> = [];
+  let selectCalls = 0;
+  (globalThis as unknown as { __SUPABASE_SELECT_MOCK__?: unknown }).__SUPABASE_SELECT_MOCK__ = (
+    query: { table: string },
+  ) => new Promise((resolve) => {
+    selectCalls += 1;
+    pending.push(() => resolve({
+      data: query.table === "clinical_phrases" ? [phraseRow] : [],
+      error: null,
+    }));
+  });
+
+  const first = renderHook(() => useClinicalPhrases());
+  const second = renderHook(() => useClinicalPhrases());
+  await waitFor(() => assert.equal(selectCalls, 2));
+
+  await act(async () => {
+    pending.forEach((resolve) => resolve());
+  });
+  await waitFor(() => assert.equal(first.result.current.loading, false));
+  await waitFor(() => assert.equal(second.result.current.loading, false));
+
+  assert.equal(selectCalls, 2);
+  assert.equal(first.result.current.phrases[0]?.id, "phrase-1");
+  assert.equal(second.result.current.phrases[0]?.id, "phrase-1");
 });
 
 test("logUsage keeps local usage unchanged when the atomic RPC fails", async () => {

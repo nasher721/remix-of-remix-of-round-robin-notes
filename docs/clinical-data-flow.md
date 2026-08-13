@@ -21,6 +21,16 @@ Before enabling any clinical AI or import workflow, deployment owner must record
 - audit-log fields that exclude note text and identifiers;
 - clinician review and correction process for parsing/generation errors.
 
+For every clinical AI workflow, set the Edge Function secrets
+`CLINICAL_PHI_LLM_PROVIDER` and `CLINICAL_PHI_LLM_MODEL` to exactly one
+approved provider/model pair. API-key presence alone is not approval. The
+server rejects missing or mismatched policy, ignores browser model selection,
+and does not fail over clinical text, audio, or images to another vendor.
+
+The browser never accepts provider credentials and never connects directly to
+an AI vendor. The deployment workflow also verifies that the matching provider
+credential exists before deploying the Edge functions.
+
 Smart Patient Import shows this uncertainty before clipboard access or parsing, requires explicit confirmation, then requires field-by-field preview before import.
 
 ## Recovery exports

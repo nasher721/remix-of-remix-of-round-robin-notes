@@ -8,6 +8,16 @@ if (typeof global.window !== "undefined" && typeof global.window.requestAnimatio
   global.window.requestAnimationFrame = (cb) => setTimeout(cb, 0);
 }
 
+async function waitForCondition(condition: () => boolean, timeoutMs = 2_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() >= deadline) {
+      throw new Error(`Condition was not met within ${timeoutMs}ms`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 test("useAuth throws when used outside AuthProvider", async () => {
   globalThis.__SUPABASE_AUTH_MOCK__ = { getSession: async () => ({ data: { session: null }, error: null }), onAuthStateChange: () => ({ unsubscribe: () => {} }) };
   const { useAuth } = await import("@/hooks/useAuth");
@@ -60,9 +70,10 @@ test("useAuth: when no session, user is null and loading becomes false", async (
       <Capture />
     </AuthProvider>
   );
-  await new Promise((r) => setTimeout(r, 50));
+  await waitForCondition(() => captured.loading === false);
   assert.equal(captured.user, null);
   assert.equal(captured.loading, false);
+  root.unmount();
 });
 
 test("useAuth: when mock returns a session, user is set", async () => {
@@ -86,10 +97,11 @@ test("useAuth: when mock returns a session, user is set", async () => {
       <Capture />
     </AuthProvider>
   );
-  await new Promise((r) => setTimeout(r, 120));
+  await waitForCondition(() => captured.user !== null);
   assert.ok(captured.user, "user should be set from mock session");
   assert.equal(captured.user?.id, "user-1");
   assert.equal(captured.user?.email, "test@example.com");
+  root.unmount();
 });
 
 test("useAuth: signOut clears user when listener fires", async () => {
@@ -127,7 +139,7 @@ test("useAuth: signOut clears user when listener fires", async () => {
   root.unmount();
 });
 
-test("useAuth: a resolved Supabase sign-out error keeps the active session", async () => {
+test("useAuth: a remote sign-out error still clears the local session and sensitive queue", async () => {
   const mockUser = { id: "user-signout-error", email: "error@example.com" };
   globalThis.__SUPABASE_AUTH_MOCK__ = {
     getSession: async () => ({ data: { session: { user: mockUser } }, error: null }),
@@ -146,7 +158,7 @@ test("useAuth: a resolved Supabase sign-out error keeps the active session", asy
   root.render(<AuthProvider><Capture /></AuthProvider>);
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  const mutationId = await indexedDBQueue.enqueue({
+  await indexedDBQueue.enqueue({
     type: "patient",
     operation: "update",
     table: "patients",
@@ -155,8 +167,8 @@ test("useAuth: a resolved Supabase sign-out error keeps the active session", asy
   });
   await assert.rejects(() => captured!.signOut(), /sign-out rejected/);
 
-  assert.equal(captured!.user?.id, mockUser.id);
-  assert.equal((await indexedDBQueue.getQueue())[0]?.id, mutationId);
+  assert.equal(captured!.user, null);
+  assert.deepEqual(await indexedDBQueue.getQueue(), []);
   root.unmount();
   await indexedDBQueue.clear();
 });

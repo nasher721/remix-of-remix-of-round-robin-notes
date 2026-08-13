@@ -168,7 +168,7 @@ export const RosterOverlay = ({
               onChange={handleSearchChange}
               onKeyDown={handleKeyDownSearch}
               placeholder="Search name, bed, MRN…"
-              className="h-10 pl-8 text-sm"
+              className="h-[44px] pl-8 text-sm"
               aria-label="Search roster"
               data-testid="roster-search"
             />
@@ -230,7 +230,7 @@ export const RosterOverlay = ({
                   aria-label={`${name}, bed ${bed}, ${stableIdentifier}, ${STATUS_LABEL[ref.status]}`}
                   className={cn(
                     "mb-1 h-auto w-full justify-start gap-3 rounded-lg px-3 text-left transition-colors",
-                    touchFriendly ? "min-h-11 py-3" : "py-2.5",
+                    touchFriendly ? "min-h-[44px] py-3" : "py-2.5",
                     isActive
                       ? "bg-primary/15 font-semibold text-foreground border-l-2 border-primary pl-2.5"
                       : "hover:bg-muted/50",
@@ -283,7 +283,7 @@ export const RosterOverlay = ({
               <Button
                 type="button"
                 variant="outline"
-                className={cn("flex-1", touchFriendly && "min-h-11")}
+                className={cn("flex-1", touchFriendly && "min-h-[44px]")}
                 onClick={() => {
                   onGoHome();
                   onOpenChange(false);
@@ -298,7 +298,7 @@ export const RosterOverlay = ({
               <Button
                 type="button"
                 variant="outline"
-                className={cn("flex-1", touchFriendly && "min-h-11")}
+                className={cn("flex-1", touchFriendly && "min-h-[44px]")}
                 onClick={() => {
                   onEndRound();
                   onOpenChange(false);

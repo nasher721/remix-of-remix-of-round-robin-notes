@@ -1,8 +1,91 @@
-import { describe, it } from 'node:test'
+import { afterEach, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApiClient } from '@/api/apiClient'
 
+afterEach(() => {
+  window.dispatchEvent(new Event('online'))
+})
+
 describe('createApiClient request isolation', () => {
+  it('fails known-offline requests without invoking fetch or retrying', async () => {
+    const originalOnline = Object.getOwnPropertyDescriptor(globalThis.navigator, 'onLine')
+    Object.defineProperty(globalThis.navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    })
+
+    try {
+      let attempts = 0
+      const fetchImpl = async () => {
+        attempts += 1
+        return new Response('unexpected')
+      }
+      const { apiFetch } = createApiClient(fetchImpl as typeof fetch)
+
+      await assert.rejects(
+        apiFetch('https://offline.example.test/auth/v1/user', {
+          retryCount: 2,
+          retryDelayMs: 0,
+        }),
+        /offline/i,
+      )
+      assert.equal(attempts, 0)
+    } finally {
+      if (originalOnline) {
+        Object.defineProperty(globalThis.navigator, 'onLine', originalOnline)
+      } else {
+        Reflect.deleteProperty(globalThis.navigator, 'onLine')
+      }
+    }
+  })
+
+  it('stops retrying and preserves the circuit when connectivity drops mid-request', async () => {
+    const originalOnline = Object.getOwnPropertyDescriptor(globalThis.navigator, 'onLine')
+    let isOnline = true
+    Object.defineProperty(globalThis.navigator, 'onLine', {
+      configurable: true,
+      get: () => isOnline,
+    })
+
+    try {
+      let attempts = 0
+      let failDuringRequest = true
+      const fetchImpl = async () => {
+        attempts += 1
+        if (failDuringRequest) {
+          isOnline = false
+          throw new TypeError('Failed to fetch')
+        }
+        return new Response('healthy')
+      }
+      const { apiFetch } = createApiClient(fetchImpl as typeof fetch)
+      const url = 'https://offline-transition.example.test/auth/v1/user'
+
+      for (let index = 0; index < 5; index += 1) {
+        isOnline = true
+        window.dispatchEvent(new Event('online'))
+        await assert.rejects(
+          apiFetch(url, { retryCount: 2, retryDelayMs: 0 }),
+          /offline/i,
+        )
+      }
+      assert.equal(attempts, 5)
+
+      isOnline = true
+      window.dispatchEvent(new Event('online'))
+      failDuringRequest = false
+      const response = await apiFetch(url, { retryCount: 0 })
+      assert.equal(await response.text(), 'healthy')
+      assert.equal(attempts, 6)
+    } finally {
+      if (originalOnline) {
+        Object.defineProperty(globalThis.navigator, 'onLine', originalOnline)
+      } else {
+        Reflect.deleteProperty(globalThis.navigator, 'onLine')
+      }
+    }
+  })
+
   it('rejects an already-aborted caller signal without invoking fetch', async () => {
     let attempts = 0
     const fetchImpl = async () => {

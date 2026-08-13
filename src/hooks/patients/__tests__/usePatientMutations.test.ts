@@ -8,6 +8,8 @@ import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
 import { defaultSystemsValue, defaultMedicationsValue } from "@/services/patientService";
 import { AuthProvider } from "@/hooks/useAuth";
 import { usePatientMutations } from "@/hooks/patients/usePatientMutations";
+import { flushPatientMutationMetrics } from "@/lib/observability/operationalMetrics";
+import { indexedDBQueue } from "@/lib/offline/indexedDBQueue";
 
 const queryClients: QueryClient[] = [];
 
@@ -167,6 +169,122 @@ test("usePatientMutations updatePatient calls supabase update", async () => {
   assert.equal(queryClient.getQueryData<Patient[]>(QUERY_KEYS.patientList("test-user-id"))?.[0]?.name, "Updated Name");
 });
 
+test("sticky known-offline patient updates queue without issuing a Supabase update", async () => {
+  setupAuthMock();
+  const patientsRef = { current: [{ ...mockPatient }] };
+  const setPatients = (action: React.SetStateAction<Patient[]>) => {
+    patientsRef.current = typeof action === "function"
+      ? (action as (previous: Patient[]) => Patient[])(patientsRef.current)
+      : action;
+  };
+  const { wrapper } = createAuthQueryWrapper();
+  const { result } = renderHook(() => usePatientMutations({
+    patientsRef,
+    setPatients,
+    patientCounter: 1,
+    setPatientCounter: () => {},
+    fetchPatients: async () => {},
+  }), { wrapper });
+
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+  await indexedDBQueue.clear();
+  const updateCapture = (globalThis as unknown as {
+    __supabaseUpdateCapture?: Array<{ table: string; data: unknown }>;
+  }).__supabaseUpdateCapture ?? [];
+  const updatesBefore = updateCapture.length;
+  Object.defineProperty(globalThis.navigator, "onLine", {
+    configurable: true,
+    value: true,
+  });
+  window.dispatchEvent(new Event("offline"));
+
+  try {
+    await act(async () => {
+      await result.current.updatePatient("existing-id", "clinicalSummary", "Queued summary");
+      await result.current.updatePatient("existing-id", "clinicalSummary", "Latest queued summary");
+    });
+
+    assert.equal(updateCapture.length, updatesBefore);
+    assert.equal(result.current.patientSaveStates["existing-id"], "queued");
+    const queued = await indexedDBQueue.getQueue();
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0]?.entityId, "existing-id");
+    assert.equal(queued[0]?.payload.clinical_summary, "Latest queued summary");
+  } finally {
+    await indexedDBQueue.clear();
+    window.dispatchEvent(new Event("online"));
+    delete (globalThis.navigator as unknown as { onLine?: boolean }).onLine;
+  }
+});
+
+test("successful patient updates emit fixed PHI-safe mutation metrics", async () => {
+  setupAuthMock();
+  const patientsRef = { current: [{ ...mockPatient }] };
+  const setPatients = (action: React.SetStateAction<Patient[]>) => {
+    patientsRef.current = typeof action === "function"
+      ? (action as (previous: Patient[]) => Patient[])(patientsRef.current)
+      : action;
+  };
+  const { wrapper } = createAuthQueryWrapper();
+  const { result } = renderHook(() => usePatientMutations({
+    patientsRef,
+    setPatients,
+    patientCounter: 1,
+    setPatientCounter: () => {},
+    fetchPatients: async () => {},
+  }), { wrapper });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+
+  const originalConsoleLog = console.log;
+  const lines: string[] = [];
+  console.log = (...values: unknown[]) => lines.push(values.map(String).join(" "));
+  try {
+    await act(async () => {
+      await result.current.updatePatient("existing-id", "name", "Updated Name");
+    });
+    flushPatientMutationMetrics();
+  } finally {
+    console.log = originalConsoleLog;
+  }
+
+  const metricContexts = lines
+    .flatMap((line) => {
+      try {
+        const payload = JSON.parse(line) as { message?: string; context?: Record<string, unknown> };
+        return payload.message === "metric" && payload.context ? [payload.context] : [];
+      } catch {
+        return [];
+      }
+    });
+  assert.ok(metricContexts.some((context) => (
+    context.metricName === "patients.mutation.total"
+    && context.operation === "update"
+    && context.outcome === "saved"
+  )));
+  assert.equal(JSON.stringify(metricContexts).includes("existing-id"), false);
+  assert.equal(JSON.stringify(metricContexts).includes("Updated Name"), false);
+});
+
+test("updates for a missing patient never leave a phantom saving state", async () => {
+  setupAuthMock();
+  const patientsRef = { current: [{ ...mockPatient }] };
+  const { wrapper } = createAuthQueryWrapper();
+  const { result } = renderHook(() => usePatientMutations({
+    patientsRef,
+    setPatients: () => {},
+    patientCounter: 1,
+    setPatientCounter: () => {},
+    fetchPatients: async () => {},
+  }), { wrapper });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+
+  await act(async () => {
+    await result.current.updatePatient("missing-id", "name", "Never persisted");
+  });
+
+  assert.equal(result.current.patientSaveStates["missing-id"], undefined);
+});
+
 test("usePatientMutations forces a server refresh after failed optimistic patient updates", async () => {
   setupAuthMock();
   const patientsRef = { current: [{ ...mockPatient }] };
@@ -244,8 +362,128 @@ test("usePatientMutations rejects a stale cross-tab revision instead of overwrit
 
   assert.equal(revisionFilter, 7);
   assert.equal(patientsRef.current[0]?.name, "Existing");
-  assert.equal(result.current.patientSaveStates["existing-id"], "error");
+  assert.equal(result.current.patientSaveStates["existing-id"], "conflict");
   assert.deepEqual(fetchCalls, [{ force: true }]);
+});
+
+test("one stale revision blocks already-queued keystrokes from issuing repeated conflict writes", async () => {
+  setupAuthMock();
+  const patientsRef: { current: Patient[] } = { current: [{ ...mockPatient, revision: 7 }] };
+  const setPatients = (action: React.SetStateAction<Patient[]>) => {
+    patientsRef.current = typeof action === "function"
+      ? (action as (previous: Patient[]) => Patient[])(patientsRef.current)
+      : action;
+  };
+  const fetchCalls: Array<{ force?: boolean } | undefined> = [];
+  let updateCalls = 0;
+  let resolveFirstUpdate!: () => void;
+  (globalThis as unknown as {
+    __SUPABASE_UPDATE_MOCK__?: () => Promise<{
+      data: null;
+      error: null;
+      count: number;
+    }> | {
+      data: null;
+      error: null;
+      count: number;
+    };
+  }).__SUPABASE_UPDATE_MOCK__ = () => {
+    updateCalls += 1;
+    if (updateCalls === 1) {
+      return new Promise((resolve) => {
+        resolveFirstUpdate = () => resolve({ data: null, error: null, count: 0 });
+      });
+    }
+    return { data: null, error: null, count: 0 };
+  };
+
+  const { wrapper } = createAuthQueryWrapper();
+  const { result } = renderHook(() => usePatientMutations({
+    patientsRef,
+    setPatients,
+    patientCounter: 1,
+    setPatientCounter: () => {},
+    fetchPatients: async (options) => { fetchCalls.push(options); },
+  }), { wrapper });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+
+  let writes!: Promise<void>[];
+  await act(async () => {
+    writes = [
+      result.current.updatePatient("existing-id", "clinicalSummary", "S"),
+      result.current.updatePatient("existing-id", "clinicalSummary", "St"),
+      result.current.updatePatient("existing-id", "clinicalSummary", "Sta"),
+      result.current.updatePatient("existing-id", "clinicalSummary", "Stale"),
+    ];
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.equal(updateCalls, 1, "only the leading write should be in flight before its result is known");
+
+  await act(async () => {
+    resolveFirstUpdate();
+    await Promise.all(writes);
+  });
+
+  assert.equal(updateCalls, 1, "queued keystrokes must stop at the first revision conflict");
+  assert.deepEqual(fetchCalls, [{ force: true }]);
+  assert.equal(result.current.patientSaveStates["existing-id"], "conflict");
+});
+
+test("an edit started after a conflict waits for the forced refresh before writing", async () => {
+  setupAuthMock();
+  const patientsRef: { current: Patient[] } = { current: [{ ...mockPatient, revision: 7 }] };
+  const setPatients = (action: React.SetStateAction<Patient[]>) => {
+    patientsRef.current = typeof action === "function"
+      ? (action as (previous: Patient[]) => Patient[])(patientsRef.current)
+      : action;
+  };
+  const revisionFilters: unknown[] = [];
+  (globalThis as unknown as {
+    __SUPABASE_UPDATE_MOCK__?: (request: {
+      filters: Array<{ column: string; value: unknown }>;
+    }) => { data: null; error: null; count: number };
+  }).__SUPABASE_UPDATE_MOCK__ = ({ filters }) => {
+    revisionFilters.push(filters.find((filter) => filter.column === "revision")?.value);
+    return { data: null, error: null, count: revisionFilters.length === 1 ? 0 : 1 };
+  };
+
+  let resolveRefresh!: () => void;
+  const fetchPatients = () => new Promise<void>((resolve) => {
+    resolveRefresh = () => {
+      patientsRef.current = [{ ...mockPatient, revision: 8, clinicalSummary: "Remote truth" }];
+      resolve();
+    };
+  });
+  const { wrapper } = createAuthQueryWrapper();
+  const { result } = renderHook(() => usePatientMutations({
+    patientsRef,
+    setPatients,
+    patientCounter: 1,
+    setPatientCounter: () => {},
+    fetchPatients,
+  }), { wrapper });
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+
+  await act(async () => {
+    await result.current.updatePatient("existing-id", "clinicalSummary", "Stale local edit");
+  });
+  assert.deepEqual(revisionFilters, [7]);
+
+  let freshWrite!: Promise<void>;
+  await act(async () => {
+    freshWrite = result.current.updatePatient("existing-id", "clinicalSummary", "Fresh local edit");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  assert.deepEqual(revisionFilters, [7], "the follow-up write must wait while the refresh is active");
+
+  await act(async () => {
+    resolveRefresh();
+    await freshWrite;
+  });
+
+  assert.deepEqual(revisionFilters, [7, 8]);
+  assert.equal(result.current.patientSaveStates["existing-id"], "saved");
+  assert.equal(patientsRef.current[0]?.clinicalSummary, "Fresh local edit");
 });
 
 test("usePatientMutations ignores a deferred user-A rollback after switching to user B", async () => {

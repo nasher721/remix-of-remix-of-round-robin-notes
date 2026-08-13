@@ -43,7 +43,6 @@ import { useEditorKeyboardShortcuts } from "@/hooks/useEditorKeyboardShortcuts";
 import { EditorFindReplace } from "./EditorFindReplace";
 import { EditorStatusBar } from "./EditorStatusBar";
 import type { Patient } from "@/types/patient";
-import { QuickModelSwitcher } from "./settings/QuickModelSwitcher";
 import { createSafeLinkHtml, sanitizeHtml, sanitizePastedHtml } from "@/lib/sanitize";
 
 const textColors = [
@@ -138,7 +137,7 @@ export const RichTextEditor = ({
     return editorToolbarButtons.includes(id);
   };
 
-  const toolbarIconClass = "min-h-11 min-w-11 h-11 w-11 p-0";
+  const toolbarIconClass = "h-[44px] w-[44px] p-0";
   // Show patient-field inserts only while the editor is focused to reduce density.
   const showPatientInfoToolbar = Boolean(patient) && isEditorFocused;
   // Keep full formatting chrome off until the field is active to cut empty vertical space.
@@ -791,7 +790,7 @@ export const RichTextEditor = ({
               onChange={(e) => { const val = e.target.value; if (val === "p") execCommand("formatBlock", "<p>"); else execCommand("formatBlock", `<${val}>`); }}
               defaultValue="p"
               aria-label="Heading level"
-              className="min-h-11 h-11 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="h-[44px] px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
               title="Heading level"
             >
               <option value="p">Normal</option>
@@ -850,7 +849,7 @@ export const RichTextEditor = ({
         {effectiveToolbarMode !== 'full' && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="min-h-11 h-11 gap-1 px-3" aria-label="More formatting options">
+              <Button type="button" variant="ghost" size="sm" className="h-[44px] gap-1 px-3" aria-label="More formatting options">
                 <span className="text-xs font-medium">More</span>
                 <ChevronDown className="h-3.5 w-3.5" />
               </Button>
@@ -1062,7 +1061,7 @@ export const RichTextEditor = ({
           <select
             value={fontSizeRef.current}
             onChange={(e) => handleFontSizeChange([parseInt(e.target.value)])}
-            className="min-h-11 h-11 px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="h-[44px] px-2 text-xs bg-background border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
             title="Font size"
             aria-label="Font size"
           >
@@ -1070,7 +1069,7 @@ export const RichTextEditor = ({
               <option key={size} value={size}>{size}px</option>
             ))}
           </select>
-          <Button type="button" variant="outline" size="sm" onClick={applyFontSizeToSelection} title="Apply size to selection" className="min-h-11 h-11 text-xs px-3">
+          <Button type="button" variant="outline" size="sm" onClick={applyFontSizeToSelection} title="Apply size to selection" className="h-[44px] text-xs px-3">
             Apply
           </Button>
         </div>
@@ -1095,7 +1094,6 @@ export const RichTextEditor = ({
                   }
                 }}
               />
-              <QuickModelSwitcher />
               <UnifiedAIDropdown
                 getSelectedText={() => {
                   const selection = window.getSelection();
@@ -1166,7 +1164,7 @@ export const RichTextEditor = ({
                     size="sm"
                     title="Insert clinical phrase from your library"
                     aria-label="Insert clinical phrase from library"
-                    className="min-h-11 h-11 px-3 gap-1"
+                    className="h-[44px] px-3 gap-1"
                   >
                     <FileText className="h-3.5 w-3.5" aria-hidden />
                     <span className="text-xs">Phrases</span>
@@ -1183,7 +1181,7 @@ export const RichTextEditor = ({
                   onClick={() => setLocalMarkingDisabled(!localMarkingDisabled)}
                   title={localMarkingDisabled ? "Enable marking for this field" : "Disable marking for this field"}
                   className={cn(
-                    "min-h-11 h-11 px-3 gap-1",
+                    "h-[44px] px-3 gap-1",
                     !localMarkingDisabled && "text-orange-600 hover:text-orange-700",
                     localMarkingDisabled && "text-muted-foreground"
                   )}

@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { decideDataOwnerAction } from './database';
 
 test('same authenticated owner preserves persisted offline work on reload', () => {
@@ -13,4 +15,10 @@ test('a changed identity clears before claiming persisted offline work', () => {
 
 test('sign-out clears the persisted owner and all owned records', () => {
   assert.equal(decideDataOwnerAction('user-a', null), 'clear');
+});
+
+test('offline storage does not expose a bulk PHI backup import or export API', async () => {
+  const source = await readFile(fileURLToPath(new URL('./database.ts', import.meta.url)), 'utf8');
+  assert.doesNotMatch(source, /export\s+async\s+function\s+importDatabase\b/);
+  assert.doesNotMatch(source, /export\s+async\s+function\s+exportDatabase\b/);
 });

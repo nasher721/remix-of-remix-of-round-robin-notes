@@ -16,9 +16,23 @@ const privateImagesMigration = "20260205190811_53775f4e-5179-4c57-b663-686ce92b6
 const childOwnershipMigration = "20260711200000_harden_child_record_ownership.sql";
 const distributedRateLimitsMigration = "20260811014046_add_distributed_edge_rate_limits.sql";
 const backendContractMigration = "20260812000000_harden_patient_and_round_contracts.sql";
+const publicSurfaceMigration = "20260813000000_harden_public_database_surface.sql";
 
 const readMigration = async (file) =>
   readFile(path.join(migrationsDirectory, file), "utf8");
+
+const collectSourceFiles = async (directory) => {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await collectSourceFiles(entryPath));
+    } else if (/\.(?:[cm]?[jt]sx?)$/.test(entry.name)) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+};
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -30,6 +44,7 @@ for (const requiredFile of [
   childOwnershipMigration,
   distributedRateLimitsMigration,
   backendContractMigration,
+  publicSurfaceMigration,
 ]) {
   assert(migrationFiles.includes(requiredFile), `Missing migration: ${requiredFile}`);
 }
@@ -235,6 +250,78 @@ assert.match(
   /REVOKE SELECT, INSERT ON TABLE public\.phrase_usage_log FROM authenticated/i,
   "Browser roles must not retain table-wide access to legacy phrase payloads",
 );
+
+const publicSurfaceSql = await readMigration(publicSurfaceMigration);
+assert.match(
+  publicSurfaceSql,
+  /DROP EXTENSION IF EXISTS pg_graphql/i,
+  "The unused GraphQL database surface must be disabled",
+);
+for (const objectType of ["TABLES", "SEQUENCES", "ROUTINES"]) {
+  assert.match(
+    publicSurfaceSql,
+    new RegExp(
+      `REVOKE\\s+ALL\\s+ON\\s+ALL\\s+${objectType}\\s+IN\\s+SCHEMA\\s+public\\s+FROM\\s+PUBLIC,\\s*anon`,
+      "i",
+    ),
+    `Anonymous users must not inherit public-schema ${objectType.toLowerCase()} access`,
+  );
+  if (objectType !== "ROUTINES") {
+    assert.match(
+      publicSurfaceSql,
+      new RegExp(
+        `ALTER\\s+DEFAULT\\s+PRIVILEGES\\s+FOR\\s+ROLE\\s+postgres\\s+IN\\s+SCHEMA\\s+public[\\s\\S]+?REVOKE\\s+ALL\\s+ON\\s+${objectType}\\s+FROM\\s+PUBLIC,\\s*anon`,
+        "i",
+      ),
+      `Future public-schema ${objectType.toLowerCase()} must not default to anonymous access`,
+    );
+  }
+}
+assert.match(
+  publicSurfaceSql,
+  /ALTER DEFAULT PRIVILEGES FOR ROLE postgres\s+REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC/i,
+  "PostgreSQL's global PUBLIC function default must be revoked for future routines",
+);
+assert.match(
+  publicSurfaceSql,
+  /ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public\s+REVOKE ALL ON ROUTINES FROM anon/i,
+  "Supabase's schema-scoped anon routine default must be revoked",
+);
+assert.match(
+  publicSurfaceSql,
+  /CREATE OR REPLACE FUNCTION public\.healthcheck_database\(\)/i,
+  "The protected Edge healthcheck needs a dedicated database probe",
+);
+assert.match(
+  publicSurfaceSql,
+  /GRANT EXECUTE ON FUNCTION public\.healthcheck_database\(\) TO anon/i,
+  "Only the dedicated database probe should be restored to anon",
+);
+assert.match(
+  publicSurfaceSql,
+  /roles\s*=\s*ARRAY\['public'\]::name\[\]/i,
+  "Legacy PUBLIC-scoped owner policies must be identified explicitly",
+);
+assert.match(
+  publicSurfaceSql,
+  /ALTER POLICY %I ON %I\.%I TO authenticated/i,
+  "Legacy owner policies must be narrowed to authenticated",
+);
+assert.match(
+  publicSurfaceSql,
+  /procedure\.proname\s*=\s*'rls_auto_enable'[\s\S]*REVOKE ALL ON FUNCTION/i,
+  "Legacy rls_auto_enable overloads must be unavailable to browser roles",
+);
+for (const sourceRoot of ["src", path.join("supabase", "functions")]) {
+  for (const sourceFile of await collectSourceFiles(path.join(repositoryRoot, sourceRoot))) {
+    const source = await readFile(sourceFile, "utf8");
+    assert.doesNotMatch(
+      source,
+      /\/graphql\/v1|graphql\.resolve|from\s+["'](?:@apollo|graphql-request)/i,
+      `GraphQL is disabled but ${path.relative(repositoryRoot, sourceFile)} consumes it`,
+    );
+  }
+}
 const phraseUsageSelectGrant = childOwnershipSql.match(
   /GRANT SELECT\s*\([\s\S]*?\) ON TABLE public\.phrase_usage_log TO authenticated/i,
 )?.[0] ?? "";
@@ -297,5 +384,5 @@ assert.match(
 );
 
 console.log(
-  `Verified ${migrationFiles.length} migrations: historical guards, dependency order, idempotent catch-up policies, and patient-images isolation.`,
+  `Verified ${migrationFiles.length} migrations: historical guards, dependency order, RLS/anon isolation, and disabled unused GraphQL access.`,
 );

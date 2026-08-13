@@ -52,6 +52,7 @@ interface ClinicalGuidelinesContextValue {
 
   // Loading state for lazy data
   isDataLoaded: boolean;
+  ensureDataLoaded: () => Promise<void>;
 }
 
 const ClinicalGuidelinesContext = createContext<ClinicalGuidelinesContextValue | null>(null);
@@ -61,31 +62,48 @@ interface ClinicalGuidelinesProviderProps {
 }
 
 export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProviderProps) {
-  // Lazy-loaded data
-  const [guidelines, setGuidelines] = useState<ClinicalGuideline[]>([]);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-
-  useEffect(() => {
-    loadGuidelinesData().then((mod) => {
-      setGuidelines(mod.CLINICAL_GUIDELINES);
-      setIsDataLoaded(true);
-    }).catch((err) => {
-      console.error('[ClinicalGuidelinesProvider] Failed to load guidelines data:', err);
-      setIsDataLoaded(true); // Allow app to continue even if data fails
-    });
-  }, []);
-
   // Panel visibility
   const [isOpen, setIsOpen] = useState(false);
   const [activeGuideline, setActiveGuideline] = useState<ClinicalGuideline | null>(null);
+
+  // Lazy-loaded data
+  const [guidelines, setGuidelines] = useState<ClinicalGuideline[]>([]);
+  const [keywordMap, setKeywordMap] = useState<Record<string, string[]>>({});
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const dataLoadRef = React.useRef<Promise<void> | null>(null);
+  const dataLoadedRef = React.useRef(false);
+
+  const ensureDataLoaded = useCallback((): Promise<void> => {
+    if (dataLoadedRef.current) return Promise.resolve();
+    if (!dataLoadRef.current) {
+      dataLoadRef.current = loadGuidelinesData()
+        .then((mod) => {
+          setGuidelines(mod.CLINICAL_GUIDELINES);
+          setKeywordMap(mod.GUIDELINE_KEYWORD_MAP);
+        })
+        .catch((err: unknown) => {
+          console.error('[ClinicalGuidelinesProvider] Failed to load guidelines data:', err);
+        })
+        .finally(() => {
+          dataLoadedRef.current = true;
+          setIsDataLoaded(true); // Allow the workspace to continue even without references.
+          dataLoadRef.current = null;
+        });
+    }
+    return dataLoadRef.current;
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) void ensureDataLoaded();
+  }, [ensureDataLoaded, isOpen]);
 
   // Filters
   const [activeSpecialty, setActiveSpecialty] = useState<MedicalSpecialty | null>(null);
   const [activeOrganization, setActiveOrganization] = useState<string | null>(null);
 
   // Composable hooks
-  const search = useGuidelinesSearch({ debounceMs: 150 });
-  const bookmarks = useGuidelinesBookmarks();
+  const search = useGuidelinesSearch({ debounceMs: 150, guidelines, keywordMap });
+  const bookmarks = useGuidelinesBookmarks(guidelines);
 
   // Panel actions
   const togglePanel = useCallback(() => setIsOpen(prev => !prev), []);
@@ -135,7 +153,7 @@ export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProvi
       filtered = filtered.filter(g => g.organization.id === activeOrganization);
     }
     // Sort by year descending (most recent first)
-    return filtered.sort((a, b) => b.year - a.year);
+    return [...filtered].sort((a, b) => b.year - a.year);
   }, [guidelines, activeSpecialty, activeOrganization]);
 
   // Data accessors
@@ -191,6 +209,7 @@ export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProvi
     getGuidelinesBySpecialty,
     getGuidelinesByOrganization,
     isDataLoaded,
+    ensureDataLoaded,
   }), [
     isOpen, togglePanel, openPanel, closePanel,
     activeGuideline, viewGuideline, closeGuideline,
@@ -198,7 +217,7 @@ export function ClinicalGuidelinesProvider({ children }: ClinicalGuidelinesProvi
     activeSpecialty, activeOrganization, handleSetActiveSpecialty, handleSetActiveOrganization, filteredGuidelines,
     bookmarks.bookmarkedGuidelines, bookmarks.recentGuidelines, bookmarks.toggleBookmark, bookmarks.isBookmarked,
     getGuidelineById, getGuidelinesBySpecialty, getGuidelinesByOrganization,
-    guidelines, isDataLoaded,
+    guidelines, isDataLoaded, ensureDataLoaded,
   ]);
 
   return (

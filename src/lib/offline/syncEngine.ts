@@ -14,6 +14,9 @@ import { indexedDBQueue, QueuedMutation, ConflictData } from './indexedDBQueue';
 import { CircuitOpenError } from '@/lib/circuitBreaker';
 import { toast } from 'sonner';
 import { logInfo, logWarn } from '../observability/logger';
+import { recordOfflineSyncMetrics } from '../observability/operationalMetrics';
+import { syncAuthTransitionGate } from './syncAuthTransitionGate';
+import { isBrowserKnownOffline } from '@/lib/networkConnectivity';
 
 /** Detect a circuit-breaker rejection, including one wrapped by apiFetch. */
 function asCircuitOpenError(error: unknown): CircuitOpenError | null {
@@ -76,8 +79,6 @@ class SyncEngine {
   private config: SyncConfig;
   private status: SyncStatus = 'idle';
   private activeSync: Promise<SyncResult> | null = null;
-  private activeAuxiliaryOperations = new Set<Promise<unknown>>();
-  private authTransitionPauses = 0;
   private listeners: Map<SyncEventType, Set<StoredSyncEventListener>> = new Map();
   private abortController: AbortController | null = null;
 
@@ -156,7 +157,7 @@ class SyncEngine {
 
   // Main sync method
   sync(): Promise<SyncResult> {
-    if (this.authTransitionPauses > 0) {
+    if (syncAuthTransitionGate.isPaused) {
       logInfo('[SyncEngine] Auth transition in progress, skipping sync');
       return Promise.resolve({ success: 0, failed: 0, conflicts: [], duration: 0 });
     }
@@ -166,7 +167,10 @@ class SyncEngine {
       return this.activeSync;
     }
 
-    const operation = this.runSync();
+    const operation = syncAuthTransitionGate.track(
+      this.runSync(),
+      () => this.abort(),
+    );
     this.activeSync = operation;
     const clearActiveSync = () => {
       if (this.activeSync === operation) {
@@ -178,7 +182,7 @@ class SyncEngine {
   }
 
   private async runSync(): Promise<SyncResult> {
-    if (!navigator.onLine) {
+    if (isBrowserKnownOffline()) {
       logInfo('[SyncEngine] Offline, skipping sync');
       this.setStatus('offline');
       return { success: 0, failed: 0, conflicts: [], duration: 0 };
@@ -192,10 +196,20 @@ class SyncEngine {
 
     try {
       const queueSize = await indexedDBQueue.getPendingCount();
+      await indexedDBQueue.recordHealthMetrics('sync_start');
       if (queueSize === 0) {
         logInfo('[SyncEngine] Queue empty');
         this.setStatus('idle');
-        return { ...result, duration: Date.now() - startTime };
+        const idleResult = { ...result, duration: Date.now() - startTime };
+        recordOfflineSyncMetrics({
+          durationMs: idleResult.duration,
+          completed: 0,
+          failed: 0,
+          conflicts: 0,
+          outcome: 'idle',
+        });
+        await indexedDBQueue.recordHealthMetrics('sync_complete');
+        return idleResult;
       }
 
       logInfo(`[SyncEngine] Starting sync of ${queueSize} mutations`);
@@ -250,7 +264,7 @@ class SyncEngine {
               hasMore = false;
               const retryDelay = circuitOpen.remainingMs + 500;
               setTimeout(() => {
-                if (typeof navigator === "undefined" || navigator.onLine) {
+                if (!isBrowserKnownOffline()) {
                   void this.sync();
                 }
               }, retryDelay);
@@ -282,6 +296,7 @@ class SyncEngine {
       }
 
       result.duration = Date.now() - startTime;
+      const remainingPending = await indexedDBQueue.getPendingCount();
       this.setStatus(result.failed > 0 ? 'error' : 'idle');
       this.emit('complete', result);
 
@@ -291,27 +306,43 @@ class SyncEngine {
         toast.success(`Synced ${result.success} changes`);
       }
 
+      recordOfflineSyncMetrics({
+        durationMs: result.duration,
+        completed: result.success,
+        failed: result.failed,
+        conflicts: result.conflicts.length,
+        outcome: result.failed > 0 || result.conflicts.length > 0 || remainingPending > 0
+          ? 'partial'
+          : 'completed',
+      });
+      await indexedDBQueue.recordHealthMetrics('sync_complete');
+
       return result;
     } catch (error) {
       console.error('[SyncEngine] Sync error:', error);
       this.setStatus('error');
       this.emit('error', error instanceof Error ? error : new Error(String(error)));
-      return { ...result, duration: Date.now() - startTime };
+      const failedResult = { ...result, duration: Date.now() - startTime };
+      recordOfflineSyncMetrics({
+        durationMs: failedResult.duration,
+        completed: failedResult.success,
+        failed: Math.max(1, failedResult.failed),
+        conflicts: failedResult.conflicts.length,
+        outcome: 'error',
+      });
+      await indexedDBQueue.recordHealthMetrics('sync_error');
+      return failedResult;
     } finally {
       this.abortController = null;
     }
   }
 
   private runAuxiliaryOperation<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.authTransitionPauses > 0) {
+    if (syncAuthTransitionGate.isPaused) {
       return Promise.reject(new Error('Offline sync is paused for an auth transition'));
     }
 
-    const trackedOperation = Promise.resolve().then(operation);
-    this.activeAuxiliaryOperations.add(trackedOperation);
-    return trackedOperation.finally(() => {
-      this.activeAuxiliaryOperations.delete(trackedOperation);
-    });
+    return syncAuthTransitionGate.track(Promise.resolve().then(operation));
   }
 
   // Process single mutation
@@ -320,8 +351,11 @@ class SyncEngine {
     const originalData = mutation.conflictData ?? mutation.payload;
     let expectedRevision: number | null = null;
 
-    // For updates, check for conflicts
-    if (operation === 'update' && entityId) {
+    // Updates and deferred todo deletes compare with the server snapshot. A
+    // stale offline delete must not silently remove a task edited elsewhere.
+    const checksServerSnapshot = operation === 'update'
+      || (operation === 'delete' && mutation.type === 'todo' && mutation.conflictData !== undefined);
+    if (checksServerSnapshot && entityId) {
       const { data: serverData, error } = await supabase
         .from(table as 'patients')
         .select('*')
@@ -330,6 +364,7 @@ class SyncEngine {
 
       if (error) {
         if (error.code === 'PGRST116') {
+          if (operation === 'delete') return null;
           return {
             id: entityId,
             table,
@@ -363,7 +398,15 @@ class SyncEngine {
 
     switch (operation) {
       case 'create':
-        ({ error } = await supabase.from(table as 'patients').insert(payload as never));
+        if (mutation.type === 'todo' && table === 'patient_todos') {
+          // Todo IDs are generated on-device. Upsert makes replay idempotent
+          // when the initial insert committed but its response was lost.
+          ({ error } = await supabase
+            .from('patient_todos')
+            .upsert(payload as never, { onConflict: 'id' }));
+        } else {
+          ({ error } = await supabase.from(table as 'patients').insert(payload as never));
+        }
         break;
       case 'update':
         if (!entityId) throw new Error('Missing entityId for update');
@@ -452,10 +495,15 @@ class SyncEngine {
         break;
 
       case 'client-wins': {
-        const { error } = await supabase
-          .from(conflict.table as 'patients')
-          .update(conflict.clientData as never)
-          .eq('id', conflict.id);
+        const { error } = conflict.operation === 'delete'
+          ? await supabase
+            .from(conflict.table as 'patients')
+            .delete()
+            .eq('id', conflict.id)
+          : await supabase
+            .from(conflict.table as 'patients')
+            .update(conflict.clientData as never)
+            .eq('id', conflict.id);
         if (error) throw new Error(error.message);
         logInfo(`[SyncEngine] Conflict ${conflict.id}: client wins`);
         break;
@@ -496,21 +544,7 @@ class SyncEngine {
    * observed cancellation. The returned release function is idempotent.
    */
   async pauseForAuthTransition(): Promise<() => void> {
-    this.authTransitionPauses += 1;
-    this.abort();
-
-    const activeSync = this.activeSync;
-    await Promise.allSettled([
-      ...(activeSync ? [activeSync] : []),
-      ...this.activeAuxiliaryOperations,
-    ]);
-
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      this.authTransitionPauses = Math.max(0, this.authTransitionPauses - 1);
-    };
+    return syncAuthTransitionGate.pause();
   }
 
   // Get current status
@@ -530,7 +564,7 @@ class SyncEngine {
     resolution: 'server-wins' | 'client-wins'
   ): Promise<boolean> {
     const queue = await indexedDBQueue.getQueue();
-    if (this.authTransitionPauses > 0) return false;
+    if (syncAuthTransitionGate.isPaused) return false;
     const mutation = queue.find((item) => (
       item.table === conflict.table
       && item.operation === conflict.operation
@@ -551,10 +585,10 @@ class SyncEngine {
   private async runRetryFailed(): Promise<void> {
     const failed = await indexedDBQueue.getByStatus('failed');
     for (const mutation of failed) {
-      if (this.authTransitionPauses > 0) return;
+      if (syncAuthTransitionGate.isPaused) return;
       await indexedDBQueue.updateStatus(mutation.id, 'pending');
     }
-    if (this.authTransitionPauses > 0) return;
+    if (syncAuthTransitionGate.isPaused) return;
     await this.sync();
   }
 

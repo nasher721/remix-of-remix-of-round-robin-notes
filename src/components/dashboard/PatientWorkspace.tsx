@@ -622,6 +622,9 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
               {saveState === "error" && (
                 <AlertCircle className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
               )}
+              {saveState === "conflict" && (
+                <AlertTriangle className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
+              )}
               {saveState === "idle" && <Check className="h-3 w-3" aria-hidden="true" />}
               <span>
                 {saveState === "saving"
@@ -630,6 +633,8 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
                     ? "Offline queued"
                     : saveState === "error"
                       ? "Save failed"
+                      : saveState === "conflict"
+                        ? "Review conflict"
                       : `Saved ${savedTime}`}
               </span>
             </div>

@@ -18,22 +18,25 @@ Toolchain is pinned: Node **22.x** (`.nvmrc`, `engines`) and npm **10.x** (`pack
 
 | Trigger | What deploys |
 |---------|----------------|
-| Push to `main` touching `supabase/**` | [Deploy Supabase](../.github/workflows/deploy-supabase.yml): migrations → edge functions → **healthcheck smoke test** → optional Vercel hook |
-| Push to `main` (any path) | Vercel Git integration builds the frontend (unless you rely only on the hook below) |
+| Successful CI for a push to live `main` | [Deploy Supabase](../.github/workflows/deploy-supabase.yml): hosted-auth baseline → migrations → edge functions → **healthcheck smoke test** → required Vercel hook → exact frontend release verification |
 
-Edge and frontend deploy on **different triggers**. Releases that change **both** need a deliberate order (below).
+Automatic Vercel deployment from `main` is disabled in `vercel.json`. The
+workflow is the only production path so the frontend cannot race ahead of its
+database and Edge dependencies.
 
 ---
 
 ## Recommended order (client + edge changes)
 
-1. **Merge and deploy backend first**  
-   Land changes under `supabase/` on `main` so `Deploy Supabase` runs: `db push` + `functions deploy` + smoke test.
+1. **Merge one CI-verified release**
+   Once CI succeeds for the live `main` SHA, `Deploy Supabase` revalidates that
+   exact revision before any production mutation.
 
-2. **Deploy frontend second**  
-   - Either let Vercel build from the same merge (if `src/` and `supabase/` ship together in one commit, both may run in parallel — risky), **or**  
-   - Split commits: first `supabase/**` only (backend deploy), then app code; **or**  
-   - Set `VERCEL_DEPLOY_HOOK_URL` so the workflow triggers a production build **after** edge deploy succeeds.
+2. **Backend, then frontend**
+   The workflow pushes migrations and functions, verifies health, triggers the
+   production Vercel hook, and polls the canonical app URL until its embedded
+   `app-version` matches the workflow SHA. A missing hook, missing production
+   URL, failed Vercel build, or stale live release fails the deployment.
 
 3. **Exception — frontend-only**  
    If the edge API shape and secrets are unchanged, a normal Vercel deploy is enough.
@@ -43,27 +46,104 @@ Edge and frontend deploy on **different triggers**. Releases that change **both*
 
 ---
 
-## GitHub Actions secrets
+## GitHub Actions runtime configuration
 
 Configure in **Repository → Settings → Secrets and variables → Actions**.
+CI production builds are intentionally independent of local `.env` files.
+
+### Required repository variables
+
+| Variable | Used by | Purpose |
+|----------|---------|---------|
+| `VITE_SUPABASE_URL` | CI builds | Public Supabase project URL required by the browser runtime |
+| `PRODUCTION_CONTACT_EMAIL` | CI builds | Required public operator/contact address; builds reject missing, malformed, or example-domain values |
+| `PRODUCTION_PRIVACY_NOTICE_URL` | CI builds | Required HTTPS URL of the operator- and counsel-approved privacy notice |
+| `PRODUCTION_APP_URL` | CI builds + deploy + monitor | Canonical HTTPS production origin mapped to `VITE_PUBLIC_APP_URL`, release verification, and synthetic monitoring |
+| `VITE_APPROVED_OAUTH_PROVIDERS` | CI builds (optional) | Comma-separated `google`, `apple`, or both; absent means password-only sign-in |
+| `PRODUCTION_SENTRY_DSN` | CI builds + monitor (one sink required) | Hosted Sentry DSN permitted by the production CSP |
+| `PRODUCTION_TELEMETRY_INGEST_URL` | CI builds + monitor (one sink required) | Same-origin or Supabase-hosted approved collector endpoint |
 
 ### Required for healthcheck (do this first)
 
 1. **Create** `SUPABASE_ANON_KEY`  
    - Value = **exactly** the same string as **`VITE_SUPABASE_PUBLISHABLE_KEY`** in your Vercel env (or in local `.env`).  
    - Source: Supabase Dashboard → **Project Settings → API** → **anon** / **public** key (`eyJ...`).  
-2. If this secret is missing, the **Deploy Supabase** workflow **fails** on the smoke-test step with a clear error pointing here.
+2. **Create** `HEALTHCHECK_TOKEN` with at least 32 random characters (for
+   example, `openssl rand -hex 32`). The deploy syncs it to the Edge runtime;
+   the same GitHub secret authorizes deployment and scheduled uptime probes.
+3. If either secret is missing, the **Deploy Supabase** workflow fails closed.
 
 | Secret | Used by | Purpose |
 |--------|---------|---------|
 | `SUPABASE_ACCESS_TOKEN` | Deploy Supabase | Supabase CLI auth |
 | `SUPABASE_PROJECT_ID` | Deploy Supabase | Project ref (same as `project_id` in `supabase/config.toml`) |
 | `SUPABASE_ANON_KEY` | Deploy Supabase | Post-deploy `healthcheck` smoke test (`Authorization` + `apikey`) — **required** |
-| `VERCEL_DEPLOY_HOOK_URL` | Deploy Supabase (optional) | `POST` after successful deploy to trigger a Vercel production build |
+| `HEALTHCHECK_TOKEN` | Deploy Supabase + Production monitor | Dedicated secret for non-user health probes; synced to the Edge runtime during deploy — **required** |
+| `E2E_TEST_EMAIL` | CI browser suite | Dedicated seeded test account; required for main-branch release CI |
+| `E2E_TEST_PASSWORD` | CI browser suite | Password for the dedicated seeded test account |
+| `VERCEL_DEPLOY_HOOK_URL` | Deploy Supabase (**required**) | `POST` after successful backend deploy to trigger the matching Vercel production build |
+
+Configure repository variable `PRODUCTION_APP_URL` to the canonical HTTPS
+Vercel/custom-domain URL. The hourly Production monitor fails closed without
+it, probes Edge/database health, then performs a reversible save/reload/restore
+against the dedicated `E2E Alpha` fixture. Monitor failures open or update the
+single `Production monitor failure` issue and a successful recovery closes it.
+
+Set `VITE_PUBLIC_APP_URL` in Vercel to the same canonical origin. Production
+builds inject it into the canonical, Open Graph, and social-image metadata and
+fail closed when it is missing, non-HTTPS, credential-bearing, private,
+placeholder, or includes a port, path, query, or fragment. CI maps
+`PRODUCTION_APP_URL` into this same build variable. The build also generates
+`robots.txt` and `sitemap.xml` from this origin; only the public landing and
+approved Security surface are crawlable. Authenticated, callback, unknown, and
+placeholder Privacy routes are explicitly marked `noindex`.
+
+Set Vercel `VITE_CONTACT_EMAIL` to the same real public address as the GitHub
+`PRODUCTION_CONTACT_EMAIL` variable. Production builds intentionally fail when
+the address is missing, malformed, or uses a reserved example domain so the
+pilot/enterprise contact CTA cannot silently ship as a dead end.
+
+Set Vercel `VITE_PRIVACY_NOTICE_URL` to the same real notice as the GitHub
+`PRODUCTION_PRIVACY_NOTICE_URL` variable. It must be a public HTTPS URL for the
+deployment operator's reviewed privacy notice. Credentials, URL fragments,
+localhost/IP destinations, reserved example hosts, and the app's own
+development `/privacy` placeholder are rejected. Public and in-workspace
+Privacy links use this approved destination; the internal placeholder remains
+available only as honest setup guidance outside an approved production build.
+
+OAuth is fail-closed. Password sign-in is always available for provisioned
+accounts, while Google and Apple controls are hidden unless
+`VITE_APPROVED_OAUTH_PROVIDERS` explicitly lists them. Before adding a provider,
+enable and fully configure the matching provider in Supabase Auth, validate its
+redirect allowlist, then set the same comma-separated value in the GitHub
+repository variable and Vercel production environment. Supported values are
+`google` and `apple`; malformed or unsupported values block production builds.
+Leaving the value unset is the supported password-only deployment.
+
+Configure repository variable `CLINICAL_PHI_LLM_PROVIDER` separately under **Actions → Variables**. It is required for clinical imports and is validated during deployment; see [Clinical import provider approval](#clinical-import-provider-approval).
 
 The anon key is the same **public** key as `VITE_SUPABASE_PUBLISHABLE_KEY` / dashboard **Project API → anon public**.
 
 If you change **`project_id`** in [`supabase/config.toml`](../supabase/config.toml), set **`SUPABASE_PROJECT_ID`** in GitHub to the **same** ref and run **`supabase link --project-ref <ref>`** locally so CLI and CI target one project.
+
+---
+
+## Hosted Auth security baseline
+
+The production deploy uses the Supabase Management API to enforce and verify:
+
+- public enrollment disabled (`disable_signup: true`); and
+- leaked-password protection enabled (`password_hibp_enabled: true`).
+
+Leaked-password protection uses the HaveIBeenPwned Pwned Passwords service and
+requires Supabase Pro or above. The deployment fails before migrations when the
+project plan does not support the control, the access token lacks Auth config
+write privileges, or the returned hosted configuration does not confirm both
+values. For fine-grained Management API tokens, grant `auth_config_write` and
+`project_admin_write`.
+
+`npm run security:check-auth-config` keeps this fail-closed contract in CI. Do
+not replace the post-PATCH verification with an unchecked dashboard setting.
 
 ---
 
@@ -72,10 +152,34 @@ If you change **`project_id`** in [`supabase/config.toml`](../supabase/config.to
 **Do not turn on Supabase’s gateway `verify_jwt` for app functions in this repo.**
 
 - Access tokens from Supabase Auth may be **ES256** (asymmetric). The Edge **gateway** still validates some tokens with the **legacy HS256** path, which yields **“Invalid JWT”** before your handler runs.
-- [`supabase/config.toml`](../supabase/config.toml) sets **`verify_jwt = false`** for every function. **Authentication** is enforced in code with [`authenticateRequest()`](../supabase/functions/_shared/auth.ts) (except [`healthcheck`](../supabase/functions/healthcheck/index.ts), which is intentionally public for uptime checks).
+- [`supabase/config.toml`](../supabase/config.toml) sets **`verify_jwt = false`** for every function. **Authentication** is enforced in code with [`authenticateRequest()`](../supabase/functions/_shared/auth.ts). [`healthcheck`](../supabase/functions/healthcheck/index.ts) accepts either a validated user token or the dedicated monitor secret.
 - **`supabase functions deploy`** (CI and local) reads `config.toml` and applies these flags — keep them in sync when adding a new function.
 - **MCP / manual API deploys:** the payload must set **`verify_jwt` to match `config.toml`**. The repo script [`scripts/build-mcp-edge-bundle.mjs`](../scripts/build-mcp-edge-bundle.mjs) reads `[functions.<slug>]` so redeploys do not accidentally re-enable gateway JWT. Override **`SUPABASE_PROJECT_REF`** if the target project differs from `project_id` in `config.toml`.
 - **`npm run edge:check-jwt-config`** fails if any `[functions.*]` sets `verify_jwt = true` (also runs in **Deploy Supabase** before `functions deploy`).
+
+---
+
+## Clinical import provider approval
+
+Clinical AI requests can contain names, MRNs, notes, page images, medications,
+or audio. Every workflow is therefore pinned to one deployment-approved
+provider/model pair and never fails over across vendors.
+
+1. Complete the required BAA/DPA, retention, training-use, and security review for one provider.
+2. Add repository Actions variables `CLINICAL_PHI_LLM_PROVIDER` and
+   `CLINICAL_PHI_LLM_MODEL` with one matching allowlisted pair.
+3. Store the matching API key in Supabase Edge Function secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GROQ_API_KEY`).
+4. Deploy through the Supabase workflow. It fails closed when either approval
+   variable is absent or mismatched, when the matching provider credential is
+   missing, and writes both approved values to Edge Function secrets before
+   deployment.
+
+The browser does not accept provider credentials or select the clinical vendor
+or model. Missing approval or a missing matching key disables clinical AI
+instead of routing PHI elsewhere. Dictation additionally requires OpenAI to be
+the approved provider because its transcription step uses Whisper. Record the
+executed agreement and provider/model configuration in the release sign-off
+packet.
 
 ---
 
@@ -94,7 +198,7 @@ If the browser shows CORS errors right after a new URL goes live, check allowlis
 
 ## Browser security policy
 
-[`vercel.json`](../vercel.json) applies the production Content Security Policy and transport headers. The default policy permits this app, Supabase, bundled provider defaults, Google Fonts, and Sentry ingestion. Before enabling SMART-on-FHIR, a custom Hugging Face endpoint, or `VITE_TELEMETRY_INGEST_URL`, add each exact HTTPS FHIR/API origin to `connect-src`; do not replace the allowlist with a wildcard.
+[`vercel.json`](../vercel.json) applies the production Content Security Policy and transport headers. The default policy permits this app, Supabase, bundled provider defaults, Google Fonts, and Sentry ingestion. The telemetry policy accepts only same-origin or Supabase-hosted custom collectors, which already fit that allowlist. Before enabling SMART-on-FHIR or a custom Hugging Face endpoint, add each exact HTTPS FHIR/API origin to `connect-src`; do not replace the allowlist with a wildcard.
 
 Production source maps are disabled in [`vite.config.ts`](../vite.config.ts). If operators later need symbolicated client traces, upload hidden maps directly to the approved error service during CI and remove them before publishing `dist/`.
 
@@ -108,36 +212,62 @@ After `supabase functions deploy`, CI calls:
 
 with anon key headers. **200** and healthy body = pass; **non-200** fails the workflow.
 
-[`healthcheck`](../supabase/functions/healthcheck/index.ts) pings the database (`user_settings`). `verify_jwt = false` in [`config.toml`](../supabase/config.toml) so CI can call it without a user session.
+[`healthcheck`](../supabase/functions/healthcheck/index.ts) calls the purpose-built
+`healthcheck_database()` RPC. The anonymous role has no access to application
+tables, sequences, or other public-schema routines; the probe only proves that
+Edge Functions, PostgREST, and Postgres are reachable. Requests must carry
+either a validated user access token or the dedicated monitor secret.
+`verify_jwt = false` in [`config.toml`](../supabase/config.toml) because the
+handler performs ES256-compatible user validation itself.
 
 Local manual check:
 
 ```bash
 export SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co"
 export ANON_KEY="your-anon-key"
+export HEALTHCHECK_TOKEN="your-dedicated-monitor-secret"
 curl -sS "$SUPABASE_URL/functions/v1/healthcheck" \
   -H "Authorization: Bearer $ANON_KEY" \
-  -H "apikey: $ANON_KEY"
+  -H "apikey: $ANON_KEY" \
+  -H "x-healthcheck-token: $HEALTHCHECK_TOKEN"
 ```
 
 ---
 
-## Optional: Vercel deploy hook
+## Required: Vercel deploy hook
 
 1. Vercel → Project → **Settings → Git → Deploy Hooks** → create hook for **Production**.
 2. Add the URL to `VERCEL_DEPLOY_HOOK_URL`.
 
-If unset, the workflow skips the step; frontend still deploys via the normal Git integration when you push app code.
+Also set repository variable `PRODUCTION_APP_URL` to the canonical HTTPS
+origin. The deploy fails closed if either value is unset. After triggering the
+hook, it waits up to ten minutes for that origin to expose the exact release
+version derived from the CI-verified SHA and the matching canonical link. A
+Vercel build with stale or mismatched `VITE_PUBLIC_APP_URL` cannot pass release
+verification.
 
 ---
 
 ## Observability (Sentry)
 
-Optional client-side error reporting. If `VITE_SENTRY_DSN` is unset, the app does not send events.
+Production builds require at least one centrally queryable sink:
+`VITE_SENTRY_DSN` or `VITE_TELEMETRY_INGEST_URL`. CI maps these from
+`PRODUCTION_SENTRY_DSN` and `PRODUCTION_TELEMETRY_INGEST_URL`; configure the
+same value in Vercel. Hosted Sentry DSNs must match the CSP-allowed ingest
+domains. Custom collectors must be credential-free HTTPS on the application
+origin or an approved Supabase origin. Query-string tokens are rejected.
+
+When Sentry is selected, the app sends scrubbed exceptions plus bounded
+operational events. Marketing events and metrics retain only fixed event,
+operation, outcome, provider, feature, unit, and numeric measurement fields.
+Patient, account, contact, form, URL, request, and session content cannot be
+attached through this bridge. A custom collector remains available for teams
+that need a different approved backend.
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
-| `VITE_SENTRY_DSN` | Local `.env`, Vercel env (Production + Preview) | Sentry project DSN (public; safe in the bundle). |
+| `VITE_SENTRY_DSN` | Local `.env`, Vercel env (Production + Preview) | Hosted Sentry project DSN (public; safe in the bundle). |
+| `VITE_TELEMETRY_INGEST_URL` | Local `.env`, Vercel env | Approved same-origin or Supabase collector; alternative to Sentry. |
 | `VITE_APP_VERSION` | Optional | Overrides Sentry **release** string. If omitted, the build uses `package.json` `version`, and on Vercel appends `+` short git SHA (`VERCEL_GIT_COMMIT_SHA`). |
 
 Match **release** in Sentry to any hidden source maps uploaded during CI. Never serve those maps from the production asset directory. See [`src/lib/observability/sentryClient.ts`](../src/lib/observability/sentryClient.ts) (`beforeSend` scrubs query strings and payload-like breadcrumbs).
@@ -149,7 +279,9 @@ Match **release** in Sentry to any hidden source maps uploaded during CI. Never 
 Migration `20260711220000_purge_legacy_ai_credentials.sql` removes provider API
 keys persisted by older clients. Operators should treat any previously stored
 provider key as exposed to database backups and rotate it after this migration
-is deployed. Current clients keep provider credentials in memory only.
+is deployed. Current clients contain no browser provider adapters, credential
+setter, or model-selection hook. Clinical provider credentials and the exact
+approved model exist only in the Edge deployment environment.
 
 ---
 

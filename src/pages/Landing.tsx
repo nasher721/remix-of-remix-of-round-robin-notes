@@ -1,26 +1,19 @@
 import * as React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle2, ClipboardList, LockKeyhole, RefreshCw, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import FeatureHighlights from "@/components/landing/FeatureHighlights";
 import { useMotionPreference } from "@/hooks/useReducedMotion";
-import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
+import { recordMarketingEvent } from "@/lib/observability/marketingTelemetry";
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { prefersReducedMotion } = useMotionPreference();
 
-  const handleLaunchPortal = () => {
-    if (user) {
-      navigate("/", { replace: true });
-      window.location.reload();
-      return;
-    }
-    navigate("/auth");
-  };
+  React.useEffect(() => {
+    recordMarketingEvent("landingView");
+  }, []);
 
-  const handleGetStarted = () => {
+  const handleSignIn = () => {
     navigate("/auth");
   };
 
@@ -49,7 +42,7 @@ const Landing: React.FC = () => {
               window.scrollTo({ top: 0, behavior: prefersReducedMotion ? "auto" : "smooth" });
             }}
           >
-            <img src={rollingRoundsLogo} alt="" className="h-7 w-auto" aria-hidden="true" />
+            <img src="/icons/favicon-64.png" alt="" className="h-7 w-7 rounded-md" aria-hidden="true" />
             <span className="truncate text-sm font-semibold tracking-tight text-slate-950">Rolling Rounds</span>
           </a>
 
@@ -73,16 +66,19 @@ const Landing: React.FC = () => {
 
           <button
             type="button"
-            onClick={handleGetStarted}
+            onClick={() => {
+              recordMarketingEvent("headerSignIn");
+              handleSignIn();
+            }}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            Get started
+            Sign in
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <main id="main-content">
+      <main id="main-content" tabIndex={-1}>
         {/* Hero */}
         <section id="top" className="relative overflow-hidden">
           <div
@@ -108,20 +104,24 @@ const Landing: React.FC = () => {
               <div className="mt-10 flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
-                  onClick={handleGetStarted}
+                  onClick={() => {
+                    recordMarketingEvent("heroSignIn");
+                    handleSignIn();
+                  }}
                   className="inline-flex min-h-12 items-center justify-center gap-2.5 rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-md transition-colors hover:bg-primary/90 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  aria-label="Create an account or sign in to get started"
                 >
-                  Start workspace
+                  Sign in to workspace
                   <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
-                  onClick={handleLaunchPortal}
+                  onClick={() => {
+                    recordMarketingEvent("featureExplore");
+                    scrollToSection("features");
+                  }}
                   className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  aria-label={user ? "Open your workspace dashboard" : "Sign in for returning teams"}
                 >
-                  {user ? "Open dashboard" : "Returning team"}
+                  Explore features
                 </button>
               </div>
               <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-slate-500">

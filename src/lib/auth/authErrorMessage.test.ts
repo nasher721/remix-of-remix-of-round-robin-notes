@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getSafeAuthErrorMessage } from './authErrorMessage';
+import { classifyAuthError, getSafeAuthErrorMessage } from './authErrorMessage';
 
 test('known authentication failures use an approved user-facing message', () => {
   assert.equal(
@@ -31,4 +31,24 @@ test('OAuth failures never echo provider error details', () => {
 
   assert.equal(message, 'Could not sign in with Google. Please try again or contact your administrator.');
   assert.doesNotMatch(message, /tenant-secret-123|redirect_uri/);
+});
+
+test('authentication failures map to a fixed telemetry-safe category', () => {
+  assert.equal(
+    classifyAuthError(Object.assign(new Error('ignored'), { code: 'invalid_credentials' })),
+    'invalid_credentials',
+  );
+  assert.equal(
+    classifyAuthError(Object.assign(new Error('ignored'), { code: 'email_not_confirmed' })),
+    'email_not_confirmed',
+  );
+  assert.equal(classifyAuthError(new Error('Too many requests')), 'rate_limited');
+  assert.equal(
+    classifyAuthError(new Error('Authentication is not configured.')),
+    'unavailable',
+  );
+  assert.equal(
+    classifyAuthError(new Error('database timeout for patient@example.com; token=secret')),
+    'provider_error',
+  );
 });

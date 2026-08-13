@@ -44,7 +44,7 @@ import { ChangeTrackingControls } from "@/components/ChangeTrackingControls"
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator"
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator"
 import { CSVColumnMapper } from "@/components/import/CSVColumnMapper"
-import { organizeImportedPatient } from "@/lib/import/organizeImportedPatient"
+import { organizeCsvImportRecord } from "@/lib/import/organizeImportedPatient"
 import { SmartPatientImport } from "@/components/SmartPatientImport"
 import { TimelineDialog } from "@/components/tools/timeline/TimelineDialog"
 import { UnitCensusDashboard } from "@/components/UnitCensusDashboard"
@@ -65,25 +65,7 @@ import { MIN_GLOBAL_FONT_SIZE_PX, MAX_GLOBAL_FONT_SIZE_PX } from "@/constants/co
 import { cn } from "@/lib/utils"
 import { useEdgeHealth } from "@/contexts/EdgeHealthContext"
 import { formatClearAllPatientsConfirmation } from "@/lib/destructiveConfirmation"
-
-const useIsOnline = (): boolean => {
-  const [isOnline, setIsOnline] = React.useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine,
-  )
-  React.useEffect(() => {
-    if (typeof window === "undefined") return
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-    window.addEventListener("online", handleOnline)
-    window.addEventListener("offline", handleOffline)
-    setIsOnline(navigator.onLine)
-    return () => {
-      window.removeEventListener("online", handleOnline)
-      window.removeEventListener("offline", handleOffline)
-    }
-  }, [])
-  return isOnline
-}
+import { useOnlineStatus } from "@/hooks/useOnlineStatus"
 
 const MultiPatientComparison = React.lazy(() =>
   import("@/components/MultiPatientComparison").then((m) => ({ default: m.MultiPatientComparison })),
@@ -139,7 +121,7 @@ export const ToolsSheet = ({
   /** Prefer Focus/active Round patient over stale dashboard selection. */
   const toolsPatient = roundPatient ?? selectedPatient
   const todosMap = useDashboardTodos()
-  const isOnline = useIsOnline()
+  const isOnline = useOnlineStatus()
   const edgeHealth = useEdgeHealth()
   const backendUnavailable = edgeHealth?.status === "unhealthy"
   const networkActionsUnavailable = !isOnline || backendUnavailable
@@ -171,64 +153,7 @@ export const ToolsSheet = ({
   const [moreImportOpen, setMoreImportOpen] = React.useState(false)
 
   const handleCsvImport = React.useCallback(async (records: Record<string, string>[]) => {
-    await onImportPatients(records.map((record) => {
-      const {
-        name,
-        bed,
-        room,
-        mrn,
-        diagnosis,
-        clinicalSummary,
-        intervalEvents,
-        imaging,
-        labs,
-        neuro,
-        cv,
-        resp,
-        pulm,
-        renalGU,
-        renal,
-        gi,
-        endo,
-        heme,
-        infectious,
-        id,
-        skinLines,
-        access,
-        dispo,
-        medications,
-        ...extraFields
-      } = record
-
-      return organizeImportedPatient({
-        name: name ?? "",
-        bed: bed || room || "",
-        mrn,
-        clinicalSummary: diagnosis ?? clinicalSummary ?? "",
-        intervalEvents: intervalEvents ?? "",
-        imaging,
-        labs,
-        systems: {
-          neuro: neuro ?? "",
-          cv: cv ?? "",
-          resp: resp ?? pulm ?? "",
-          renalGU: renalGU ?? renal ?? "",
-          gi: gi ?? "",
-          endo: endo ?? "",
-          heme: heme ?? "",
-          infectious: infectious ?? id ?? "",
-          skinLines: skinLines ?? access ?? "",
-          dispo: dispo ?? "",
-        },
-        medications: {
-          infusions: [],
-          scheduled: [],
-          prn: [],
-          rawText: medications ?? "",
-        },
-        ...extraFields,
-      })
-    }))
+    await onImportPatients(records.map(organizeCsvImportRecord))
   }, [onImportPatients])
 
   const closeSheet = () => {
@@ -275,7 +200,7 @@ export const ToolsSheet = ({
 
   const rowClass = cn(
     "w-full justify-start gap-2.5 rounded-lg border-border/40 font-medium transition-colors hover:bg-accent/60",
-    touchFriendly ? "min-h-11 h-11 text-sm" : "h-9 text-sm",
+    touchFriendly ? "h-[44px] text-sm" : "h-9 text-sm",
   )
 
   return (
@@ -374,15 +299,15 @@ export const ToolsSheet = ({
               <div
                 data-testid="tools-risk"
               >
-                <ClinicalRiskCalculator className={cn(touchFriendly ? "h-11 min-h-11" : "h-9", "w-full justify-start gap-2")} />
+                <ClinicalRiskCalculator className={cn(touchFriendly ? "h-[44px]" : "h-9", "w-full justify-start gap-2")} />
               </div>
               <div data-testid="tools-timeline">
-                <TimelineDialog triggerClassName={touchFriendly ? "h-11 min-h-11" : undefined} />
+                <TimelineDialog triggerClassName={touchFriendly ? "h-[44px]" : undefined} />
               </div>
               <div data-testid="tools-census" onClickCapture={closeSheet}>
                 <UnitCensusDashboard
                   patients={patients}
-                  className={cn(touchFriendly ? "h-11 min-h-11" : "h-9", "w-full justify-start gap-2")}
+                  className={cn(touchFriendly ? "h-[44px]" : "h-9", "w-full justify-start gap-2")}
                 />
               </div>
               <div
@@ -394,7 +319,7 @@ export const ToolsSheet = ({
                 <BatchCourseGenerator
                   patients={patients}
                   todosMap={todosMap}
-                  triggerClassName={touchFriendly ? "h-11 min-h-11" : undefined}
+                  triggerClassName={touchFriendly ? "h-[44px]" : undefined}
                 />
                 {networkActionsUnavailable && (
                   <p className="mt-1 text-xs text-muted-foreground">Batch course needs a healthy backend connection</p>
@@ -489,7 +414,7 @@ export const ToolsSheet = ({
                   variant={todosAlwaysVisible ? "default" : "outline"}
                   size="sm"
                   onClick={() => setTodosAlwaysVisible(!todosAlwaysVisible)}
-                  className={cn("w-full gap-1.5", touchFriendly && "h-11 min-h-11")}
+                  className={cn("w-full gap-1.5", touchFriendly && "h-[44px]")}
                 >
                   <ListTodo className="h-3.5 w-3.5" aria-hidden="true" />
                   Todos always visible
@@ -517,7 +442,7 @@ export const ToolsSheet = ({
                     }
                     className={cn(
                       "w-full rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring",
-                      touchFriendly ? "h-11 min-h-11" : "h-8",
+                      touchFriendly ? "h-[44px]" : "h-8",
                     )}
                     aria-label="Toolbar style for all text boxes"
                   >
@@ -562,7 +487,7 @@ export const ToolsSheet = ({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className={cn("gap-1.5", touchFriendly && "min-h-11")}
+                  className={cn("gap-1.5", touchFriendly && "min-h-[44px]")}
                   onClick={onSignOut}
                   aria-label="Sign out"
                 >

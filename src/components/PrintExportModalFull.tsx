@@ -679,13 +679,16 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     }
   };
 
-  const onExportExcel = () => {
+  const onExportExcel = async () => {
+    setIsGenerating(true);
     try {
-      const fileName = handleExportExcel(getExportContext());
+      const fileName = await handleExportExcel(getExportContext());
       toast({ title: "Excel Export Complete", description: fileName });
     } catch (e) {
       console.error(e);
       toast({ title: "Export Failed", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
     }
   };
 

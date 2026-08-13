@@ -23,6 +23,7 @@ import {
   parseCSV,
   autoMapColumns,
   mapRowToPatient,
+  mapValidRowsToPatients,
   validateRow,
   PATIENT_TARGET_FIELDS,
   type FieldMapping,
@@ -205,9 +206,7 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
 
     setIsLoading(true);
     try {
-      const patients = parsedData.rows.map(row => 
-        mapRowToPatient(row, parsedData.headers, mappings)
-      );
+      const patients = mapValidRowsToPatients(parsedData, mappings);
 
       await onImportPatients(patients);
       
@@ -275,29 +274,38 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Card 
-                className="p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors border-dashed border-2 flex flex-col justify-center items-center h-48"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <div className="relative">
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept=".csv,text/csv,text/plain"
                   onChange={handleFileUpload}
-                  className="hidden"
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-hidden="true"
                 />
+                <button
+                  type="button"
+                  className="h-48 w-full rounded-lg border-2 border-dashed p-6 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col justify-center items-center"
+                  onClick={() => fileInputRef.current?.click()}
+                  aria-label="Upload CSV file"
+                >
                 <Upload className="h-10 w-10 mb-4 text-primary/60" />
-                <p className="font-medium text-lg">Upload CSV</p>
-                <p className="text-sm text-muted-foreground mt-1">.csv file</p>
-              </Card>
+                <span className="font-medium text-lg">Upload CSV</span>
+                <span className="text-sm text-muted-foreground mt-1">.csv file</span>
+                </button>
+              </div>
 
-              <Card className="p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors border-dashed border-2 flex flex-col justify-center items-center h-48"
+              <button
+                type="button"
+                className="h-48 rounded-lg border-2 border-dashed p-6 text-center transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 flex flex-col justify-center items-center"
                 onClick={handleTextPaste}
+                aria-label="Paste CSV content from clipboard"
               >
                 <FileText className="h-10 w-10 mb-4 text-primary/60" />
-                <p className="font-medium text-lg">Paste Content</p>
-                <p className="text-sm text-muted-foreground mt-1">From Clipboard</p>
-              </Card>
+                <span className="font-medium text-lg">Paste Content</span>
+                <span className="text-sm text-muted-foreground mt-1">From Clipboard</span>
+              </button>
             </div>
 
             <div className="space-y-2">
@@ -341,15 +349,18 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
             <div className="space-y-2">
               <Label className="text-sm font-medium">Map Columns to Patient Fields</Label>
               <div className="rounded-md border border-border/30 bg-card/40 p-3 space-y-2 max-h-[200px] overflow-y-auto">
-                {parsedData.headers.map((header) => {
+                {parsedData.headers.map((header, headerIndex) => {
                   const currentMapping = mappings.find(m => m.csvColumn === header);
+                  const mappingSelectId = `csv-column-mapping-${headerIndex}`;
                   return (
                     <div key={header} className="flex items-center gap-2">
-                      <div className="w-1/3 text-sm font-mono truncate" title={header}>
+                      <Label htmlFor={mappingSelectId} className="w-1/3 text-sm font-mono truncate" title={header}>
                         {header}
-                      </div>
+                      </Label>
                       <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <select
+                        id={mappingSelectId}
+                        aria-label={`Map CSV column ${header} to patient field`}
                         value={currentMapping?.targetField || ""}
                         onChange={(e) => handleMappingChange(header, e.target.value)}
                         className="flex-1 h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"

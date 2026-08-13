@@ -4,8 +4,9 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { IBCCSearchResult } from '@/types/ibcc';
-import { useLazyData } from '@/lib/lazyData';
+import type { IBCCChapter, IBCCSearchResult } from '@/types/ibcc';
+
+const EMPTY_CHAPTERS: IBCCChapter[] = [];
 
 // Fuzzy match score calculation
 function fuzzyMatch(text: string, query: string): number {
@@ -35,16 +36,11 @@ function fuzzyMatch(text: string, query: string): number {
 interface UseIBCCSearchOptions {
   debounceMs?: number;
   maxResults?: number;
+  chapters?: IBCCChapter[];
 }
 
 export function useIBCCSearch(options: UseIBCCSearchOptions = {}) {
-  const { debounceMs = 150, maxResults = 15 } = options;
-
-  // Lazy-load IBCC chapters
-  const { data: chapters } = useLazyData(
-    () => import('@/data/ibccContent'),
-    (mod) => mod.IBCC_CHAPTERS,
-  );
+  const { debounceMs = 150, maxResults = 15, chapters = EMPTY_CHAPTERS } = options;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -77,7 +73,7 @@ export function useIBCCSearch(options: UseIBCCSearchOptions = {}) {
 
   // Memoized search results
   const searchResults = useMemo((): IBCCSearchResult[] | null => {
-    if (!debouncedQuery.trim() || !chapters) return null;
+    if (!debouncedQuery.trim() || chapters.length === 0) return null;
 
     const results: IBCCSearchResult[] = [];
     const queryLower = debouncedQuery.toLowerCase();

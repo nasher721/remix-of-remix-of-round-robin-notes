@@ -20,6 +20,7 @@ export function describeRoundSync(
   status: RoundSyncStatus,
   pendingCount: number,
   failedCount: number,
+  softFailedCount: number,
   lastSuccessfulSyncAt: string | null,
 ): RoundSyncPresentation {
   const lastSyncDescription = formatLastRemoteSync(lastSuccessfulSyncAt);
@@ -39,6 +40,13 @@ export function describeRoundSync(
     };
   }
   if (status === "failed") {
+    if (softFailedCount > 0) {
+      return {
+        label: `Sync blocked · ${softFailedCount} stalled`,
+        description: `${softFailedCount} locally saved write${softFailedCount === 1 ? " is" : "s are"} still awaiting remote acknowledgement. Retry sync before completing the Round. ${lastSyncDescription}`,
+        lastSuccessfulSyncAt,
+      };
+    }
     return {
       label: failedCount > 0 ? `Sync failed · ${failedCount} failed` : "Sync failed",
       description: `Local edits remain on this device. ${lastSyncDescription}`,

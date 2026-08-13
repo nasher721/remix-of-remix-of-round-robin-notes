@@ -109,19 +109,3 @@ export async function loadGuidelinesData() {
 // React.lazy IBCCPanelContent chunk, so the 160 KB module already loads with
 // the IBCC panel and never enters the entry bundle. A dynamic import would be
 // an ineffective no-op (Rollup keeps it in the static importer's chunk).
-
-/**
- * Preload data modules in the background.
- * Call this after the initial render to warm the cache without blocking.
- */
-export function preloadClinicalData(): void {
-  // Use requestIdleCallback where available, else setTimeout
-  const schedule = typeof requestIdleCallback === 'function'
-    ? requestIdleCallback
-    : (fn: () => void) => setTimeout(fn, 2000);
-
-  schedule(() => {
-    loadIBCCData().catch((err) => { console.error('[lazyData] Failed to load IBCC data:', err) });
-    loadGuidelinesData().catch((err) => { console.error('[lazyData] Failed to load guidelines:', err) });
-  });
-}

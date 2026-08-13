@@ -18,8 +18,8 @@ Round Robin Notes enables team-based patient management with clinical decision s
 
 ### Prerequisites
 
-- Node.js 20+ (recommended: use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
-- npm or bun
+- Node.js 22.x (use the version pinned in `.nvmrc`)
+- npm 10.x (the version family pinned in `package.json`)
 
 ### Installation
 
@@ -46,7 +46,16 @@ Create a `.env` file based on `.env.example`:
 ```env
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
+VITE_PUBLIC_APP_URL=https://rounds.hospital.org
+VITE_CONTACT_EMAIL=rounds-team@hospital.org
+VITE_PRIVACY_NOTICE_URL=https://privacy.hospital.org/rolling-rounds
+# Production also requires one approved central sink; see .env.example.
+# VITE_SENTRY_DSN=https://publickey@o123.ingest.sentry.io/456
 ```
+
+Production builds fail closed when launch identity, legal, or observability
+configuration is missing or unsafe. See [`.env.example`](.env.example) and the
+[deployment guide](docs/deployment.md) for the complete contract.
 
 ## Available Scripts
 
@@ -63,7 +72,7 @@ npm run test:e2e   # E2E tests (Playwright); see e2e/README.md for login credent
 ## Testing
 
 - **Unit/integration**: `npm test` (Node test runner).
-- **E2E (Playwright)**: `npm run test:e2e`. The auth-page smoke runs without config; for login → dashboard and print/export flows set `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` (real Supabase required). See [e2e/README.md](e2e/README.md).
+- **E2E (Playwright)**: `npm run test:e2e` runs the Chromium suite; `npm run test:e2e:public` checks the public auth page in Chromium and WebKit. For login → dashboard and print/export flows set `E2E_TEST_EMAIL` and `E2E_TEST_PASSWORD` (real Supabase required). See [e2e/README.md](e2e/README.md).
 
 ## Deployment
 
@@ -93,6 +102,8 @@ supabase link --project-ref your-project-ref
 # Deploy functions
 supabase functions deploy
 ```
+
+Clinical imports additionally require `CLINICAL_PHI_LLM_PROVIDER` in Supabase Edge Function secrets. It must name the single contractually approved provider (`openai`, `gemini`, or `grok`); see [docs/deployment.md](docs/deployment.md#clinical-import-provider-approval).
 
 ## Features
 

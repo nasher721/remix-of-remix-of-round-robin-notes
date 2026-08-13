@@ -16,7 +16,7 @@ import { getPatientProfileCoaching } from "@/lib/patientProfileCoaching";
 import { AutotextManager } from "@/components/AutotextManager";
 import { EpicHandoffImport } from "@/components/EpicHandoffImport";
 import { CSVColumnMapper } from "@/components/import/CSVColumnMapper";
-import { organizeImportedPatient } from "@/lib/import/organizeImportedPatient";
+import { organizeCsvImportRecord } from "@/lib/import/organizeImportedPatient";
 import { SmartPatientImport } from "@/components/SmartPatientImport";
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls";
 import { IBCCPanel } from "@/components/ibcc";
@@ -52,7 +52,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AVAILABLE_MODELS } from "@/services/llm";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -89,7 +88,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { PatientFilterType, MIN_GLOBAL_FONT_SIZE_PX, MAX_GLOBAL_FONT_SIZE_PX } from "@/constants/config";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
@@ -142,20 +140,8 @@ export const DesktopDashboard = () => {
     setSortBy,
     editorToolbarMode,
     setEditorToolbarMode,
-    aiProvider,
-    aiModel,
   } = useSettings();
-  const activeAiModelLabel = React.useMemo(() => {
-    const m = AVAILABLE_MODELS.find((x) => x.provider === aiProvider && x.model === aiModel);
-    return m?.label ?? aiModel ?? "Default";
-  }, [aiProvider, aiModel]);
-
-  /** Tiny label on the FAB so the active model is visible without opening the tooltip (Phase 3.4). */
-  const fabModelBadgeText = React.useMemo(() => {
-    const raw = activeAiModelLabel.trim();
-    if (raw.length <= 12) return raw;
-    return `${raw.slice(0, 11)}…`;
-  }, [activeAiModelLabel]);
+  const activeAiModelLabel = "Organization managed";
   const { enabled: ctEnabled, color: ctColor, styles: ctStyles, toggleEnabled: ctToggleEnabled, setColor: ctSetColor, toggleStyle: ctToggleStyle } = useChangeTracking();
 
   const [showPrintModal, setShowPrintModal] = React.useState(false);
@@ -421,7 +407,7 @@ export const DesktopDashboard = () => {
     >
       <div className="mb-8 relative flex items-center justify-center">
         <div className="bg-secondary/30 rounded-3xl p-8 border border-border/40 shadow-sm depth-shadow-hover">
-          <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-20 w-auto opacity-60" />
+          <img src="/icons/icon-192.png" alt="Rolling Rounds" className="h-20 w-20 rounded-2xl opacity-60" />
         </div>
       </div>
       <h3 className="text-3xl font-semibold mb-2 text-foreground tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -513,7 +499,7 @@ export const DesktopDashboard = () => {
               <div className="flex items-center gap-3 min-w-0">
                 <Link to="/" className="flex items-center gap-2.5 group cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg">
                   <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-primary/10 group-hover:bg-primary/15 transition-colors border border-primary/10">
-                    <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-5 w-auto" />
+                    <img src="/icons/favicon-64.png" alt="" className="h-5 w-5 rounded" aria-hidden="true" />
                   </div>
                   <h1 className="text-lg font-semibold tracking-tight text-card-foreground group-hover:text-primary transition-colors hidden sm:block">Rolling Rounds</h1>
                 </Link>
@@ -743,8 +729,8 @@ export const DesktopDashboard = () => {
             <Button
               onClick={() => setAICommandPaletteOpen(true)}
               className="fixed bottom-32 right-6 z-50 h-13 w-13 rounded-xl shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 active:scale-95 motion-reduce:hover:scale-100 motion-reduce:active:scale-100 transition-all duration-200 motion-reduce:transition-shadow border border-primary/40 p-3 max-md:bottom-32 md:bottom-32 lg:bottom-6"
-              aria-label={`Open AI command palette — model ${activeAiModelLabel}`}
-              title={`AI workspace — ${activeAiModelLabel}`}
+              aria-label="Open AI command palette — organization-managed provider"
+              title="AI workspace — organization managed"
               style={{ height: "3.25rem", width: "3.25rem" }}
             >
               <Sparkles className="h-5 w-5 drop-shadow" aria-hidden />
@@ -754,14 +740,14 @@ export const DesktopDashboard = () => {
                 title={activeAiModelLabel}
                 className="pointer-events-none absolute -bottom-1 -right-1 max-w-[5rem] truncate border border-white/40 bg-background/95 px-1 py-0 text-[11px] font-medium leading-tight text-foreground shadow-md backdrop-blur-sm"
               >
-                {fabModelBadgeText}
+                Managed
               </Badge>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" className="max-w-[240px]">
             <p className="font-medium">AI workspace</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Same tools as the header menu: drafting, analysis, and utilities. Current model: {activeAiModelLabel}
+              Drafting, analysis, and utilities use your organization&apos;s approved provider.
             </p>
             <p className="text-xs text-muted-foreground mt-1">Shortcut: ⌘⇧A</p>
           </TooltipContent>
@@ -962,64 +948,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   }, [openToolsRequestToken, setMenuOpen]);
 
   const handleCsvImport = React.useCallback(async (records: Record<string, string>[]) => {
-    await onImportPatients(records.map((record) => {
-      const {
-        name,
-        bed,
-        room,
-        mrn,
-        diagnosis,
-        clinicalSummary,
-        intervalEvents,
-        imaging,
-        labs,
-        neuro,
-        cv,
-        resp,
-        pulm,
-        renalGU,
-        renal,
-        gi,
-        endo,
-        heme,
-        infectious,
-        id,
-        skinLines,
-        access,
-        dispo,
-        medications,
-        ...extraFields
-      } = record;
-
-      return organizeImportedPatient({
-        name: name ?? "",
-        bed: bed || room || "",
-        mrn,
-        clinicalSummary: diagnosis ?? clinicalSummary ?? "",
-        intervalEvents: intervalEvents ?? "",
-        imaging,
-        labs,
-        systems: {
-          neuro: neuro ?? "",
-          cv: cv ?? "",
-          resp: resp ?? pulm ?? "",
-          renalGU: renalGU ?? renal ?? "",
-          gi: gi ?? "",
-          endo: endo ?? "",
-          heme: heme ?? "",
-          infectious: infectious ?? id ?? "",
-          skinLines: skinLines ?? access ?? "",
-          dispo: dispo ?? "",
-        },
-        medications: {
-          infusions: [],
-          scheduled: [],
-          prn: [],
-          rawText: medications ?? "",
-        },
-        ...extraFields,
-      });
-    }));
+    await onImportPatients(records.map(organizeCsvImportRecord));
   }, [onImportPatients]);
 
   return (

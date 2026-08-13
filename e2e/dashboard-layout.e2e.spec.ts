@@ -5,32 +5,12 @@
  * Run with: E2E_TEST_EMAIL=... E2E_TEST_PASSWORD=... npm run test:e2e -- --grep "Dashboard"
  */
 
-import { test, expect, type Page } from "@playwright/test";
-
-const E2E_EMAIL = process.env.E2E_TEST_EMAIL;
-const E2E_PASSWORD = process.env.E2E_TEST_PASSWORD;
-const hasCredentials = Boolean(E2E_EMAIL && E2E_PASSWORD);
-
-async function loginToDashboard(page: Page) {
-  test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set for dashboard E2E");
-
-  await page.goto("/auth");
-  await page.getByLabel(/email/i).fill(E2E_EMAIL!);
-  await page.locator("#password").fill(E2E_PASSWORD!);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/(\?.*)?$/);
-  // These specs assert classic dashboard chrome; the Round runner shell is
-  // default ON, so opt out explicitly.
-  await page.evaluate(() => {
-    window.localStorage.setItem("rr-round-runner", "0");
-  });
-  await page.reload();
-  await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
-}
+import { test, expect } from "@playwright/test";
+import { loginWithShell } from "./helpers";
 
 test.describe("Dashboard Panel Collapse", () => {
   test.beforeEach(async ({ page }) => {
-    await loginToDashboard(page);
+    await loginWithShell(page, { roundRunner: false });
   });
 
   test("collapse and expand panel controls update shell state", async ({ page }) => {
@@ -55,7 +35,7 @@ test.describe("Dashboard Panel Collapse", () => {
 
 test.describe("Focus Mode", () => {
   test.beforeEach(async ({ page }) => {
-    await loginToDashboard(page);
+    await loginWithShell(page, { roundRunner: false });
   });
 
   test("clicking clinical summary enters focus mode and Escape exits", async ({ page }) => {
@@ -71,7 +51,7 @@ test.describe("Focus Mode", () => {
 
 test.describe("Dashboard Controls", () => {
   test.beforeEach(async ({ page }) => {
-    await loginToDashboard(page);
+    await loginWithShell(page, { roundRunner: false });
   });
 
   test("core command surfaces remain reachable", async ({ page }) => {

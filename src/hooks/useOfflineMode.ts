@@ -10,6 +10,7 @@ import { useOnlineStatus } from './useOnlineStatus';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { QUERY_KEYS } from '@/lib/cache/cacheConfig';
+import { isBrowserKnownOffline } from '@/lib/networkConnectivity';
 
 export interface SyncProgress {
   total: number;
@@ -65,6 +66,7 @@ export function useOfflineMode() {
   const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
   const [skippedMutations, setSkippedMutations] = useState<SkippedMutation[]>([]);
   const syncInProgressRef = useRef(false);
+  const lastAutoSyncKeyRef = useRef<string | null>(null);
 
   const updateQueueState = useCallback((queue: QueuedMutation[]) => {
     setPendingMutations(queue);
@@ -72,7 +74,7 @@ export function useOfflineMode() {
   }, []);
 
   const triggerSync = useCallback(async () => {
-    if (!navigator.onLine || syncInProgressRef.current) return;
+    if (isBrowserKnownOffline() || syncInProgressRef.current) return;
 
     const queuedBeforeSync = await indexedDBQueue.getQueue();
     const pendingBeforeSync = queuedBeforeSync.filter(
@@ -97,6 +99,23 @@ export function useOfflineMode() {
       const result = await syncEngine.sync();
       const queuedAfterSync = await indexedDBQueue.getQueue();
       updateQueueState(queuedAfterSync);
+      const replayedTodoPatientIds = new Set(
+        pendingBeforeSync
+          .filter((mutation) => mutation.type === 'todo' && mutation.table === 'patient_todos')
+          .map((mutation) => mutation.payload.patient_id)
+          .filter((value): value is string => typeof value === 'string'),
+      );
+      if (user?.id && replayedTodoPatientIds.size > 0) {
+        await queryClient.invalidateQueries({
+          queryKey: [...QUERY_KEYS.allTodos, user.id],
+        });
+        await Promise.all([...replayedTodoPatientIds].map((patientId) => (
+          queryClient.invalidateQueries({
+            queryKey: QUERY_KEYS.patientTodosForOwner(user.id, patientId),
+            exact: true,
+          })
+        )));
+      }
       setSyncProgress({
         total: pendingBeforeSync.length,
         completed: result.success,
@@ -111,16 +130,30 @@ export function useOfflineMode() {
       syncInProgressRef.current = false;
       setIsSyncing(false);
     }
-  }, [updateQueueState]);
+  }, [queryClient, updateQueueState, user?.id]);
+
+  const pendingAutoSyncKey = pendingMutations
+    .filter(mutation => !mutation.status || mutation.status === 'pending')
+    .map(mutation => mutation.id)
+    .sort()
+    .join('|');
 
   // Sync persisted same-user work after reload and on later reconnections.
+  // Keying by owner + durable mutation IDs closes the race where the browser
+  // comes online before the auth boundary has rebound IndexedDB to its owner.
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline || !user?.id || !pendingAutoSyncKey) {
+      if (!isOnline || !user?.id) lastAutoSyncKeyRef.current = null;
+      return;
+    }
+    const syncKey = `${user.id}:${pendingAutoSyncKey}`;
+    if (lastAutoSyncKeyRef.current === syncKey) return;
+    lastAutoSyncKeyRef.current = syncKey;
     const timeout = setTimeout(() => {
       void triggerSync();
     }, 1000);
     return () => clearTimeout(timeout);
-  }, [isOnline, triggerSync]);
+  }, [isOnline, pendingAutoSyncKey, triggerSync, user?.id]);
 
   useEffect(() => {
     const unsubscribeQueue = indexedDBQueue.subscribe(updateQueueState);

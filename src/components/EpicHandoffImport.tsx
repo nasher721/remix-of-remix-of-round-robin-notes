@@ -13,14 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { FileUp, Loader2, FileText, Users, AlertCircle, Settings2, Info } from "lucide-react";
 import { OCR_HARD_PAGE_LIMIT } from "@/lib/import-utils";
-import { extractPatientListContent } from "@/lib/import/extractImportContent";
 import {
   PATIENT_LIST_ACCEPT_ATTRIBUTE,
 } from "@/lib/import/patientListImportSafety";
 import { organizeImportedPatient } from "@/lib/import/organizeImportedPatient";
 import { useImportSettings } from "@/hooks/useImportSettings";
 import { stripHtml } from "@/lib/print/htmlFormatter";
-import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
 import { getUserFacingErrorMessage, UserFacingError } from "@/lib/userFacingErrors";
 import { useAssertBackendReady } from "@/contexts/EdgeHealthContext";
@@ -68,9 +66,8 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { settings, updateSettings } = useImportSettings();
-  const { getModelForFeature } = useSettings();
 
-  const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }) => {
+  const invokeParseHandoff = async (body: { images?: string[]; pdfContent?: string }) => {
     // documentParse is 180s — successful handoff parses have been observed at ~67s.
     return withCategoryTimeout(
       supabase.functions.invoke('parse-handoff', { body }),
@@ -87,7 +84,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
     action();
   };
 
-  const tryInvokeParseHandoff = async (body: { images?: string[]; pdfContent?: string; model: string }, retries = 1) => {
+  const tryInvokeParseHandoff = async (body: { images?: string[]; pdfContent?: string }, retries = 1) => {
     let attempt = 0;
 
     while (true) {
@@ -97,7 +94,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       }
 
       const status = (result.error as { context?: { status?: number } }).context?.status;
-      // Server already fails over providers on 429; only retry transient 5xx.
+      // The server is pinned to one approved clinical provider; only retry transient 5xx.
       // Client-side TimeoutError propagates from invokeParseHandoff and is not retried here.
       if (!status || status < 500) {
         return result;
@@ -125,6 +122,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
 
     try {
       setStatusMessage("Extracting content...");
+      const { extractPatientListContent } = await import("@/lib/import/extractImportContent");
       const extracted = await extractPatientListContent(file);
 
       if (extracted.mode === "images") {
@@ -137,7 +135,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
         setStatusMessage("Analyzing image with AI...");
         const { data, error } = await tryInvokeParseHandoff({
           images: extracted.images.slice(0, getSafePageLimit()),
-          model: getModelForFeature("parsing"),
         });
 
         if (error) {
@@ -159,7 +156,6 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       setStatusMessage("Parsing patients and chart sections (may take 1–2 minutes)...");
       const { data, error } = await tryInvokeParseHandoff({
         pdfContent: extracted.text,
-        model: getModelForFeature("parsing"),
       });
 
       if (error) {
@@ -241,7 +237,7 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
       setParsedPatients([]);
       setSelectedPatients(new Set());
 
-      const { data, error } = await tryInvokeParseHandoff({ pdfContent: text, model: getModelForFeature('parsing') });
+      const { data, error } = await tryInvokeParseHandoff({ pdfContent: text });
 
       if (error) {
         console.error("Edge Function invocation failed (paste path)");

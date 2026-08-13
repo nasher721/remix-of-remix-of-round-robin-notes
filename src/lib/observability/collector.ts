@@ -1,90 +1,164 @@
 /**
- * Observability collector — single place for log/metric payloads.
+ * Optional PHI-safe observability collector.
  *
- * Current behavior:
- * - Logs and metrics are still emitted to console by the logger.
- * - This module buffers payloads when an ingest URL is configured.
- * - Set VITE_TELEMETRY_INGEST_URL in .env to enable batching and POST.
- *
- * To add a backend (Axiom, Datadog, Logtail, or your own endpoint):
- * 1. Set VITE_TELEMETRY_INGEST_URL in .env to your ingest endpoint.
- * 2. Ensure the endpoint accepts POST with JSON body (array of events).
- * 3. Optionally call flush() on visibility change or before unload to reduce loss.
+ * When VITE_TELEMETRY_INGEST_URL is configured, sanitized log and metric
+ * payloads are sent in bounded batches. Delivery failures never affect the app:
+ * non-2xx and network failures are retained for a later retry, concurrent
+ * flushes are serialized, and retained memory is capped.
  */
 
-const MAX_BUFFER = 50;
-const FLUSH_DEBOUNCE_MS = 5000;
+import { isBrowserKnownOffline } from '@/lib/networkConnectivity';
+
+const MAX_BATCH_SIZE = 50;
+const MAX_RETAINED_EVENTS = 200;
+const FLUSH_DEBOUNCE_MS = 5_000;
 
 type LogPayload = Record<string, unknown>;
+type TimerHandle = unknown;
 
-const buffer: LogPayload[] = [];
-let flushTimer: ReturnType<typeof setTimeout> | null = null;
+interface IngestResponse {
+  ok: boolean;
+}
 
-function getIngestUrl(): string | undefined {
+export interface CollectorRuntimeOptions {
+  getIngestUrl: () => string | undefined;
+  fetchImpl: (url: string, init: RequestInit) => Promise<IngestResponse>;
+  setTimer: (handler: () => void, delayMs: number) => TimerHandle;
+  clearTimer: (handle: TimerHandle) => void;
+  isOffline?: () => boolean;
+  maxBatchSize?: number;
+  maxRetainedEvents?: number;
+  flushDebounceMs?: number;
+}
+
+export interface CollectorRuntime {
+  push: (payload: LogPayload) => void;
+  flush: () => Promise<void>;
+  getBufferSize: () => number;
+}
+
+export function createCollectorRuntime(
+  options: CollectorRuntimeOptions,
+): CollectorRuntime {
+  const maxBatchSize = options.maxBatchSize ?? MAX_BATCH_SIZE;
+  const maxRetainedEvents = options.maxRetainedEvents ?? MAX_RETAINED_EVENTS;
+  const flushDebounceMs = options.flushDebounceMs ?? FLUSH_DEBOUNCE_MS;
+  const buffer: LogPayload[] = [];
+  let flushTimer: TimerHandle | null = null;
+  let flushInFlight: Promise<boolean> | null = null;
+
+  const retainMostRecent = (): void => {
+    const excess = buffer.length - maxRetainedEvents;
+    if (excess > 0) buffer.splice(0, excess);
+  };
+
+  const scheduleFlush = (): void => {
+    if (
+      options.isOffline?.()
+      || !options.getIngestUrl()
+      || buffer.length === 0
+      || flushTimer !== null
+    ) return;
+    flushTimer = options.setTimer(() => {
+      flushTimer = null;
+      void flush();
+    }, flushDebounceMs);
+  };
+
+  const sendBatch = async (url: string, batch: LogPayload[]): Promise<boolean> => {
+    try {
+      const response = await options.fetchImpl(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batch),
+        keepalive: true,
+      });
+      if (!response.ok) throw new Error('Telemetry ingest rejected the batch');
+      return true;
+    } catch {
+      buffer.unshift(...batch);
+      retainMostRecent();
+      scheduleFlush();
+      return false;
+    }
+  };
+
+  const flush = async (): Promise<void> => {
+    if (options.isOffline?.()) return;
+    if (flushInFlight) {
+      const succeeded = await flushInFlight;
+      if (succeeded && buffer.length > 0) await flush();
+      return;
+    }
+
+    const url = options.getIngestUrl();
+    if (!url || buffer.length === 0) return;
+    if (flushTimer !== null) {
+      options.clearTimer(flushTimer);
+      flushTimer = null;
+    }
+
+    const batch = buffer.splice(0, maxBatchSize);
+    const currentFlush = sendBatch(url, batch);
+    flushInFlight = currentFlush;
+    let succeeded = false;
+    try {
+      succeeded = await currentFlush;
+    } finally {
+      if (flushInFlight === currentFlush) flushInFlight = null;
+    }
+
+    if (succeeded && buffer.length > 0) await flush();
+  };
+
+  const push = (payload: LogPayload): void => {
+    if (!options.getIngestUrl()) return;
+    buffer.push(payload);
+    retainMostRecent();
+    if (buffer.length >= maxBatchSize) {
+      if (flushTimer !== null) {
+        options.clearTimer(flushTimer);
+        flushTimer = null;
+      }
+      void flush();
+    } else {
+      scheduleFlush();
+    }
+  };
+
+  return {
+    push,
+    flush,
+    getBufferSize: () => buffer.length,
+  };
+}
+
+function getConfiguredIngestUrl(): string | undefined {
   try {
-    const u = import.meta.env.VITE_TELEMETRY_INGEST_URL;
-    return typeof u === 'string' && u.length > 0 ? u : undefined;
+    const value = import.meta.env.VITE_TELEMETRY_INGEST_URL;
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
   } catch {
     return undefined;
   }
 }
 
-function scheduleFlush(): void {
-  if (!getIngestUrl() || buffer.length === 0) return;
-  if (flushTimer) return;
-  flushTimer = setTimeout(() => {
-    flushTimer = null;
-    flush();
-  }, FLUSH_DEBOUNCE_MS);
-}
+const defaultCollector = createCollectorRuntime({
+  getIngestUrl: getConfiguredIngestUrl,
+  fetchImpl: (url, init) => fetch(url, init),
+  setTimer: (handler, delayMs) => setTimeout(handler, delayMs),
+  clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  isOffline: isBrowserKnownOffline,
+});
 
-/**
- * Push a log or metric payload into the collector. If ingest URL is set, buffers and may send.
- */
-export function push(payload: LogPayload): void {
-  if (!getIngestUrl()) return;
-  buffer.push(payload);
-  if (buffer.length >= MAX_BUFFER) {
-    if (flushTimer) {
-      clearTimeout(flushTimer);
-      flushTimer = null;
-    }
-    flush();
-  } else {
-    scheduleFlush();
-  }
-}
-
-/**
- * Send buffered payloads to the ingest URL. No-op if no URL configured or buffer empty.
- */
-export async function flush(): Promise<void> {
-  if (buffer.length === 0) return;
-  const url = getIngestUrl();
-  if (!url) return;
-  const batch = buffer.splice(0, buffer.length);
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(batch),
-      keepalive: true,
-    });
-  } catch {
-    // Re-queue on failure so we don't lose events (up to one batch)
-    if (buffer.length === 0) {
-      batch.forEach((e) => buffer.push(e));
-    }
-  }
-}
-
-/**
- * Return current buffer size (for debugging or UI).
- */
-export function getBufferSize(): number {
-  return buffer.length;
-}
+export const push = defaultCollector.push;
+export const flush = defaultCollector.flush;
+export const getBufferSize = defaultCollector.getBufferSize;
 
 if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => { flush(); });
+  window.addEventListener('online', () => {
+    void flush();
+  });
+  window.addEventListener('pagehide', () => {
+    void flush();
+  });
 }

@@ -4,6 +4,7 @@ import { RosterOverlay } from "./RosterOverlay"
 import { PatientFocus } from "./PatientFocus"
 import { RoundHome } from "./RoundHome"
 import { RoundEnd } from "./RoundEnd"
+import { preloadRoundPrintExport } from "./roundPrintExportLoader"
 import { ToolsSheet } from "./ToolsSheet"
 import { useDashboard } from "@/contexts/DashboardContext"
 import { useRoundSession } from "@/contexts/RoundSessionContext"
@@ -34,6 +35,7 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
   const {
     currentPatientId,
     round,
+    isHydrated,
     nextPatient,
     prevPatient,
     markDoneAndNext,
@@ -56,14 +58,20 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
     }
   }, [patients.length])
 
+  React.useEffect(() => {
+    if (!navigator.onLine) return
+    void preloadRoundPrintExport().catch(() => undefined)
+  }, [])
+
   // Keep classic mobile selection in sync so workbench hops resume the same chart.
   React.useEffect(() => {
+    if (!isHydrated) return
     if (!patient) {
       onPatientSelect(null)
       return
     }
     onPatientSelect(patient)
-  }, [patient, onPatientSelect])
+  }, [isHydrated, patient, onPatientSelect])
 
   // Scroll reset when opening / advancing patients (mobile preference).
   React.useEffect(() => {
@@ -94,11 +102,27 @@ export const MobileRoundShell = ({ onOpenWorkbench }: MobileRoundShellProps) => 
     setSurface("end")
   }, [])
 
+  if (!isHydrated) {
+    return (
+      <div
+        className="flex h-[100dvh] min-h-screen items-center justify-center bg-background px-6 text-foreground"
+        data-testid="mobile-round-shell"
+        data-round-surface={surface}
+        data-round-ready="false"
+      >
+        <p role="status" className="text-sm font-medium text-muted-foreground" data-testid="round-session-loading">
+          Restoring today&apos;s Round…
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div
       className="flex h-[100dvh] min-h-screen flex-col bg-background text-foreground"
       data-testid="mobile-round-shell"
       data-round-surface={surface}
+      data-round-ready="true"
     >
       {surface === "focus" ? (
         <RoundChrome

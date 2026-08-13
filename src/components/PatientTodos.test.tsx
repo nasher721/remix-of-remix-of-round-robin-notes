@@ -39,6 +39,51 @@ const defaultProps = {
 afterEach(cleanup);
 
 describe("PatientTodos entry", { concurrency: false }, () => {
+  test("keeps todo deletion discoverable on touch-sized screens", () => {
+    render(
+      <PatientTodos
+        {...defaultProps}
+        onAddTodo={async () => undefined}
+        todos={[
+          {
+            id: "todo-incomplete",
+            patientId: patient.id,
+            userId: "user-1",
+            section: null,
+            content: "Call family",
+            completed: false,
+            createdAt: "2026-08-12T00:00:00.000Z",
+            updatedAt: "2026-08-12T00:00:00.000Z",
+          },
+          {
+            id: "todo-complete",
+            patientId: patient.id,
+            userId: "user-1",
+            section: null,
+            content: "Review cultures",
+            completed: true,
+            createdAt: "2026-08-12T00:00:00.000Z",
+            updatedAt: "2026-08-12T00:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    for (const name of ["Delete todo: Call family", "Delete todo: Review cultures"]) {
+      const deleteButton = screen.getByRole("button", { name });
+      assert.ok(deleteButton.classList.contains("opacity-100"));
+      assert.ok(deleteButton.classList.contains("sm:opacity-0"));
+      assert.ok(deleteButton.classList.contains("sm:group-hover:opacity-100"));
+    }
+  });
+
+  test("does not advertise AI in the focus-first empty state", () => {
+    render(<PatientTodos {...defaultProps} onAddTodo={async () => undefined} />);
+
+    assert.ok(screen.getByText("No todos yet. Add one when needed."));
+    assert.equal(screen.queryByText(/generate with AI/i), null);
+  });
+
   test("trims keyboard submissions and clears the field", async () => {
     const submitted: string[] = [];
     render(
@@ -46,7 +91,16 @@ describe("PatientTodos entry", { concurrency: false }, () => {
         {...defaultProps}
         onAddTodo={async (content) => {
           submitted.push(content);
-          return undefined;
+          return {
+            id: 'todo-1',
+            patientId: patient.id,
+            userId: 'user-1',
+            section: null,
+            content,
+            completed: false,
+            createdAt: '2026-08-12T00:00:00.000Z',
+            updatedAt: '2026-08-12T00:00:00.000Z',
+          };
         }}
       />,
     );
@@ -58,6 +112,18 @@ describe("PatientTodos entry", { concurrency: false }, () => {
     await waitFor(() => {
       assert.deepEqual(submitted, ["Verify potassium"]);
       assert.equal((input as HTMLInputElement).value, "");
+    });
+  });
+
+  test("retains the draft when persistence cannot accept the todo", async () => {
+    render(<PatientTodos {...defaultProps} onAddTodo={async () => undefined} />);
+
+    const input = screen.getByRole("textbox", { name: "New todo" });
+    fireEvent.change(input, { target: { value: "Call family" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      assert.equal((input as HTMLInputElement).value, "Call family");
     });
   });
 

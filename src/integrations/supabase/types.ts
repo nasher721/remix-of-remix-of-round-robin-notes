@@ -257,6 +257,7 @@ export type Database = {
         Row: {
           acuity: string | null
           age: number | null
+          admission_date: string | null
           alerts: string[]
           assigned_to: string | null
           attending_physician: string | null
@@ -267,6 +268,8 @@ export type Database = {
           consulting_team: string[]
           created_at: string
           field_timestamps: Json | null
+          date_of_birth: string | null
+          gender: string | null
           id: string
           imaging: string
           interval_events: string
@@ -285,6 +288,7 @@ export type Database = {
         Insert: {
           acuity?: string | null
           age?: number | null
+          admission_date?: string | null
           alerts?: string[]
           assigned_to?: string | null
           attending_physician?: string | null
@@ -295,6 +299,8 @@ export type Database = {
           consulting_team?: string[]
           created_at?: string
           field_timestamps?: Json | null
+          date_of_birth?: string | null
+          gender?: string | null
           id?: string
           imaging?: string
           interval_events?: string
@@ -313,6 +319,7 @@ export type Database = {
         Update: {
           acuity?: string | null
           age?: number | null
+          admission_date?: string | null
           alerts?: string[]
           assigned_to?: string | null
           attending_physician?: string | null
@@ -323,6 +330,8 @@ export type Database = {
           consulting_team?: string[]
           created_at?: string
           field_timestamps?: Json | null
+          date_of_birth?: string | null
+          gender?: string | null
           id?: string
           imaging?: string
           interval_events?: string

@@ -2,14 +2,12 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { PatientMedications } from '@/types/patient';
-import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/hooks/useAuth';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
 
 export const useMedicationFormat = () => {
-  const { getModelForFeature } = useSettings();
   const { user } = useAuth();
   const [isFormatting, setIsFormatting] = useState(false);
 
@@ -39,7 +37,7 @@ export const useMedicationFormat = () => {
 
       const { data, error } = await withCategoryTimeout(
         supabase.functions.invoke('format-medications', {
-          body: { medications: rawText, model: getModelForFeature('medications') },
+          body: { medications: rawText },
         }),
         'aiEdgeFunction',
         'format-medications',
@@ -86,7 +84,7 @@ export const useMedicationFormat = () => {
     } finally {
       setIsFormatting(false);
     }
-  }, [getModelForFeature, user]);
+  }, [user]);
 
   return {
     formatMedications,

@@ -2,7 +2,13 @@ import * as React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Activity, ArrowRight, CheckCircle2, ClipboardList, FileText, LockKeyhole, Mail, Mic, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { CONTACT_EMAIL, CONTACT_EMAIL_IS_PLACEHOLDER } from "@/config/marketing";
+import {
+  CONTACT_EMAIL,
+  CONTACT_EMAIL_IS_CONFIGURED,
+  SHOW_CONTACT_CONFIGURATION_HINT,
+} from "@/config/marketing";
+import { PRIVACY_NOTICE_URL } from "@/config/legal";
+import { recordMarketingEvent } from "@/lib/observability/marketingTelemetry";
 
 interface FeatureHighlightsProps {
   prefersReducedMotion: boolean;
@@ -59,6 +65,7 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
   const { user } = useAuth();
 
   const goApp = () => {
+    recordMarketingEvent("footerWorkspace");
     if (user) {
       navigate("/", { replace: true });
       window.location.reload();
@@ -83,7 +90,7 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
 
           <div className="mt-16 grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
             <div>
-              <p className="text-sm font-semibold text-primary">Functional by default</p>
+              <p className="text-sm font-semibold text-sky-700">Functional by default</p>
               <h2 className="mt-3 max-w-lg text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
                 Everything important stays one click away.
               </h2>
@@ -124,6 +131,7 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
             </p>
             <Link
               to="/security"
+              onClick={() => recordMarketingEvent("securityGuidance")}
               className="mt-6 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Review deployment guidance
@@ -158,6 +166,7 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
           </div>
           <a
             href="#contact"
+            onClick={() => recordMarketingEvent("pricingContact")}
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Talk to us
@@ -169,20 +178,23 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
       <section id="contact" className="scroll-mt-20 bg-white px-4 py-14 sm:px-6 lg:px-8">
         <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
-            <p className="text-sm font-semibold text-primary">Contact</p>
+            <p className="text-sm font-semibold text-sky-700">Contact</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">Questions about fit or rollout?</h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
               Reach out for pilots, training, security reviews, or clinical workflow questions.
             </p>
           </div>
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <Mail className="h-4 w-4" aria-hidden="true" />
-            {CONTACT_EMAIL}
-          </a>
-          {CONTACT_EMAIL_IS_PLACEHOLDER && (
+          {CONTACT_EMAIL_IS_CONFIGURED && (
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              onClick={() => recordMarketingEvent("contactEmail")}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Mail className="h-4 w-4" aria-hidden="true" />
+              {CONTACT_EMAIL}
+            </a>
+          )}
+          {SHOW_CONTACT_CONFIGURATION_HINT && (
             <p className="text-sm text-slate-500 lg:col-span-2">
               Set <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">VITE_CONTACT_EMAIL</code> in production.
             </p>
@@ -218,9 +230,12 @@ const FeatureHighlights: React.FC<FeatureHighlightsProps> = () => {
             © {new Date().getFullYear()} Rolling Rounds. All rights reserved.
           </p>
           <div className="flex gap-4">
-            <Link to="/privacy" className="font-medium text-slate-700 hover:text-slate-950 hover:underline">
+            <a
+              href={PRIVACY_NOTICE_URL || "/privacy"}
+              className="font-medium text-slate-700 hover:text-slate-950 hover:underline"
+            >
               Privacy
-            </Link>
+            </a>
             <Link to="/security" className="font-medium text-slate-700 hover:text-slate-950 hover:underline">
               Security
             </Link>

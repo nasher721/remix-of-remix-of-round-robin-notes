@@ -291,6 +291,40 @@ test('coalescing keeps one durable mutation and cancels create-then-delete', asy
   assert.deepEqual(await indexedDBQueue.getQueue(), []);
 });
 
+test('coalescing repeated updates preserves every field and the oldest conflict snapshot', async () => {
+  await setQueueOwner('user-a');
+  await indexedDBQueue.clear();
+  const firstId = await indexedDBQueue.enqueue({
+    type: 'todo',
+    operation: 'update',
+    table: 'patient_todos',
+    entityId: 'todo-1',
+    payload: { patient_id: 'patient-1', completed: true },
+    conflictData: { updated_at: '2026-08-13T01:00:00.000Z' },
+  });
+  const secondId = await indexedDBQueue.enqueue({
+    type: 'todo',
+    operation: 'update',
+    table: 'patient_todos',
+    entityId: 'todo-1',
+    payload: { patient_id: 'patient-1', content: 'Updated task' },
+    conflictData: { updated_at: '2026-08-13T02:00:00.000Z' },
+  });
+
+  const queued = await indexedDBQueue.getQueue();
+  assert.equal(secondId, firstId);
+  assert.equal(queued.length, 1);
+  assert.deepEqual(queued[0]?.payload, {
+    patient_id: 'patient-1',
+    completed: true,
+    content: 'Updated task',
+  });
+  assert.deepEqual(queued[0]?.conflictData, {
+    updated_at: '2026-08-13T01:00:00.000Z',
+  });
+  await indexedDBQueue.clear();
+});
+
 test('retry exhaustion retains a failed mutation outside the pending batch', async () => {
   await setQueueOwner('user-a');
   await indexedDBQueue.clear();

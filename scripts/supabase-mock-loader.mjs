@@ -4,14 +4,6 @@
  * Insert/update calls are captured on globalThis.__supabaseInsertCapture / __supabaseUpdateCapture.
  */
 const MOCK_SPECIFIER = "file:///supabase-client-mock.js";
-const LOGGER_MOCK_SPECIFIER = "file:///observability-logger-mock.js";
-const LOGGER_MOCK_SOURCE = `
-export function logError() {}
-export function logWarn() {}
-export function logInfo() {}
-export function logMetric() {}
-export function generateRequestId() { return "test-request-id"; }
-`;
 const ASSET_PNG_MOCK_SOURCE = "export default '/test.png';";
 const PATIENT_FIXTURE = {
   id: "test-patient-id",
@@ -253,13 +245,6 @@ export async function resolve(specifier, context, defaultResolve) {
   if (norm.endsWith(".png") || (norm.includes("assets/") && norm.includes(".png"))) {
     return { url: "file:///asset-png-mock.js", shortCircuit: true };
   }
-  if (norm === "@/lib/observability/logger" || (norm.includes("observability/logger") && !norm.includes("telemetry"))) {
-    return { url: LOGGER_MOCK_SPECIFIER, shortCircuit: true };
-  }
-  const parent = (context.parentURL || "").replace(/\\/g, "/");
-  if ((specifier === "./logger" || specifier === "../logger") && parent.includes("observability/telemetry")) {
-    return { url: LOGGER_MOCK_SPECIFIER, shortCircuit: true };
-  }
   return defaultResolve(specifier, context);
 }
 
@@ -269,17 +254,9 @@ function isClientModuleUrl(url) {
   return p.includes("integrations/supabase/client");
 }
 
-function isLoggerModuleUrl(url) {
-  const p = url.replace(/^file:\/\//, "").replace(/\\/g, "/");
-  return (p.includes("observability/logger") && (p.endsWith("logger.ts") || p.endsWith("logger.tsx"))) || p.endsWith("observability-logger-mock.js");
-}
-
 export async function load(url, context, defaultLoad) {
   if (url === MOCK_SPECIFIER || isClientModuleUrl(url)) {
     return { format: "module", source: MOCK_SOURCE, shortCircuit: true };
-  }
-  if (url === LOGGER_MOCK_SPECIFIER || (isLoggerModuleUrl(url) && url !== LOGGER_MOCK_SPECIFIER)) {
-    return { format: "module", source: LOGGER_MOCK_SOURCE, shortCircuit: true };
   }
   if (url === "file:///asset-png-mock.js" || (url && url.replace(/^file:\/\//, "").replace(/\\/g, "/").endsWith(".png"))) {
     return { format: "module", source: ASSET_PNG_MOCK_SOURCE, shortCircuit: true };

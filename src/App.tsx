@@ -6,32 +6,30 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createOptimizedQueryClient } from "@/lib/cache/queryClientConfig";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { IBCCProvider } from "@/contexts/IBCCContext";
-import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
-import { SettingsProvider } from "@/contexts/SettingsContext";
-import { TeamProvider } from "@/contexts/TeamContext";
-import { DashboardLayoutProvider } from "@/context/DashboardLayoutContext";
-import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Privacy from "./pages/Privacy";
 import Security from "./pages/Security";
 import FHIRCallback from "./pages/FHIRCallback";
-import PrintExportTest from "./pages/PrintExportTest";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary";
 import { SkipToContent } from "@/components/SkipToContent";
-import { CurrentPatientsProvider } from "@/contexts/CurrentPatientsContext";
-import { preloadClinicalData } from "@/lib/lazyData";
 import { NavigationBreadcrumbTracker } from "@/components/observability/NavigationBreadcrumbTracker";
 import { LazyPanelErrorBoundary } from "@/components/LazyPanelErrorBoundary";
 import { AnnouncerProvider, useAnnouncerContext, LiveRegion } from "@/hooks/useAnnouncer";
 import { MotionConfig } from "framer-motion";
-import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
+import { ServiceWorkerUpdatePrompt } from "@/components/ServiceWorkerUpdatePrompt";
+import { RouteMetadata } from "@/components/RouteMetadata";
 
-// Auth, FHIR callback, and print test are static imports so route modules always load
-// with the app graph. Lazy route chunks can fail to resolve (e.g. stale SW caches in prod,
-// or headless automation / some embedded browsers), leaving Suspense stuck on the fallback.
+// Auth and the FHIR callback stay in the app graph so recovery routes cannot
+// be stranded behind a stale lazy chunk. The print harness is development-only
+// and must never pull the export toolchain into the production entry graph.
+
+const Index = React.lazy(() => import("./pages/Index"))
+const Landing = React.lazy(() => import("./pages/Landing"))
+const AuthenticatedAppProviders = React.lazy(() =>
+  import("@/components/AuthenticatedAppProviders"),
+)
 
 /** Dev-only: Agentation visual feedback toolbar (not bundled in production). */
 const DevAgentationOverlay = import.meta.env.DEV
@@ -42,34 +40,46 @@ const DevAgentationOverlay = import.meta.env.DEV
     )
   : null
 
-const UnifiedAIChatbot = React.lazy(() =>
-  import("@/components/UnifiedAIChatbot").then((module) => ({ default: module.UnifiedAIChatbot })),
-)
-
-// Preload clinical data in background after initial render
-preloadClinicalData();
+const DevPrintExportTest = import.meta.env.DEV
+  ? React.lazy(() => import("./pages/PrintExportTest"))
+  : null
 
 // Use optimized QueryClient (cache metrics, CACHE_CONFIG, structural sharing)
 const queryClient = createOptimizedQueryClient();
 const clearQueryClientAtAuthBoundary = () => queryClient.clear();
 
-function AppRoutesShell(): React.ReactElement {
+function AppRoutesShell({ authenticated }: { authenticated: boolean }): React.ReactElement {
   const location = useLocation();
   return (
     <LazyPanelErrorBoundary title="Failed to load page">
+      <RouteMetadata authenticated={authenticated} />
       {/*
         Do not wrap <Routes> in AnimatePresence: the animated child must be the
         transitioning page, not the Router. Route-level transitions live in
         page-transition / layout components instead.
       */}
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Index />} />
+        <Route
+          path="/"
+          element={(
+            <React.Suspense fallback={<AuthLoadingScreen />}>
+              {authenticated ? <Index /> : <Landing />}
+            </React.Suspense>
+          )}
+        />
         <Route path="/auth" element={<Auth />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/security" element={<Security />} />
         <Route path="/fhir/callback" element={<FHIRCallback />} />
-        {import.meta.env.DEV && (
-          <Route path="/__print-export-test" element={<PrintExportTest />} />
+        {DevPrintExportTest && (
+          <Route
+            path="/__print-export-test"
+            element={(
+              <React.Suspense fallback={null}>
+                <DevPrintExportTest />
+              </React.Suspense>
+            )}
+          />
         )}
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -82,9 +92,9 @@ function AuthLoadingScreen(): React.ReactElement {
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-5">
         <img
-          src={rollingRoundsLogo}
+          src="/icons/icon-192.png"
           alt="Rolling Rounds"
-          className="h-11 w-auto opacity-90"
+          className="h-11 w-11 rounded-xl opacity-90"
         />
         <div className="loading" aria-hidden="true">
           <svg viewBox="0 0 48 48" width="28" height="28">
@@ -101,7 +111,6 @@ function AuthLoadingScreen(): React.ReactElement {
 }
 
 function AppContent(): React.ReactElement {
-  const { announce } = useAnnouncerContext();
   const { user, loading: authLoading } = useAuth();
 
   if (authLoading) {
@@ -112,20 +121,21 @@ function AppContent(): React.ReactElement {
     <>
       <LiveRegionWrapper />
       <NavigationBreadcrumbTracker />
-      <CurrentPatientsProvider>
-        <SkipToContent />
-        {user ? (
-          <React.Suspense fallback={null}>
-            <UnifiedAIChatbot />
-          </React.Suspense>
-        ) : null}
-        {user && DevAgentationOverlay ? (
-          <React.Suspense fallback={null}>
-            <DevAgentationOverlay />
-          </React.Suspense>
-        ) : null}
-        <AppRoutesShell />
-      </CurrentPatientsProvider>
+      <SkipToContent />
+      {user ? (
+        <React.Suspense fallback={<AuthLoadingScreen />}>
+          <AuthenticatedAppProviders>
+            {DevAgentationOverlay ? (
+              <React.Suspense fallback={null}>
+                <DevAgentationOverlay />
+              </React.Suspense>
+            ) : null}
+            <AppRoutesShell authenticated />
+          </AuthenticatedAppProviders>
+        </React.Suspense>
+      ) : (
+        <AppRoutesShell authenticated={false} />
+      )}
     </>
   );
 }
@@ -150,27 +160,18 @@ function App(): React.ReactElement {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
         <AuthProvider onAuthBoundary={clearQueryClientAtAuthBoundary}>
-          <TeamProvider>
-            <SettingsProvider>
-              <DashboardLayoutProvider>
-              <IBCCProvider>
-                <ClinicalGuidelinesProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Sonner position="top-right" />
-                  <AnnouncerProvider>
-                    <MotionConfig reducedMotion="always">
-                      <BrowserRouter>
-                        <AppContent />
-                      </BrowserRouter>
-                    </MotionConfig>
-                  </AnnouncerProvider>
-                </TooltipProvider>
-              </ClinicalGuidelinesProvider>
-            </IBCCProvider>
-            </DashboardLayoutProvider>
-            </SettingsProvider>
-          </TeamProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner position="bottom-right" />
+            <ServiceWorkerUpdatePrompt />
+            <AnnouncerProvider>
+              <MotionConfig reducedMotion="always">
+                <BrowserRouter>
+                  <AppContent />
+                </BrowserRouter>
+              </MotionConfig>
+            </AnnouncerProvider>
+          </TooltipProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

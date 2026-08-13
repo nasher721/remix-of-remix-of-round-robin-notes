@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { CONTACT_EMAIL } from "@/config/marketing";
+import { CONTACT_EMAIL, CONTACT_EMAIL_IS_CONFIGURED } from "@/config/marketing";
 
 const Security: React.FC = () => {
   return (
@@ -15,7 +15,11 @@ const Security: React.FC = () => {
           </Link>
         </div>
       </header>
-      <main className="max-w-3xl mx-auto px-6 py-12 space-y-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="max-w-3xl mx-auto px-6 py-12 space-y-8"
+      >
         <div>
           <h1 className="text-3xl font-extrabold font-heading mb-2">Security deployment guidance</h1>
           <p className="text-muted-foreground text-sm leading-[1.5]">
@@ -58,14 +62,18 @@ const Security: React.FC = () => {
           <p>
             For security questions, vulnerability reports, or compliance inquiries:
           </p>
-          <p>
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="text-primary font-medium hover:underline"
-            >
-              {CONTACT_EMAIL}
-            </a>
-          </p>
+          {CONTACT_EMAIL_IS_CONFIGURED ? (
+            <p>
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-primary font-medium hover:underline"
+              >
+                {CONTACT_EMAIL}
+              </a>
+            </p>
+          ) : (
+            <p>The deployment operator has not configured a public contact address.</p>
+          )}
           <p className="text-sm italic">The deployment operator should publish its own security contact and response process before production.</p>
         </section>
       </main>

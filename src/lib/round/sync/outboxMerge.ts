@@ -193,6 +193,16 @@ export const countFailedOutbox = (
   ).length;
 };
 
+export const countSoftFailedOutbox = (
+  queue: readonly RoundOutboxEntry[],
+  ownerId: string | null,
+): number => {
+  if (!ownerId) return 0;
+  return queue.filter(
+    (entry) => entry.ownerId === ownerId && entry.status === "soft_fail",
+  ).length;
+};
+
 export const countUnresolvedOutbox = (
   queue: readonly RoundOutboxEntry[],
   ownerId: string | null,

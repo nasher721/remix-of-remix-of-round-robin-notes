@@ -5,10 +5,7 @@ import type { ColumnConfig, ColumnWidthsType, PatientTodosMap } from './types';
 import { systemLabels, systemKeys, columnCombinations } from './constants';
 import { escapeHtml, stripHtml, formatTodosForDisplay, formatMedicationsText } from './utils';
 import { htmlToRTF, escapeRTF as escapeRTFNew, initRTFColorTable, getRTFColorTable, parseColor } from '@/lib/print/htmlFormatter';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import html2pdf from 'html2pdf.js';
+import type jsPDF from 'jspdf';
 import { sanitizeHtml } from '@/lib/sanitize';
 import {
   PATIENT_IMAGE_KEY_ATTRIBUTE,
@@ -17,6 +14,8 @@ import {
   isOwnedPatientImageObjectKey,
   resolveOwnedPatientImageSignedUrl,
 } from '@/lib/patientImages';
+
+type AutoTable = typeof import('jspdf-autotable').default;
 
 export function generateExportFilename(
   format: 'pdf' | 'xlsx' | 'doc' | 'rtf' | 'txt' | 'md' | 'json',
@@ -540,6 +539,7 @@ const applyPdfHeaderAndFooter = (
 
 const renderPdfTableLayout = (
   doc: jsPDF,
+  autoTable: AutoTable,
   ctx: ExportContext,
   renderColumns: PdfRenderableColumn[],
   metrics: PdfLayoutMetrics,
@@ -677,6 +677,7 @@ const renderPdfTableLayout = (
 
 const renderPdfMultiColumnLayout = (
   doc: jsPDF,
+  autoTable: AutoTable,
   ctx: ExportContext,
   renderColumns: PdfRenderableColumn[],
   layoutColumns: PdfColumnLayout,
@@ -833,6 +834,7 @@ const renderPdfMultiColumnLayout = (
 };
 
 const exportWithHtml2PdfFallback = async (ctx: ExportContext, element: HTMLElement, fileName: string) => {
+  const { default: html2pdf } = await import('html2pdf.js');
   await html2pdf()
     .set({
       filename: fileName,
@@ -882,7 +884,8 @@ const waitForPrintablePatientImages = async (element: HTMLElement): Promise<void
 export const containsPrintablePatientImages = (element?: HTMLElement | null): boolean =>
   Boolean(element?.querySelector('img[data-patient-image-key][src]'));
 
-export const handleExportExcel = (ctx: ExportContext) => {
+export const handleExportExcel = async (ctx: ExportContext) => {
+  const XLSX = await import('xlsx');
   const { patients, isColumnEnabled, showTodosColumn, getPatientTodos, patientNotes } = ctx;
 
   const data = patients.map(patient => {
@@ -963,7 +966,11 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
   }
 
   try {
-    const doc = new jsPDF({
+    const [{ default: JsPdf }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
+    const doc = new JsPdf({
       orientation: ctx.printOrientation,
       unit: 'mm',
       format: 'a4',
@@ -981,9 +988,9 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
     doc.setFont(pdfFontFamily, 'normal');
 
     if (shouldUseMultiColumnLayout) {
-      renderPdfMultiColumnLayout(doc, ctx, renderColumns, layoutColumns, metrics, typography, pdfFontFamily);
+      renderPdfMultiColumnLayout(doc, autoTable, ctx, renderColumns, layoutColumns, metrics, typography, pdfFontFamily);
     } else {
-      renderPdfTableLayout(doc, ctx, renderColumns, metrics, typography, pdfFontFamily);
+      renderPdfTableLayout(doc, autoTable, ctx, renderColumns, metrics, typography, pdfFontFamily);
     }
 
     applyPdfHeaderAndFooter(doc, ctx, metrics, typography, generatedAt, pdfFontFamily);

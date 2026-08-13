@@ -23,6 +23,9 @@ test("patient insert and read-back round trip preserves key fields", () => {
     intervalEvents: "Overnight events",
     imaging: "CT head",
     labs: "CBC, BMP",
+    dateOfBirth: "1980-01-02",
+    gender: "female",
+    admissionDate: "2026-08-01T00:00:00.000Z",
   });
 
   // Simulate what a row from the `patients` table would look like when read back.
@@ -35,6 +38,9 @@ test("patient insert and read-back round trip preserves key fields", () => {
     interval_events: insert.interval_events ?? "",
     imaging: insert.imaging ?? "",
     labs: insert.labs ?? "",
+    date_of_birth: insert.date_of_birth ?? null,
+    gender: insert.gender ?? null,
+    admission_date: insert.admission_date ?? null,
     systems: insert.systems ?? null,
     medications: insert.medications ?? null,
     field_timestamps: null,
@@ -53,6 +59,9 @@ test("patient insert and read-back round trip preserves key fields", () => {
   assert.equal(patient.intervalEvents, "Overnight events");
   assert.equal(patient.imaging, "CT head");
   assert.equal(patient.labs, "CBC, BMP");
+  assert.equal(patient.dateOfBirth, "1980-01-02");
+  assert.equal(patient.gender, "female");
+  assert.equal(patient.admissionDate, "2026-08-01T00:00:00.000Z");
   assert.deepEqual(patient.systems, defaultSystemsValue);
   assert.deepEqual(patient.medications, defaultMedicationsValue);
   assert.equal(patient.collapsed, false);

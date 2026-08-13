@@ -4,10 +4,26 @@ import {
   buildPatientInsertPayload,
   defaultMedicationsValue,
   defaultSystemsValue,
+  getPatientRosterSelectColumns,
   getNextPatientCounter,
+  markPatientRosterProjectionLegacy,
   mapPatientRecord,
+  PATIENT_SELECT_COLUMNS,
+  PATIENT_SELECT_COLUMNS_LEGACY,
+  resetPatientRosterProjectionForTesting,
   shouldTrackTimestamp,
 } from "@/services/patientService";
+
+test("uses one expanded patient projection until a missing-column response marks the session legacy", () => {
+  resetPatientRosterProjectionForTesting();
+  assert.equal(getPatientRosterSelectColumns(), PATIENT_SELECT_COLUMNS);
+
+  markPatientRosterProjectionLegacy();
+  assert.equal(getPatientRosterSelectColumns(), PATIENT_SELECT_COLUMNS_LEGACY);
+
+  resetPatientRosterProjectionForTesting();
+  assert.equal(getPatientRosterSelectColumns(), PATIENT_SELECT_COLUMNS);
+});
 
 test("maps patient records with safe defaults", () => {
   const mapped = mapPatientRecord({
@@ -56,6 +72,9 @@ test("builds patient insert payload with explicit systems and medications", () =
     name: "Alex",
     bed: "C1",
     clinicalSummary: "Custom summary",
+    dateOfBirth: "1980-01-02",
+    gender: "female",
+    admissionDate: "2026-08-01T00:00:00.000Z",
     systems: {
       ...defaultSystemsValue,
       neuro: "Awake",
@@ -71,6 +90,9 @@ test("builds patient insert payload with explicit systems and medications", () =
   assert.equal(payload.user_id, "user-2");
   assert.equal(payload.patient_number, 4);
   assert.equal(payload.clinical_summary, "Custom summary");
+  assert.equal(payload.date_of_birth, "1980-01-02");
+  assert.equal(payload.gender, "female");
+  assert.equal(payload.admission_date, "2026-08-01T00:00:00.000Z");
   assert.deepEqual(payload.systems, {
     ...defaultSystemsValue,
     neuro: "Awake",

@@ -6,6 +6,7 @@ import { useRoundSession } from "@/contexts/RoundSessionContext";
 import { safeLocalStorage, safeSessionStorage } from "@/utils/safeStorage";
 import { describeRoundSync } from "@/lib/round/sync/syncPresentation";
 import { toast } from "sonner";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 export interface RoundChromeProps {
   onOpenRoster: () => void;
@@ -61,9 +62,11 @@ export const RoundChrome = ({
     conflicts,
     pendingCount,
     failedCount,
+    softFailedCount,
     lastSuccessfulSyncAt,
     retryResult,
     canCompleteRound,
+    completionSafety,
     retryRoundSync,
     clearWalkStatus,
   } = useRoundSession();
@@ -91,11 +94,21 @@ export const RoundChrome = ({
     round.syncStatus,
     pendingCount,
     failedCount,
+    softFailedCount,
     lastSuccessfulSyncAt,
   );
+  const clinicalCompletionLabel = completionSafety.mutationFailedCount > 0
+    ? `Clinical sync failed · ${completionSafety.mutationFailedCount}`
+    : completionSafety.mutationConflictCount > 0
+      ? `Clinical conflict · ${completionSafety.mutationConflictCount}`
+      : completionSafety.mutationUnresolvedCount > 0
+        ? `Saved locally · ${completionSafety.mutationUnresolvedCount} clinical pending`
+        : completionSafety.patientSaveBlockerCount > 0
+          ? "Saving patient changes…"
+          : syncPresentation.label;
   const syncLabel = isStorageDegraded
-    ? `${syncPresentation.label} · storage limited`
-    : syncPresentation.label;
+    ? `${clinicalCompletionLabel} · storage limited`
+    : clinicalCompletionLabel;
   const isEmpty = position.total === 0;
   const atStart = isEmpty || position.current <= 1;
   const atEnd = isEmpty || position.current >= position.total;
@@ -164,11 +177,11 @@ export const RoundChrome = ({
   };
 
   const iconBtnClass = touchFriendly
-    ? "h-11 w-11 min-h-11 min-w-11 shrink-0 text-foreground/80 hover:text-foreground"
+    ? "h-[44px] w-[44px] shrink-0 text-foreground/80 hover:text-foreground"
     : "h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground";
 
   const toolsBtnClass = touchFriendly
-    ? "h-11 min-h-11 gap-1.5 px-3 text-foreground/80 hover:text-foreground"
+    ? "h-[44px] gap-1.5 px-3 text-foreground/80 hover:text-foreground"
     : "h-9 gap-1.5 px-2 text-muted-foreground hover:text-foreground";
 
   const actionBar = (
@@ -194,7 +207,7 @@ export const RoundChrome = ({
         size={touchFriendly ? "default" : "icon"}
         className={cn(
           touchFriendly
-            ? "h-11 min-h-11 flex-1 text-foreground/85 hover:text-foreground"
+            ? "h-[44px] flex-1 text-foreground/85 hover:text-foreground"
             : "h-9 w-9 text-muted-foreground hover:text-foreground",
           "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         )}
@@ -215,7 +228,7 @@ export const RoundChrome = ({
         size="sm"
         className={cn(
           touchFriendly
-            ? "h-11 min-h-11 flex-1 gap-1.5 px-3 border-border/50 bg-card text-foreground"
+            ? "h-[44px] flex-1 gap-1.5 px-3 border-border/50 bg-card text-foreground"
             : "h-9 gap-1.5 px-3",
           isCurrentDone && "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-500/20",
           "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
@@ -238,7 +251,7 @@ export const RoundChrome = ({
         variant="default"
         size="sm"
         className={cn(
-          touchFriendly ? "h-11 min-h-11 flex-1 gap-1.5 px-3 font-semibold" : "h-9 gap-1.5 px-3 font-semibold",
+          touchFriendly ? "h-[44px] flex-1 gap-1.5 px-3 font-semibold" : "h-9 gap-1.5 px-3 font-semibold",
           "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100",
         )}
         onClick={handleNext}
@@ -329,10 +342,11 @@ export const RoundChrome = ({
             {retryResult}
           </span>
         ) : null}
+        <OfflineIndicator touchFriendly={touchFriendly} />
         {round.syncStatus === "failed" && onExportRecovery ? (
           <button
             type="button"
-            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
+            className="inline-flex min-h-[44px] shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium text-amber-700 hover:bg-amber-500/10 dark:text-amber-300"
             onClick={onExportRecovery}
             aria-label="Download local recovery copy containing PHI"
             title="Download local recovery copy (contains PHI)"
@@ -367,9 +381,8 @@ export const RoundChrome = ({
             aria-label="End Round"
             title="End Round"
             data-testid="round-end-entry"
-            disabled={isCompletionBlocked}
             aria-describedby="round-done-help"
-            className={cn(iconBtnClass, "disabled:border disabled:border-dashed disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100")}
+            className={iconBtnClass}
           >
             <Printer className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
           </Button>

@@ -136,12 +136,29 @@ export function AuthProvider({ children, onAuthBoundary }: AuthProviderProps): R
       return;
     }
 
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    let signOutError: Error | null = null;
+    try {
+      const { error } = await supabase.auth.signOut();
+      signOutError = error as Error | null;
+    } catch (error) {
+      signOutError = error instanceof Error ? error : new Error(String(error));
+    }
+
+    if (signOutError) {
+      // A failed network revoke must not leave an unattended clinical workspace
+      // or its refresh token open locally. Best-effort local scope avoids a
+      // second network dependency; applySession performs the privacy cleanup.
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch {
+        // The authoritative in-app boundary below still clears all local PHI.
+      }
+    }
 
     // Supabase normally emits SIGNED_OUT. Explicitly await the same transition
     // so callers navigate only after local state is actually isolated.
     await applySession(null);
+    if (signOutError) throw signOutError;
   };
 
   return (

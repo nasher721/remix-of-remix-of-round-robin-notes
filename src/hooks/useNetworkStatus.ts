@@ -2,6 +2,19 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useOnlineStatus } from "./useOnlineStatus";
 
+const OFFLINE_DESCRIPTION =
+  "Only patient changes showing Offline queued or Queued are stored on this device. Online-only tools may be unavailable.";
+const ONLINE_DESCRIPTION =
+  "Connection restored. Queued patient changes will attempt to sync automatically; confirm Queued clears or Saved appears before leaving this device.";
+
+function showOfflineToast() {
+  toast.warning("You are offline", {
+    description: OFFLINE_DESCRIPTION,
+    duration: Infinity,
+    id: "network-status",
+  });
+}
+
 /**
  * Monitors network connectivity and shows toast notifications
  * when the user goes offline or comes back online.
@@ -19,26 +32,18 @@ export function useNetworkStatus() {
       // If already offline on mount, show the notification
       if (!isOnline) {
         hasBeenOffline.current = true;
-        toast.warning("You are offline", {
-          description: "New changes are not queued while offline and may fail to save. Reconnect before editing.",
-          duration: Infinity,
-          id: "network-status",
-        });
+        showOfflineToast();
       }
       return;
     }
 
     if (!isOnline) {
       hasBeenOffline.current = true;
-      toast.warning("You are offline", {
-        description: "New changes are not queued while offline and may fail to save. Reconnect before editing.",
-        duration: Infinity,
-        id: "network-status",
-      });
+      showOfflineToast();
     } else if (hasBeenOffline.current) {
       hasBeenOffline.current = false;
       toast.success("Back online", {
-        description: "Your connection has been restored.",
+        description: ONLINE_DESCRIPTION,
         duration: 4000,
         id: "network-status",
       });

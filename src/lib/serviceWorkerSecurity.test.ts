@@ -73,6 +73,15 @@ const isHandledByServiceWorker = (listener: ServiceWorkerListener, request: Requ
 };
 
 describe("service worker cache policy", () => {
+  it("surfaces production worker updates through the application shell", () => {
+    const main = readFileSync("src/main.tsx", "utf8");
+    const app = readFileSync("src/App.tsx", "utf8");
+
+    assert.match(main, /markServiceWorkerUpdateReady\(\)/);
+    assert.doesNotMatch(main, /New content available, refresh to update/);
+    assert.match(app, /<ServiceWorkerUpdatePrompt \/>/);
+  });
+
   it("deletes cache generations that may contain sensitive responses", async () => {
     const { deletedCaches, listeners } = loadServiceWorker([
       "api-v1.0.3",

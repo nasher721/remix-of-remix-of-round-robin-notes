@@ -19,14 +19,14 @@ export function DesktopAIModelSettingsDialog() {
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" className="gap-1.5 h-8 text-xs text-muted-foreground hover:text-foreground">
           <Sparkles className="h-3.5 w-3.5" />
-          AI Models
+          Clinical AI
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>AI Models</DialogTitle>
+          <DialogTitle>Clinical AI</DialogTitle>
           <DialogDescription>
-            Choose a default model and manage provider credentials for desktop.
+            Review how your organization manages clinical AI processing.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

@@ -11,7 +11,6 @@ import {
 import { Card } from "@/components/ui/card";
 import { FileText, FileUp, Loader2, FileType } from "lucide-react";
 import { toast } from "sonner";
-import mammoth from "mammoth";
 import {
   validateDocumentImportFile,
   validateDocxArchive,
@@ -57,6 +56,7 @@ export const DocumentImport = ({ onImport, disabled }: DocumentImportProps) => {
           toast.error(archiveValidationError);
           return;
         }
+        const { default: mammoth } = await import("mammoth");
         const result = await mammoth.convertToHtml({ arrayBuffer });
         importedContent = sanitizeHtml(result.value);
       } else {

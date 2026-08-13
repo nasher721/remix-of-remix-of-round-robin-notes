@@ -13,20 +13,56 @@ import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardTodosProvider } from "@/contexts/DashboardTodosContext";
 import { useSetActivePatientId, useSetCurrentPatients } from "@/contexts/CurrentPatientsContext";
-import { DesktopDashboard, MobileDashboard } from "@/components/dashboard";
-import { DesktopRoundShell, MobileRoundShell } from "@/components/round";
 import { RoundSessionProvider } from "@/contexts/RoundSessionContext";
 import { isRoundRunnerEnabled } from "@/lib/round/isRoundRunnerEnabled";
 import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
 import type { MobileTab } from "@/components/layout";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import type { Patient } from "@/types/patient";
-import Landing from "./Landing";
 import { EdgeHealthProvider } from "@/contexts/EdgeHealthContext";
 import { BackendStatusBanner } from "@/components/BackendStatusBanner";
 import { NewPatientSheet, type NewPatientSubmitPayload } from "@/components/dashboard/NewPatientSheet";
 import { syncEngine } from "@/lib/offline/syncEngine";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
+import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
+
+const DesktopDashboard = React.lazy(() =>
+  import("@/components/dashboard/DesktopDashboard").then((module) => ({
+    default: module.DesktopDashboard,
+  })),
+);
+const MobileDashboard = React.lazy(() =>
+  import("@/components/dashboard/MobileDashboard").then((module) => ({
+    default: module.MobileDashboard,
+  })),
+);
+const DesktopRoundShell = React.lazy(() =>
+  import("@/components/round/DesktopRoundShell").then((module) => ({
+    default: module.DesktopRoundShell,
+  })),
+);
+const MobileRoundShell = React.lazy(() =>
+  import("@/components/round/MobileRoundShell").then((module) => ({
+    default: module.MobileRoundShell,
+  })),
+);
+
+function WorkspaceShellLoading(): React.ReactElement {
+  return (
+    <div
+      className="min-h-screen bg-background p-4 md:p-6"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-5 h-11 w-full rounded-xl border border-border/15 bg-card animate-pulse" />
+        <PatientListSkeleton count={3} />
+        <p className="sr-only">Loading workspace. Preparing your rounds.</p>
+      </div>
+    </div>
+  );
+}
 
 // Inner component that uses all contexts
 function IndexContent(): React.ReactElement | null {
@@ -296,7 +332,7 @@ function IndexContent(): React.ReactElement | null {
   }
 
   if (!user) {
-    return <Landing />;
+    return null;
   }
 
   const dashboard = isMobile ? (
@@ -305,6 +341,7 @@ function IndexContent(): React.ReactElement | null {
         <MobileShellGate
           userId={user.id}
           patientIds={patientIds}
+          patientSaveStates={patientSaveStates}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
@@ -314,6 +351,7 @@ function IndexContent(): React.ReactElement | null {
         <DesktopShellGate
           userId={user.id}
           patientIds={patientIds}
+          patientSaveStates={patientSaveStates}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
@@ -327,7 +365,9 @@ function IndexContent(): React.ReactElement | null {
         onOpenChange={setNewPatientSheetOpen}
         onSubmit={handleNewPatientSubmit}
       />
-      {dashboard}
+      <React.Suspense fallback={<WorkspaceShellLoading />}>
+        {dashboard}
+      </React.Suspense>
     </EdgeHealthProvider>
   );
 }
@@ -349,9 +389,11 @@ function Index(): React.ReactElement {
 function DesktopShellGate({
   userId,
   patientIds,
+  patientSaveStates,
 }: {
   userId: string;
   patientIds: readonly string[];
+  patientSaveStates: Readonly<Record<string, PatientSaveState>>;
 }): React.ReactElement {
   const roundRunnerOn = isRoundRunnerEnabled();
   const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
@@ -369,7 +411,11 @@ function DesktopShellGate({
   }
 
   return (
-    <RoundSessionProvider userId={userId} patientIds={patientIds}>
+    <RoundSessionProvider
+      userId={userId}
+      patientIds={patientIds}
+      patientSaveStates={patientSaveStates}
+    >
       {useClassicWorkbench ? (
         <div className="relative" data-testid="classic-desktop-shell">
           <div className="sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-border/30 bg-background/95 px-3 py-1.5 text-xs backdrop-blur">
@@ -402,9 +448,11 @@ function DesktopShellGate({
 function MobileShellGate({
   userId,
   patientIds,
+  patientSaveStates,
 }: {
   userId: string;
   patientIds: readonly string[];
+  patientSaveStates: Readonly<Record<string, PatientSaveState>>;
 }): React.ReactElement {
   const roundRunnerOn = isRoundRunnerEnabled();
   const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
@@ -422,7 +470,11 @@ function MobileShellGate({
   }
 
   return (
-    <RoundSessionProvider userId={userId} patientIds={patientIds}>
+    <RoundSessionProvider
+      userId={userId}
+      patientIds={patientIds}
+      patientSaveStates={patientSaveStates}
+    >
       {useClassicWorkbench ? (
         <div className="relative" data-testid="classic-mobile-shell">
           <div className="sticky top-0 z-50 flex min-h-11 items-center justify-between gap-2 border-b border-border/30 bg-background/95 px-3 py-2 text-sm backdrop-blur safe-area-top">

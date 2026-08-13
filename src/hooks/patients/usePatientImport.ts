@@ -86,6 +86,14 @@ export function usePatientImport({
         labs?: string;
         systems?: PatientSystems;
         medications?: PatientMedications;
+        age?: number;
+        dateOfBirth?: string;
+        gender?: Patient["gender"];
+        admissionDate?: string;
+        serviceLine?: string;
+        attendingPhysician?: string;
+        codeStatus?: Patient["codeStatus"];
+        alerts?: string[];
     }>) => {
         if (!user) return;
         const requestOwnerId = user.id;
@@ -183,6 +191,14 @@ export function usePatientImport({
                         labs: patientToImport.labs || "",
                         systems,
                         medications,
+                        age: patientToImport.age,
+                        dateOfBirth: patientToImport.dateOfBirth,
+                        gender: patientToImport.gender,
+                        admissionDate: patientToImport.admissionDate,
+                        serviceLine: patientToImport.serviceLine,
+                        attendingPhysician: patientToImport.attendingPhysician,
+                        codeStatus: patientToImport.codeStatus,
+                        alerts: patientToImport.alerts,
                     }),
                 };
             });
@@ -295,6 +311,10 @@ export function usePatientImport({
                     labs: patientData.labs || "",
                     systems,
                     medications,
+                    age: patientData.age,
+                    dateOfBirth: patientData.dateOfBirth,
+                    gender: patientData.gender,
+                    admissionDate: patientData.admissionDate,
                     serviceLine: patientData.serviceLine,
                     attendingPhysician: patientData.attendingPhysician,
                     consultingTeam: patientData.consultingTeam,
@@ -324,6 +344,10 @@ export function usePatientImport({
                         labs: patientData.labs || "",
                         systems,
                         medications,
+                        age: patientData.age,
+                        dateOfBirth: patientData.dateOfBirth,
+                        gender: patientData.gender,
+                        admissionDate: patientData.admissionDate,
                         serviceLine: patientData.serviceLine,
                         attendingPhysician: patientData.attendingPhysician,
                         consultingTeam: patientData.consultingTeam,

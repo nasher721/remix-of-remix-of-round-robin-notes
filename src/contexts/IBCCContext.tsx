@@ -57,6 +57,7 @@ interface IBCCContextValue {
 
   // Loading state for lazy data
   isDataLoaded: boolean;
+  ensureDataLoaded: () => Promise<void>;
 }
 
 const IBCCContext = createContext<IBCCContextValue | null>(null);
@@ -66,27 +67,44 @@ interface IBCCProviderProps {
 }
 
 export function IBCCProvider({ children }: IBCCProviderProps) {
+  // Panel visibility
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeChapter, setActiveChapter] = useState<IBCCChapter | null>(null);
+
   // Lazy-loaded data
   const [chapters, setChapters] = useState<IBCCChapter[]>([]);
   const [calculators, setCalculators] = useState<ClinicalCalculator[]>([]);
   const [checklists, setChecklists] = useState<ProtocolChecklist[]>([]);
+  const [keywordPatterns, setKeywordPatterns] = useState<Record<string, string[]>>({});
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const dataLoadRef = React.useRef<Promise<void> | null>(null);
+  const dataLoadedRef = React.useRef(false);
 
-  useEffect(() => {
-    loadIBCCData().then((mod) => {
-      setChapters(mod.IBCC_CHAPTERS);
-      setCalculators(mod.CLINICAL_CALCULATORS);
-      setChecklists(mod.PROTOCOL_CHECKLISTS);
-      setIsDataLoaded(true);
-    }).catch((err) => {
-      console.error('[IBCCProvider] Failed to load IBCC data:', err);
-      setIsDataLoaded(true); // Allow app to continue even if data fails
-    });
+  const ensureDataLoaded = useCallback((): Promise<void> => {
+    if (dataLoadedRef.current) return Promise.resolve();
+    if (!dataLoadRef.current) {
+      dataLoadRef.current = loadIBCCData()
+        .then((mod) => {
+          setChapters(mod.IBCC_CHAPTERS);
+          setCalculators(mod.CLINICAL_CALCULATORS);
+          setChecklists(mod.PROTOCOL_CHECKLISTS);
+          setKeywordPatterns(mod.KEYWORD_PATTERNS);
+        })
+        .catch((err: unknown) => {
+          console.error('[IBCCProvider] Failed to load IBCC data:', err);
+        })
+        .finally(() => {
+          dataLoadedRef.current = true;
+          setIsDataLoaded(true); // Allow the workspace to continue even without references.
+          dataLoadRef.current = null;
+        });
+    }
+    return dataLoadRef.current;
   }, []);
 
-  // Panel visibility
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeChapter, setActiveChapter] = useState<IBCCChapter | null>(null);
+  useEffect(() => {
+    if (isOpen) void ensureDataLoaded();
+  }, [ensureDataLoaded, isOpen]);
 
   // Current patient for context-aware suggestions
   const [currentPatient, setCurrentPatient] = useState<Patient | undefined>(undefined);
@@ -96,9 +114,13 @@ export function IBCCProvider({ children }: IBCCProviderProps) {
   const [activeSystem, setActiveSystem] = useState<MedicalSystem | null>(null);
 
   // Composable hooks
-  const search = useIBCCSearch({ debounceMs: 150 });
-  const bookmarks = useIBCCBookmarks();
-  const context = useIBCCContext(currentPatient);
+  const search = useIBCCSearch({ debounceMs: 150, chapters });
+  const bookmarks = useIBCCBookmarks(chapters);
+  const contextData = useMemo(
+    () => ({ chapters, patterns: keywordPatterns }),
+    [chapters, keywordPatterns],
+  );
+  const context = useIBCCContext(currentPatient, contextData);
 
   // Panel actions
   const togglePanel = useCallback(() => setIsOpen(prev => !prev), []);
@@ -203,6 +225,7 @@ export function IBCCProvider({ children }: IBCCProviderProps) {
     // Static data
     allChapters: chapters,
     isDataLoaded,
+    ensureDataLoaded,
   }), [
     isOpen, togglePanel, openPanel, closePanel,
     activeChapter, viewChapter, closeChapter,
@@ -211,7 +234,7 @@ export function IBCCProvider({ children }: IBCCProviderProps) {
     bookmarks.bookmarkedChapters, bookmarks.recentChapters, bookmarks.toggleBookmark, bookmarks.isBookmarked,
     context.contextSuggestions, context.hasContextSuggestions, context.detailedMatches,
     getCalculatorsForChapter, getChecklistsForChapter,
-    chapters, isDataLoaded,
+    chapters, isDataLoaded, ensureDataLoaded,
   ]);
 
   return (

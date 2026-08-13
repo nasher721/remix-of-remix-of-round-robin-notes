@@ -5,6 +5,7 @@
 
 import { logInfo } from "@/lib/observability/logger";
 import { recordTelemetryEvent } from "@/lib/observability/telemetry";
+import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
 import type { Round, RoundSyncStatus } from "@/types/round";
 import {
   applyFieldConflictChoice,
@@ -126,7 +127,7 @@ class RoundSyncEngine {
     window.addEventListener("offline", () => {
       this.setStatus("offline");
     });
-    if (!navigator.onLine) {
+    if (isBrowserKnownOffline()) {
       this.setStatus("offline");
     }
     if (!this.drainIntervalId) {
@@ -138,7 +139,7 @@ class RoundSyncEngine {
 
   /** Interval / post-hydrate helper: drain only when online with work queued. */
   async drainIfPending(): Promise<void> {
-    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    if (isBrowserKnownOffline()) return;
     const pending = await roundOutbox.getPendingCount();
     if (pending <= 0) return;
     await this.drain();
@@ -158,7 +159,10 @@ class RoundSyncEngine {
     continuity: RoundContinuityMeta;
     patientIds?: readonly string[];
   }): Promise<void> {
-    const syncStatus: RoundSyncStatus = !navigator.onLine
+    const ownerId = input.round.userId;
+    if (roundOutbox.getOwner() !== ownerId) return;
+
+    const syncStatus: RoundSyncStatus = isBrowserKnownOffline()
       ? "offline"
       : this.openConflicts.length > 0
         ? "conflict"
@@ -170,6 +174,10 @@ class RoundSyncEngine {
       syncStatus,
     });
 
+    // The cache write can yield to an auth transition. Never enqueue its stale
+    // snapshot after the active owner has changed.
+    if (roundOutbox.getOwner() !== ownerId) return;
+
     await roundOutbox.enqueueRoundState({
       roundId: input.round.id,
       payload: {
@@ -179,11 +187,11 @@ class RoundSyncEngine {
       },
       updatedAt: input.round.updatedAt,
       deviceId: input.continuity.deviceId,
-      ownerId: input.round.userId,
+      ownerId,
     });
 
     this.setStatus(syncStatus);
-    if (navigator.onLine) {
+    if (!isBrowserKnownOffline()) {
       void this.drain();
     }
   }
@@ -201,12 +209,12 @@ class RoundSyncEngine {
             [`${field.patientId}::${field.fieldKey}`]: field,
           },
           conflicts: cached.conflicts,
-          syncStatus: navigator.onLine ? "syncing" : "offline",
+          syncStatus: isBrowserKnownOffline() ? "offline" : "syncing",
         });
       }
     }
-    this.setStatus(navigator.onLine ? "syncing" : "offline");
-    if (navigator.onLine) {
+    this.setStatus(isBrowserKnownOffline() ? "offline" : "syncing");
+    if (!isBrowserKnownOffline()) {
       void this.drain();
     }
   }
@@ -239,7 +247,7 @@ class RoundSyncEngine {
       }
     }
 
-    if (!navigator.onLine) {
+    if (isBrowserKnownOffline()) {
       this.setStatus("offline");
       return { round: localRound, continuity: localMeta };
     }
@@ -275,10 +283,10 @@ class RoundSyncEngine {
       }
     } catch (error) {
       recordTelemetryEvent("sync_error", error, { operation: "round_hydrate" });
-      this.setStatus(navigator.onLine ? "idle" : "offline");
+      this.setStatus(isBrowserKnownOffline() ? "offline" : "idle");
     }
 
-    if (shouldDrainOutboxAfterHydrate(navigator.onLine)) {
+    if (shouldDrainOutboxAfterHydrate(!isBrowserKnownOffline())) {
       void this.drain();
     }
 
@@ -306,7 +314,7 @@ class RoundSyncEngine {
       missingTable: false,
     };
 
-    if (!navigator.onLine) {
+    if (isBrowserKnownOffline()) {
       this.setStatus("offline");
       return result;
     }
@@ -407,12 +415,14 @@ class RoundSyncEngine {
     const pending = await roundOutbox.getPendingCount();
     const conflicts = await roundOutbox.getConflictCount();
     const failed = await roundOutbox.getFailedCount();
+    const softFailed = await roundOutbox.getSoftFailedCount();
     this.setStatus(
       this.deriveChromeStatus({
-        isOnline: !navigator.onLine ? false : true,
+        isOnline: !isBrowserKnownOffline(),
         pendingCount: pending,
         conflictCount: conflicts,
         failedCount: failed,
+        softFailedCount: softFailed,
       }),
     );
     if (result.success > 0 && failed === 0 && conflicts === 0 && pending === 0) {
@@ -454,7 +464,7 @@ class RoundSyncEngine {
       }
     }
 
-    if (nextConflicts.length === 0 && navigator.onLine) {
+    if (nextConflicts.length === 0 && !isBrowserKnownOffline()) {
       this.setStatus("syncing");
       void this.drain();
     }
@@ -470,7 +480,7 @@ class RoundSyncEngine {
       conflicts: [],
       missingTable: false,
     };
-    if (!navigator.onLine) {
+    if (isBrowserKnownOffline()) {
       this.setStatus("offline");
       return emptyResult;
     }
@@ -487,10 +497,11 @@ class RoundSyncEngine {
     pendingCount: number;
     conflictCount: number;
     failedCount: number;
+    softFailedCount: number;
   }): RoundSyncStatus {
     if (!input.isOnline) return "offline";
     if (input.conflictCount > 0 || this.openConflicts.length > 0) return "conflict";
-    if (input.failedCount > 0) return "failed";
+    if (input.failedCount > 0 || input.softFailedCount > 0) return "failed";
     if (input.pendingCount > 0 || this.status === "syncing") return "syncing";
     return "idle";
   }

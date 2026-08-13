@@ -6,6 +6,14 @@ const migration = readFileSync(
   new URL("../../../../supabase/migrations/20260812000000_harden_patient_and_round_contracts.sql", import.meta.url),
   "utf8",
 );
+const patientFetch = readFileSync(
+  new URL("../usePatientFetch.ts", import.meta.url),
+  "utf8",
+);
+const cacheWarming = readFileSync(
+  new URL("../../../lib/cache/cacheWarming.ts", import.meta.url),
+  "utf8",
+);
 
 test("backend contract migration persists the UI patient fields and tenant-scopes ordering", () => {
   for (const column of [
@@ -32,4 +40,11 @@ test("backend contract migration exposes an authenticated atomic Round upsert", 
   assert.match(migration, /jsonb_typeof\(p_state\) <> 'object'/i);
   assert.match(migration, /pg_column_size\(p_state\) > 262144/i);
   assert.match(migration, /ELSIF p_updated_at >= current_state\.updated_at/i);
+});
+
+test("patient roster readers share the session-sticky compatibility projection", () => {
+  for (const source of [patientFetch, cacheWarming]) {
+    assert.match(source, /getPatientRosterSelectColumns\(\)/);
+    assert.match(source, /markPatientRosterProjectionLegacy\(\)/);
+  }
 });

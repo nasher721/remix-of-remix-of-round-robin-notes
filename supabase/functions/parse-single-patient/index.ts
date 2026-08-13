@@ -13,7 +13,7 @@ import {
 import {
   getLLMConfig,
   normalizeOutputTokenLimit,
-  providerForModel,
+  resolveApprovedClinicalProvider,
   resolveRequestedModel,
   selectModelForConfig,
 } from "../_shared/llm-client.ts";
@@ -115,11 +115,20 @@ Deno.serve(async (req: Request) => {
     }
     const validContent = contentCheck;
 
-    const config = getLLMConfig(providerForModel(modelResult.model));
+    const providerPolicy = resolveApprovedClinicalProvider(modelResult.model);
+    if (!providerPolicy.valid) {
+      safeLog("error", "Clinical import provider policy rejected request");
+      return jsonResponse(req, { error: providerPolicy.error }, 503);
+    }
+
+    const config = getLLMConfig(providerPolicy.provider);
 
     if (!config.apiKey) {
       safeLog("error", "No valid LLM API key found");
-      return jsonResponse(req, { error: "AI service not configured" }, 500);
+      return jsonResponse(req, {
+        error:
+          `Approved clinical import provider (${providerPolicy.provider}) is not configured.`,
+      }, 500);
     }
 
     const systemPrompt = `You organize clinical notes into sections.
@@ -177,12 +186,7 @@ ${validContent}`;
       inputChars: validContent.length,
     });
 
-    // Use gpt-4o for better instruction following, or fallback to config default
-    const modelToUse = selectModelForConfig(
-      modelResult.model,
-      config,
-      config.provider === "openai" ? "gpt-4o" : config.defaultModel,
-    );
+    const modelToUse = selectModelForConfig(providerPolicy.model, config);
 
     const response = await fetch(`${config.baseURL}/chat/completions`, {
       method: "POST",

@@ -3,8 +3,7 @@
  * Turns nearly any common clinical export into text (or images for OCR).
  */
 
-import mammoth from "mammoth";
-import * as XLSX from "xlsx";
+import type { WorkBook } from "xlsx";
 import { validateDocxArchive } from "@/lib/documentImportSafety";
 import {
   detectPatientListImportKind,
@@ -59,20 +58,23 @@ const stripRtfToText = (rtf: string): string => {
     .trim();
 };
 
-const sheetToLabeledText = (workbook: XLSX.WorkBook): string => {
+const sheetToLabeledText = (
+  workbook: WorkBook,
+  utils: typeof import("xlsx").utils,
+): string => {
   const chunks: string[] = [];
 
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
 
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    const rows = utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
       raw: false,
     });
 
     if (rows.length === 0) {
-      const matrix = XLSX.utils.sheet_to_json<string[]>(sheet, {
+      const matrix = utils.sheet_to_json<string[]>(sheet, {
         header: 1,
         defval: "",
         raw: false,
@@ -240,21 +242,23 @@ export const extractPatientListContent = async (
       if (archiveError) {
         throw new Error(archiveError);
       }
+      const { default: mammoth } = await import("mammoth");
       const result = await mammoth.extractRawText({ arrayBuffer });
       text = result.value;
       break;
     }
     case "spreadsheet": {
+      const XLSX = await import("xlsx");
       const lowerName = file.name.toLowerCase();
       if (lowerName.endsWith(".csv") || lowerName.endsWith(".tsv") || lowerName.endsWith(".tab")) {
         const raw = await file.text();
         const delimiter = lowerName.endsWith(".csv") ? "," : "\t";
         const workbook = XLSX.read(raw, { type: "string", FS: delimiter });
-        text = sheetToLabeledText(workbook);
+        text = sheetToLabeledText(workbook, XLSX.utils);
       } else {
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: "array" });
-        text = sheetToLabeledText(workbook);
+        text = sheetToLabeledText(workbook, XLSX.utils);
       }
       break;
     }

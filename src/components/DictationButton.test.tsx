@@ -2,7 +2,7 @@ import * as React from "react";
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SettingsProvider } from "@/contexts/SettingsContext";
 import { DictationButton } from "@/components/DictationButton";
 
@@ -30,10 +30,18 @@ function renderButton() {
   setupAuthMock();
   return render(
     <AuthProvider>
-      <SettingsProvider>
-        <DictationButton onTranscript={() => {}} />
-      </SettingsProvider>
+      <AuthenticatedDictationHarness />
     </AuthProvider>,
+  );
+}
+
+function AuthenticatedDictationHarness() {
+  const { loading } = useAuth();
+  if (loading) return null;
+  return (
+    <SettingsProvider>
+      <DictationButton onTranscript={() => {}} />
+    </SettingsProvider>
   );
 }
 
@@ -49,11 +57,7 @@ describe("DictationButton", { concurrency: false }, () => {
     });
 
     renderButton();
-    // Let the auth-owned SettingsProvider settle before interacting. Its owner
-    // key intentionally remounts descendants when the restored user arrives.
-    await new Promise((resolve) => setTimeout(resolve, 80));
-
-    fireEvent.click(screen.getByRole("button", { name: "Start voice dictation" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Start voice dictation" }));
 
     assert.ok(await screen.findByText(/allow microphone access/i));
     assert.ok(screen.getByRole("button", { name: "Start voice dictation" }));

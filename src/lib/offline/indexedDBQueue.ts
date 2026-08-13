@@ -1,6 +1,15 @@
 import { db, type QueuedMutationDB } from './database';
 import { logInfo } from '../observability/logger';
+import {
+  recordOfflineQueueHealth,
+  type OfflineQueueMetricOutcome,
+} from '../observability/operationalMetrics';
 import { safeLocalStorage } from '../../utils/safeStorage';
+import {
+  offlineOwnerTransitionBarrier,
+} from './ownerTransitionBarrier';
+
+export { OwnerTransitionBarrier } from './ownerTransitionBarrier';
 
 export type { QueuedMutationDB };
 export type QueuedMutation = QueuedMutationDB;
@@ -26,44 +35,6 @@ let inMemoryFallbackQueue: QueuedMutation[] = [];
  * finish. New writes are rejected as soon as a transition is requested so an
  * event from the quarantined UI cannot be replayed under the next identity.
  */
-export class OwnerTransitionBarrier {
-  private activeOperations = new Set<Promise<unknown>>();
-  private pendingTransitions = 0;
-  private transitionTail: Promise<void> = Promise.resolve();
-
-  runOperation<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.pendingTransitions > 0) {
-      return Promise.reject(new Error('Offline queue owner transition is in progress'));
-    }
-
-    const trackedOperation = Promise.resolve().then(operation);
-    this.activeOperations.add(trackedOperation);
-    return trackedOperation
-      .finally(() => {
-        this.activeOperations.delete(trackedOperation);
-      });
-  }
-
-  async runTransition<T>(transition: () => Promise<T>): Promise<T> {
-    this.pendingTransitions += 1;
-
-    let releasePreviousTransition: () => void = () => undefined;
-    const previousTransition = this.transitionTail;
-    this.transitionTail = new Promise<void>((resolve) => {
-      releasePreviousTransition = resolve;
-    });
-
-    await previousTransition;
-    try {
-      await Promise.allSettled([...this.activeOperations]);
-      return await transition();
-    } finally {
-      this.pendingTransitions -= 1;
-      releasePreviousTransition();
-    }
-  }
-}
-
 function readMemoryQueue(): QueuedMutation[] {
   return [...inMemoryFallbackQueue];
 }
@@ -115,6 +86,17 @@ function coalesceMutation(
     };
   }
 
+  if (incoming.operation === 'update' && existing.operation === 'update') {
+    return {
+      ...incoming,
+      id: existing.id,
+      payload: { ...existing.payload, ...incoming.payload },
+      // Compare replay against the oldest server snapshot, not against a
+      // later optimistic value produced while this row was still queued.
+      conflictData: existing.conflictData ?? incoming.conflictData,
+    };
+  }
+
   return {
     ...incoming,
     id: existing.id,
@@ -126,7 +108,7 @@ class IndexedDBQueueManager {
   private initialized = false;
   private initialization: Promise<void>;
   private ownerId: string | null = null;
-  private ownerTransitionBarrier = new OwnerTransitionBarrier();
+  private notificationVersion = 0;
   
   constructor() {
     safeLocalStorage.removeItem(QUEUE_STORAGE_KEY);
@@ -169,14 +151,16 @@ class IndexedDBQueueManager {
   }
   
   private notifyListeners(): void {
+    const version = ++this.notificationVersion;
     this.getQueue().then(queue => {
+      if (version !== this.notificationVersion) return;
       this.listeners.forEach(callback => callback(queue));
     }).catch(() => {/* notify listeners of empty queue on error */});
   }
   
   enqueue(mutation: QueuedMutationInput): Promise<string> {
     const acceptedOwnerId = this.ownerId;
-    return this.ownerTransitionBarrier.runOperation(async () => {
+    return offlineOwnerTransitionBarrier.runOperation(async () => {
       if (!acceptedOwnerId) {
         throw new Error('Cannot queue an offline mutation without an authenticated owner');
       }
@@ -220,6 +204,7 @@ class IndexedDBQueueManager {
 
       this.notifyListeners();
       logInfo(`[IndexedDBQueue] Queued: ${mutation.type}/${mutation.operation}`);
+      void this.recordHealthMetrics('enqueued');
       return persistedId;
     });
   }
@@ -348,6 +333,7 @@ class IndexedDBQueueManager {
     if (!this.ownerId) {
       writeMemoryQueue([]);
       this.notifyListeners();
+      void this.recordHealthMetrics('cleared');
       return;
     }
     if (this.initialized) {
@@ -359,14 +345,39 @@ class IndexedDBQueueManager {
       writeMemoryQueue(readMemoryQueue().filter(mutation => mutation.ownerId !== this.ownerId));
     }
     this.notifyListeners();
+    void this.recordHealthMetrics('cleared');
+  }
+
+  /**
+   * Report aggregate queue pressure without reading or emitting mutation
+   * payloads. Failures are intentionally ignored: metrics cannot block writes.
+   */
+  async recordHealthMetrics(outcome: OfflineQueueMetricOutcome): Promise<void> {
+    try {
+      const queue = await this.getQueue();
+      const oldestTimestamp = queue.reduce<number | null>(
+        (oldest, mutation) => oldest === null
+          ? mutation.timestamp
+          : Math.min(oldest, mutation.timestamp),
+        null,
+      );
+      recordOfflineQueueHealth({
+        queueLength: queue.length,
+        oldestAgeMs: oldestTimestamp === null ? 0 : Date.now() - oldestTimestamp,
+        outcome,
+      });
+    } catch {
+      // Observability is best-effort and must never make queue operations fail.
+    }
   }
   
   subscribe(callback: (queue: QueuedMutation[]) => void): () => void {
     let active = true;
+    const version = this.notificationVersion;
     this.listeners.add(callback);
     this.getQueue()
       .then(queue => {
-        if (active) callback(queue);
+        if (active && version === this.notificationVersion) callback(queue);
       })
       .catch(() => {/* silently fail initial queue load */});
     return () => {
@@ -391,12 +402,20 @@ class IndexedDBQueueManager {
     nextOwnerId: string | null,
     transition: () => Promise<T>,
   ): Promise<T> {
-    return this.ownerTransitionBarrier.runTransition(async () => {
-      await this.initialization;
-      const result = await transition();
-      this.setOwner(nextOwnerId);
-      return result;
-    });
+    return offlineOwnerTransitionBarrier.runTransition(() =>
+      this.transitionOwnerWithinBarrier(nextOwnerId, transition),
+    );
+  }
+
+  /** Complete an owner change after the shared barrier is already held. */
+  async transitionOwnerWithinBarrier<T>(
+    nextOwnerId: string | null,
+    transition: () => Promise<T>,
+  ): Promise<T> {
+    await this.initialization;
+    const result = await transition();
+    this.setOwner(nextOwnerId);
+    return result;
   }
   
   async migrateFromLocalStorage(): Promise<number> {

@@ -14,8 +14,9 @@ import {
 import {
   getLLMConfig,
   normalizeOutputTokenLimit,
-  providerForModel,
+  resolveApprovedClinicalProvider,
   resolveRequestedModel,
+  sanitizeOutboundLLMPrompts,
   selectModelForConfig,
 } from "../_shared/llm-client.ts";
 
@@ -71,7 +72,11 @@ Deno.serve(async (req: Request) => {
     }
     const validMedications = medsCheck;
 
-    const llmConfig = getLLMConfig(providerForModel(modelResult.model));
+    const providerPolicy = resolveApprovedClinicalProvider(modelResult.model);
+    if (!providerPolicy.valid) {
+      return jsonResponse(req, { error: providerPolicy.error }, 503);
+    }
+    const llmConfig = getLLMConfig(providerPolicy.provider);
     if (!llmConfig.apiKey) {
       safeLog("error", "No LLM API key configured");
       return jsonResponse(req, {
@@ -112,6 +117,13 @@ OUTPUT FORMAT:
 Return a JSON object with three arrays: infusions, scheduled, prn
 Each array contains formatted medication strings.`;
 
+    const userPrompt =
+      `Parse and format these medications:\n\n${validMedications}`;
+    const sanitizedPrompts = sanitizeOutboundLLMPrompts(
+      systemPrompt,
+      userPrompt,
+    );
+
     const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {
       method: "POST",
       headers: {
@@ -119,14 +131,13 @@ Each array contains formatted medication strings.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: selectModelForConfig(modelResult.model, llmConfig),
+        model: selectModelForConfig(providerPolicy.model, llmConfig),
         max_tokens: normalizeOutputTokenLimit(4_000),
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: sanitizedPrompts.systemPrompt },
           {
             role: "user",
-            content:
-              `Parse and format these medications:\n\n${validMedications}`,
+            content: sanitizedPrompts.userPrompt,
           },
         ],
         tools: [

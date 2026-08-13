@@ -3,7 +3,7 @@ import type {
   FHIRMedicationRequest, 
   FHIRAllergyIntolerance 
 } from './client';
-import type { Patient } from '@/types/patient';
+import type { Patient, PatientGender } from '@/types/patient';
 import { defaultSystems, defaultMedications } from '@/types/patient';
 
 function extractPatientName(name: FHIRPatientResource['name']): string {
@@ -33,9 +33,12 @@ function extractDOB(birthDate?: string): string {
   return birthDate || '';
 }
 
-function extractGender(gender?: string): string {
-  if (!gender) return '';
-  return gender.charAt(0).toUpperCase() + gender.slice(1);
+function extractGender(gender?: string): PatientGender | undefined {
+  const normalized = gender?.trim().toLowerCase();
+  if (normalized === 'male' || normalized === 'female' || normalized === 'other' || normalized === 'unknown') {
+    return normalized;
+  }
+  return undefined;
 }
 
 function mapMedications(medRequests: FHIRMedicationRequest[]): {
@@ -96,19 +99,14 @@ export function mapFHIRToPatient(
   const { scheduled, prn } = mapMedications(fhirMeds);
   const allergies = mapAllergies(fhirAllergies);
 
-  const clinicalSummary = [
-    dob ? `DOB: ${dob}` : null,
-    gender ? `Sex: ${gender}` : null,
-    mrn ? `MRN: ${mrn}` : null,
-    allergies.length > 0 ? `Allergies: ${allergies.join(', ')}` : null,
-  ]
-    .filter(Boolean)
-    .join(' | ');
-
   const patient: Partial<Patient> = {
     name,
-    bed: mrn,
-    clinicalSummary,
+    mrn,
+    bed: '',
+    clinicalSummary: '',
+    dateOfBirth: dob || undefined,
+    gender,
+    alerts: allergies.length > 0 ? allergies : undefined,
     systems: { ...defaultSystems },
     medications: {
       ...defaultMedications,

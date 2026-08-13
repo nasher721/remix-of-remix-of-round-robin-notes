@@ -82,8 +82,8 @@ export function PatientTodos({
     setTodoError(null);
     setIsAdding(true);
     try {
-      await onAddTodo(result.value, section);
-      setNewTodoText('');
+      const added = await onAddTodo(result.value, section);
+      if (added) setNewTodoText('');
     } finally {
       setIsAdding(false);
     }
@@ -122,7 +122,7 @@ export function PatientTodos({
               if (todoError) setTodoError(null);
             }}
             onKeyDown={handleKeyDown}
-            className="min-h-11 h-11 text-sm"
+            className="h-[44px] text-sm"
             aria-invalid={displayedTodoError ? true : undefined}
             aria-describedby={displayedTodoError ? `${todoHelpId} ${todoErrorId}` : todoHelpId}
           />
@@ -131,7 +131,7 @@ export function PatientTodos({
             size="sm"
             onClick={handleAddTodo}
             disabled={!draftValidation.valid || isAdding}
-            className="min-h-11 h-11 px-3 disabled:border disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+            className="h-[44px] px-3 disabled:border disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
             aria-label="Add todo"
             aria-describedby={todoHelpId}
           >
@@ -152,7 +152,9 @@ export function PatientTodos({
       <div className="max-h-64 overflow-y-auto space-y-1">
         {incompleteTodos.length === 0 && completedTodos.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-2">
-            No todos yet. Add one or generate with AI.
+            {showAiGenerate
+              ? 'No todos yet. Add one or generate with AI.'
+              : 'No todos yet. Add one when needed.'}
           </p>
         )}
 
@@ -168,13 +170,22 @@ export function PatientTodos({
               aria-label={`Mark todo complete: ${todo.content}`}
             />
             <span className="flex-1 text-sm leading-tight">
-              {todo.content}
+              <span>{todo.content}</span>
+              {todo.syncStatus ? (
+                <span className="ml-2 inline-flex rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  {todo.syncStatus === 'queued'
+                    ? 'Queued'
+                    : todo.syncStatus === 'conflict'
+                      ? 'Conflict'
+                      : 'Sync failed'}
+                </span>
+              ) : null}
             </span>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onDeleteTodo(todo.id)}
-              className="min-h-11 min-w-11 h-11 w-11 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+              className="h-[44px] w-[44px] p-0 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
               aria-label={`Delete todo: ${todo.content}`}
             >
               <Trash2 className="h-3 w-3 text-destructive" />
@@ -199,13 +210,22 @@ export function PatientTodos({
                   aria-label={`Mark todo incomplete: ${todo.content}`}
                 />
                 <span className="flex-1 text-sm leading-tight line-through">
-                  {todo.content}
+                  <span>{todo.content}</span>
+                  {todo.syncStatus ? (
+                    <span className="ml-2 inline-flex rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground no-underline">
+                      {todo.syncStatus === 'queued'
+                        ? 'Queued'
+                        : todo.syncStatus === 'conflict'
+                          ? 'Conflict'
+                          : 'Sync failed'}
+                    </span>
+                  ) : null}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onDeleteTodo(todo.id)}
-                  className="min-h-11 min-w-11 h-11 w-11 p-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+                  className="h-[44px] w-[44px] p-0 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                   aria-label={`Delete todo: ${todo.content}`}
                 >
                   <Trash2 className="h-3 w-3 text-destructive" />
@@ -223,10 +243,10 @@ export function PatientTodos({
     return (
       <div className="border border-border rounded-lg bg-muted/20 overflow-hidden">
         {/* Header with expand/collapse */}
-        <div className="flex min-h-11 items-center justify-between bg-muted/40 px-1 transition-colors hover:bg-muted/60">
+        <div className="flex min-h-[44px] items-center justify-between bg-muted/40 px-1 transition-colors hover:bg-muted/60">
           <button
             type="button"
-            className="flex min-h-11 flex-1 items-center gap-2 rounded-md px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex min-h-[44px] flex-1 items-center gap-2 rounded-md px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={() => setIsExpanded((current) => !current)}
             aria-expanded={isExpanded}
             aria-controls={`${todoInputId}-content`}
@@ -261,7 +281,7 @@ export function PatientTodos({
                 disabled={generating}
                 aria-busy={generating || undefined}
                 aria-label={generating ? "Generating tasks" : "AI Generate tasks for this section"}
-                className="min-h-11 h-7 text-xs gap-1"
+                className="min-h-[44px] text-xs gap-1"
               >
                 {generating ? (
                   <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -299,7 +319,7 @@ export function PatientTodos({
           variant="outline"
           size="sm"
           className={cn(
-            "min-h-11 h-8 gap-1.5 px-2.5 font-medium shrink-0",
+            "min-h-[44px] gap-1.5 px-2.5 font-medium shrink-0",
             sectionTodos.length > 0 && "border-primary/40 text-foreground"
           )}
           aria-label={`${tasksTriggerLabel}: add or manage tasks. ${sectionTodos.length} total, ${incompleteTodos.length} incomplete.`}
@@ -328,7 +348,7 @@ export function PatientTodos({
                 disabled={generating}
                 aria-busy={generating || undefined}
                 aria-label={generating ? "Generating tasks" : "AI Generate tasks for this section"}
-                className="min-h-11 h-7 text-xs gap-1"
+                className="min-h-[44px] text-xs gap-1"
               >
                 {generating ? (
                   <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />

@@ -5,6 +5,7 @@ import "./index.css";
 import { initGlobalErrorCapture } from "@/lib/observability/telemetry";
 import { installObservabilityDebugApi } from "@/lib/observability/debugApi";
 import { initAppSentry } from "@/lib/observability/sentryClient";
+import { markServiceWorkerUpdateReady } from "@/lib/serviceWorkerUpdate";
 
 // Initialize telemetry early to capture all errors
 initGlobalErrorCapture();
@@ -21,7 +22,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
         if (newWorker) {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('[App] New content available, refresh to update');
+              markServiceWorkerUpdateReady();
             }
           });
         }

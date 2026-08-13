@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import * as React from "react";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
+import { fireEvent } from "@testing-library/react";
 import { AuthProvider } from "@/hooks/useAuth";
 import Auth from "@/pages/Auth";
 
@@ -67,4 +68,87 @@ test("Auth page does not expose self-service sign up", async () => {
   assert.match(div.textContent ?? "", /provisioned by your administrator/i);
   root.unmount();
   document.body.removeChild(div);
+});
+
+test("Auth page does not advertise unapproved OAuth providers", async () => {
+  globalThis.__SUPABASE_AUTH_MOCK__ = {
+    getSession: async () => ({ data: { session: null }, error: null }),
+    onAuthStateChange: () => ({ unsubscribe: () => {} }),
+  };
+  const div = document.createElement("div");
+  document.body.appendChild(div);
+  const root = createRoot(div);
+  root.render(
+    <MemoryRouter>
+      <AuthProvider>
+        <Auth />
+      </AuthProvider>
+    </MemoryRouter>
+  );
+  await new Promise((resolve) => setTimeout(resolve, 80));
+
+  assert.doesNotMatch(div.textContent ?? "", /Continue with Google|Continue with Apple/);
+  assert.doesNotMatch(div.textContent ?? "", /^or$/im);
+
+  root.unmount();
+  document.body.removeChild(div);
+});
+
+test("password sign-in records a classified failure without credentials", async () => {
+  const submitted: Array<{ email: string; password: string }> = [];
+  globalThis.__SUPABASE_AUTH_MOCK__ = {
+    getSession: async () => ({ data: { session: null }, error: null }),
+    onAuthStateChange: () => ({ unsubscribe: () => {} }),
+    signInWithPassword: async (credentials: { email: string; password: string }) => {
+      submitted.push(credentials);
+      return {
+        error: Object.assign(new Error("Invalid login credentials"), {
+          code: "invalid_credentials",
+        }),
+      };
+    },
+  };
+  const writes: string[] = [];
+  const originalLog = console.log;
+  const div = document.createElement("div");
+  document.body.appendChild(div);
+  const root = createRoot(div);
+
+  try {
+    root.render(
+      <MemoryRouter>
+        <AuthProvider>
+          <Auth />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    const email = div.querySelector<HTMLInputElement>('#email');
+    const password = div.querySelector<HTMLInputElement>('#password');
+    const form = div.querySelector<HTMLFormElement>('form');
+    assert.ok(email && password && form);
+
+    console.log = (...args: unknown[]) => writes.push(args.join(" "));
+    fireEvent.change(email, { target: { value: "clinician@hospital.example" } });
+    fireEvent.change(password, { target: { value: "do-not-log-this-secret" } });
+    fireEvent.submit(form);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  } finally {
+    console.log = originalLog;
+    root.unmount();
+    document.body.removeChild(div);
+  }
+
+  assert.deepEqual(submitted, [{
+    email: "clinician@hospital.example",
+    password: "do-not-log-this-secret",
+  }]);
+  const authWrites = writes.filter((write) => write.includes('auth.sign_in.'));
+  assert.equal(authWrites.length, 2);
+  assert.match(authWrites.join("\n"), /invalid_credentials/);
+  assert.doesNotMatch(
+    authWrites.join("\n"),
+    /clinician@hospital\.example|do-not-log-this-secret/i,
+  );
 });

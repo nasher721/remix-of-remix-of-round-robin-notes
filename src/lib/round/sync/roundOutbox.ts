@@ -12,6 +12,7 @@ import {
   countConflictOutbox,
   countFailedOutbox,
   countPendingOutbox,
+  countSoftFailedOutbox,
   createOutboxId,
   mergeOutboxQueue,
   OUTBOX_SOFT_FAIL_RETRY_MS,
@@ -83,6 +84,9 @@ class RoundOutboxManager {
     const ownerId = input.ownerId ?? this.ownerId;
     if (!ownerId) {
       throw new Error("Cannot queue Round outbox entry without an authenticated owner");
+    }
+    if (ownerId !== this.ownerId) {
+      throw new Error("Cannot queue Round outbox entry after the authenticated owner changed");
     }
 
     const entry = withOutboxDefaults({
@@ -193,6 +197,10 @@ class RoundOutboxManager {
     return countFailedOutbox(await this.getQueue(), this.ownerId);
   }
 
+  async getSoftFailedCount(): Promise<number> {
+    return countSoftFailedOutbox(await this.getQueue(), this.ownerId);
+  }
+
   async getUnresolvedCount(): Promise<number> {
     return countUnresolvedOutbox(await this.getQueue(), this.ownerId);
   }
@@ -284,7 +292,9 @@ class RoundOutboxManager {
   async retryFailedWrites(now = Date.now()): Promise<number> {
     await this.initialization;
     const queue = await this.getQueue();
-    const failed = queue.filter((entry) => entry.status === "failed");
+    const failed = queue.filter(
+      (entry) => entry.status === "failed" || entry.status === "soft_fail",
+    );
     if (failed.length === 0) return 0;
     for (const entry of failed) {
       const nextRetryCount = Math.min(Math.max(entry.retryCount - 1, 0), entry.maxRetries);

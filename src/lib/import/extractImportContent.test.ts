@@ -1,8 +1,35 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { extractPatientListContent } from "@/lib/import/extractImportContent";
 
 describe("extractPatientListContent", () => {
+  it("keeps document parsers behind the file-selection boundary", () => {
+    const importDialogSource = readFileSync("src/components/EpicHandoffImport.tsx", "utf8");
+    assert.doesNotMatch(
+      importDialogSource,
+      /^import .*extractImportContent/m,
+      "SheetJS and Mammoth must not load with the authenticated workspace",
+    );
+    assert.match(
+      importDialogSource,
+      /await import\("@\/lib\/import\/extractImportContent"\)/,
+    );
+
+    for (const sourcePath of [
+      "src/lib/import/extractImportContent.ts",
+      "src/components/DocumentImport.tsx",
+    ]) {
+      const source = readFileSync(sourcePath, "utf8");
+      assert.doesNotMatch(source, /^import .* from "mammoth"/m, sourcePath);
+      assert.match(source, /await import\("mammoth"\)/, sourcePath);
+    }
+
+    const extractorSource = readFileSync("src/lib/import/extractImportContent.ts", "utf8");
+    assert.doesNotMatch(extractorSource, /^import \* as XLSX from "xlsx"/m);
+    assert.match(extractorSource, /await import\("xlsx"\)/);
+  });
+
   it("extracts plain text lists", async () => {
     const file = new File(
       ["ICU-1 Jane Doe (111)\nNeuro: AOx3\nICU-2 John Smith"],

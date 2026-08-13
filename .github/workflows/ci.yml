@@ -31,11 +31,21 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run security:check-auth-config
       - run: npm run edge:check-jwt-config
       - run: npm run verify:migrations
       - run: npm run audit:prod
       - name: Build without exposing server credentials
         env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_CONTACT_EMAIL: ${{ vars.PRODUCTION_CONTACT_EMAIL }}
+          VITE_PRIVACY_NOTICE_URL: ${{ vars.PRODUCTION_PRIVACY_NOTICE_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          VITE_SENTRY_DSN: ${{ vars.PRODUCTION_SENTRY_DSN }}
+          VITE_TELEMETRY_INGEST_URL: ${{ vars.PRODUCTION_TELEMETRY_INGEST_URL }}
+          VITE_APPROVED_OAUTH_PROVIDERS: ${{ vars.VITE_APPROVED_OAUTH_PROVIDERS }}
+          VITE_SESSION_IDLE_TIMEOUT_SECONDS: ${{ vars.PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS }}
           VITE_OPENAI_API_KEY: roundrobin-openai-client-secret-canary
           VITE_HINDSIGHT_API_KEY: roundrobin-hindsight-client-secret-canary
           CLIENT_SECRET_CANARIES: roundrobin-openai-client-secret-canary,roundrobin-hindsight-client-secret-canary
@@ -77,6 +87,9 @@ jobs:
     needs: web
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: e2e-shared-account
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -84,5 +97,36 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          VITE_CONTACT_EMAIL: ${{ vars.PRODUCTION_CONTACT_EMAIL }}
+          VITE_PRIVACY_NOTICE_URL: ${{ vars.PRODUCTION_PRIVACY_NOTICE_URL }}
+          VITE_PUBLIC_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          VITE_SENTRY_DSN: ${{ vars.PRODUCTION_SENTRY_DSN }}
+          VITE_TELEMETRY_INGEST_URL: ${{ vars.PRODUCTION_TELEMETRY_INGEST_URL }}
+          VITE_APPROVED_OAUTH_PROVIDERS: ${{ vars.VITE_APPROVED_OAUTH_PROVIDERS }}
+          VITE_SESSION_IDLE_TIMEOUT_SECONDS: ${{ vars.PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS }}
+      - name: Public Chromium and WebKit auth-page smoke
+        if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+        env:
+          E2E_USE_PREVIEW: "1"
+        run: npm run test:e2e:public
+      - name: Required authenticated Chromium suite
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          E2E_REQUIRE_FULL_SUITE: "1"
+          E2E_USE_PREVIEW: "1"
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: npm run test:e2e
+      - name: Required authenticated WebKit suite
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          E2E_REQUIRE_FULL_SUITE: "1"
+          E2E_USE_PREVIEW: "1"
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: npm run test:e2e:webkit

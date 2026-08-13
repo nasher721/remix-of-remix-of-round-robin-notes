@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { KeyboardShortcutSystem } from "@/components/KeyboardShortcutSystem";
-import rollingRoundsLogo from "@/assets/rolling-rounds-logo.png";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +68,7 @@ export const MobileHeader = ({
         ) : (
           <>
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <img src={rollingRoundsLogo} alt="Rolling Rounds" className="h-7 w-auto" />
+              <img src="/icons/favicon-64.png" alt="Rolling Rounds" className="h-7 w-7 rounded-md" />
               <div className="min-w-0">
                 <h1 className="text-base font-semibold tracking-tight truncate">{title}</h1>
                 {(subtitle || statusText) && (

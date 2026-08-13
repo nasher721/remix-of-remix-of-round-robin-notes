@@ -19,12 +19,13 @@
       }
     ],
     "component": {
-      "bom-ref": "vite_react_shadcn_ts@0.0.0",
-      "type": "library",
-      "name": "app",
-      "version": "0.0.0",
+      "bom-ref": "rolling-rounds@1.0.0",
+      "type": "application",
+      "name": "rolling-rounds",
+      "version": "1.0.0",
       "scope": "required",
-      "purl": "pkg:npm/vite_react_shadcn_ts@0.0.0",
+      "purl": "pkg:npm/rolling-rounds@1.0.0",
+      "description": "Offline-aware clinical rounding workspace for patient lists, notes, tasks, and team handoffs.",
       "properties": [
         {
           "name": "cdx:npm:package:path",
@@ -37246,7 +37247,7 @@
   ],
   "dependencies": [
     {
-      "ref": "vite_react_shadcn_ts@0.0.0",
+      "ref": "rolling-rounds@1.0.0",
       "dependsOn": [
         "@dnd-kit/core@6.3.1",
         "@dnd-kit/sortable@10.0.0",

@@ -5,10 +5,14 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { ClinicalGuideline, GuidelineSearchResult, MedicalSpecialty } from '@/types/clinicalGuidelines';
-import { useLazyData } from '@/lib/lazyData';
+
+const EMPTY_GUIDELINES: ClinicalGuideline[] = [];
+const EMPTY_KEYWORD_MAP: Record<string, string[]> = {};
 
 interface UseGuidelinesSearchOptions {
   debounceMs?: number;
+  guidelines?: ClinicalGuideline[];
+  keywordMap?: Record<string, string[]>;
 }
 
 interface UseGuidelinesSearchReturn {
@@ -19,12 +23,11 @@ interface UseGuidelinesSearchReturn {
   clearSearch: () => void;
 }
 
-export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOptions = {}): UseGuidelinesSearchReturn {
-  // Lazy-load guidelines data
-  const { data: guidelinesModule } = useLazyData(
-    () => import('@/data/clinicalGuidelinesData'),
-    (mod) => ({ guidelines: mod.CLINICAL_GUIDELINES, keywordMap: mod.GUIDELINE_KEYWORD_MAP }),
-  );
+export function useGuidelinesSearch({
+  debounceMs = 150,
+  guidelines = EMPTY_GUIDELINES,
+  keywordMap = EMPTY_KEYWORD_MAP,
+}: UseGuidelinesSearchOptions = {}): UseGuidelinesSearchReturn {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -49,9 +52,6 @@ export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOpt
   const searchResults = useMemo(() => {
     if (!debouncedQuery.trim()) return [];
 
-    const allGuidelines = guidelinesModule?.guidelines ?? [];
-    const keywordMap = guidelinesModule?.keywordMap ?? {};
-
     const query = debouncedQuery.toLowerCase().trim();
     const queryWords = query.split(/\s+/);
 
@@ -66,7 +66,7 @@ export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOpt
 
     const results: GuidelineSearchResult[] = [];
 
-    allGuidelines.forEach(guideline => {
+    guidelines.forEach(guideline => {
       let score = 0;
       const matchedKeywords: string[] = [];
       let matchedInTitle = false;
@@ -136,7 +136,7 @@ export function useGuidelinesSearch({ debounceMs = 150 }: UseGuidelinesSearchOpt
 
     // Sort by relevance score descending
     return results.sort((a, b) => b.relevanceScore - a.relevanceScore);
-  }, [debouncedQuery, guidelinesModule]);
+  }, [debouncedQuery, guidelines, keywordMap]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');

@@ -56,6 +56,7 @@ jobs:
 
       - name: Revalidate exact commit before production mutation
         run: |
+          npm run security:check-auth-config
           npm run edge:check-jwt-config
           npm run verify:migrations
           npm run edge:verify
@@ -71,22 +72,101 @@ jobs:
             exit 1
           fi
 
-      - name: Enforce restricted auth enrollment
+      - name: Enforce hosted Auth security baseline
         env:
+          SESSION_IDLE_TIMEOUT_SECONDS: ${{ vars.PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
+          set -euo pipefail
+          case "${SESSION_IDLE_TIMEOUT_SECONDS:-}" in
+            ''|*[!0-9]*)
+              echo "::error::PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS must be a whole number between 300 and 3600."
+              exit 1
+              ;;
+          esac
+          if [ "$SESSION_IDLE_TIMEOUT_SECONDS" -lt 300 ] || [ "$SESSION_IDLE_TIMEOUT_SECONDS" -gt 3600 ]; then
+            echo "::error::PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS must be between 300 and 3600."
+            exit 1
+          fi
+          auth_config="$RUNNER_TEMP/auth-config.json"
+          auth_payload="$RUNNER_TEMP/auth-config-payload.json"
+          jq --null-input --argjson inactivity "$SESSION_IDLE_TIMEOUT_SECONDS" \
+            '{disable_signup:true,password_hibp_enabled:true,sessions_inactivity_timeout:$inactivity}' \
+            >"$auth_payload"
           curl --fail-with-body --silent --show-error --request PATCH \
             "https://api.supabase.com/v1/projects/${PROJECT_ID}/config/auth" \
             --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
             --header "Content-Type: application/json" \
-            --data '{"disable_signup":true}'
+            --data @"$auth_payload" \
+            --output "$auth_config"
+          jq '{disable_signup, password_hibp_enabled, sessions_inactivity_timeout}' "$auth_config"
+          if ! jq -e --argjson inactivity "$SESSION_IDLE_TIMEOUT_SECONDS" \
+            '.disable_signup == true and .password_hibp_enabled == true and .sessions_inactivity_timeout == $inactivity' \
+            "$auth_config" >/dev/null; then
+            echo "::error::Hosted Auth security baseline was not applied. Leaked-password and session controls require Supabase Pro or above."
+            exit 1
+          fi
 
       - name: Link Supabase Project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: supabase link --project-ref "$PROJECT_ID"
+
+      - name: Enforce approved clinical import provider
+        env:
+          CLINICAL_PHI_LLM_PROVIDER: ${{ vars.CLINICAL_PHI_LLM_PROVIDER }}
+          CLINICAL_PHI_LLM_MODEL: ${{ vars.CLINICAL_PHI_LLM_MODEL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          case "${CLINICAL_PHI_LLM_PROVIDER:-}" in
+            openai|gemini|grok) ;;
+            *)
+              echo "::error::Set repository variable CLINICAL_PHI_LLM_PROVIDER to the single BAA/DPA-approved provider (openai, gemini, or grok)."
+              exit 1
+              ;;
+          esac
+          case "${CLINICAL_PHI_LLM_PROVIDER}:${CLINICAL_PHI_LLM_MODEL:-}" in
+            openai:gpt-4o|openai:gpt-4o-mini|gemini:gemini-1.5-flash|gemini:gemini-2.0-flash|gemini:gemini-2.5-flash|gemini:gemini-2.5-pro|grok:grok-2|grok:grok-2-mini|grok:llama3-70b-8192) ;;
+            *)
+              echo "::error::CLINICAL_PHI_LLM_MODEL must be an allowlisted model owned by CLINICAL_PHI_LLM_PROVIDER."
+              exit 1
+              ;;
+          esac
+
+          case "$CLINICAL_PHI_LLM_PROVIDER" in
+            openai) required_key="OPENAI_API_KEY" ;;
+            gemini) required_key="GEMINI_API_KEY" ;;
+            grok) required_key="GROQ_API_KEY" ;;
+          esac
+          secret_names="$(supabase secrets list --project-ref "$PROJECT_ID" --output json)"
+          if ! jq -e --arg name "$required_key" 'map(.name) | index($name) != null' <<<"$secret_names" >/dev/null; then
+            echo "::error::The approved provider credential $required_key is not configured in Supabase Edge secrets."
+            exit 1
+          fi
+
+          supabase secrets set \
+            "CLINICAL_PHI_LLM_PROVIDER=${CLINICAL_PHI_LLM_PROVIDER}" \
+            "CLINICAL_PHI_LLM_MODEL=${CLINICAL_PHI_LLM_MODEL}" \
+            --project-ref "$PROJECT_ID"
+
+      - name: Configure protected health monitor
+        env:
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [ "${#HEALTHCHECK_TOKEN}" -lt 32 ]; then
+            echo "::error::HEALTHCHECK_TOKEN must be configured as a random value of at least 32 characters."
+            exit 1
+          fi
+          supabase secrets set \
+            "HEALTHCHECK_TOKEN=${HEALTHCHECK_TOKEN}" \
+            --project-ref "$PROJECT_ID"
 
       - name: Wait for database health
         env:
@@ -106,6 +186,7 @@ jobs:
       - name: Smoke test — healthcheck edge function
         env:
           ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          HEALTHCHECK_TOKEN: ${{ secrets.HEALTHCHECK_TOKEN }}
           PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
           set -euo pipefail
@@ -113,12 +194,17 @@ jobs:
             echo "::error::SUPABASE_ANON_KEY is not configured. Add it in Repo Settings → Secrets (same value as the Supabase anon/public API key). See docs/deployment.md."
             exit 1
           fi
+          if [ "${#HEALTHCHECK_TOKEN}" -lt 32 ]; then
+            echo "::error::HEALTHCHECK_TOKEN is missing or too short. See docs/deployment.md."
+            exit 1
+          fi
           BASE="https://${PROJECT_ID}.supabase.co"
           echo "GET $BASE/functions/v1/healthcheck"
           code=$(curl -sS -o "$RUNNER_TEMP/hc.json" -w "%{http_code}" \
             "$BASE/functions/v1/healthcheck" \
             -H "Authorization: Bearer $ANON_KEY" \
-            -H "apikey: $ANON_KEY")
+            -H "apikey: $ANON_KEY" \
+            -H "x-healthcheck-token: $HEALTHCHECK_TOKEN")
           echo "HTTP status: $code"
           cat "$RUNNER_TEMP/hc.json"
           echo
@@ -132,16 +218,75 @@ jobs:
           fi
           echo "Smoke test passed."
 
-      - name: Trigger Vercel production deploy (optional)
+      - name: Confirm main still matches before frontend release
+        env:
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          live_main_sha="$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/main | cut -f1)"
+          if [ -z "$live_main_sha" ] || [ "$live_main_sha" != "$WORKFLOW_SHA" ]; then
+            echo "::error::Main advanced during backend deployment; leave the compatible backend in place and let the newer release deploy its frontend."
+            exit 1
+          fi
+
+      - name: Deploy and verify the exact frontend revision
         env:
           VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+          PRODUCTION_APP_URL: ${{ vars.PRODUCTION_APP_URL }}
+          SESSION_IDLE_TIMEOUT_SECONDS: ${{ vars.PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
+          set -euo pipefail
           if [ -z "${VERCEL_DEPLOY_HOOK_URL:-}" ]; then
-            echo "VERCEL_DEPLOY_HOOK_URL not set — skipping (frontend still deploys on push via Git integration)."
-            exit 0
+            echo "::error::VERCEL_DEPLOY_HOOK_URL is required because automatic main-branch Vercel deployment is disabled."
+            exit 1
           fi
-          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
-          echo "Vercel deploy hook triggered."
+          if [ -z "${PRODUCTION_APP_URL:-}" ]; then
+            echo "::error::Set repository variable PRODUCTION_APP_URL to the canonical production origin."
+            exit 1
+          fi
+
+          hook_response="$RUNNER_TEMP/vercel-hook-response.json"
+          curl --fail-with-body --silent --show-error --request POST \
+            "$VERCEL_DEPLOY_HOOK_URL" --output "$hook_response"
+
+          package_version="$(node --input-type=module -e "import pkg from './package.json' with { type: 'json' }; process.stdout.write(pkg.version)")"
+          expected_version="${package_version}+${WORKFLOW_SHA:0:7}"
+          production_origin="${PRODUCTION_APP_URL%/}"
+
+          for attempt in $(seq 1 40); do
+            probe_url="${production_origin}/?release_probe=${WORKFLOW_SHA}&attempt=${attempt}"
+            if html="$(curl --fail --silent --show-error --max-time 20 \
+              --header 'Cache-Control: no-cache' "$probe_url")"; then
+              if grep --fixed-strings --quiet \
+                "<meta name=\"app-version\" content=\"${expected_version}\"" <<<"$html" \
+                && grep --fixed-strings --quiet \
+                  "<link rel=\"canonical\" href=\"${production_origin}/\"" <<<"$html" \
+                && grep --fixed-strings --quiet \
+                  "<meta name=\"session-idle-timeout\" content=\"${SESSION_IDLE_TIMEOUT_SECONDS}\"" <<<"$html"; then
+                llms_url="${production_origin}/llms.txt?release_probe=${WORKFLOW_SHA}&attempt=${attempt}"
+                if llms="$(curl --fail --silent --show-error --max-time 20 \
+                  --header 'Cache-Control: no-cache' "$llms_url")" \
+                  && grep --fixed-strings --quiet "# Rolling Rounds" <<<"$llms" \
+                  && grep --fixed-strings --quiet \
+                    "[Product overview](${production_origin}/)" <<<"$llms" \
+                  && grep --fixed-strings --quiet \
+                    "[Security and deployment guidance](${production_origin}/security)" <<<"$llms" \
+                  && ! grep --fixed-strings --quiet "/auth" <<<"$llms" \
+                  && ! grep --fixed-strings --quiet "/fhir/" <<<"$llms"; then
+                  echo "Verified production frontend release ${expected_version}, session policy, canonical origin, and public machine-readable index."
+                  exit 0
+                fi
+              fi
+            fi
+            if [ $((attempt % 5)) -eq 0 ]; then
+              echo "Waiting for production frontend ${expected_version} (attempt ${attempt}/40)."
+            fi
+            sleep 15
+          done
+
+          echo "::error::Vercel did not publish the expected frontend revision ${expected_version} within 10 minutes."
+          exit 1
         
       # Optional: To enforce strict type-safe databases locally vs prod
       # - name: Verify Database Types

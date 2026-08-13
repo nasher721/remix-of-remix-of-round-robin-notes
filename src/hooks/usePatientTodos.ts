@@ -8,10 +8,15 @@ import { PatientTodo, TodoSection } from '@/types/todo';
 import { Patient } from '@/types/patient';
 import { QUERY_KEYS } from '@/lib/cache/cacheConfig';
 import type { PatientTodosMap } from '@/hooks/useAllPatientTodos';
-import { useSettings } from '@/contexts/SettingsContext';
 import { retainMemory, recallMemories } from '@/lib/hindsightClient';
 import { withCategoryTimeout } from '@/lib/requestTimeout';
 import { getUserFacingErrorMessage } from '@/lib/userFacingErrors';
+import {
+  indexedDBQueue,
+  type QueuedMutation,
+} from '@/lib/offline/indexedDBQueue';
+import { CircuitOpenError } from '@/lib/circuitBreaker';
+import { isBrowserKnownOffline } from '@/lib/networkConnectivity';
 
 export interface UsePatientTodosOptions {
   /** When provided, use as initial state and skip the initial fetch (avoids duplicate fetches when parent already has todos, e.g. from todosMap). */
@@ -95,6 +100,117 @@ function prependTodos(newTodos: PatientTodo[]): TodoListUpdater {
   };
 }
 
+const createTodoId = (): string => (
+  globalThis.crypto?.randomUUID?.()
+  ?? `todo_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
+);
+
+function isRetryableTodoWriteError(error: unknown): boolean {
+  const candidate = error as {
+    status?: number;
+    message?: string;
+    cause?: unknown;
+  } | null;
+  const status = candidate?.status;
+  if (status === 408 || status === 429 || (typeof status === 'number' && status >= 500)) {
+    return true;
+  }
+  const message = candidate?.message?.toLowerCase() ?? '';
+  if (error instanceof TypeError || /network|fetch|timeout|connection|temporar/.test(message)) {
+    return true;
+  }
+  if (error instanceof CircuitOpenError || candidate?.cause instanceof CircuitOpenError) {
+    return true;
+  }
+  return isBrowserKnownOffline() && typeof status !== 'number';
+}
+
+const queuedTodoStatus = (mutation: QueuedMutation): PatientTodo['syncStatus'] => {
+  if (mutation.status === 'failed') return 'sync_failed';
+  if (mutation.status === 'conflict') return 'conflict';
+  return 'queued';
+};
+
+function isMutationForPatient(
+  mutation: QueuedMutation,
+  ownerId: string,
+  patientId: string,
+): boolean {
+  if (mutation.type !== 'todo' || mutation.table !== 'patient_todos') return false;
+  const payloadOwner = mutation.payload.user_id;
+  return (payloadOwner === undefined || payloadOwner === ownerId)
+    && mutation.payload.patient_id === patientId;
+}
+
+/** Overlay durable todo mutations so reloads never hide unsynced bedside work. */
+export function applyQueuedTodoMutations(
+  todos: PatientTodo[],
+  mutations: readonly QueuedMutation[],
+  ownerId: string,
+  patientId: string,
+): PatientTodo[] {
+  let next: PatientTodo[] = todos
+    .filter((todo) => !todo.localOnly)
+    .map(({ syncStatus: _syncStatus, localOnly: _localOnly, ...todo }) => todo as PatientTodo);
+  const relevant = mutations
+    .filter((mutation) => isMutationForPatient(mutation, ownerId, patientId))
+    .sort((left, right) => left.timestamp - right.timestamp);
+
+  for (const mutation of relevant) {
+    const todoId = mutation.entityId
+      ?? (typeof mutation.payload.id === 'string' ? mutation.payload.id : null);
+    if (!todoId) continue;
+
+    if (mutation.operation === 'delete') {
+      next = next.filter((todo) => todo.id !== todoId);
+      continue;
+    }
+
+    const status = queuedTodoStatus(mutation);
+    const existingIndex = next.findIndex((todo) => todo.id === todoId);
+    if (mutation.operation === 'create') {
+      const queuedTodo = {
+        ...mapTodoRecord(mutation.payload, {
+          patientId,
+          userId: ownerId,
+          section: typeof mutation.payload.section === 'string'
+            ? mutation.payload.section
+            : null,
+          content: typeof mutation.payload.content === 'string'
+            ? mutation.payload.content
+            : '',
+          completed: Boolean(mutation.payload.completed),
+        }),
+        syncStatus: status,
+        localOnly: existingIndex === -1,
+      } satisfies PatientTodo;
+      if (existingIndex === -1) next = [queuedTodo, ...next];
+      else next[existingIndex] = { ...next[existingIndex], ...queuedTodo, localOnly: false };
+      continue;
+    }
+
+    if (existingIndex !== -1) {
+      const existing = next[existingIndex];
+      next[existingIndex] = {
+        ...existing,
+        ...(typeof mutation.payload.content === 'string'
+          ? { content: mutation.payload.content }
+          : {}),
+        ...(typeof mutation.payload.completed === 'boolean'
+          ? { completed: mutation.payload.completed }
+          : {}),
+        ...(mutation.payload.section === null || typeof mutation.payload.section === 'string'
+          ? { section: mutation.payload.section }
+          : {}),
+        syncStatus: status,
+        localOnly: false,
+      };
+    }
+  }
+
+  return next;
+}
+
 export function usePatientTodos(patientId: string | null, options?: UsePatientTodosOptions) {
   const initialTodos = options?.initialTodos;
   const { user } = useAuth();
@@ -118,11 +234,11 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
   });
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { getModelForFeature } = useSettings();
   const mountedRef = useRef(true);
   const activeIdentityRef = useRef({ ownerId, patientId });
   activeIdentityRef.current = { ownerId, patientId };
   const latestInitialTodos = useRef(initialTodos);
+  const previousQueuedMutationIdsRef = useRef<Set<string>>(new Set());
   const initialTodosKey = useMemo(() => {
     if (initialTodos === undefined) return null;
     const todoKey = initialTodos
@@ -206,7 +322,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
       if (error) throw error;
 
-      const nextTodos = data?.map(todo => mapTodoRecord(todo, {
+      const serverTodos = data?.map(todo => mapTodoRecord(todo, {
         patientId: requestPatientId,
         userId: requestOwnerId,
         section: null,
@@ -214,6 +330,14 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       })).filter((todo) => (
         todo.userId === requestOwnerId && todo.patientId === requestPatientId
       )) || [];
+      const queue = await indexedDBQueue.getQueue();
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      const nextTodos = applyQueuedTodoMutations(
+        serverTodos,
+        queue,
+        requestOwnerId,
+        requestPatientId,
+      );
       if (!commitTodos(requestOwnerId, requestPatientId, () => nextTodos)) return;
       writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, () => nextTodos);
     } catch {
@@ -238,12 +362,54 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
   useEffect(() => {
     if (initialTodosKey === null) return;
     if (!ownerId || !patientId || !isActiveRequest(ownerId, patientId)) return;
-    const safeInitialTodos = (latestInitialTodos.current ?? []).filter((todo) => (
-      todo.userId === ownerId && todo.patientId === patientId
-    ));
-    commitTodos(ownerId, patientId, () => safeInitialTodos);
-    setLoadingState({ ownerId, patientId, active: false });
+    let cancelled = false;
+
+    void indexedDBQueue.getQueue().then((queue) => {
+      if (cancelled || !isActiveRequest(ownerId, patientId)) return;
+      const safeInitialTodos = (latestInitialTodos.current ?? []).filter((todo) => (
+        todo.userId === ownerId && todo.patientId === patientId
+      ));
+      const nextTodos = applyQueuedTodoMutations(
+        safeInitialTodos,
+        queue,
+        ownerId,
+        patientId,
+      );
+      commitTodos(ownerId, patientId, () => nextTodos);
+      setLoadingState({ ownerId, patientId, active: false });
+    }).catch(() => {
+      // Keep the current optimistic state if IndexedDB is temporarily unavailable.
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [commitTodos, initialTodosKey, isActiveRequest, ownerId, patientId]);
+
+  useEffect(() => {
+    previousQueuedMutationIdsRef.current = new Set();
+    if (!ownerId || !patientId) return;
+
+    return indexedDBQueue.subscribe((queue) => {
+      if (!isActiveRequest(ownerId, patientId)) return;
+      const relevant = queue.filter((mutation) => (
+        isMutationForPatient(mutation, ownerId, patientId)
+      ));
+      const currentIds = new Set(relevant.map((mutation) => mutation.id));
+      const removed = [...previousQueuedMutationIdsRef.current]
+        .some((mutationId) => !currentIds.has(mutationId));
+      previousQueuedMutationIdsRef.current = currentIds;
+
+      if (removed) {
+        // Reconcile a replayed or cancelled optimistic row with Postgres.
+        void fetchTodos();
+        return;
+      }
+      commitTodos(ownerId, patientId, (currentTodos) => (
+        applyQueuedTodoMutations(currentTodos, relevant, ownerId, patientId)
+      ));
+    });
+  }, [commitTodos, fetchTodos, isActiveRequest, ownerId, patientId]);
 
   const addTodo = useCallback(async (content: string, section: string | null = null) => {
     if (!patientId || !ownerId) return;
@@ -251,16 +417,66 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
     const requestPatientId = patientId;
     if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
 
+    const now = new Date().toISOString();
+    const todoId = createTodoId();
+    const insertPayload = {
+      id: todoId,
+      patient_id: requestPatientId,
+      user_id: requestOwnerId,
+      section,
+      content,
+      completed: false,
+      created_at: now,
+      updated_at: now,
+    };
+    const queuedTodo: PatientTodo = {
+      id: todoId,
+      patientId: requestPatientId,
+      userId: requestOwnerId,
+      section,
+      content,
+      completed: false,
+      createdAt: now,
+      updatedAt: now,
+      syncStatus: 'queued',
+      localOnly: true,
+    };
+    const queueCreate = async (): Promise<PatientTodo> => {
+      await indexedDBQueue.enqueue({
+        type: 'todo',
+        operation: 'create',
+        table: 'patient_todos',
+        entityId: todoId,
+        payload: insertPayload,
+      });
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return queuedTodo;
+      const applyAddedTodo = prependTodos([queuedTodo]);
+      commitTodos(requestOwnerId, requestPatientId, applyAddedTodo);
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyAddedTodo);
+      toast({
+        title: 'Offline — todo queued',
+        description: 'The task is stored on this device and will sync when connection recovers.',
+      });
+      return queuedTodo;
+    };
+
+    if (isBrowserKnownOffline()) {
+      try {
+        return await queueCreate();
+      } catch {
+        toast({
+          title: 'Todo not saved',
+          description: 'The task could not be stored. Keep the text and retry.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     try {
       const { data, error } = await supabase
         .from('patient_todos')
-        .insert({
-          patient_id: requestPatientId,
-          user_id: requestOwnerId,
-          section,
-          content,
-          completed: false,
-        })
+        .insert(insertPayload)
         .select()
         .single();
 
@@ -285,12 +501,19 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       if (!commitTodos(requestOwnerId, requestPatientId, applyAddedTodo)) return;
       writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyAddedTodo);
       return newTodo;
-    } catch {
+    } catch (error) {
       if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      if (isRetryableTodoWriteError(error)) {
+        try {
+          return await queueCreate();
+        } catch {
+          // Fall through; the input remains populated for manual recovery.
+        }
+      }
       console.error('Error adding patient todo');
       toast({
-        title: "Error",
-        description: "Failed to add todo",
+        title: 'Todo not saved',
+        description: 'The task could not be saved or queued. Keep the text and retry.',
         variant: "destructive",
       });
     }
@@ -304,6 +527,46 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
     const todo = todos.find(t => t.id === todoId);
     if (!todo || todo.userId !== requestOwnerId || todo.patientId !== requestPatientId) return;
     const nextCompleted = !todo.completed;
+
+    const queueToggle = async (): Promise<void> => {
+      await indexedDBQueue.enqueue({
+        type: 'todo',
+        operation: 'update',
+        table: 'patient_todos',
+        entityId: todoId,
+        payload: {
+          patient_id: requestPatientId,
+          user_id: requestOwnerId,
+          completed: nextCompleted,
+        },
+        conflictData: {
+          patient_id: requestPatientId,
+          user_id: requestOwnerId,
+          updated_at: todo.updatedAt,
+        },
+      });
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      const applyToggle = (currentTodos: PatientTodo[]) => currentTodos.map((item) => (
+        item.id === todoId
+          ? { ...item, completed: nextCompleted, syncStatus: 'queued' as const }
+          : item
+      ));
+      commitTodos(requestOwnerId, requestPatientId, applyToggle);
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyToggle);
+    };
+
+    if (todo.syncStatus || isBrowserKnownOffline()) {
+      try {
+        await queueToggle();
+      } catch {
+        toast({
+          title: 'Todo not updated',
+          description: 'The change could not be stored.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -320,8 +583,16 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
 
       if (!commitTodos(requestOwnerId, requestPatientId, applyToggle)) return;
       writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyToggle);
-    } catch {
+    } catch (error) {
       if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      if (isRetryableTodoWriteError(error)) {
+        try {
+          await queueToggle();
+          return;
+        } catch {
+          // Fall through; the server value remains visible.
+        }
+      }
       console.error('Error toggling patient todo');
       toast({
         title: "Error",
@@ -339,6 +610,41 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
     const todo = todos.find(t => t.id === todoId);
     if (todo && (todo.userId !== requestOwnerId || todo.patientId !== requestPatientId)) return;
 
+    const queueDelete = async (): Promise<void> => {
+      await indexedDBQueue.enqueue({
+        type: 'todo',
+        operation: 'delete',
+        table: 'patient_todos',
+        entityId: todoId,
+        payload: {
+          patient_id: requestPatientId,
+          user_id: requestOwnerId,
+        },
+        conflictData: todo ? {
+          patient_id: requestPatientId,
+          user_id: requestOwnerId,
+          updated_at: todo.updatedAt,
+        } : undefined,
+      });
+      if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      const applyDelete = (currentTodos: PatientTodo[]) => currentTodos.filter((item) => item.id !== todoId);
+      commitTodos(requestOwnerId, requestPatientId, applyDelete);
+      writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyDelete);
+    };
+
+    if (todo?.syncStatus || isBrowserKnownOffline()) {
+      try {
+        await queueDelete();
+      } catch {
+        toast({
+          title: 'Todo not deleted',
+          description: 'The change could not be stored.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('patient_todos')
@@ -351,8 +657,16 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
       const applyDelete = (currentTodos: PatientTodo[]) => currentTodos.filter(t => t.id !== todoId);
       if (!commitTodos(requestOwnerId, requestPatientId, applyDelete)) return;
       writePatientTodosCache(queryClient, requestOwnerId, requestPatientId, applyDelete);
-    } catch {
+    } catch (error) {
       if (!isActiveRequest(requestOwnerId, requestPatientId)) return;
+      if (isRetryableTodoWriteError(error)) {
+        try {
+          await queueDelete();
+          return;
+        } catch {
+          // Fall through; the task remains visible.
+        }
+      }
       console.error('Error deleting patient todo');
       toast({
         title: "Error",
@@ -406,7 +720,6 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
             },
             section,
             styleSummary,
-            model: getModelForFeature('todos'),
           },
         }),
         'aiEdgeFunction',
@@ -504,7 +817,7 @@ export function usePatientTodos(patientId: string | null, options?: UsePatientTo
         });
       }
     }
-  }, [commitTodos, getModelForFeature, isActiveRequest, ownerId, patientId, queryClient, toast]);
+  }, [commitTodos, isActiveRequest, ownerId, patientId, queryClient, toast]);
 
   const getTodosBySection = useCallback((section: string | null) => {
     return todos.filter(t => t.section === section);

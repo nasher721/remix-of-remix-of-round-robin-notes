@@ -18,7 +18,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Wand2, Loader2, Clipboard, Check, Edit2, Pill, ShieldAlert } from "lucide-react";
 import type { PatientSystems, PatientMedications } from "@/types/patient";
-import { useSettings } from "@/contexts/SettingsContext";
 import { withCategoryTimeout } from "@/lib/requestTimeout";
 import { getUserFacingErrorMessage } from "@/lib/userFacingErrors";
 import { useAssertBackendReady, useEdgeHealth } from "@/contexts/EdgeHealthContext";
@@ -62,7 +61,6 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
   const [editingField, setEditingField] = React.useState<string | null>(null);
   const [phiAcknowledged, setPhiAcknowledged] = React.useState(false);
   const { toast } = useToast();
-  const { getModelForFeature } = useSettings();
 
   const handlePaste = async () => {
     if (!phiAcknowledged) {
@@ -114,7 +112,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
     try {
       const { data, error } = await withCategoryTimeout(
         supabase.functions.invoke("parse-single-patient", {
-          body: { content: content.trim(), model: getModelForFeature('parsing') },
+          body: { content: content.trim() },
         }),
         "aiEdgeFunction",
         "parse-single-patient",
@@ -276,7 +274,7 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
                   </h3>
                   <p className="text-xs leading-relaxed text-foreground/80">
                     Text is sent through this deployment&apos;s Supabase Edge Function to configured AI model
-                    <strong> {getModelForFeature('parsing')}</strong>. Processing is not local. Retention, deletion,
+                    your organization&apos;s configured clinical AI provider. Processing is not local. Retention, deletion,
                     training use, BAA/DPA coverage, and permitted PHI use depend on deployment and provider contracts;
                     confirm them with your administrator. Review every parsed field before import. Parsing errors can
                     place data in wrong chart sections.

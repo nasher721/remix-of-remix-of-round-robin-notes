@@ -101,7 +101,7 @@ export function getCorsHeaders(request: Request): Record<string, string> {
   // Browser will block the request. This prevents cross-origin PHI exposure.
   if (!isAllowed) {
     return {
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       // Security headers still apply even for blocked origins
       "X-Content-Type-Options": "nosniff",
       "X-Frame-Options": "DENY",
@@ -112,7 +112,7 @@ export function getCorsHeaders(request: Request): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Headers": STANDARD_HEADERS,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Max-Age": "86400", // 24 hours
     // Security headers
     "X-Content-Type-Options": "nosniff",

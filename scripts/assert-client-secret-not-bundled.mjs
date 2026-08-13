@@ -6,6 +6,14 @@ const secretCanaries = (process.env.CLIENT_SECRET_CANARIES || process.env.CLIENT
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
+const forbiddenClinicalProviderOrigins = [
+  "api.openai.com",
+  "api.anthropic.com",
+  "generativelanguage.googleapis.com",
+  "api.groq.com",
+  "open.bigmodel.cn",
+  "api-inference.huggingface.co",
+];
 
 if (secretCanaries.length === 0) {
   console.error("CLIENT_SECRET_CANARIES must be set before checking a production bundle.");
@@ -26,15 +34,24 @@ async function findCanary(directory) {
         matches.push({ entryPath, secretCanary });
       }
     }
+    for (const origin of forbiddenClinicalProviderOrigins) {
+      if (contents.includes(Buffer.from(origin))) {
+        matches.push({ entryPath, providerOrigin: origin });
+      }
+    }
   }
   return matches;
 }
 
 const matches = await findCanary(outputDirectory);
 if (matches.length > 0) {
-  console.error("A server-only credential canary was embedded in the client bundle:");
-  matches.forEach(({ entryPath }) => console.error(`- ${entryPath}`));
+  console.error("A server-only credential or direct clinical-provider origin was embedded in the client bundle:");
+  matches.forEach(({ entryPath, providerOrigin }) => {
+    console.error(`- ${entryPath}${providerOrigin ? ` (${providerOrigin})` : ""}`);
+  });
   process.exit(1);
 }
 
-console.log(`${secretCanaries.length} client credential canaries are absent from ${outputDirectory}.`);
+console.log(
+  `${secretCanaries.length} credential canaries and ${forbiddenClinicalProviderOrigins.length} direct provider origins are absent from ${outputDirectory}.`,
+);
