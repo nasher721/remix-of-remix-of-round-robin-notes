@@ -285,7 +285,10 @@ describe("Focus-first Round runner harness", () => {
     fireEvent.click(screen.getByTestId("round-end-entry"));
     fireEvent.click(screen.getByTestId("round-end-print"));
 
-    const dialog = await screen.findByRole("dialog");
+    // The print workspace is intentionally lazy-loaded. Give constrained CI
+    // runners time to evaluate that chunk instead of relying on the default
+    // one-second Testing Library deadline.
+    const dialog = await screen.findByRole("dialog", undefined, { timeout: 5_000 });
     for (const patient of dashboardPatients3) {
       assert.ok(
         within(dialog).getAllByText(patient.name).length > 0,
