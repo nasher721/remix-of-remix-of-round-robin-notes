@@ -54,6 +54,20 @@ test('Sentry operational metrics retain bounded numeric measurements and classif
   assert.doesNotMatch(JSON.stringify(event), /requestId|must-not-cross/i);
 });
 
+test('Sentry retains the offline cache fallback as an allowlisted metric', () => {
+  const event = createSentryOperationalEvent('info', 'metric', {
+    metricName: 'patients.fetch.cache_fallback',
+    metricValue: 1,
+    metricUnit: 'count',
+    outcome: 'unavailable',
+    type: 'metric',
+  });
+
+  assert.ok(event);
+  assert.equal(event.tags?.['rr.metric_name'], 'patients.fetch.cache_fallback');
+  assert.equal(event.measurements?.rr_value?.value, 1);
+});
+
 test('Sentry operational forwarding ignores routine informational logs', () => {
   assert.equal(
     createSentryOperationalEvent('info', 'client_initialized', {}),

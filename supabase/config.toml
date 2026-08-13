@@ -20,9 +20,14 @@ inactivity_timeout = "30m"
 # from _shared/auth.ts, which uses supabaseClient.auth.getUser(token) — a
 # server-side round-trip to Supabase Auth that correctly validates ES256 tokens
 # regardless of algorithm. Healthcheck also accepts a dedicated monitor secret
-# so external uptime probes do not need a clinical user session.
+# so external uptime probes do not need a clinical user session. Telemetry is a
+# deliberately public, rate-limited, fixed-vocabulary ingest because landing
+# events occur before authentication; it has no browser-readable data path.
 
 [functions.healthcheck]
+verify_jwt = false
+
+[functions.telemetry]
 verify_jwt = false
 
 [functions.ai-clinical-assistant]

@@ -68,6 +68,35 @@ jobs:
             -o "$RUNNER_TEMP/healthcheck.json"
           jq -e '.status == "healthy" and .components.database == "connected"' \
             "$RUNNER_TEMP/healthcheck.json" >/dev/null
+      - name: Probe configured first-party telemetry ingest
+        if: vars.PRODUCTION_TELEMETRY_INGEST_URL != ''
+        env:
+          ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TELEMETRY_INGEST_URL: ${{ vars.PRODUCTION_TELEMETRY_INGEST_URL }}
+        run: |
+          set -euo pipefail
+          payload="$RUNNER_TEMP/telemetry-probe.json"
+          response="$RUNNER_TEMP/telemetry-probe-response.json"
+          jq --null-input \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
+            --arg session "monitor_${GITHUB_RUN_ID}" \
+            '[{
+              app: "round-robin-notes",
+              context: {},
+              env: "production",
+              level: "info",
+              message: "monitor.ingest_probe",
+              sessionId: $session,
+              timestamp: $timestamp
+            }]' >"$payload"
+          curl --fail --silent --show-error \
+            --request POST "$TELEMETRY_INGEST_URL" \
+            --header "Authorization: Bearer $ANON_KEY" \
+            --header "apikey: $ANON_KEY" \
+            --header "Content-Type: application/json" \
+            --data @"$payload" \
+            --output "$response"
+          jq -e '.accepted == 1' "$response" >/dev/null
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: Run reversible production save canary

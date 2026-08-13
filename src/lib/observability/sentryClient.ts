@@ -36,6 +36,7 @@ const METRIC_NAMES = new Set([
   'offline.sync.failed',
   'offline.sync.oldest_age_ms',
   'offline.sync.queue_length',
+  'patients.fetch.cache_fallback',
   'patients.fetch.duration_ms',
   'patients.fetch.error',
   'patients.fetch.success',

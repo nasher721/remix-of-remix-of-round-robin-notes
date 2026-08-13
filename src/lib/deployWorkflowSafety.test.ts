@@ -214,6 +214,10 @@ describe('Supabase deployment workflow', () => {
     const logger = await readFile('src/lib/observability/logger.ts', 'utf8')
     const workflow = await readFile('.github/workflows/ci.yml', 'utf8')
     const envExample = await readFile('.env.example', 'utf8')
+    const edgeConfig = await readFile('supabase/config.toml', 'utf8')
+    const telemetryFunction = await readFile('supabase/functions/telemetry/index.ts', 'utf8')
+    const deployWorkflow = await readFile('.github/workflows/deploy-supabase.yml', 'utf8')
+    const productionMonitor = await readFile('.github/workflows/production-monitor.yml', 'utf8')
 
     assert.match(viteConfig, /validateProductionObservabilityConfig/)
     assert.match(viteConfig, /VITE_SENTRY_DSN/)
@@ -225,6 +229,14 @@ describe('Supabase deployment workflow', () => {
     assert.equal((workflow.match(/VITE_SENTRY_DSN:/g) ?? []).length, 2)
     assert.equal((workflow.match(/VITE_TELEMETRY_INGEST_URL:/g) ?? []).length, 2)
     assert.match(envExample, /central observability sink/i)
+    assert.match(edgeConfig, /\[functions\.telemetry\][\s\S]*verify_jwt = false/)
+    assert.match(telemetryFunction, /parseTelemetryBatch/)
+    assert.match(telemetryFunction, /RATE_LIMITS\.telemetry/)
+    assert.match(telemetryFunction, /client_observability_events/)
+    assert.match(telemetryFunction, /purge_expired_client_observability_events/)
+    assert.match(deployWorkflow, /Smoke test — first-party telemetry ingest/)
+    assert.match(deployWorkflow, /message: "monitor\.ingest_probe"/)
+    assert.match(productionMonitor, /Probe configured first-party telemetry ingest/)
   })
 
   it('builds in CI from explicit public runtime configuration rather than a tracked .env', async () => {

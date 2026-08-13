@@ -61,7 +61,7 @@ CI production builds are intentionally independent of local `.env` files.
 | `PRODUCTION_APP_URL` | CI builds + deploy + monitor | Canonical HTTPS production origin mapped to `VITE_PUBLIC_APP_URL`, release verification, and synthetic monitoring |
 | `VITE_APPROVED_OAUTH_PROVIDERS` | CI builds (optional) | Comma-separated `google`, `apple`, or both; absent means password-only sign-in |
 | `PRODUCTION_SENTRY_DSN` | CI builds + monitor (one sink required) | Hosted Sentry DSN permitted by the production CSP |
-| `PRODUCTION_TELEMETRY_INGEST_URL` | CI builds + monitor (one sink required) | Same-origin or Supabase-hosted approved collector endpoint |
+| `PRODUCTION_TELEMETRY_INGEST_URL` | CI builds + monitor (one sink required) | Bundled endpoint: `https://<SUPABASE_PROJECT_ID>.supabase.co/functions/v1/telemetry` after operator approval |
 
 ### Required for healthcheck (do this first)
 
@@ -85,7 +85,8 @@ CI production builds are intentionally independent of local `.env` files.
 
 Configure repository variable `PRODUCTION_APP_URL` to the canonical HTTPS
 Vercel/custom-domain URL. The hourly Production monitor fails closed without
-it, probes Edge/database health, then performs a reversible save/reload/restore
+it, probes Edge/database health and the configured first-party telemetry ingest,
+then performs a reversible save/reload/restore
 against the dedicated `E2E Alpha` fixture. Monitor failures open or update the
 single `Production monitor failure` issue and a successful recovery closes it.
 
@@ -152,7 +153,7 @@ not replace the post-PATCH verification with an unchecked dashboard setting.
 **Do not turn on Supabase’s gateway `verify_jwt` for app functions in this repo.**
 
 - Access tokens from Supabase Auth may be **ES256** (asymmetric). The Edge **gateway** still validates some tokens with the **legacy HS256** path, which yields **“Invalid JWT”** before your handler runs.
-- [`supabase/config.toml`](../supabase/config.toml) sets **`verify_jwt = false`** for every function. **Authentication** is enforced in code with [`authenticateRequest()`](../supabase/functions/_shared/auth.ts). [`healthcheck`](../supabase/functions/healthcheck/index.ts) accepts either a validated user token or the dedicated monitor secret.
+- [`supabase/config.toml`](../supabase/config.toml) sets **`verify_jwt = false`** for every function. **Authentication** is enforced in code with [`authenticateRequest()`](../supabase/functions/_shared/auth.ts). [`healthcheck`](../supabase/functions/healthcheck/index.ts) accepts either a validated user token or the dedicated monitor secret. [`telemetry`](../supabase/functions/telemetry/index.ts) is the only content-free public ingest: it uses a distributed IP quota, a fixed schema, and a service-role-only table with 30-day retention because landing events occur before sign-in.
 - **`supabase functions deploy`** (CI and local) reads `config.toml` and applies these flags — keep them in sync when adding a new function.
 - **MCP / manual API deploys:** the payload must set **`verify_jwt` to match `config.toml`**. The repo script [`scripts/build-mcp-edge-bundle.mjs`](../scripts/build-mcp-edge-bundle.mjs) reads `[functions.<slug>]` so redeploys do not accidentally re-enable gateway JWT. Override **`SUPABASE_PROJECT_REF`** if the target project differs from `project_id` in `config.toml`.
 - **`npm run edge:check-jwt-config`** fails if any `[functions.*]` sets `verify_jwt = true` (also runs in **Deploy Supabase** before `functions deploy`).
@@ -204,9 +205,16 @@ Production source maps are disabled in [`vite.config.ts`](../vite.config.ts). If
 
 ---
 
-## Smoke test (healthcheck)
+## Smoke tests (telemetry and healthcheck)
 
-After `supabase functions deploy`, CI calls:
+After `supabase functions deploy`, CI first posts one fixed
+`monitor.ingest_probe` event to:
+
+`POST https://<SUPABASE_PROJECT_ID>.supabase.co/functions/v1/telemetry`
+
+The request uses the public browser key, must return `202` with
+`{"accepted":1}`, and exercises rate limiting, schema validation, retention,
+and the service-role-only insert. CI then calls:
 
 `GET https://<SUPABASE_PROJECT_ID>.supabase.co/functions/v1/healthcheck`
 
@@ -248,26 +256,31 @@ verification.
 
 ---
 
-## Observability (Sentry)
+## Observability
 
 Production builds require at least one centrally queryable sink:
 `VITE_SENTRY_DSN` or `VITE_TELEMETRY_INGEST_URL`. CI maps these from
 `PRODUCTION_SENTRY_DSN` and `PRODUCTION_TELEMETRY_INGEST_URL`; configure the
 same value in Vercel. Hosted Sentry DSNs must match the CSP-allowed ingest
 domains. Custom collectors must be credential-free HTTPS on the application
-origin or an approved Supabase origin. Query-string tokens are rejected.
+origin or an approved Supabase origin. Query-string tokens are rejected. This
+repository ships a first-party collector at
+`https://<SUPABASE_PROJECT_ID>.supabase.co/functions/v1/telemetry`; select that
+URL unless the deployment owner has approved hosted Sentry instead.
 
 When Sentry is selected, the app sends scrubbed exceptions plus bounded
 operational events. Marketing events and metrics retain only fixed event,
 operation, outcome, provider, feature, unit, and numeric measurement fields.
 Patient, account, contact, form, URL, request, and session content cannot be
-attached through this bridge. A custom collector remains available for teams
-that need a different approved backend.
+attached through this bridge. The first-party collector validates the same
+fixed vocabulary again, persists only projected scalar columns, grants no
+browser-role table access, and purges records after 30 days. The deploy and
+hourly monitor workflows send a content-free probe and fail on rejected ingest.
 
 | Variable | Where | Purpose |
 |----------|--------|---------|
 | `VITE_SENTRY_DSN` | Local `.env`, Vercel env (Production + Preview) | Hosted Sentry project DSN (public; safe in the bundle). |
-| `VITE_TELEMETRY_INGEST_URL` | Local `.env`, Vercel env | Approved same-origin or Supabase collector; alternative to Sentry. |
+| `VITE_TELEMETRY_INGEST_URL` | Local `.env`, Vercel env | Bundled Supabase telemetry function URL; alternative to Sentry. |
 | `VITE_APP_VERSION` | Optional | Overrides Sentry **release** string. If omitted, the build uses `package.json` `version`, and on Vercel appends `+` short git SHA (`VERCEL_GIT_COMMIT_SHA`). |
 
 Match **release** in Sentry to any hidden source maps uploaded during CI. Never serve those maps from the production asset directory. See [`src/lib/observability/sentryClient.ts`](../src/lib/observability/sentryClient.ts) (`beforeSend` scrubs query strings and payload-like breadcrumbs).

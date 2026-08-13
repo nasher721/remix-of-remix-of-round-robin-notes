@@ -5,12 +5,17 @@ import { createCollectorRuntime } from './collector';
 
 function fakeTimers() {
   let scheduled = 0;
+  const delays: number[] = [];
   return {
     get scheduled() {
       return scheduled;
     },
-    setTimer: () => {
+    get delays() {
+      return delays;
+    },
+    setTimer: (_handler: () => void, delayMs: number) => {
       scheduled += 1;
+      delays.push(delayMs);
       return scheduled;
     },
     clearTimer: () => {},
@@ -76,6 +81,25 @@ test('collector requeues a non-2xx batch and schedules a bounded retry', async (
 
   assert.equal(collector.getBufferSize(), 1);
   assert.ok(timers.scheduled >= 2, 'initial flush and retry should both be scheduled');
+});
+
+test('collector exponentially backs off repeated delivery failures and caps the delay', async () => {
+  const timers = fakeTimers();
+  const collector = createCollectorRuntime({
+    getIngestUrl: () => 'https://telemetry.example.test/ingest',
+    fetchImpl: async () => ({ ok: false }),
+    flushDebounceMs: 100,
+    retryBackoffMaxMs: 400,
+    ...timers,
+  });
+
+  collector.push({ event: 'first' });
+  await collector.flush();
+  await collector.flush();
+  await collector.flush();
+
+  assert.deepEqual(timers.delays, [100, 200, 400, 400]);
+  assert.equal(collector.getBufferSize(), 1);
 });
 
 test('collector retains a failed in-flight batch when newer events arrive', async () => {
@@ -147,4 +171,26 @@ test('collector caps retained memory and keeps the most recent sanitized events'
   await collector.flush();
   assert.deepEqual(delivered.map((event) => event.event), ['second', 'third']);
   assert.equal(collector.getBufferSize(), 0);
+});
+
+test('collector forwards only explicitly configured transport headers', async () => {
+  const timers = fakeTimers();
+  let deliveredHeaders: HeadersInit | undefined;
+  const collector = createCollectorRuntime({
+    getIngestUrl: () => 'https://project.supabase.co/functions/v1/telemetry',
+    getRequestHeaders: () => ({ apikey: 'public-browser-key' }),
+    fetchImpl: async (_url, init) => {
+      deliveredHeaders = init.headers;
+      return { ok: true };
+    },
+    ...timers,
+  });
+
+  collector.push({ event: 'first' });
+  await collector.flush();
+
+  assert.deepEqual(deliveredHeaders, {
+    'Content-Type': 'application/json',
+    apikey: 'public-browser-key',
+  });
 });

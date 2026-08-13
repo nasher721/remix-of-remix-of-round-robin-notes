@@ -107,9 +107,12 @@ close. All engineering-controlled items are complete and evidenced below.
   for landing view and sign-in, feature, security, pricing/contact, email, and
   workspace intent. Events contain no dynamic page, account, contact, or
   patient content. Production now requires hosted Sentry or an approved
-  same-origin/Supabase collector. The Sentry bridge preserves only fixed tags
-  and bounded measurements; custom collector delivery remains serialized and
-  bounded. Receipt verification and alert rules remain deployment gates.
+  same-origin/Supabase collector. The repository now ships that first-party
+  Supabase option with distributed rate limiting, fixed-schema validation,
+  service-role-only scalar storage, and enforced 30-day retention. The Sentry
+  bridge preserves only fixed tags and bounded measurements; custom collector
+  delivery remains serialized and bounded. Deploy and hourly workflows verify
+  first-party receipt; approval and alert rules remain deployment gates.
 - **PHI-safe sign-in outcomes:** password sign-in success and fixed failure
   categories, plus OAuth redirect/error outcomes, emit bounded count and
   duration metrics. The telemetry API accepts no email, credential, account
@@ -144,8 +147,12 @@ close. All engineering-controlled items are complete and evidenced below.
   pressure aggregate over five seconds, while conflicts and hard errors emit
   immediately. The optional
   collector now serializes flushes, treats non-2xx as failures, requeues failed
-  batches even when newer events arrive, and caps retained memory. An approved
-  ingest endpoint and production alert rules remain deployment gates.
+  batches even when newer events arrive, applies exponential retry backoff
+  capped at five minutes, caps retained memory, and attaches the public
+  Supabase key only for Supabase-hosted ingest. The first-party Edge
+  function rejects arbitrary event names, context fields, unbounded batches,
+  and stale timestamps before storage. Sink approval/configuration and
+  production alert rules remain deployment gates.
 - **Clean CI runtime configuration:** both production-build jobs now receive
   the public Supabase URL and browser publishable key explicitly from GitHub
   Actions configuration. CI no longer depends on a tracked developer `.env`;

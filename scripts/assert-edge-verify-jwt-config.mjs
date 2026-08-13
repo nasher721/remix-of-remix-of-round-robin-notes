@@ -39,6 +39,7 @@ for (const sec of sections) {
 
 const functionsRoot = path.join(process.cwd(), 'supabase/functions')
 const leastPrivilegeHealthchecks = new Set(['healthcheck'])
+const publicTelemetryFunctions = new Set(['telemetry'])
 const deployedFunctions = fs.readdirSync(functionsRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && !entry.name.startsWith('_'))
   .filter((entry) => fs.existsSync(path.join(functionsRoot, entry.name, 'index.ts')))
@@ -89,7 +90,29 @@ for (const fnName of deployedFunctions) {
     }
   }
 
-  if (!/await\s+authenticateRequest\s*\(\s*req\s*\)/.test(handler)) {
+  if (publicTelemetryFunctions.has(fnName)) {
+    for (const requiredPattern of [
+      /checkRateLimit\s*\(\s*req\s*,\s*RATE_LIMITS\.telemetry\s*\)/,
+      /parseTelemetryBatch\s*\(/,
+      /MAX_TELEMETRY_PAYLOAD_BYTES/,
+      /SUPABASE_SERVICE_ROLE_KEY/,
+      /\.from\(\s*["']client_observability_events["']\s*\)/,
+      /\.rpc\(\s*["']purge_expired_client_observability_events["']/,
+    ]) {
+      if (!requiredPattern.test(handler)) {
+        console.error(
+          `assert-edge-verify-jwt-config: public telemetry handler ${fnName}/index.ts is missing a required validation, rate-limit, storage, or retention boundary.`,
+        )
+        process.exit(1)
+      }
+    }
+  }
+
+  if (
+    !leastPrivilegeHealthchecks.has(fnName)
+    && !publicTelemetryFunctions.has(fnName)
+    && !/await\s+authenticateRequest\s*\(\s*req\s*\)/.test(handler)
+  ) {
     console.error(
       `assert-edge-verify-jwt-config: ${fnName}/index.ts does not authenticate the request handler.`,
     )
@@ -101,5 +124,5 @@ for (const fnName of deployedFunctions) {
 }
 
 console.log(
-  `Edge auth config OK: ${deployedFunctions.length} authenticated handlers; healthcheck also accepts a dedicated monitor secret.`,
+  `Edge auth config OK: ${deployedFunctions.length - leastPrivilegeHealthchecks.size - publicTelemetryFunctions.size} authenticated handlers; healthcheck and telemetry satisfy dedicated least-privilege public policies.`,
 )

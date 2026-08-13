@@ -50,6 +50,11 @@ export const RATE_LIMITS = {
     maxRequests: 15,
     keyPrefix: "parse",
   } as RateLimitConfig,
+  telemetry: {
+    windowMs: 60 * 1000,
+    maxRequests: 120,
+    keyPrefix: "telemetry",
+  } as RateLimitConfig,
 };
 
 export interface RateLimitResult {

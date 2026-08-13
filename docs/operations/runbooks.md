@@ -181,6 +181,9 @@ Drill log: (date / operator / backup point / RTO measured / result)
   CSP allows only the approved Sentry ingest origin.
 - Structured client logger (`src/lib/observability/logger.ts`) with stable
   event names (`patient.update.failed`, etc.).
+- First-party Supabase telemetry ingest with distributed rate limiting,
+  fixed-vocabulary validation, service-role-only storage, no raw context or
+  session identifiers, and enforced 30-day retention.
 - Fixed PHI-safe operational metrics for patient-write outcome/latency and
   offline queue length/age/replay results. Saved/queued per-input writes and
   rapid enqueue pressure aggregate over five seconds; conflicts and hard errors
@@ -191,7 +194,8 @@ Drill log: (date / operator / backup point / RTO measured / result)
 - CI bundle assertions: `scripts/check-bundle-size.mjs`,
   `scripts/assert-no-optional-native-in-bundle.mjs`.
 - Hourly production monitor (`.github/workflows/production-monitor.yml`):
-  calls the least-privileged Edge/database healthcheck, signs in with the
+  calls the least-privileged Edge/database healthcheck, verifies the configured
+  first-party telemetry ingest, signs in with the
   dedicated non-PHI account, writes a unique marker to `E2E Alpha`, proves the
   marker from a cold reload, and restores the exact original summary. Failures
   create or update one deduplicated GitHub issue; the next successful run
@@ -199,9 +203,9 @@ Drill log: (date / operator / backup point / RTO measured / result)
 
 **Open gaps (must close or formally accept before GA)**
 
-- Production builds and the hourly monitor now fail closed unless hosted
-  Sentry or an approved same-origin/Supabase collector is configured. The
-  operator must still provision the selected project/endpoint, verify receipt,
+- Production builds and the hourly monitor fail closed unless hosted Sentry or
+  the bundled Supabase collector is configured. Deployment and monitoring now
+  verify first-party ingest receipt; the operator must still approve the sink
   and configure an alert destination. Alert on
   degraded `auth.sign_in.total` outcomes and auth latency,
   `patient.update.failed` volume, `patients.mutation.total` degraded outcomes,

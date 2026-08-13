@@ -10,7 +10,7 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 
 | Area | What you have |
 |------|----------------|
-| **Structured logging** | `src/lib/observability/logger.ts` — JSON logs with `app`, `env`, `sessionId`, `timestamp`, `level`, `message`, `context`. No Pino; output is `console.log/warn/error`. |
+| **Structured logging** | `src/lib/observability/logger.ts` — PHI-safe JSON console output plus bounded central delivery when an approved sink is configured. |
 | **Telemetry / errors** | `src/lib/observability/telemetry.ts` — Persists events to IndexedDB, fingerprinting, frequency tracking, `recordTelemetryEvent()`, PHI-safe `sanitizeContext()`. |
 | **Global error capture** | `initGlobalErrorCapture()` in `main.tsx` — unhandled errors and unhandled promise rejections → telemetry. |
 | **Render errors** | `GlobalErrorBoundary` uses `recordTelemetryEvent('render_error', …)`. |
@@ -18,29 +18,29 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 | **Request timeouts** | `requestTimeout.ts` records `network_error` on timeout. |
 | **AI errors** | `useAIClinicalAssistant` records `ai_error`. |
 | **Sync** | The owner-scoped queue emits aggregate length/oldest-age pressure plus replay duration, completed, failed, and conflict counts. No mutation payload is included. |
-| **Patient fetch** | `usePatientFetch.ts` uses `logMetric('patients.fetch.error', 1, 'count', { userId })`. |
+| **Patient fetch** | `usePatientFetch.ts` emits fixed success, failure, latency, and offline-cache-fallback metrics without owner or patient identifiers. |
 | **Cache metrics** | React Query + service worker: hits, misses, latency in `performanceMonitor.ts` and `CacheMonitorPanel`; not exported to a central backend. |
-| **LLM metrics** | `LLMLogger.ts` — in-memory provider metrics (calls, errors, latency); not persisted or exported. |
+| **Clinical AI operations** | Authenticated Edge functions emit fixed, content-free provider/status/duration logs through `safeLog`; browser provider logging was removed with the direct-provider runtime. |
 | **Business metrics** | `src/types/analytics.ts` + `AnalyticsDashboard` / `MobileAnalytics` — unit/task/alert/protocol metrics computed from patient/todo data (in-app only). |
 | **Public funnel** | `marketingTelemetry.ts` emits fixed PHI-free events for landing view, sign-in intent, feature exploration, security guidance, pricing/contact intent, email intent, and footer workspace intent through the optional collector. |
 | **Health** | Supabase Edge Function `healthcheck` — DB ping + 200/503; suitable for UptimeRobot/Datadog. |
 
 ### Gaps
 
-1. **Logs only go to console** — No log aggregation (e.g. Datadog, Logtail, Axiom). Production logs are not collected or queryable.
-2. **Central collection is deployment-gated** — production now fails closed
-   unless hosted Sentry or an approved same-origin/Supabase collector is
-   configured. IndexedDB remains the local diagnostic store.
-3. **Request IDs are partial** — Patient fetches and selected API/Edge paths carry correlation IDs; complete browser-to-Edge propagation is still incremental.
-4. **Edge metrics are partial** — Shared structured safe logging exists, but not every function emits full rate/error/duration measurements.
-5. **RED coverage is partial** — Patient fetch, authentication, patient mutation, and offline replay measurements are emitted; a configured backend is still needed to aggregate them.
+1. **Central collection is deployment-gated** — the repository now includes a
+   fixed-schema Supabase ingest and 30-day store, but production remains
+   intentionally blocked until the operator approves and configures that URL
+   or hosted Sentry. IndexedDB remains the local diagnostic store.
+2. **Request IDs are partial** — Patient fetches and selected API/Edge paths carry correlation IDs; complete browser-to-Edge propagation is still incremental.
+3. **Edge metrics are partial** — Shared structured safe logging exists, but not every function emits full rate/error/duration measurements.
+4. **RED coverage is partial** — Patient fetch, authentication, patient mutation, and offline replay measurements are emitted; a configured backend is still needed to aggregate them.
 6. **Alert rules are deployment work** — Repository code emits the required fixed metrics, but production thresholds and notification destinations are not configured here.
 
 ### Critical paths to monitor
 
 | Path | SLI idea | Current coverage |
 |------|----------|------------------|
-| Patient load | Success rate, p95 latency | `logMetric` on fetch error only; no success/duration. |
+| Patient load | Success rate, p95 latency | Fixed `patients.fetch.*` success, error, duration, and cache-fallback metrics. |
 | Patient mutations | Outcome count, average latency | Fixed `patients.mutation.*` metrics; saved/queued per-input writes aggregate over five seconds, conflicts and hard errors emit immediately. |
 | Edge Functions (AI, format, etc.) | Invocations, errors, duration | Not instrumented. |
 | Public launch funnel | Landing → feature/sign-in/contact intent | Fixed PHI-free events; centrally visible only when collector ingest is configured. |
@@ -83,13 +83,15 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 ## Step 3: Collect (done)
 
 - **Current flow:** Keep console + IndexedDB; add a “Export logs” or “Send last N errors” for support.
-- **Collector** (`src/lib/observability/collector.ts`): Buffers payloads; when `VITE_TELEMETRY_INGEST_URL` is set, batches (max 50) and POSTs every 5s or on buffer full. Concurrent flushes serialize, non-2xx/network failures requeue, retained memory is capped at 200 sanitized events, and `pagehide` flushes the final mutation aggregate before delivery.
+- **Collector** (`src/lib/observability/collector.ts`): Buffers payloads; when `VITE_TELEMETRY_INGEST_URL` is set, batches (max 50) and POSTs after 5s or on buffer full. Concurrent flushes serialize, non-2xx/network failures requeue with exponential backoff capped at five minutes, retained memory is capped at 200 sanitized events, and `pagehide` flushes the final mutation aggregate before delivery.
 - **Telemetry** (errors) remains in IndexedDB; use existing **Export error report** for support.
-- **Backend requirement:** Production requires hosted Sentry or
-  `VITE_TELEMETRY_INGEST_URL`. The custom endpoint should accept POST with a
-  JSON array of events and must be same-origin or Supabase-hosted so CSP cannot
-  silently block delivery. When Sentry is used, the operational bridge emits
-  only fixed tags and bounded numeric measurements.
+- **First-party backend:** `supabase/functions/telemetry` accepts bounded JSON
+  batches, applies the distributed rate limiter and a second fixed-vocabulary
+  validation boundary, then persists only projected scalar columns in
+  `client_observability_events`. Browser roles have no table access; raw
+  context and session identifiers are discarded; retention is 30 days.
+- **Alternative:** Hosted Sentry remains supported. Its operational bridge
+  emits only fixed tags and bounded numeric measurements.
 - **Launch analytics:** Once an approved ingest endpoint is configured, chart
   `marketing.landing_view` → sign-in/contact intent → `auth.sign_in.total`.
   The code emits no cookies and does not send page content, email addresses,
@@ -101,14 +103,14 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 
 - **Business metrics:** Use existing **AnalyticsDashboard** / **MobileAnalytics** for unit, task, alert, and protocol metrics.
 - **Cache:** **CacheMonitorPanel** shows React Query + service worker hit rate and latency.
-- **Errors:** Use `getErrorFrequencies()` and `exportErrorReport()` from telemetry (wire to a Settings/Debug menu for support). No in-app ops dashboard yet; add one (RED for API/Edge, error rate, sync) when you have a telemetry backend.
+- **Errors:** Use `getErrorFrequencies()` and `exportErrorReport()` for local support. Query the service-role-only central table through approved operations tooling; never expose it to the clinical browser.
 
 ---
 
 ## Step 5: Alert (done — documented)
 
 - **Uptime / health:** Use the Supabase Edge Function `healthcheck` (DB ping). In UptimeRobot or Datadog, add an HTTP monitor to your `.../functions/v1/healthcheck` URL with the `x-healthcheck-token` secret header; alert on 401, 5xx, or timeout.
-- **Error rate:** When you add a telemetry backend, add an alert when error rate > 5% on a critical path. Example (Prometheus-style):
+- **Error rate:** After the first-party sink is deployed, add an alert when error rate > 5% on a critical path. Example (Prometheus-style):
 
 ```yaml
 # Example: when you have metrics in a backend
@@ -127,7 +129,8 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 
 Steps 1–5 have repository support. You have: assessment and gaps, request IDs
 and success/duration metrics on patient fetch, authentication, patient writes,
-and sync; a failure-safe collector; a PHI-safe Sentry operational bridge;
+and sync; a failure-safe collector; a fixed-schema first-party Supabase ingest
+and 30-day store; a PHI-safe Sentry operational bridge;
 existing in-app dashboards; and documented alerting. Sink provisioning,
 receipt verification, and production alert rules remain deployment gates.
 
@@ -143,4 +146,4 @@ receipt verification, and production alert rules remain deployment gates.
 | **`captureHandledError(err, extra)`** | Try/catch paths: same pipeline as global errors (`handled_error` category). |
 | **Error boundaries** | `AIErrorBoundary`, `LazyPanelErrorBoundary`, `ErrorBoundary`, section boundaries, and global fallback record `render_error` with boundary metadata. |
 
-**Triage workflow:** reproduce → Settings → **Copy diagnostics** (or console `await __RR_OBSERVABILITY__.exportReport()`) → search codebase using `message` / `stackPreview` / `fingerprint`. Optional: set `VITE_TELEMETRY_INGEST_URL` so structured logger batches hit your backend.
+**Triage workflow:** reproduce → Settings → **Copy diagnostics** (or console `await __RR_OBSERVABILITY__.exportReport()`) → search codebase using `message` / `stackPreview` / `fingerprint`. Set `VITE_TELEMETRY_INGEST_URL` to the deployed Supabase telemetry function so structured logger batches reach the approved central store.

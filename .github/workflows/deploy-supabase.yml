@@ -183,6 +183,35 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy
 
+      - name: Smoke test — first-party telemetry ingest
+        env:
+          ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          payload="$RUNNER_TEMP/telemetry-smoke.json"
+          response="$RUNNER_TEMP/telemetry-smoke-response.json"
+          jq --null-input \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" \
+            --arg session "deploy_${GITHUB_RUN_ID}" \
+            '[{
+              app: "round-robin-notes",
+              context: {},
+              env: "production",
+              level: "info",
+              message: "monitor.ingest_probe",
+              sessionId: $session,
+              timestamp: $timestamp
+            }]' >"$payload"
+          curl --fail --silent --show-error \
+            --request POST "https://${PROJECT_ID}.supabase.co/functions/v1/telemetry" \
+            --header "Authorization: Bearer $ANON_KEY" \
+            --header "apikey: $ANON_KEY" \
+            --header "Content-Type: application/json" \
+            --data @"$payload" \
+            --output "$response"
+          jq -e '.accepted == 1' "$response" >/dev/null
+
       - name: Smoke test — healthcheck edge function
         env:
           ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

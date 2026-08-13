@@ -17,6 +17,7 @@ const childOwnershipMigration = "20260711200000_harden_child_record_ownership.sq
 const distributedRateLimitsMigration = "20260811014046_add_distributed_edge_rate_limits.sql";
 const backendContractMigration = "20260812000000_harden_patient_and_round_contracts.sql";
 const publicSurfaceMigration = "20260813000000_harden_public_database_surface.sql";
+const observabilityMigration = "20260813020000_create_client_observability_sink.sql";
 
 const readMigration = async (file) =>
   readFile(path.join(migrationsDirectory, file), "utf8");
@@ -45,6 +46,7 @@ for (const requiredFile of [
   distributedRateLimitsMigration,
   backendContractMigration,
   publicSurfaceMigration,
+  observabilityMigration,
 ]) {
   assert(migrationFiles.includes(requiredFile), `Missing migration: ${requiredFile}`);
 }
@@ -334,6 +336,33 @@ assert.match(
   childOwnershipSql,
   /phrase\.id\s*=\s*phrase_id[\s\S]*phrase\.user_id\s*=\s*auth\.uid\(\)/i,
   "Phrase usage rows must reference a phrase owned by auth.uid()",
+);
+
+const observabilitySql = await readMigration(observabilityMigration);
+assert.match(
+  observabilitySql,
+  /CREATE TABLE public\.client_observability_events/i,
+  "The first-party client observability sink must have a durable store",
+);
+assert.match(
+  observabilitySql,
+  /ALTER TABLE public\.client_observability_events FORCE ROW LEVEL SECURITY/i,
+  "The observability store must enforce RLS even for ordinary table owners",
+);
+assert.match(
+  observabilitySql,
+  /REVOKE ALL ON TABLE public\.client_observability_events[\s\S]*FROM PUBLIC, anon, authenticated/i,
+  "Browser roles must not directly access central observability rows",
+);
+assert.match(
+  observabilitySql,
+  /purge_expired_client_observability_events[\s\S]*interval '30 days'/i,
+  "Central observability must enforce its bounded retention period",
+);
+assert.doesNotMatch(
+  observabilitySql,
+  /\b(?:patient_id|patient_name|clinical_note|raw_context|session_id|user_agent|request_url)\s+(?:text|uuid|jsonb?)/i,
+  "The observability store must not add clinical, identifying, or arbitrary payload columns",
 );
 assert.match(
   childOwnershipSql,
