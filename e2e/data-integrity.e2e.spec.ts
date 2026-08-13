@@ -16,6 +16,7 @@ import {
   hasCredentials,
   loginWithShell,
   selectClassicPatient,
+  waitForPatientSave,
 } from "./helpers";
 
 const DATA_PATIENT_NAME = "E2E Bravo";
@@ -131,6 +132,7 @@ test.describe("Data integrity", () => {
     test.setTimeout(150_000);
 
     let originalHtml: string | undefined;
+    let originalText: string | undefined;
     let onlineStamp: string | undefined;
     let offlineStamp: string | undefined;
     let offline = false;
@@ -162,6 +164,7 @@ test.describe("Data integrity", () => {
       ));
       let editor = await selectClassicPatient(page, DATA_PATIENT_NAME);
       originalHtml = await editor.evaluate((node) => node.innerHTML);
+      originalText = await editor.textContent() ?? "";
 
       // Baseline: an online edit saves normally (also warms lazy editor modules
       // so going offline does not trip the lazy-panel error boundary).
@@ -281,13 +284,19 @@ test.describe("Data integrity", () => {
         await page.evaluate(() => sessionStorage.removeItem("__rr_e2e_force_offline")).catch(() => undefined);
         await page.evaluate(() => window.dispatchEvent(new Event("online"))).catch(() => undefined);
       }
-      if (originalHtml !== undefined && !page.isClosed()) {
+      if (originalHtml !== undefined && originalText !== undefined && !page.isClosed()) {
         await page.waitForTimeout(2_000);
         await page.reload();
         await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
         let cleanupEditor = await selectClassicPatient(page, DATA_PATIENT_NAME);
-        if (offlineStamp) await deleteEditorMarker(page, cleanupEditor, offlineStamp);
-        if (onlineStamp) await deleteEditorMarker(page, cleanupEditor, onlineStamp);
+        // Restore the fixture with one revision-guarded write. Deleting the two
+        // markers as separate saves allows the second debounced editor state to
+        // race the first response and reintroduce the first marker.
+        await cleanupEditor.click();
+        await waitForPatientSave(page, async () => {
+          await page.keyboard.press("ControlOrMeta+A");
+          await page.keyboard.insertText(originalText);
+        });
         await page.reload();
         await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
         cleanupEditor = await selectClassicPatient(page, DATA_PATIENT_NAME);
