@@ -26,6 +26,7 @@ type ServiceWorkerOptions = {
   cachedResponse?: Response;
   cachedRequestUrl?: string;
   initialCacheNames?: string[];
+  networkError?: Error;
   networkResponse?: Response;
 };
 
@@ -35,6 +36,7 @@ const loadServiceWorker = ({
   cachedResponse,
   cachedRequestUrl,
   initialCacheNames = [],
+  networkError,
   networkResponse,
 }: ServiceWorkerOptions = {}) => {
   const listeners = new Map<string, ServiceWorkerListener>();
@@ -88,7 +90,12 @@ const loadServiceWorker = ({
     Response,
     caches,
     console: { log: () => undefined, error: () => undefined },
-    fetch: async () => networkResponse?.clone() ?? new Response("ok"),
+    fetch: async () => {
+      if (networkError) throw networkError;
+      return networkResponse?.clone() ?? new Response("ok", {
+        headers: { "content-type": "text/javascript" },
+      });
+    },
     performance,
     self,
   });
@@ -182,7 +189,7 @@ describe("service worker cache policy", () => {
     assert.equal(worker.getClaimCalls(), 1);
     assert.equal(JSON.stringify(worker.clientMessages), JSON.stringify([{
       type: "WORKER_ACTIVATED",
-      version: "v1.0.11",
+      version: "v1.0.12",
     }]));
     assert.deepEqual(worker.deletedCaches, ["dynamic-v1.0.8", "dynamic-v1.0.9"]);
   });
@@ -193,7 +200,10 @@ describe("service worker cache policy", () => {
         "dynamic-v1.0.9": [{
           requestUrl: "https://round-robin.test/assets/chunk-v109.js",
           response: new Response("previous-generation chunk", {
-            headers: { "sw-cache-time": Date.now().toString() },
+            headers: {
+              "content-type": "text/javascript",
+              "sw-cache-time": Date.now().toString(),
+            },
           }),
         }],
       },
@@ -202,7 +212,7 @@ describe("service worker cache policy", () => {
         "dynamic-v1.0.7",
         "dynamic-v1.0.8",
         "dynamic-v1.0.9",
-        "dynamic-v1.0.11",
+        "dynamic-v1.0.12",
         "api-v1.0.8",
         "images-v1.0.8",
         "static-v1.0.8",
@@ -233,20 +243,20 @@ describe("service worker cache policy", () => {
         "dynamic-v1.0.8": [{
           requestUrl: "https://round-robin.test/assets/chunk-v108.js",
           response: new Response("two-releases-old chunk", {
-            headers: { "sw-cache-time": now },
+            headers: { "content-type": "text/javascript", "sw-cache-time": now },
           }),
         }],
         "dynamic-v1.0.9": [{
           requestUrl: "https://round-robin.test/assets/chunk-v109.js",
           response: new Response("one-release-old chunk", {
-            headers: { "sw-cache-time": now },
+            headers: { "content-type": "text/javascript", "sw-cache-time": now },
           }),
         }],
       },
       initialCacheNames: [
         "dynamic-v1.0.8",
         "dynamic-v1.0.9",
-        "dynamic-v1.0.11",
+        "dynamic-v1.0.12",
       ],
       networkResponse: new Response("missing", { status: 404 }),
     });
@@ -282,7 +292,7 @@ describe("service worker cache policy", () => {
           }),
         }],
       },
-      initialCacheNames: ["dynamic-v1.0.8", "dynamic-v1.0.11"],
+      initialCacheNames: ["dynamic-v1.0.8", "dynamic-v1.0.12"],
     });
     const activate = worker.listeners.get("activate");
     assert.ok(activate, "service worker must register an activate listener");
@@ -306,7 +316,7 @@ describe("service worker cache policy", () => {
           "sw-cache-time": Date.now().toString(),
         },
       }),
-      initialCacheNames: ["dynamic-v1.0.9", "dynamic-v1.0.11"],
+      initialCacheNames: ["dynamic-v1.0.9", "dynamic-v1.0.12"],
       networkResponse: new Response("missing", { status: 404 }),
     });
     const activate = worker.listeners.get("activate");
@@ -321,6 +331,56 @@ describe("service worker cache policy", () => {
     assert.equal(response.status, 200);
     assert.equal(await response.text(), "previous-generation chunk");
     assert.equal(worker.deletedCaches.includes("dynamic-v1.0.9"), false);
+  });
+
+  it("serves a retained lazy chunk when an old tab loses its network", async () => {
+    const oldChunkUrl = "https://round-robin.test/assets/chunk-v109.js";
+    const worker = loadServiceWorker({
+      cachedCacheName: "dynamic-v1.0.9",
+      cachedRequestUrl: oldChunkUrl,
+      cachedResponse: new Response("offline retained chunk", {
+        status: 200,
+        headers: {
+          "content-type": "text/javascript",
+          "sw-cache-time": Date.now().toString(),
+        },
+      }),
+      initialCacheNames: ["dynamic-v1.0.9", "dynamic-v1.0.12"],
+      networkError: new TypeError("Failed to fetch"),
+    });
+    const fetchListener = worker.listeners.get("fetch");
+    assert.ok(fetchListener, "worker must register a fetch listener");
+
+    const response = await getServiceWorkerResponse(fetchListener, new Request(oldChunkUrl));
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), "offline retained chunk");
+  });
+
+  it("rejects a rewritten HTML asset response in favor of the retained exact chunk", async () => {
+    const oldChunkUrl = "https://round-robin.test/assets/chunk-v109.js";
+    const worker = loadServiceWorker({
+      cachedCacheName: "dynamic-v1.0.9",
+      cachedRequestUrl: oldChunkUrl,
+      cachedResponse: new Response("retained JavaScript chunk", {
+        status: 200,
+        headers: {
+          "content-type": "text/javascript",
+          "sw-cache-time": Date.now().toString(),
+        },
+      }),
+      initialCacheNames: ["dynamic-v1.0.9", "dynamic-v1.0.12"],
+      networkResponse: new Response("<!doctype html><title>SPA fallback</title>", {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      }),
+    });
+    const fetchListener = worker.listeners.get("fetch");
+    assert.ok(fetchListener, "worker must register a fetch listener");
+
+    const response = await getServiceWorkerResponse(fetchListener, new Request(oldChunkUrl));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "text/javascript");
+    assert.equal(await response.text(), "retained JavaScript chunk");
   });
 
   it("deletes API and obsolete public cache generations", async () => {

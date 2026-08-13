@@ -1,6 +1,6 @@
 // Service Worker for comprehensive caching strategies
 // NOTE: bump CACHE_VERSION when cache behavior changes to force invalidation.
-const CACHE_VERSION = 'v1.0.11';
+const CACHE_VERSION = 'v1.0.12';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `dynamic-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
@@ -184,14 +184,28 @@ function isHtmlRequest(request) {
   return accept.includes('text/html');
 }
 
+function isExpectedVersionedAssetResponse(request, response) {
+  const pathname = new URL(request.url).pathname;
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  if (/\.css$/i.test(pathname)) return contentType.includes('text/css');
+  if (/\.(js|mjs)$/i.test(pathname)) {
+    return contentType.includes('javascript') || contentType.includes('ecmascript');
+  }
+  return true;
+}
+
 async function networkFirstWithJsRetry(request, cacheName, ttl) {
   try {
     const response = await networkFirstWithCache(request, cacheName, ttl);
-    if (!response.ok) {
+    if (!response.ok || !isExpectedVersionedAssetResponse(request, response)) {
       // An open tab can request a previous deployment's hashed chunk after the
       // host has removed it. Prefer the exact cached URL when available; this
       // never applies to HTML or unversioned responses.
-      const cachedResponse = await getCachedResponse(request, cacheName, ttl);
+      const currentCachedResponse = await getCachedResponse(request, cacheName, ttl);
+      const cachedResponse = currentCachedResponse &&
+        isExpectedVersionedAssetResponse(request, currentCachedResponse)
+        ? currentCachedResponse
+        : null;
       const retainedGenerationResponse = cachedResponse ??
         await getRetainedDynamicResponse(request, cacheName, ttl);
       if (retainedGenerationResponse) {
@@ -201,6 +215,14 @@ async function networkFirstWithJsRetry(request, cacheName, ttl) {
     }
     return response;
   } catch (error) {
+    // A clinician can lose connectivity after deferring an update. The exact
+    // chunk retained for that open tab remains authoritative in this path too.
+    const retainedGenerationResponse = await getRetainedDynamicResponse(request, cacheName, ttl);
+    if (retainedGenerationResponse) {
+      performanceMetrics.cacheHits++;
+      return retainedGenerationResponse;
+    }
+
     const errorMessage = error?.message || '';
     const isStaleChunkError = errorMessage.includes('Failed to fetch') || errorMessage.includes('imported');
     if (isStaleChunkError) {
@@ -224,7 +246,7 @@ async function getRetainedDynamicResponse(request, currentCacheName, ttl) {
     .reverse();
   for (const cacheName of retainedCacheNames) {
     const response = await getCachedResponse(request, cacheName, ttl);
-    if (response) return response;
+    if (response && isExpectedVersionedAssetResponse(request, response)) return response;
   }
   return null;
 }
@@ -256,7 +278,7 @@ async function networkFirstWithCache(request, cacheName, ttl) {
     performanceMetrics.networkRequests++;
     const networkResponse = await fetch(request);
     
-    if (networkResponse.ok) {
+    if (networkResponse.ok && isExpectedVersionedAssetResponse(request, networkResponse)) {
       const cache = await caches.open(cacheName);
       const responseToCache = networkResponse.clone();
       

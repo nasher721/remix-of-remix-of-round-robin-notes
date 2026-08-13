@@ -227,8 +227,10 @@ close. All engineering-controlled items are complete and evidenced below.
   an executable worker harness covers both 503 recovery and 404 pass-through.
   Exact cached hashed JavaScript URLs also bridge the narrow interval where an
   already-open tab requests a previous deployment chunk after hosting cleanup
-  returns 404. HTML 404 responses remain authoritative, and the worker cache
-  generation is bumped again to distribute the chunk policy.
+  returns 404, rewrites the missing asset to an HTML app shell, or rejects the
+  request while offline. Unexpected asset MIME types are never cached as
+  executable chunks. HTML navigation 404 responses remain authoritative, and
+  the worker cache generation is bumped again to distribute the chunk policy.
 - **Authenticated browser gate:** local isolated runs execute 22 credentialed
   scenarios per engine in Chromium and WebKit with zero skips, including multi-tab conflicts,
   offline queue drain, Round navigation, roster state, and real Excel/PDF

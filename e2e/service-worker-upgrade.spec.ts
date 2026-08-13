@@ -147,6 +147,17 @@ test.beforeAll(async () => {
       return;
     }
 
+    if (url.pathname === "/assets/html-fallback.js") {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.end("<!doctype html><title>SPA fallback</title>");
+      return;
+    }
+
+    if (url.pathname === "/assets/network-failure.js") {
+      request.socket.destroy();
+      return;
+    }
+
     if (url.pathname.startsWith("/assets/")) {
       response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
       response.end("deployment asset no longer available");
@@ -183,6 +194,18 @@ test.afterAll(async () => {
 test("real worker upgrades preserve exact chunks across rapid deployments @public", async ({ page }) => {
   await installFirstWorker(page, TEST_VERSIONS[0]);
   await seedVersionedChunk(page, TEST_VERSIONS[0], "chunk-a.js", "window.release = 'a';");
+  await seedVersionedChunk(
+    page,
+    TEST_VERSIONS[0],
+    "html-fallback.js",
+    "window.release = 'html-fallback';",
+  );
+  await seedVersionedChunk(
+    page,
+    TEST_VERSIONS[0],
+    "network-failure.js",
+    "window.release = 'network-failure';",
+  );
 
   await installWaitingWorker(page, TEST_VERSIONS[1]);
   const firstWaitingState = await page.evaluate(async () => {
@@ -214,6 +237,29 @@ test("real worker upgrades preserve exact chunks across rapid deployments @publi
     return { body: await response.text(), status: response.status };
   });
   expect(twoReleasesOldChunk).toEqual({ body: "window.release = 'a';", status: 200 });
+
+  const rewrittenAsset = await page.evaluate(async () => {
+    const response = await fetch("/assets/html-fallback.js");
+    return {
+      body: await response.text(),
+      contentType: response.headers.get("content-type"),
+      status: response.status,
+    };
+  });
+  expect(rewrittenAsset).toEqual({
+    body: "window.release = 'html-fallback';",
+    contentType: "text/javascript",
+    status: 200,
+  });
+
+  const rejectedNetworkChunk = await page.evaluate(async () => {
+    const response = await fetch("/assets/network-failure.js");
+    return { body: await response.text(), status: response.status };
+  });
+  expect(rejectedNetworkChunk).toEqual({
+    body: "window.release = 'network-failure';",
+    status: 200,
+  });
 
   const unrelatedChunk = await page.evaluate(async () => {
     const response = await fetch("/assets/not-cached.js");
