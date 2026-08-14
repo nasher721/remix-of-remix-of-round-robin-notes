@@ -1,4 +1,5 @@
-import { Wifi, WifiOff, Cloud, RefreshCw, Trash2, Clock, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { Wifi, WifiOff, Cloud, RefreshCw, Trash2, Clock, AlertTriangle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -14,8 +15,23 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useOfflineMode } from '@/hooks/useOfflineMode';
+import {
+  downloadPendingRecovery,
+  pendingRecoverySignature,
+} from '@/lib/exportPendingRecovery';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
 
 export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: boolean } = {}) {
   const {
@@ -32,6 +48,38 @@ export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: bo
     clearQueue,
     skippedMutations,
   } = useOfflineMode();
+  const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  const [downloadedQueueSignature, setDownloadedQueueSignature] = useState<string | null>(null);
+  const [isClearingQueue, setIsClearingQueue] = useState(false);
+  const queueSignature = pendingRecoverySignature(pendingMutations);
+  const recoveryReady = pendingMutations.length > 0 && downloadedQueueSignature === queueSignature;
+
+  const handleDownloadRecovery = () => {
+    try {
+      downloadPendingRecovery(pendingMutations);
+      setDownloadedQueueSignature(queueSignature);
+      toast.success('Recovery copy downloaded', {
+        description: 'This file contains PHI. Store it only under organization policy.',
+      });
+    } catch {
+      toast.error('Recovery copy could not be downloaded');
+    }
+  };
+
+  const handleConfirmDiscard = async () => {
+    if (!recoveryReady || isClearingQueue) return;
+    setIsClearingQueue(true);
+    try {
+      await clearQueue();
+      setDiscardDialogOpen(false);
+      setDownloadedQueueSignature(null);
+      toast.success('Local pending changes discarded');
+    } catch {
+      toast.error('Pending changes could not be discarded');
+    } finally {
+      setIsClearingQueue(false);
+    }
+  };
   
   // Don't show anything if online with no pending changes
   if (isOnline && pendingCount === 0 && !isSyncing) {
@@ -39,9 +87,10 @@ export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: bo
   }
   
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
+    <>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
           variant="ghost"
           size="sm"
           className={`gap-2 ${touchFriendly ? 'min-h-[44px] min-w-[44px]' : ''} ${!isOnline || failedCount > 0 ? 'text-destructive' : pendingCount > 0 ? 'text-yellow-500' : ''}`}
@@ -78,8 +127,8 @@ export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: bo
               )}
             </>
           )}
-        </Button>
-      </PopoverTrigger>
+          </Button>
+        </PopoverTrigger>
       
       <PopoverContent className="w-80" align="end">
         <div className="space-y-4">
@@ -289,20 +338,34 @@ export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: bo
             )}
             
             {pendingCount > 0 && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearQueue}
-                    disabled={isSyncing}
-                    aria-label="Discard pending changes"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Discard pending changes</TooltipContent>
-              </Tooltip>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={handleDownloadRecovery}
+                  disabled={isSyncing}
+                >
+                  <Download className="mr-1.5 h-4 w-4" aria-hidden />
+                  Download recovery copy
+                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDiscardDialogOpen(true)}
+                      disabled={isSyncing}
+                      aria-label="Review discarding pending changes"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Review discard</TooltipContent>
+                </Tooltip>
+              </>
             )}
           </div>
           
@@ -315,6 +378,55 @@ export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: bo
           )}
         </div>
       </PopoverContent>
-    </Popover>
+      </Popover>
+      <AlertDialog
+        open={discardDialogOpen}
+        onOpenChange={(open) => {
+          if (!isClearingQueue) setDiscardDialogOpen(open);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard local pending changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              These changes have not been confirmed on the server. Download a recovery copy before
+              discarding them. The JSON contains PHI and is intended for authorized support or manual
+              clinical recovery; it is not automatically re-imported.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11 w-full"
+            onClick={handleDownloadRecovery}
+            disabled={isClearingQueue}
+          >
+            <Download className="mr-2 h-4 w-4" aria-hidden />
+            {recoveryReady ? 'Download recovery copy again' : 'Download recovery copy'}
+          </Button>
+
+          <p className="text-sm text-muted-foreground" role="status" aria-live="polite">
+            {recoveryReady
+              ? 'Recovery copy downloaded. You may now discard these local changes.'
+              : 'Discard remains unavailable until a recovery copy is downloaded.'}
+          </p>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isClearingQueue}>Keep changes</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!recoveryReady || isClearingQueue}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmDiscard();
+              }}
+            >
+              {isClearingQueue ? 'Discarding…' : 'Discard local changes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

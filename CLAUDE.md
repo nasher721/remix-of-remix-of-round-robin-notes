@@ -411,6 +411,16 @@ import { usePatients } from "@/hooks/usePatients";
 
 **Confidence**: High — cold-reload, transient-failure, completion-guard, and export regression coverage, 2026-08-13.
 
+### Recovery-first deletion of queued clinical work
+
+**Context**: Pending offline mutations may contain the only copy of bedside clinical changes, so clearing the queue is an irreversible PHI-bearing action.
+
+**Pattern**: Expose one shared Offline indicator at every dashboard breakpoint. Before enabling discard, require an explicit local download of the exact current queue; include a format marker, timestamp, PHI warning, mutation/patient identifiers, and payload. Derive confirmation state from the complete queued content so any queue change invalidates the prior download. Treat the JSON as an authorized support/manual-recovery artifact, not an automatic import format.
+
+**Avoid**: One-click queue clearing, hiding recovery controls at desktop widths, claiming automatic re-import, or leaving discard enabled after the queued payload changes.
+
+**Confidence**: High — source contracts plus authenticated Chromium/WebKit offline edit, recovery-download inspection, cancel-preservation, reload, and exact-once reconnect coverage, 2026-08-13.
+
 ### Patient-list import idempotency
 
 **Context**: A bulk insert may commit server-side while its response is lost, making a clinician retry ambiguous.

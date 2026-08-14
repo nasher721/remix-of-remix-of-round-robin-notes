@@ -37,7 +37,18 @@ Smart Patient Import shows this uncertainty before clipboard access or parsing, 
 
 ## Recovery exports
 
-Recovery JSON is generated locally after explicit user action and contains PHI. It is never uploaded by the export helper. Organization storage and transmission policy still applies.
+Recovery JSON is generated locally after explicit user action and contains PHI.
+It is never uploaded by the export helper. Organization storage and
+transmission policy still applies.
+
+The shared Offline indicator exposes the pending queue on every dashboard
+breakpoint. Before queued clinical work can be discarded, the user must
+download the exact current queue. The destructive confirmation remains disabled
+until that download occurs; changing the queue invalidates the confirmation.
+The artifact retains mutation and patient identifiers plus local payloads for
+authorized support or manual clinical recovery. It is intentionally not an
+automatic import format because replay must respect the authenticated owner,
+server revisions, and conflict resolution.
 
 ## Release evidence
 

@@ -10,10 +10,10 @@ close. All engineering-controlled items are complete and evidenced below.
 
 | Item | Value |
 | --- | --- |
-| Repo SHA (last deployed) | `75025291b3e41c8170492bcc1bbfc9c50fa09e37` — verified 2026-08-13. The hardening changes described below are the next local release candidate and are not yet deployed. |
-| CI run | `31663117609` (green at deployed SHA; authenticated scenarios were not yet required in that run) |
-| Supabase deploy workflow | run `31663280818` **success** at deployed SHA — SHA revalidated, migrations/functions deployed, healthcheck green, Vercel hook completed |
-| Frontend production deploy | **Last deployed SHA verified** — live entry `index-BWIrTsQc.js` was byte-identical to the local build at `7502529`. Re-verify after the release candidate is committed and deployed. |
+| Repo SHA | The release SHA is the `main` commit attached to the latest successful `Deploy Supabase` workflow. Never copy an older hard-coded SHA into a new sign-off. |
+| CI run | Attach the successful `CI` workflow URL for that exact SHA. The main-branch browser jobs must report 31/31 Chromium and 31/31 WebKit with zero skips. |
+| Supabase deploy workflow | Attach the successful `Deploy Supabase` workflow URL for the same SHA. It revalidates `main`, deploys migrations/functions, verifies health/telemetry, invokes Vercel, and probes the canonical origin. |
+| Frontend production deploy | Read the canonical origin's `<meta name="app-version">`; it must equal `1.0.0+<short release SHA>`. This live value, not a stale packet entry, is authoritative. |
 | Supabase project | `zsavxqvnseqxusfwdovu` (RollingRounds) |
 | Latest migration versions in prod | through `20260811133644_create_round_state`; history repaired per `supabase/manual/2026-08-11-migration-history-repair.sql` plus 18 placeholder files for out-of-band versions |
 
@@ -29,6 +29,12 @@ close. All engineering-controlled items are complete and evidenced below.
   — automated multi-tab-conflict and offline-queue-recovery scenarios pass;
   manual matrix defined for WebKit/real-device/failure-injection evidence.
   Includes the offline/conflict defects found and fixed on 2026-08-12/13.
+- **Recovery-first queue deletion:** the shared Offline indicator is available
+  at every dashboard breakpoint. Discard remains disabled until the exact
+  current queue is downloaded as PHI-marked JSON; queued-content changes
+  invalidate that confirmation, and cancel leaves pending work intact. The
+  artifact is for authorized support/manual recovery rather than automatic
+  re-import. Authenticated Chromium and WebKit exercise the full boundary.
 - **Accessibility/responsive (Phase 4):** automated browser coverage now
   verifies keyboard skip navigation, roster focus restoration, roving mobile
   tabs, live `aria-controls` targets, 44px primary Round targets at 390px,

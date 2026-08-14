@@ -27,7 +27,7 @@ account and roster.)
 | Scenario | Coverage | Status 2026-08-12 |
 | --- | --- | --- |
 | 3. Multi-tab concurrency (same account, two tabs) | Automated — tab B's stale browser edit must surface an explicit "Save conflict," expose the matching `Review conflict` inline state, issue one revision-guarded patient `PATCH`, and never overwrite tab A's persisted content; unit coverage proves the queued-keystroke barrier | PASS (Chromium + WebKit) |
-| 5. Offline recovery (queue → reconnect → no duplication) | Automated — the owner-scoped roster and Todo snapshot remain available after an offline service-worker reload; queued chart payloads are projected over the last roster snapshot and restore their `Offline queued` state before chart/End/Export render; patient Todos show queued state, remain in IndexedDB across reload, feed the shared End/Export map, accept new post-reload Todo add/complete actions, drain on reconnect, and persist exactly once; known-offline work must issue zero clinical-data writes. Chromium additionally proves zero Supabase requests during the offline reload; WebKit must briefly re-enable document transport but blocks clinical-data writes while the shell loads. | PASS (Chromium + WebKit) |
+| 5. Offline recovery (queue → recovery copy → reconnect → no duplication) | Automated — the owner-scoped roster and Todo snapshot remain available after an offline service-worker reload; queued chart payloads are projected over the last roster snapshot and restore their `Offline queued` state before chart/End/Export render; the shared Offline indicator remains reachable at desktop/tablet/compact breakpoints; destructive discard stays disabled until the exact queue is downloaded as PHI-marked recovery JSON; cancel preserves the queue; patient Todos remain in IndexedDB, feed the shared End/Export map, drain on reconnect, and persist exactly once. Known-offline work must issue zero clinical-data writes. Chromium additionally proves zero Supabase requests during the offline reload; WebKit must briefly re-enable document transport but blocks clinical-data writes while the shell loads. | PASS (Chromium + WebKit) |
 | 7. Completion guard | Automated — an offline Todo disables Done and Mark Complete while End review plus the preloaded Print / Export dialog remain usable; transient Todo or patient-roster read outages preserve locally available clinical truth, mark it unverified, show a persistent retry surface, and block completion; a successful forced read clears the guard without refresh | PASS (Chromium + WebKit) |
 | 9. Reload truth | Automated for the two scenarios above (post-reload content match + occurrence count) | PASS (Chromium + WebKit) |
 
@@ -146,7 +146,7 @@ observer, notes.
 | 5 | Offline recovery: queue chart edits and patient Todos offline, reload, continue from the cached roster, reconnect, retry | PASS (auto) | PASS (auto; zero writes, Supabase blocked during shell reload) | | Owner-scoped roster remains navigable; post-reload Todo add/complete stays local; known-offline work makes zero Supabase writes; queued work survives reload and persists exactly once; Todo status goes Queued → synced and remains removable; global notices identify only changes showing `Offline queued` or `Queued` as device-resident and require confirming `Queued` clears or `Saved` appears after reconnect |
 | 6 | Failure injection: expired session, rejected write, storage unavailable, rate limit, timeout, 4xx/5xx | | | | Actionable retry/conflict/recovery path; no false "Saved" |
 | 7 | Completion guard: Done / End Round with pending, failed, conflicting, or queued changes | PASS (auto) | PASS (auto) | | Done and Mark Complete block; End review and Print / Export remain usable; reconnect replay unlocks completion without refresh |
-| 8 | Recovery export: export failed/pending changes, re-import via documented process | | | | No silent data loss; identifiers intact |
+| 8 | Recovery export: download failed/pending changes, inspect content and identifiers, cancel discard, and perform authorized manual recovery if needed | | | | Discard is unavailable before download; JSON retains mutation/patient identifiers and local content; cancel leaves the queue intact |
 | 9 | Reload truth: compare rendered content vs database rows after refresh on every tab/device | | | | Rendered content matches DB exactly |
 
 ### Scenario 6 notes (failure injection recipes)
@@ -166,8 +166,11 @@ observer, notes.
 - Completion guard lives in the round-completion flow (`Done` / `End Round`);
   exercise it with one patient in each state: pending, failed, conflicting,
   offline-queued.
-- Recovery export: use the Offline indicator's pending-changes surface and
-  the documented export path; verify identifiers and content on re-import.
+- Recovery export: use the Offline indicator's pending-changes surface. Open
+  **Review discard**, prove **Discard local changes** is disabled, download the
+  PHI-marked JSON, inspect the mutation/patient identifiers and local content,
+  then choose **Keep changes** and verify the queue remains. The file is an
+  authorized support/manual-recovery artifact, not an automatic import format.
 
 ## Acceptance criteria mapping (plan Phase 3)
 
@@ -175,6 +178,9 @@ observer, notes.
   enforced by revision-predicate writes (server-side), conflict UI,
   queue-state reconciliation, and the automated scenarios above.
 - Every failure state offers an actionable path — validated per scenario row.
+  Pending clinical work has a recovery-first destructive boundary: the shared
+  indicator is visible across dashboard breakpoints, export precedes discard,
+  and automatic re-import is never implied.
 - Automated Playwright coverage exists for stable Chromium scenarios plus a
   production-bundle WebKit auth/login/dashboard smoke. The browser suite also
   covers keyboard skip/focus restoration, roving tabs, live ARIA panel

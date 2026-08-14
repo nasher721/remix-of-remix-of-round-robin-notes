@@ -9,7 +9,7 @@
  * Evidence captured here feeds docs/qa/2026-08-12-data-integrity-matrix.md.
  */
 
-import { test, expect, type Browser, type Page, type Route } from "@playwright/test";
+import { test, expect, type Browser, type Download, type Page, type Route } from "@playwright/test";
 import {
   appendEditorMarker,
   deleteEditorMarker,
@@ -20,6 +20,13 @@ import {
 } from "./helpers";
 
 const DATA_PATIENT_NAME = "E2E Bravo";
+
+async function readJsonDownload(download: Download): Promise<unknown> {
+  const stream = await download.createReadStream();
+  let content = "";
+  for await (const chunk of stream) content += chunk.toString();
+  return JSON.parse(content);
+}
 
 async function loginToDashboard(page: Page) {
   test.skip(!hasCredentials, "E2E_TEST_EMAIL and E2E_TEST_PASSWORD must be set for data-integrity E2E");
@@ -194,6 +201,35 @@ test.describe("Data integrity", () => {
         offlinePatientPatches,
         "known-offline edits should queue locally without attempting patient PATCH requests",
       ).toEqual([]);
+
+      // Recovery-first boundary: a clinician cannot permanently discard the
+      // queued PHI until the exact current queue has been downloaded. Canceling
+      // the dialog must preserve the queue and its visible save state.
+      await page.getByTestId("offline-indicator").click();
+      await page.getByRole("button", { name: "Review discarding pending changes" }).click();
+      const discardDialog = page.getByRole("alertdialog");
+      await expect(discardDialog).toContainText("Discard local pending changes?");
+      const discardButton = discardDialog.getByRole("button", { name: "Discard local changes" });
+      await expect(discardButton).toBeDisabled();
+
+      const recoveryDownload = page.waitForEvent("download");
+      await discardDialog.getByRole("button", { name: "Download recovery copy" }).click();
+      const recoveryPayload = await readJsonDownload(await recoveryDownload) as {
+        format?: string;
+        mutations?: Array<{ id?: string; entityId?: string; payload?: Record<string, unknown> }>;
+      };
+      expect(recoveryPayload.format).toBe("rolling-rounds-pending-recovery-v1");
+      const exportedMutation = recoveryPayload.mutations?.find((mutation) => (
+        JSON.stringify(mutation.payload).includes(offlineStamp)
+      ));
+      expect(exportedMutation?.id).toBeTruthy();
+      expect(exportedMutation?.entityId).toBeTruthy();
+      await expect(discardButton).toBeEnabled();
+      await discardDialog.getByRole("button", { name: "Keep changes" }).click();
+      await expect(discardDialog).toBeHidden();
+      await expect(
+        page.getByRole("status").filter({ hasText: /^Offline queued$/ }).first(),
+      ).toBeVisible();
 
       if (browserName === "webkit") {
         captureOfflinePatientPatches = false;

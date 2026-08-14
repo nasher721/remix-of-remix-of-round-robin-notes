@@ -572,8 +572,6 @@ export const DesktopDashboard = () => {
                   <span className="text-muted-foreground/60" aria-hidden="true">·</span>
                   <span className="text-foreground/80">Synced {lastSavedRelative}</span>
                   <span className="text-muted-foreground/60" aria-hidden="true">·</span>
-                  <OfflineIndicator />
-                  <span className="text-muted-foreground/60" aria-hidden="true">·</span>
                   <Clock className="h-3 w-3 text-foreground/70" aria-hidden="true" />
                   <span className="text-foreground/80">{todayLabel}</span>
                 </div>
@@ -581,52 +579,56 @@ export const DesktopDashboard = () => {
                 <div className="hidden sm:block" />
               )}
 
-              <div className="hidden min-[1100px]:flex items-center gap-2">
-                <TrustIndicators />
-                <PresenceIndicator />
-                <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user?.email ?? ""}>{user?.email ?? ""}</span>
-                <KeyboardShortcutHelp open={isShortcutHelpOpen} onOpenChange={setShortcutHelpOpen} />
-                <TogglePanelsButton />
-                <ThemeToggle />
-                <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
-                  <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
-              </div>
+              <div className="flex items-center gap-1.5">
+                <OfflineIndicator />
 
-              <div className="flex min-[1100px]:hidden items-center gap-1.5">
-                <PresenceIndicator />
-                <ThemeToggle />
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 rounded-lg border-border/60"
-                      aria-label="Workspace settings"
-                    >
-                      <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-lg">
-                    <DropdownMenuLabel className="truncate" title={user?.email ?? ""}>
-                      {user?.email ?? ""}
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleTogglePanels}>
-                      {focusModeActive || (panelLeftCollapsed && panelRightCollapsed)
-                        ? "Show patient list"
-                        : "Collapse panels"}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <a href="#desktop-patient-search">Jump to search</a>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={onSignOut} className="text-destructive focus:text-destructive">
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="hidden min-[1100px]:flex items-center gap-2">
+                  <TrustIndicators />
+                  <PresenceIndicator />
+                  <span className="text-xs text-muted-foreground truncate max-w-[140px] hidden sm:block" title={user?.email ?? ""}>{user?.email ?? ""}</span>
+                  <KeyboardShortcutHelp open={isShortcutHelpOpen} onOpenChange={setShortcutHelpOpen} />
+                  <TogglePanelsButton />
+                  <ThemeToggle />
+                  <Button type="button" onClick={onSignOut} variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10" aria-label="Sign out">
+                    <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Button>
+                </div>
+
+                <div className="flex min-[1100px]:hidden items-center gap-1.5">
+                  <PresenceIndicator />
+                  <ThemeToggle />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg border-border/60"
+                        aria-label="Workspace settings"
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 rounded-lg">
+                      <DropdownMenuLabel className="truncate" title={user?.email ?? ""}>
+                        {user?.email ?? ""}
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleTogglePanels}>
+                        {focusModeActive || (panelLeftCollapsed && panelRightCollapsed)
+                          ? "Show patient list"
+                          : "Collapse panels"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <a href="#desktop-patient-search">Jump to search</a>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={onSignOut} className="text-destructive focus:text-destructive">
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
             </div>
           </div>

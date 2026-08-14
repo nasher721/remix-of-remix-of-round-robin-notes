@@ -81,12 +81,23 @@ npm run test:e2e   # E2E tests (Playwright); see e2e/README.md for login credent
 
 ### Deploy to Vercel
 
-1. Push your code to GitHub
-2. Import the project in [Vercel](https://vercel.com)
-3. Add environment variables in Vercel dashboard:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY` (preferred) or `VITE_SUPABASE_ANON_KEY` (legacy)
-4. Deploy!
+Production does not deploy directly from a `main` Git push. The required order
+is enforced by GitHub Actions:
+
+1. Push the reviewed commit to `main`.
+2. The `CI` workflow must pass the unit, security, migration, build, Edge,
+   Clinical MCP, and authenticated Chromium/WebKit gates with zero skips.
+3. `Deploy Supabase` revalidates that exact SHA, applies database/Edge changes,
+   smoke-tests health and telemetry, then invokes the required Vercel hook.
+4. The workflow stays red until the canonical production origin serves the
+   exact `app-version` SHA and expected session/public metadata.
+5. Run the production monitor to prove health, telemetry, and the reversible
+   authenticated save canary.
+
+Configure the public `VITE_*` values in Vercel and their matching
+`PRODUCTION_*` GitHub repository variables. See
+[docs/deployment.md](docs/deployment.md) for the complete fail-closed contract;
+do not use a manual frontend-only deploy for schema-sensitive releases.
 
 ### Supabase Edge Functions
 

@@ -37,8 +37,10 @@ Edge Functions, Realtime), AI providers reached only through the
   the sync engine drains automatically on `online`. If the badge shows
   `N pending`, clicking it forces a sync.
 - Conflict: use the conflict dialog (Keep My Changes / Use Server Version).
-  Never ask the user to "just retype" before exporting pending changes
-  (see Runbook: Recovery export in the QA matrix, scenario 8).
+  Never ask the user to "just retype" or discard the queue before downloading
+  **Download recovery copy** from the Offline indicator. The recovery JSON
+  contains PHI and is for authorized support/manual recovery; it is not an
+  automatic import file (see the QA matrix, scenario 8).
 - Queue growth across many users → treat as backend incident; go to
   Runbook 3 or 4.
 
@@ -79,16 +81,19 @@ edge logs show provider 429/5xx; client timeout (~180 s) messages.
 
 **Remediation**
 
-1. Confirm provider status page; `parse-handoff` fails over between
-   configured providers on 429s — check edge logs to see which provider
-   failed.
-2. If one provider is down, verify the failover key/env is set
-   (Supabase Edge Function secrets) and redeploy the function if rotated.
-3. User-facing guidance during outage: paste/type notes manually; imports
-   can be retried later — no data is lost by waiting.
-4. If both providers are degraded, announce via the support channel
-   (Runbook 6) and log a clinical incident review entry if any note was
-   delayed past a rounding session.
+1. Confirm the single deployment-approved provider/model pair and its status
+   page. Clinical PHI never fails over to another vendor; check Edge logs for
+   the approved provider's fixed-schema error metadata.
+2. Verify the matching provider credential and
+   `CLINICAL_PHI_LLM_PROVIDER` / `CLINICAL_PHI_LLM_MODEL` policy secrets, then
+   redeploy only after key rotation or an approved model change.
+3. If policy is explicitly `disabled`, keep document/image parsing unavailable.
+   The primary Import Patient List flow still supports client-side CSV upload,
+   paste, mapping, and import without an AI provider.
+4. During an approved-provider outage, use client-side CSV import or type notes
+   manually and retry document/image parsing later. Announce through the
+   support channel and log a clinical incident review if work is delayed past
+   a rounding session.
 
 ---
 

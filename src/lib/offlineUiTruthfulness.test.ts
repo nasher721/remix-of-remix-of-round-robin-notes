@@ -21,6 +21,22 @@ test('mounted offline UI scopes durable queue claims to confirmed patient change
   assert.match(networkStatus, /confirm Queued clears or Saved appears/i);
 });
 
+test('queued clinical changes require a recovery-first confirmation before discard', () => {
+  const indicator = readSource('src/components/OfflineIndicator.tsx');
+  const desktopDashboard = readSource('src/components/dashboard/DesktopDashboard.tsx');
+
+  assert.match(indicator, /Download recovery copy/);
+  assert.match(indicator, /Discard local pending changes\?/);
+  assert.match(indicator, /recoveryReady/);
+  assert.match(indicator, /disabled=\{!recoveryReady \|\| isClearingQueue\}/);
+  assert.doesNotMatch(indicator, /onClick=\{clearQueue\}/);
+  assert.equal(
+    (desktopDashboard.match(/<OfflineIndicator/g) ?? []).length,
+    1,
+    'one shared dashboard recovery surface must remain visible at every breakpoint',
+  );
+});
+
 test('persistent network warning does not cover Round lifecycle controls', () => {
   const app = readSource('src/App.tsx');
   const sonner = readSource('src/components/ui/sonner.tsx');
