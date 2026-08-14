@@ -1,4 +1,5 @@
 import type { QueuedMutation } from "@/lib/offline/indexedDBQueue";
+import { pendingQueueSignature } from "@/lib/offline/queueSignature";
 
 export const PENDING_RECOVERY_FORMAT = "rolling-rounds-pending-recovery-v1" as const;
 
@@ -13,16 +14,7 @@ export interface PendingRecoveryPayload {
 export function pendingRecoverySignature(
   mutations: readonly QueuedMutation[],
 ): string {
-  return JSON.stringify(
-    [...mutations]
-      .sort((left, right) => left.id.localeCompare(right.id))
-      .map((mutation) => ({
-        ...mutation,
-        payload: mutation.payload,
-        conflictData: mutation.conflictData,
-        conflictServerData: mutation.conflictServerData,
-      })),
-  );
+  return pendingQueueSignature(mutations);
 }
 
 export function createPendingRecoveryPayload(

@@ -44,7 +44,10 @@ transmission policy still applies.
 The shared Offline indicator exposes the pending queue on every dashboard
 breakpoint. Before queued clinical work can be discarded, the user must
 download the exact current queue. The destructive confirmation remains disabled
-until that download occurs; changing the queue invalidates the confirmation.
+until that download occurs; cross-tab queue changes invalidate the confirmation,
+and deletion atomically re-checks the exported queue signature before removing
+any owner-scoped mutation. A mismatch preserves the entire queue and requires a
+fresh recovery copy.
 The artifact retains mutation and patient identifiers plus local payloads for
 authorized support or manual clinical recovery. It is intentionally not an
 automatic import format because replay must respect the authenticated owner,

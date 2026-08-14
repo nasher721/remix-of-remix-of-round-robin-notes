@@ -29,7 +29,12 @@ test('queued clinical changes require a recovery-first confirmation before disca
   assert.match(indicator, /Discard local pending changes\?/);
   assert.match(indicator, /recoveryReady/);
   assert.match(indicator, /disabled=\{!recoveryReady \|\| isClearingQueue\}/);
-  assert.doesNotMatch(indicator, /onClick=\{clearQueue\}/);
+  assert.match(indicator, /discardQueue\(downloadedQueueSignature\)/);
+  assert.match(indicator, /Pending changes changed/);
+  const queue = readSource('src/lib/offline/indexedDBQueue.ts');
+  assert.match(queue, /BroadcastChannel/);
+  assert.match(queue, /db\.transaction\('rw', db\.mutations/);
+  assert.match(queue, /pendingQueueSignature\(ownedMutations\) !== expectedSignature/);
   assert.equal(
     (desktopDashboard.match(/<OfflineIndicator/g) ?? []).length,
     1,
@@ -53,6 +58,14 @@ test('production patient mutations durably enqueue retryable update failures', (
   assert.match(source, /indexedDBQueue\.enqueue/);
   assert.match(source, /Offline — change queued/);
   assert.match(source, /Patient changes could not be saved or queued/);
+});
+
+test('post-fetch roster and Todo cache writes revoke verification when persistence fails', () => {
+  const patientFetch = readSource('src/hooks/patients/usePatientFetch.ts');
+  const todoFetch = readSource('src/hooks/useAllPatientTodos.ts');
+
+  assert.match(patientFetch, /writePatientRosterSnapshot[\s\S]*!snapshotPersisted[\s\S]*verification: "stale"/);
+  assert.match(todoFetch, /writePatientTodoSnapshot[\s\S]*!snapshotPersisted[\s\S]*verification: 'stale'/);
 });
 
 test('unreachable alternate offline mutation hooks remain removed', () => {

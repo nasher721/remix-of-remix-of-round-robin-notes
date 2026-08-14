@@ -125,11 +125,13 @@ export async function resolvePatientRosterRead(
 
     try {
         const remote = await dependencies.fetchRemote(ownerId);
-        await dependencies.writeSnapshot(ownerId, remote);
+        const snapshotPersisted = await dependencies.writeSnapshot(ownerId, remote);
         return {
             patients: await dependencies.overlayPending(ownerId, remote),
-            verification: "verified",
-            hasLocalSnapshot: true,
+            // Remote truth remains visible, but irreversible completion must
+            // not claim offline recovery is ready when durable storage failed.
+            verification: snapshotPersisted ? "verified" : "stale",
+            hasLocalSnapshot: snapshotPersisted,
         };
     } catch {
         let local: Patient[] | null = null;
@@ -314,7 +316,15 @@ export function usePatientFetch(): PatientFetchState {
                 return next;
             });
             if (nextSnapshot && activeOwnerIdRef.current === ownerId) {
-                void writePatientRosterSnapshot(ownerId, nextSnapshot);
+                void writePatientRosterSnapshot(ownerId, nextSnapshot).then((snapshotPersisted) => {
+                    if (
+                        !snapshotPersisted
+                        && mountedRef.current
+                        && activeOwnerIdRef.current === ownerId
+                    ) {
+                        setVerificationState({ ownerId, verification: "stale" });
+                    }
+                });
             }
         },
         [ownerId, patientListQueryKey, queryClient]

@@ -45,7 +45,7 @@ export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: bo
     triggerSync,
     retryFailed,
     resolveSkippedConflict,
-    clearQueue,
+    discardQueue,
     skippedMutations,
   } = useOfflineMode();
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
@@ -67,10 +67,17 @@ export function OfflineIndicator({ touchFriendly = false }: { touchFriendly?: bo
   };
 
   const handleConfirmDiscard = async () => {
-    if (!recoveryReady || isClearingQueue) return;
+    if (!recoveryReady || !downloadedQueueSignature || isClearingQueue) return;
     setIsClearingQueue(true);
     try {
-      await clearQueue();
+      const discarded = await discardQueue(downloadedQueueSignature);
+      if (!discarded) {
+        setDownloadedQueueSignature(null);
+        toast.error('Pending changes changed', {
+          description: 'Download a new recovery copy before discarding the current queue.',
+        });
+        return;
+      }
       setDiscardDialogOpen(false);
       setDownloadedQueueSignature(null);
       toast.success('Local pending changes discarded');

@@ -181,3 +181,20 @@ test("patient roster read preserves local truth when an online-flagged server re
   assert.equal(result.patients[0]?.name, "Locally preserved");
   assert.equal(result.verification, "stale");
 });
+
+test("patient roster read never claims durable recovery when snapshot persistence fails", async () => {
+  const remotePatient = mapPatientRecord(
+    patientRow("patient-remote", "user-a", "Remote but not durable") as unknown as PatientRecord,
+  );
+  const result = await resolvePatientRosterRead("user-a", {
+    isKnownOffline: () => false,
+    fetchRemote: async () => [remotePatient],
+    readLocal: async () => null,
+    writeSnapshot: async () => false,
+    overlayPending: async (_ownerId, patients) => [...patients],
+  });
+
+  assert.equal(result.patients[0]?.name, "Remote but not durable");
+  assert.equal(result.verification, "stale");
+  assert.equal(result.hasLocalSnapshot, false);
+});

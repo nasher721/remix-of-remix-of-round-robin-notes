@@ -19,7 +19,7 @@ test("patient roster status banner warns on stale local truth and retries verifi
 
   assert.match(
     screen.getByRole("status").textContent ?? "",
-    /showing any roster data available on this device/i,
+    /patient-list recovery could not be verified/i,
   );
   fireEvent.click(screen.getByRole("button", { name: /retry patient list/i }));
   await waitFor(() => assert.equal(retries, 1));

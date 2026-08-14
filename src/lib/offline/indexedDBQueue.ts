@@ -8,6 +8,7 @@ import { safeLocalStorage } from '../../utils/safeStorage';
 import {
   offlineOwnerTransitionBarrier,
 } from './ownerTransitionBarrier';
+import { pendingQueueSignature } from './queueSignature';
 
 export { OwnerTransitionBarrier } from './ownerTransitionBarrier';
 
@@ -28,6 +29,7 @@ export interface ConflictData {
 
 const MAX_RETRIES = 3;
 const QUEUE_STORAGE_KEY = 'offline-mutation-queue';
+const QUEUE_CHANGE_CHANNEL = 'rolling-rounds-offline-queue-v1';
 let inMemoryFallbackQueue: QueuedMutation[] = [];
 
 /**
@@ -109,11 +111,13 @@ class IndexedDBQueueManager {
   private initialization: Promise<void>;
   private ownerId: string | null = null;
   private notificationVersion = 0;
+  private queueChangeChannel: BroadcastChannel | null = null;
   
   constructor() {
     safeLocalStorage.removeItem(QUEUE_STORAGE_KEY);
     this.initialization = this.initialize();
     this.setupOnlineListener();
+    this.setupCrossTabListener();
   }
   
   private async initialize(): Promise<void> {
@@ -149,6 +153,16 @@ class IndexedDBQueueManager {
       this.notifyListeners();
     });
   }
+
+  private setupCrossTabListener(): void {
+    if (typeof window === 'undefined' || typeof window.BroadcastChannel === 'undefined') return;
+    this.queueChangeChannel = new window.BroadcastChannel(QUEUE_CHANGE_CHANNEL);
+    this.queueChangeChannel.addEventListener('message', (event) => {
+      if (event.data === 'queue-changed') {
+        this.notifyListeners();
+      }
+    });
+  }
   
   private notifyListeners(): void {
     const version = ++this.notificationVersion;
@@ -156,6 +170,12 @@ class IndexedDBQueueManager {
       if (version !== this.notificationVersion) return;
       this.listeners.forEach(callback => callback(queue));
     }).catch(() => {/* notify listeners of empty queue on error */});
+  }
+
+  /** Notify this tab and other same-origin tabs without broadcasting PHI. */
+  private notifyQueueChanged(): void {
+    this.notifyListeners();
+    this.queueChangeChannel?.postMessage('queue-changed');
   }
   
   enqueue(mutation: QueuedMutationInput): Promise<string> {
@@ -202,7 +222,7 @@ class IndexedDBQueueManager {
         persistedId = this.enqueueToMemory(queuedMutation, acceptedOwnerId);
       }
 
-      this.notifyListeners();
+      this.notifyQueueChanged();
       logInfo(`[IndexedDBQueue] Queued: ${mutation.type}/${mutation.operation}`);
       void this.recordHealthMetrics('enqueued');
       return persistedId;
@@ -247,7 +267,7 @@ class IndexedDBQueueManager {
       const queue = readMemoryQueue();
       writeMemoryQueue(queue.filter(m => m.id !== mutationId || m.ownerId !== this.ownerId));
     }
-    this.notifyListeners();
+    this.notifyQueueChanged();
   }
   
   async markFailed(mutationId: string, configuredMaxRetries?: number): Promise<boolean> {
@@ -266,12 +286,12 @@ class IndexedDBQueueManager {
             retryCount: newRetryCount,
             status: 'failed',
           });
-          this.notifyListeners();
+          this.notifyQueueChanged();
           return false;
         }
         
         await db.mutations.update(mutationId, { retryCount: newRetryCount });
-        this.notifyListeners();
+        this.notifyQueueChanged();
         return true;
       }
     } else {
@@ -286,11 +306,11 @@ class IndexedDBQueueManager {
         if (mutation.retryCount >= maxRetries) {
           mutation.status = 'failed';
           writeMemoryQueue(queue);
-          this.notifyListeners();
+          this.notifyQueueChanged();
           return false;
         }
         writeMemoryQueue(queue);
-        this.notifyListeners();
+        this.notifyQueueChanged();
         return true;
       }
     }
@@ -332,7 +352,7 @@ class IndexedDBQueueManager {
   async clear(): Promise<void> {
     if (!this.ownerId) {
       writeMemoryQueue([]);
-      this.notifyListeners();
+      this.notifyQueueChanged();
       void this.recordHealthMetrics('cleared');
       return;
     }
@@ -344,8 +364,53 @@ class IndexedDBQueueManager {
     } else {
       writeMemoryQueue(readMemoryQueue().filter(mutation => mutation.ownerId !== this.ownerId));
     }
-    this.notifyListeners();
+    this.notifyQueueChanged();
     void this.recordHealthMetrics('cleared');
+  }
+
+  /**
+   * Delete only the exact owner-scoped queue that was exported for recovery.
+   * The IndexedDB read, signature comparison, and delete share one transaction,
+   * so a concurrent write either invalidates the signature or survives after
+   * the deletion. The memory fallback performs the same steps synchronously.
+   */
+  discardIfUnchanged(expectedSignature: string): Promise<boolean> {
+    const acceptedOwnerId = this.ownerId;
+    return offlineOwnerTransitionBarrier.runOperation(async () => {
+      if (!acceptedOwnerId) return false;
+      await this.initialization;
+
+      let discarded = false;
+      if (this.initialized) {
+        discarded = await db.transaction('rw', db.mutations, async () => {
+          const ownedMutations = selectOwnedMutations(
+            await db.mutations.toArray(),
+            acceptedOwnerId,
+          );
+          if (pendingQueueSignature(ownedMutations) !== expectedSignature) {
+            return false;
+          }
+          await db.mutations.bulkDelete(ownedMutations.map((mutation) => mutation.id));
+          return true;
+        });
+      } else {
+        const queue = readMemoryQueue();
+        const ownedMutations = selectOwnedMutations(queue, acceptedOwnerId);
+        if (pendingQueueSignature(ownedMutations) === expectedSignature) {
+          writeMemoryQueue(queue.filter((mutation) => mutation.ownerId !== acceptedOwnerId));
+          discarded = true;
+        }
+      }
+
+      if (!discarded) {
+        this.notifyListeners();
+        return false;
+      }
+
+      this.notifyQueueChanged();
+      void this.recordHealthMetrics('cleared');
+      return true;
+    });
   }
 
   /**
@@ -391,7 +456,7 @@ class IndexedDBQueueManager {
     if (this.ownerId === nextOwnerId) return;
     inMemoryFallbackQueue = [];
     this.ownerId = nextOwnerId;
-    this.notifyListeners();
+    this.notifyQueueChanged();
   }
 
   /**
@@ -478,7 +543,7 @@ class IndexedDBQueueManager {
         writeMemoryQueue(queue);
       }
     }
-    this.notifyListeners();
+    this.notifyQueueChanged();
   }
 
   async incrementRetry(mutationId: string): Promise<number> {

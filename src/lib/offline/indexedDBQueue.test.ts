@@ -7,6 +7,7 @@ import {
   type QueuedMutation,
 } from './indexedDBQueue';
 import { safeLocalStorage } from '../../utils/safeStorage';
+import { pendingQueueSignature } from './queueSignature';
 
 const QUEUE_STORAGE_KEY = 'offline-mutation-queue';
 
@@ -94,6 +95,34 @@ test('local fallback discards legacy serialized queue data', async () => {
   await assert.doesNotReject(() => indexedDBQueue.getQueue());
   assert.deepEqual(await indexedDBQueue.getQueue(), []);
   await indexedDBQueue.clear();
+});
+
+test('recovery discard refuses to delete a queue that changed after export', async () => {
+  await setQueueOwner('user-a');
+  await indexedDBQueue.clear();
+  await indexedDBQueue.enqueue({
+    type: 'patient',
+    operation: 'update',
+    table: 'patients',
+    entityId: 'patient-1',
+    payload: { clinicalSummary: 'Downloaded recovery note' },
+  });
+  const downloadedSignature = pendingQueueSignature(await indexedDBQueue.getQueue());
+
+  await indexedDBQueue.enqueue({
+    type: 'todo',
+    operation: 'create',
+    table: 'patient_todos',
+    entityId: 'todo-2',
+    payload: { content: 'New change from another tab' },
+  });
+
+  assert.equal(await indexedDBQueue.discardIfUnchanged(downloadedSignature), false);
+  assert.equal((await indexedDBQueue.getQueue()).length, 2);
+
+  const currentSignature = pendingQueueSignature(await indexedDBQueue.getQueue());
+  assert.equal(await indexedDBQueue.discardIfUnchanged(currentSignature), true);
+  assert.deepEqual(await indexedDBQueue.getQueue(), []);
 });
 
 test('local fallback isolates user A mutations from user B', async () => {

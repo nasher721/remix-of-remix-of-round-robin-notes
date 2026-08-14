@@ -36,7 +36,7 @@ export function PatientRosterStatusBanner({
       <p className="flex min-w-0 items-start gap-2 leading-relaxed">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <span>
-          Server patient list could not be verified. The app is showing any roster data available on this device; it may be incomplete.
+          Patient-list recovery could not be verified. The visible roster may be incomplete or unavailable after a reload; retry before completing the Round.
         </span>
       </p>
       <Button

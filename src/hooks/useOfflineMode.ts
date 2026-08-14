@@ -194,8 +194,8 @@ export function useOfflineMode() {
     return indexedDBQueue.enqueue(mutation);
   }, []);
 
-  const clearQueue = useCallback(async (): Promise<void> => {
-    await indexedDBQueue.clear();
+  const discardQueue = useCallback(async (expectedSignature: string): Promise<boolean> => {
+    return indexedDBQueue.discardIfUnchanged(expectedSignature);
   }, []);
 
   const hasPendingChanges = useCallback((entityId: string, table: string): boolean => {
@@ -237,7 +237,7 @@ export function useOfflineMode() {
     retryFailed,
     resolveSkippedConflict,
     queueMutation,
-    clearQueue,
+    discardQueue,
     hasPendingChanges,
   };
 }

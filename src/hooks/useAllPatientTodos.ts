@@ -130,8 +130,8 @@ async function fetchTodosForPatients(
   const queue = await indexedDBQueue.getQueue();
   if (!isOwnerActive()) return grouped;
   const resolved = applyQueuedTodoMap(grouped, queue, ownerId, patientIds);
-  await writePatientTodoSnapshot(ownerId, resolved);
-  if (isOwnerActive()) reportVerification('verified');
+  const snapshotPersisted = await writePatientTodoSnapshot(ownerId, resolved);
+  if (isOwnerActive()) reportVerification(snapshotPersisted ? 'verified' : 'stale');
 
   return resolved;
 }
@@ -197,13 +197,17 @@ export function useAllPatientTodos(patientIds: string[]) {
   useEffect(() => {
     if (!ownerId || activeOwnerRef.current !== ownerId || !query.data) return;
 
-    void writePatientTodoSnapshot(ownerId, query.data);
+    void writePatientTodoSnapshot(ownerId, query.data).then((snapshotPersisted) => {
+      if (!snapshotPersisted && mountedRef.current && activeOwnerRef.current === ownerId) {
+        setVerificationState({ ownerId, patientIdsKey, verification: 'stale' });
+      }
+    });
 
     Object.entries(query.data).forEach(([patientId, todos]) => {
       if (todos.some((todo) => todo.userId !== ownerId)) return;
       queryClient.setQueryData(QUERY_KEYS.patientTodosForOwner(ownerId, patientId), todos);
     });
-  }, [ownerId, query.data, queryClient]);
+  }, [ownerId, patientIdsKey, query.data, queryClient]);
 
   useEffect(() => {
     if (ownerId && activeOwnerRef.current === ownerId && query.isError) {

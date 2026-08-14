@@ -405,9 +405,9 @@ import { usePatients } from "@/hooks/usePatients";
 
 **Context**: Round Focus, End Round, print/export, and cold reload must agree while server reads fail or queued mutations remain pending.
 
-**Pattern**: Build shared roster/Todo reads from owner-scoped durable snapshots overlaid with pending IndexedDB mutations. On backend errors—even when `navigator.onLine` is true—show stale local truth for recovery/export, mark it unverified, retry verification, and block irreversible Round completion until the server is authoritative.
+**Pattern**: Build shared roster/Todo reads from owner-scoped durable snapshots overlaid with pending IndexedDB mutations. On backend errors—even when `navigator.onLine` is true—show stale local truth for recovery/export, mark it unverified, retry verification, and block irreversible Round completion until the server is authoritative. Treat a snapshot writer returning `false` as an explicit durability failure: keep remote data visible but mark recovery unverified instead of claiming a local snapshot exists.
 
-**Avoid**: Applying queue overlays only inside the focused-patient hook or returning an empty map after a failed server read; both silently omit clinical work from End Round/export.
+**Avoid**: Applying queue overlays only inside the focused-patient hook, returning an empty map after a failed server read, or ignoring a failed snapshot write; each can silently omit clinical work after reload or from End Round/export.
 
 **Confidence**: High — cold-reload, transient-failure, completion-guard, and export regression coverage, 2026-08-13.
 
@@ -415,9 +415,9 @@ import { usePatients } from "@/hooks/usePatients";
 
 **Context**: Pending offline mutations may contain the only copy of bedside clinical changes, so clearing the queue is an irreversible PHI-bearing action.
 
-**Pattern**: Expose one shared Offline indicator at every dashboard breakpoint. Before enabling discard, require an explicit local download of the exact current queue; include a format marker, timestamp, PHI warning, mutation/patient identifiers, and payload. Derive confirmation state from the complete queued content so any queue change invalidates the prior download. Treat the JSON as an authorized support/manual-recovery artifact, not an automatic import format.
+**Pattern**: Expose one shared Offline indicator at every dashboard breakpoint. Before enabling discard, require an explicit local download of the exact current queue; include a format marker, timestamp, PHI warning, mutation/patient identifiers, and payload. Derive confirmation state from the complete queued content, broadcast queue changes across tabs without payloads, and atomically re-check the downloaded signature in the same owner-scoped transaction that deletes mutations. Any concurrent queue change must abort deletion and require a fresh recovery copy. Treat the JSON as an authorized support/manual-recovery artifact, not an automatic import format.
 
-**Avoid**: One-click queue clearing, hiding recovery controls at desktop widths, claiming automatic re-import, or leaving discard enabled after the queued payload changes.
+**Avoid**: One-click queue clearing, check-then-delete logic based only on React state, hiding recovery controls at desktop widths, claiming automatic re-import, or leaving discard enabled after the queued payload changes.
 
 **Confidence**: High — source contracts plus authenticated Chromium/WebKit offline edit, recovery-download inspection, cancel-preservation, reload, and exact-once reconnect coverage, 2026-08-13.
 

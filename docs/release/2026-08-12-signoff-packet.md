@@ -32,7 +32,11 @@ close. All engineering-controlled items are complete and evidenced below.
 - **Recovery-first queue deletion:** the shared Offline indicator is available
   at every dashboard breakpoint. Discard remains disabled until the exact
   current queue is downloaded as PHI-marked JSON; queued-content changes
-  invalidate that confirmation, and cancel leaves pending work intact. The
+  propagate across same-origin tabs without PHI payloads and invalidate that
+  confirmation. Deletion atomically compares the exported signature inside the
+  owner-scoped IndexedDB transaction, so a delayed cross-tab notification still
+  preserves every newer mutation and requires a fresh recovery copy. Cancel
+  leaves pending work intact. The
   artifact is for authorized support/manual recovery rather than automatic
   re-import. Authenticated Chromium and WebKit exercise the full boundary.
 - **Accessibility/responsive (Phase 4):** automated browser coverage now
@@ -56,17 +60,17 @@ close. All engineering-controlled items are complete and evidenced below.
   bundle reachability assertion wired into CI
   (`scripts/assert-no-optional-native-in-bundle.mjs`).
 - **Bundle budgets (Phase 6):** local release candidate total initial
-  JavaScript is 615,621 bytes, down from 937,658 (34%). The public shell now
+  JavaScript is 616,452 bytes, down from 937,658 (34%). The public shell now
   defers the authenticated provider/state graph, Landing and workspace routes
   are separate chunks, and the EHR callback keeps only a small eager recovery
   shell. Login validation no longer ships the general-purpose Zod runtime for
-  two fields. The application entry is 232,507 bytes with stable React (139,836)
+  two fields. The application entry is 233,338 bytes with stable React (139,836)
   and Supabase (208,548) runtime chunks. CI now enforces 300,000-byte entry,
   750,000-byte total-initial, 160,000-byte React, and 230,000-byte Supabase
   ceilings in `scripts/check-bundle-size.mjs`. Device-specific shells,
   print/export, charts, and AI tools load on demand. Spreadsheet and Word
   parsers load only after a matching file is selected, reducing the normal
-  authenticated shared chunk from 1,285,010 to 298,078 bytes; CI separately
+  authenticated shared chunk from 1,285,010 to 301,584 bytes; CI separately
   budgets the deferred parser chunks. Excel, vector-PDF,
   table-PDF, and HTML-PDF engines now load only after the corresponding export
   action, reducing the print/export modal from 1,393,480 to 228,852 bytes
