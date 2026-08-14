@@ -330,7 +330,17 @@ import { usePatients } from "@/hooks/usePatients";
 
 **Avoid**: Inventing clinical-provider values, bypassing a failing browser gate, treating a pending Vercel hook as success, or deploying frontend/backend revisions independently.
 
-**Confidence**: High — exact-SHA CI, Supabase, Vercel, live browser, and production-monitor evidence for `6185cbb`, 2026-08-13.
+**Confidence**: High — exact-SHA CI, Supabase, Vercel, live browser, and production-monitor evidence for `988114e`, 2026-08-13.
+
+### Roster intake while clinical AI is disabled
+
+**Context**: Production may intentionally keep PHI-capable clinical AI disabled until a provider and model have documented approval, but clinicians still need a usable first-run roster intake path.
+
+**Pattern**: Keep client-side CSV/spreadsheet mapping as the default **Import Patient List** tab and route only document/image extraction through the deployment-approved clinical AI path. Reuse `organizeCsvImportRecord` and the same patient-import callback so both paths preserve one downstream roster contract. Verify the default and AI tabs at a 390px viewport in authenticated Chromium and WebKit.
+
+**Avoid**: Enabling a temporary provider, inferring approval from an available API key, or making the primary import action depend exclusively on AI; each either weakens the PHI policy or leaves a production user unable to create a roster.
+
+**Confidence**: High — 637/637 app tests, 31/31 authenticated Chromium, 31/31 authenticated WebKit, 18/18 live public checks, and the post-deploy save canary for `988114e`, 2026-08-13.
 
 ### Atomic cleanup in serial release E2E
 
