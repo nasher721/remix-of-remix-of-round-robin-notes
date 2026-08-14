@@ -11,11 +11,11 @@ close. All engineering-controlled items are complete and evidenced below.
 | Item | Value |
 | --- | --- |
 | Repo SHA | The release SHA is the `main` commit attached to the latest successful `Deploy Supabase` workflow. Never copy an older hard-coded SHA into a new sign-off. |
-| CI run | Attach the successful `CI` workflow URL for that exact SHA. The main-branch browser jobs must report 31/31 Chromium and 31/31 WebKit with zero skips. |
+| CI run | Attach the successful `CI` workflow URL for that exact SHA. The main-branch browser jobs must report 32/32 Chromium and 32/32 WebKit with zero skips. |
 | Supabase deploy workflow | Attach the successful `Deploy Supabase` workflow URL for the same SHA. It revalidates `main`, deploys migrations/functions, verifies health/telemetry, invokes Vercel, and probes the canonical origin. |
 | Frontend production deploy | Read the canonical origin's `<meta name="app-version">`; it must equal `1.0.0+<short release SHA>`. This live value, not a stale packet entry, is authoritative. |
 | Supabase project | `zsavxqvnseqxusfwdovu` (RollingRounds) |
-| Latest migration versions in prod | through `20260811133644_create_round_state`; history repaired per `supabase/manual/2026-08-11-migration-history-repair.sql` plus 18 placeholder files for out-of-band versions |
+| Latest migration versions in prod | through `20260813030000_guard_round_lifecycle_generations`; history repaired per `supabase/manual/2026-08-11-migration-history-repair.sql` plus 18 placeholder files for out-of-band versions |
 
 ## 2. Evidence index
 
@@ -183,6 +183,13 @@ close. All engineering-controlled items are complete and evidenced below.
   function rejects arbitrary event names, context fields, unbounded batches,
   and stale timestamps before storage. Sink approval/configuration and
   production alert rules remain deployment gates.
+- **PHI-free browser experience metrics:** production startup measures TTFB,
+  FCP, LCP, CLS session windows, and p98 INP through native browser performance
+  observers. Only fixed scalar names, numeric values, and units cross the
+  logger, first-party telemetry schema, or Sentry bridge; entry URLs, DOM
+  elements, interaction names, route data, and clinical content are never
+  retained. Unsupported entry types are omitted instead of reported as false
+  zeroes, and final navigation measurements flush on page hide.
 - **Clean CI runtime configuration:** both production-build jobs now receive
   the public Supabase URL and browser publishable key explicitly from GitHub
   Actions configuration. CI no longer depends on a tracked developer `.env`;
@@ -424,23 +431,23 @@ close. All engineering-controlled items are complete and evidenced below.
 
 | Gate | Status |
 | --- | --- |
-| CI/deployment workflows green at exact production SHA | PARTIAL — the current candidate is committed locally; it must pass required main-branch CI, deploy, and be verified byte-for-byte before it becomes the production SHA |
+| CI/deployment workflows green at exact production SHA | DONE — the latest main-branch CI ran 32/32 Chromium and 32/32 WebKit with zero skips; the gated deploy applied migrations/functions, verified the canonical Vercel revision, and the post-deploy production monitor passed |
 | Backend migration deployed; revision/RLS proven | DONE (2026-08-11, evidence above) |
-| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — all 44 credentialed browser executions pass locally in Chromium and WebKit, plus the 18-test public Chromium/WebKit suite; deployed CI proof, real cross-device, and manual failure/recovery cells remain open |
+| Live multi-tab/cross-device/offline/failure/recovery scenarios pass | PARTIAL — required credentialed Chromium/WebKit suites pass in deployed main CI and the 20-test public suite passes against the canonical Vercel origin; real cross-device and manual failure/recovery cells remain open |
 | Accessibility/responsive validation on representative devices | PARTIAL — automated keyboard/ARIA/320px/390px/44px/200%-text/reduced-motion/dark/overflow checks pass; manual screen-reader and real-device evidence remains open |
 | Runtime audits clean; optional findings removed or time-bounded | DONE — clinical-mcp-server `npm audit` 0 vulns; risk acceptance time-bounded |
 | PHI/provider, telemetry, access-control, legal evidence | OPEN (human) — see section 4 |
-| Monitoring/backup/rollback/support runbooks tested | PARTIAL — live save canary passed locally against production and scheduled issue alerting is implemented; post-deploy scheduled proof and restore drill remain open |
+| Monitoring/backup/rollback/support runbooks tested | PARTIAL — protected health, first-party ingest, and reversible save canary pass in the post-deploy production monitor; the restore drill and deliberate failure/recovery alert exercise remain open |
 | Clinical UAT and hazard review signed off | OPEN (human) |
 
 ## 4. Open human gates (required before GO)
 
-1. **Deploy-candidate proof** — configure matching GitHub/Vercel production
-   contact, approved privacy notice, inactivity timeout, and approved
-   observability destination variables; publish the committed candidate; confirm the
-   required authenticated main-branch CI job runs all 62 public and
-   credentialed executions in Chromium and WebKit with zero skips,
-   deploy the exact SHA, and verify the live frontend asset matches it.
+1. **Public operator identity and legal destination** — configure matching
+   GitHub/Vercel production contact and counsel-approved privacy-notice values.
+   Until then the contact conversion action remains suppressed and the in-app
+   `/privacy` page remains an explicitly labeled, non-indexed development
+   placeholder. Exact-SHA CI/deploy proof, the 1,800-second inactivity timeout,
+   and the first-party observability destination are configured and verified.
 2. **BAA/DPA and PHI/provider approvals** — evidence items in
    `docs/clinical-data-flow.md` (approved provider/model pair, retention, key custody,
    redaction tests, clinician review, legacy credential rotation). Approve the
@@ -464,19 +471,14 @@ close. All engineering-controlled items are complete and evidenced below.
    remaining monitoring gaps in
    `docs/operations/runbooks.md` §8 closed or formally accepted.
 7. **On-call owner + decision-makers** — named in runbooks §9.
-8. **E2E credential confirmation** — the workflow now requires
-   `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` on main and fails closed without
-   them. Both encrypted GitHub secrets are configured and the isolated local
-   production-preview runs pass 44/44 credentialed and 18/18 public executions
-   in Chromium and WebKit; confirm the next
-   main run reproduces both results rather than the former smoke-only coverage.
-
 Read-only GitHub configuration inventory on 2026-08-13 confirms the public
 Supabase URL, Supabase/deploy/healthcheck credentials, Vercel deploy hook, and
-full-suite E2E credentials are present. The production contact, approved privacy
-notice, inactivity timeout, central observability destination, and approved
-clinical PHI provider/model repository variables are not yet configured. The
-release and deploy workflows intentionally fail closed until they are supplied.
+full-suite E2E credentials are present. The 1,800-second inactivity timeout and
+first-party telemetry destination are configured and verified. Clinical AI is
+explicitly configured as `disabled` pending provider/model approval. Production
+contact and approved privacy-notice repository variables remain absent; public
+surfaces suppress the contact action and use the non-indexed development privacy
+placeholder until those human-owned values are supplied.
 
 ## 5. Security advisor findings
 

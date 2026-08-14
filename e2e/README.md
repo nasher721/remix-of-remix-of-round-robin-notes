@@ -72,10 +72,10 @@ The **login → dashboard**, **print/export**, **roster sort**, and **Round runn
 
 Prefer putting them in gitignored `.env.local` (loaded by `playwright.config.ts`). Shell exports still override.
 
-If these are not set, authenticated tests are skipped. The nine `@public`
+If these are not set, authenticated tests are skipped. The ten `@public`
 scenarios always run in each configured browser.
 
-Main-branch CI sets `E2E_REQUIRE_FULL_SUITE=1` for both 31-test browser suites. In
+Main-branch CI sets `E2E_REQUIRE_FULL_SUITE=1` for both 32-test browser suites. In
 that mode missing credentials, an undersized seeded roster, or any skipped
 Playwright scenario fails the job. Setup and teardown reset the clinical
 summaries for exactly one `E2E Alpha`, `E2E Bravo`, and `E2E Charlie` row plus

@@ -42,6 +42,11 @@ const METRIC_NAMES = new Set([
   'patients.fetch.success',
   'patients.mutation.duration_ms',
   'patients.mutation.total',
+  'web.vital.cls',
+  'web.vital.fcp_ms',
+  'web.vital.inp_ms',
+  'web.vital.lcp_ms',
+  'web.vital.ttfb_ms',
 ]);
 const ALLOWED_TAG_VALUES: Readonly<Record<string, ReadonlySet<string>>> = {
   'rr.event': new Set([

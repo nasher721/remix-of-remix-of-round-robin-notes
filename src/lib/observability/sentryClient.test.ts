@@ -68,6 +68,23 @@ test('Sentry retains the offline cache fallback as an allowlisted metric', () =>
   assert.equal(event.measurements?.rr_value?.value, 1);
 });
 
+test('Sentry retains a scalar Core Web Vital without browser entry metadata', () => {
+  const event = createSentryOperationalEvent('info', 'metric', {
+    metricName: 'web.vital.lcp_ms',
+    metricValue: 341,
+    metricUnit: 'ms',
+    element: 'patient-name',
+    url: 'https://rounds.hospital.org/patients/MRN123',
+  });
+
+  assert.ok(event);
+  assert.equal(event.tags?.['rr.metric_name'], 'web.vital.lcp_ms');
+  assert.deepEqual(event.measurements, {
+    rr_value: { value: 341, unit: 'millisecond' },
+  });
+  assert.doesNotMatch(JSON.stringify(event), /patient-name|MRN123|hospital\.org/i);
+});
+
 test('Sentry operational forwarding ignores routine informational logs', () => {
   assert.equal(
     createSentryOperationalEvent('info', 'client_initialized', {}),

@@ -21,6 +21,33 @@ test('browser metric payloads satisfy the first-party ingest contract', () => {
   assert.equal('session_id' in result.rows[0], false);
 });
 
+test('browser Core Web Vitals satisfy the PHI-free ingest contract', () => {
+  const payloads = [
+    ['web.vital.ttfb_ms', 84, 'ms'],
+    ['web.vital.fcp_ms', 112, 'ms'],
+    ['web.vital.lcp_ms', 341, 'ms'],
+    ['web.vital.cls', 0.095, 'count'],
+    ['web.vital.inp_ms', 92, 'ms'],
+  ].map(([metricName, metricValue, metricUnit]) => createRemoteLogPayload('info', 'metric', {
+    metricName,
+    metricValue,
+    metricUnit,
+    type: 'metric',
+  }));
+  const result = parseTelemetryBatch(payloads);
+
+  assert.equal(result.valid, true);
+  if (!result.valid) return;
+  assert.deepEqual(result.rows.map((row) => row.metric_name), [
+    'web.vital.ttfb_ms',
+    'web.vital.fcp_ms',
+    'web.vital.lcp_ms',
+    'web.vital.cls',
+    'web.vital.inp_ms',
+  ]);
+  assert.equal(result.rows.every((row) => !('session_id' in row)), true);
+});
+
 test('browser public-funnel payloads satisfy the first-party ingest contract', () => {
   const payload = createRemoteLogPayload('info', 'marketing.contact.email', {
     feature: 'public_funnel',

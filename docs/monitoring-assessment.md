@@ -23,6 +23,7 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 | **Clinical AI operations** | Authenticated Edge functions emit fixed, content-free provider/status/duration logs through `safeLog`; browser provider logging was removed with the direct-provider runtime. |
 | **Business metrics** | `src/types/analytics.ts` + `AnalyticsDashboard` / `MobileAnalytics` — unit/task/alert/protocol metrics computed from patient/todo data (in-app only). |
 | **Public funnel** | `marketingTelemetry.ts` emits fixed PHI-free events for landing view, sign-in intent, feature exploration, security guidance, pricing/contact intent, email intent, and footer workspace intent through the optional collector. |
+| **Browser performance** | `webVitals.ts` reports TTFB, FCP, LCP, CLS session windows, and p98 INP as fixed scalar metrics. Performance-entry URLs, elements, interaction names, and page content are never collected. |
 | **Health** | Supabase Edge Function `healthcheck` — DB ping + 200/503; suitable for UptimeRobot/Datadog. |
 
 ### Gaps
@@ -47,6 +48,7 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
 | Auth | Login outcome count, average latency | Password success and fixed failure categories plus approved-provider OAuth redirect/error outcomes emit `auth.sign_in.*`; OAuth is hidden unless deployment-allowlisted, and background session-restoration failures remain console-only. |
 | Offline sync | Queue length/age, sync success/failure/conflict | Fixed `offline.sync.*` queue-pressure and replay-result metrics. |
 | Global errors | Count by fingerprint, trend | Telemetry + frequency in-memory + IndexedDB; not aggregated. |
+| Browser experience | TTFB, FCP, LCP, CLS, INP | Fixed `web.vital.*` measurements delivered through the approved first-party collector or Sentry bridge. |
 
 ---
 
@@ -76,7 +78,11 @@ Step-by-step plan following **Assess → Instrument → Collect → Visualize �
   `auth.sign_in.total` with only fixed method/outcome classifications. Email,
   password, account id, redirect URL, and upstream provider messages cannot be
   attached at this API boundary.
-- **Not yet done:** Web Vitals and full RED coverage for every Edge Function.
+- **Browser experience:** `webVitals.ts` emits TTFB, FCP, LCP, CLS session
+  windows, and p98 INP as fixed scalar metrics. Unsupported browser entry
+  types are omitted instead of reported as false zeroes. No entry metadata is
+  retained.
+- **Not yet done:** Full RED coverage for every Edge Function.
 
 ---
 
@@ -131,6 +137,8 @@ Steps 1–5 have repository support. You have: assessment and gaps, request IDs
 and success/duration metrics on patient fetch, authentication, patient writes,
 and sync; a failure-safe collector; a fixed-schema first-party Supabase ingest
 and 30-day store; a PHI-safe Sentry operational bridge;
+fixed TTFB/FCP/LCP/CLS/INP browser measurements without PerformanceEntry
+metadata;
 existing in-app dashboards; and documented alerting. Sink provisioning,
 receipt verification, and production alert rules remain deployment gates.
 

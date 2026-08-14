@@ -431,6 +431,26 @@ import { usePatients } from "@/hooks/usePatients";
 
 **Confidence**: High — commit-then-timeout, concurrent acquisition, owner-transition, and durable-storage tests, 2026-08-13.
 
+### PHI-free browser performance telemetry
+
+**Context**: Field performance signals are useful in production, but native
+`PerformanceEntry` objects may contain URLs, DOM elements, and interaction
+metadata that must not cross the clinical privacy boundary.
+
+**Pattern**: Reduce browser performance observations to fixed scalar
+`web.vital.*` names, numeric values, and allowlisted units before calling the
+shared logger. Keep the first-party Edge schema and Sentry metric allowlists in
+sync; omit unsupported entry types instead of reporting false zeroes; finalize
+LCP, CLS session windows, and p98 INP on page hide. Verify the production build
+in Chromium and WebKit and assert that emitted context contains only the metric
+name, value, unit, and type.
+
+**Avoid**: Logging raw performance entries, page URLs, element references,
+interaction names, route data, or clinical content; adding a dependency when
+the native observer APIs and a small adapter cover the required measurements.
+
+**Confidence**: High — scalar-boundary unit/Edge contracts and production-preview Chromium/WebKit evidence, 2026-08-13.
+
 ## Key Features (for context)
 
 - **Patient rounding**: 10-system review (neuro, CV, resp, renal/GU, GI, endo, heme, infectious, skin/lines, dispo)

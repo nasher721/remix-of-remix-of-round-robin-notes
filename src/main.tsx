@@ -5,12 +5,14 @@ import "./index.css";
 import { initGlobalErrorCapture } from "@/lib/observability/telemetry";
 import { installObservabilityDebugApi } from "@/lib/observability/debugApi";
 import { initAppSentry } from "@/lib/observability/sentryClient";
+import { initWebVitals } from "@/lib/observability/webVitals";
 import { markServiceWorkerUpdateReady } from "@/lib/serviceWorkerUpdate";
 
 // Initialize telemetry early to capture all errors
 initGlobalErrorCapture();
 initAppSentry();
 installObservabilityDebugApi();
+if (import.meta.env.PROD) initWebVitals();
 
 // Register service worker outside of React to avoid HMR / Vite dynamic-import issues in dev.
 // In development, caching can prevent lazy route chunks from loading reliably.
