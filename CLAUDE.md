@@ -317,6 +317,31 @@ import { usePatients } from "@/hooks/usePatients";
 
 ## Release Hardening Playbooks
 
+### Exact-revision clinical deployments
+
+**Context**: Frontend, database, Edge functions, monitoring, and PHI-capable AI policy must ship as one evidence-backed production release.
+
+**Pattern**:
+
+- If no clinical LLM provider/model has documented approval, deploy with both `CLINICAL_PHI_LLM_PROVIDER=disabled` and `CLINICAL_PHI_LLM_MODEL=disabled`; keep import AI fail-closed instead of inferring a vendor from available API keys.
+- Require the exact `main` SHA to pass unit, security, migration, build, Edge, Clinical MCP, and zero-skipped authenticated Chromium/WebKit gates before production mutation.
+- Revalidate `main` before and after backend deployment, then require the Vercel hook and poll the canonical origin until `app-version` contains the exact short SHA plus the expected canonical origin, session policy, and public `llms.txt` index.
+- Finish with live public Chromium/WebKit checks and the production monitor's protected health, telemetry-ingest, and reversible authenticated-save canary.
+
+**Avoid**: Inventing clinical-provider values, bypassing a failing browser gate, treating a pending Vercel hook as success, or deploying frontend/backend revisions independently.
+
+**Confidence**: High — exact-SHA CI, Supabase, Vercel, live browser, and production-monitor evidence for `6185cbb`, 2026-08-13.
+
+### Atomic cleanup in serial release E2E
+
+**Context**: Credentialed Playwright scenarios share one synthetic Supabase fixture and run serially; one flaky cleanup can cause later safety scenarios to be recorded as skipped even if the failed scenario passes on retry.
+
+**Pattern**: Restore multi-mutation editor fixtures with one real keyboard replacement and one revision-guarded save. Keep `E2E_REQUIRE_FULL_SUITE=1`, deterministic setup/teardown, and the no-skipped reporter enabled for release evidence.
+
+**Avoid**: Sequential debounced cleanup saves for multiple markers or relying on retries to legitimize a release run with skipped downstream tests.
+
+**Confidence**: High — reproduced marker reintroduction, replaced cleanup atomically, and verified all four data-integrity scenarios plus 31/31 Chromium and 31/31 WebKit, 2026-08-13.
+
 ### Prelaunch public configuration contracts
 
 **Context**: Contact and privacy details may be intentionally absent during a prelaunch deployment, but production must never invent placeholder operator details.
