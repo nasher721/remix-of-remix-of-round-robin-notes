@@ -395,7 +395,7 @@ import { usePatients } from "@/hooks/usePatients";
 
 **Context**: Updating one tab claims sibling tabs that may still be running old code and editing notes.
 
-**Pattern**: Keep new workers waiting until explicit **Refresh now**, require both `controllerchange` and the fixed `WORKER_ACTIVATED` message before reload, and allow **Later** to preserve the incumbent session. Retain every fresh dynamic generation needed by suspended sibling tabs within the recovery TTL.
+**Pattern**: Keep new workers waiting until explicit **Refresh now**, require both `controllerchange` and the fixed `WORKER_ACTIVATED` message before reload, and allow **Later** to preserve the incumbent session. Retain every fresh dynamic generation needed by suspended sibling tabs within the recovery TTL. In the real upgrade harness, keep a second incumbent-controlled page alive before installing the next worker so Playwright cannot transiently remove the only controlled client and collapse the intended waiting state.
 
 **Avoid**: Reloading on install or reporting success before activation cleanup and controller handoff finish.
 

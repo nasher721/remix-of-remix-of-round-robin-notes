@@ -385,7 +385,7 @@ test.describe("Data integrity", () => {
       await expect(page.getByTestId("desktop-round-shell")).toBeVisible({ timeout: 30_000 });
       await expectRosterPatient();
       await expect(page.getByTestId("patient-roster-status-banner")).toContainText(
-        "Server patient list could not be verified",
+        "Patient-list recovery could not be verified",
       );
       await expect(page.getByTestId("round-sync-cue")).toContainText(
         "Clinical data needs verification",

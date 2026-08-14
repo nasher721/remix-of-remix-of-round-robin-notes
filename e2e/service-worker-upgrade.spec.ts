@@ -193,6 +193,12 @@ test.afterAll(async () => {
 
 test("real worker upgrades preserve exact chunks across rapid deployments @public", async ({ page }) => {
   await installFirstWorker(page, TEST_VERSIONS[0]);
+  // Keep a second incumbent-controlled client alive so the next installed
+  // worker cannot activate merely because the harness briefly loses its only
+  // controlled client between Playwright evaluations.
+  const incumbentClient = await page.context().newPage();
+  await incumbentClient.goto(origin);
+  await waitForController(incumbentClient);
   await seedVersionedChunk(page, TEST_VERSIONS[0], "chunk-a.js", "window.release = 'a';");
   await seedVersionedChunk(
     page,
