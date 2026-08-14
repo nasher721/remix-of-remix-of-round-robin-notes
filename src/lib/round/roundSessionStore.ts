@@ -233,6 +233,7 @@ export const resumeRound = (input: ResumeRoundInput): Round => {
 
 /** Jump to a patient by id; no-op when the id is not in the Round. */
 export const selectPatient = (round: Round, patientId: string, now?: string): Round => {
+  if (round.status === "completed") return round;
   if (!isNonEmptyString(patientId)) return round;
   const index = round.patients.findIndex((ref) => ref.patientId === patientId.trim());
   if (index < 0) return round;
@@ -251,6 +252,7 @@ export const selectPatient = (round: Round, patientId: string, now?: string): Ro
 
 /** Advance to the next patient; stays on last when already at end. */
 export const nextPatient = (round: Round, now?: string): Round => {
+  if (round.status === "completed") return round;
   if (round.patients.length === 0) return round;
   if (round.currentIndex >= round.patients.length - 1) return round;
   return touch(
@@ -265,6 +267,7 @@ export const nextPatient = (round: Round, now?: string): Round => {
 
 /** Move to the previous patient; stays on first when already at start. */
 export const prevPatient = (round: Round, now?: string): Round => {
+  if (round.status === "completed") return round;
   if (round.patients.length === 0) return round;
   if (round.currentIndex <= 0) return round;
   return touch(
@@ -282,6 +285,7 @@ const setCurrentWalkStatus = (
   status: RoundPatientWalkStatus,
   now?: string,
 ): Round => {
+  if (round.status === "completed") return round;
   const current = getCurrentPatientRef(round);
   if (!current) return round;
   if (current.status === status) return touch(round, now);
@@ -317,14 +321,16 @@ export const setRoundFilters = (
   round: Round,
   patch: Partial<RoundFilters>,
   now?: string,
-): Round =>
-  touch(
+): Round => {
+  if (round.status === "completed") return round;
+  return touch(
     {
       ...round,
       filters: sanitizeFilters({ ...round.filters, ...patch }),
     },
     now,
   );
+};
 
 /** Set which mid-rounds section is active for continuity. */
 export const setActiveSection = (
@@ -332,6 +338,7 @@ export const setActiveSection = (
   section: RoundActiveSection,
   now?: string,
 ): Round => {
+  if (round.status === "completed") return round;
   const nextSection = sanitizeActiveSection(section);
   if (nextSection === round.activeSection) return touch(round, now);
   return touch({ ...round, activeSection: nextSection }, now);
@@ -346,6 +353,7 @@ export const setExpandedSystem = (
   systemId: string | null,
   now?: string,
 ): Round => {
+  if (round.status === "completed") return round;
   const nextId =
     systemId === null || !isNonEmptyString(systemId) ? null : systemId.trim();
   if (nextId === round.expandedSystemId) return touch(round, now);
@@ -358,6 +366,7 @@ export const setRoundSyncStatus = (
   syncStatus: RoundSyncStatus,
   now?: string,
 ): Round => {
+  if (round.status === "completed") return round;
   const next = sanitizeSyncStatus(syncStatus);
   if (next === round.syncStatus) return touch(round, now);
   return touch({ ...round, syncStatus: next }, now);
@@ -365,7 +374,9 @@ export const setRoundSyncStatus = (
 
 /** Mark Round complete (End Round). */
 export const completeRound = (round: Round, now?: string): Round =>
-  touch({ ...round, status: "completed", expandedSystemId: null }, now);
+  round.status === "completed"
+    ? round
+    : touch({ ...round, status: "completed", expandedSystemId: null }, now);
 
 /** Replace the ordered patient list while preserving walk status where possible. */
 export const replaceRoundPatients = (
@@ -373,6 +384,7 @@ export const replaceRoundPatients = (
   patientIds: readonly string[],
   now?: string,
 ): Round => {
+  if (round.status === "completed") return round;
   const previousById = new Map(round.patients.map((ref) => [ref.patientId, ref]));
   const patients = mapPatientRefs(patientIds).map((ref) => {
     const previous = previousById.get(ref.patientId);

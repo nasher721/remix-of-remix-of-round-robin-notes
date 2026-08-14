@@ -130,6 +130,14 @@ All nine were reachable during ordinary offline or degraded-network use and viol
    Credentialed Chromium and WebKit each inject a patient-read 503 while the
    browser remains online, confirm the roster stays navigable, and prove the
    retry removes the warning only after an actual successful patient read.
+10. **A completed Round could reopen as mutable Focus or be overwritten by a
+   stale device.** Completed lifecycle state now survives local, remote, and
+   new-browser hydration and opens on Round Home with an explicit **Start New
+   Round** boundary. Terminal walk state is immutable. The authenticated RPC
+   updates only the addressed Round id, so delayed completion cannot replace a
+   newer active generation. Competing active generations remain blocked and
+   visible until retry succeeds or the clinician explicitly adopts the active
+   Round saved by another device; chart notes and Todos remain separate.
 
 ## Manual matrix (evidence required before sign-off)
 
@@ -148,6 +156,7 @@ observer, notes.
 | 7 | Completion guard: Done / End Round with pending, failed, conflicting, or queued changes | PASS (auto) | PASS (auto) | | Done and Mark Complete block; End review and Print / Export remain usable; reconnect replay unlocks completion without refresh |
 | 8 | Recovery export: download failed/pending changes, inspect content and identifiers, cancel discard, and perform authorized manual recovery if needed | | | | Discard is unavailable before download; JSON retains mutation/patient identifiers and local content; cancel leaves the queue intact |
 | 9 | Reload truth: compare rendered content vs database rows after refresh on every tab/device | | | | Rendered content matches DB exactly |
+| 10 | Terminal Round lifecycle: complete, reload locally/new browser, then reconnect a stale device | | | | Completed Round opens review-only Home; Start New Round is explicit; stale completion cannot overwrite the newer active Round; competing generation has retry/adopt resolution |
 
 ### Scenario 6 notes (failure injection recipes)
 

@@ -17,6 +17,8 @@ import { IBCCProvider } from "@/contexts/IBCCContext";
 import { ClinicalGuidelinesProvider } from "@/contexts/ClinicalGuidelinesContext";
 import { DashboardLayoutProvider } from "@/context/DashboardLayoutContext";
 import { RoundSessionProvider } from "@/contexts/RoundSessionContext";
+import { createContinuityMeta, roundSyncEngine } from "@/lib/round/sync";
+import { completeRound, createRound } from "@/lib/round/roundSessionStore";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DesktopRoundShell } from "@/components/round/DesktopRoundShell";
 import { MobileRoundShell } from "@/components/round/MobileRoundShell";
@@ -65,9 +67,18 @@ if (typeof window.matchMedia !== "function") {
 }
 window.scrollTo = window.scrollTo ?? (() => {});
 
+const originalBindRoundOwner = roundSyncEngine.bindOwner.bind(roundSyncEngine);
+const originalEnsureRoundNetworkListeners = roundSyncEngine.ensureNetworkListeners.bind(roundSyncEngine);
+const originalHydrateRoundSession = roundSyncEngine.hydrateRoundSession.bind(roundSyncEngine);
+const originalPersistRoundSession = roundSyncEngine.persistRoundSession.bind(roundSyncEngine);
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  roundSyncEngine.bindOwner = originalBindRoundOwner;
+  roundSyncEngine.ensureNetworkListeners = originalEnsureRoundNetworkListeners;
+  roundSyncEngine.hydrateRoundSession = originalHydrateRoundSession;
+  roundSyncEngine.persistRoundSession = originalPersistRoundSession;
 });
 
 const DEMOTED_PRIMARY_CHROME_TERMS = [
@@ -130,6 +141,7 @@ function RoundProviders({
   patientVerification = "verified",
   todosVerification = "verified",
   dataVerificationBlocked = false,
+  disablePersistence = true,
   children,
 }: {
   patients: Patient[];
@@ -138,6 +150,7 @@ function RoundProviders({
   patientVerification?: PatientRosterVerification;
   todosVerification?: "loading" | "verified" | "local" | "stale";
   dataVerificationBlocked?: boolean;
+  disablePersistence?: boolean;
   children: React.ReactNode;
 }) {
   const queryClient = React.useMemo(
@@ -166,7 +179,7 @@ function RoundProviders({
                             patientIds={patientIds}
                             patientSaveStates={patientSaveStates}
                             dataVerificationBlocked={dataVerificationBlocked}
-                            disablePersistence
+                            disablePersistence={disablePersistence}
                           >
                             {children}
                           </RoundSessionProvider>
@@ -270,6 +283,71 @@ describe("Focus-first Round runner harness", () => {
     assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "end");
     assert.ok(screen.getByTestId("round-end"));
     assert.ok(screen.getByTestId("round-end-print"));
+  });
+
+  it("keeps a completed Round review-only until Start New Round is explicit", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    fireEvent.click(screen.getByTestId("round-done"));
+    assert.match(screen.getByTestId("round-position").textContent ?? "", /Round · 2\/3/);
+
+    fireEvent.click(screen.getByTestId("round-end-entry"));
+    fireEvent.click(screen.getByTestId("round-end-complete"));
+
+    assert.ok(screen.getByTestId("round-end-completed"));
+    assert.equal(
+      screen.queryByRole("button", { name: "Back to patient Focus" }),
+      null,
+      "a completed Round must not reopen mutable Focus",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Round Home" }));
+    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "home");
+    assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start New Round");
+    assert.equal(screen.getByTestId("round-home-start").getAttribute("aria-label"), "Start New Round");
+    assert.equal(screen.queryByTestId("round-home-end"), null);
+
+    fireEvent.click(screen.getByTestId("round-home-start"));
+    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "focus");
+    assert.match(
+      screen.getByTestId("round-position").textContent ?? "",
+      /Round · 1\/3/,
+      "a new active Round resets the completed walk",
+    );
+  });
+
+  it("restores a completed Round to Home instead of reopening Focus", async () => {
+    const patientIds = dashboardPatients3.map((patient) => patient.id);
+    const completed = completeRound(createRound({
+      userId: "test-user",
+      patientIds,
+      id: "completed-round",
+      now: "2026-08-13T12:00:00.000Z",
+    }), "2026-08-13T12:05:00.000Z");
+
+    roundSyncEngine.bindOwner = () => undefined;
+    roundSyncEngine.ensureNetworkListeners = () => undefined;
+    roundSyncEngine.hydrateRoundSession = async () => ({
+      round: completed,
+      continuity: createContinuityMeta("test-device", completed.updatedAt),
+    });
+    roundSyncEngine.persistRoundSession = async () => undefined;
+
+    render(
+      <RoundProviders patients={dashboardPatients3} disablePersistence={false}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    const home = await screen.findByTestId("round-home");
+    assert.ok(home);
+    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "home");
+    assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start New Round");
+    assert.equal(screen.queryByTestId("patient-focus"), null);
   });
 
   it("exports the full Round roster even when the dashboard has an unrelated filter", async () => {

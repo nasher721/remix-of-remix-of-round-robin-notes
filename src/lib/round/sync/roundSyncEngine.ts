@@ -10,7 +10,7 @@ import type { Round, RoundSyncStatus } from "@/types/round";
 import {
   applyFieldConflictChoice,
   detectDraftFieldConflict,
-  mergeRoundContinuity,
+  resolveHydratedRoundContinuity,
 } from "./conflictRules";
 import {
   resolveDraftFieldPushOutcome,
@@ -152,6 +152,48 @@ class RoundSyncEngine {
   }
 
   /**
+   * Explicitly adopt the authoritative Round after the server rejects a
+   * competing local generation. Clinical chart drafts are stored separately;
+   * this only replaces Round walk continuity after clinician confirmation.
+   */
+  async reconcileRoundGeneration(
+    ownerId: string,
+    dependencies: {
+      fetchRemote?: typeof fetchRemoteRoundState;
+      saveRemoteCache?: typeof saveCachedRoundSession;
+    } = {},
+  ): Promise<{ round: Round; continuity: RoundContinuityMeta } | null> {
+    if (roundOutbox.getOwner() !== ownerId || isBrowserKnownOffline()) return null;
+    const fetchRemote = dependencies.fetchRemote ?? fetchRemoteRoundState;
+    const saveRemoteCache = dependencies.saveRemoteCache ?? saveCachedRoundSession;
+    const remote = await fetchRemote(ownerId);
+    if (!remote) return null;
+
+    // Durable adoption must succeed before removing the blocker. If IndexedDB
+    // is unavailable/full, completion stays fail-closed and the user can retry.
+    await saveRemoteCache({
+      round: remote.round,
+      continuity: remote.continuity,
+      syncStatus: "idle",
+    });
+
+    const queue = await roundOutbox.getQueue();
+    const rejectedGenerationIds = queue
+      .filter((entry) => (
+        entry.ownerId === ownerId
+        && entry.kind === "round_state"
+        && entry.softFailReason === "round_generation_conflict"
+      ))
+      .map((entry) => entry.id);
+    for (const id of rejectedGenerationIds) {
+      await roundOutbox.remove(id);
+    }
+    this.setStatus("idle");
+    this.markSyncSuccess(remote.round.updatedAt);
+    return remote;
+  }
+
+  /**
    * Persist Round locally and enqueue a round_state outbox patch.
    */
   async persistRoundSession(input: {
@@ -239,7 +281,7 @@ class RoundSyncEngine {
     let localRound = input.fallbackRound;
     let localMeta = createContinuityMeta(deviceId, input.fallbackRound.updatedAt);
 
-    if (cached && cached.round.userId === input.userId && cached.round.status === "active") {
+    if (cached && cached.round.userId === input.userId) {
       localRound = cached.round;
       localMeta = normalizeContinuityMeta(cached.continuity, cached.round.updatedAt);
       if (cached.conflicts.length > 0) {
@@ -260,12 +302,13 @@ class RoundSyncEngine {
       if (!remote) {
         this.setStatus(this.openConflicts.length > 0 ? "conflict" : "idle");
       } else {
-        const merged = mergeRoundContinuity({
+        const merged = resolveHydratedRoundContinuity({
           localRound,
           localMeta,
           remoteRound: remote.round,
           remoteMeta: remote.continuity,
           patientIds: input.patientIds,
+          localIsFallback: !cached,
         });
 
         await saveCachedRoundSession({
@@ -335,12 +378,20 @@ class RoundSyncEngine {
             continue;
           }
           const upsert = await upsertRemoteRoundState({ round, continuity });
-          const outcome = resolveRoundStateUpsertOutcome(upsert);
+          const outcome = resolveRoundStateUpsertOutcome({
+            ...upsert,
+            requestedRoundId: round.id,
+          });
           if (outcome === "soft_fail") {
             result.missingTable = true;
             result.softFailed += 1;
             // Keep row pending/soft_fail — never falsely ack local continuity.
             await roundOutbox.markSoftFail(entry.id, "missing_table");
+            continue;
+          }
+          if (outcome === "generation_conflict") {
+            result.softFailed += 1;
+            await roundOutbox.markSoftFail(entry.id, "round_generation_conflict");
             continue;
           }
           await roundOutbox.remove(entry.id);

@@ -43,6 +43,8 @@ export const RoundHome = ({
 
   const hasPatients = patients.length > 0
   const doneCount = round.patients.filter((ref) => ref.status === "done").length
+  const isCompleted = round.status === "completed"
+  const startLabel = isCompleted ? "Start New Round" : isResume ? "Resume Round" : "Start Round"
 
   const handleOpenImport = () => {
     setImportMode("csv")
@@ -87,7 +89,9 @@ export const RoundHome = ({
             )}
           >
             {hasPatients
-              ? `${patients.length} patient${patients.length === 1 ? "" : "s"} · ${doneCount} done · position ${position.current}/${position.total}`
+              ? isCompleted
+                ? `Round complete · ${patients.length} patient${patients.length === 1 ? "" : "s"} · ${doneCount} done`
+                : `${patients.length} patient${patients.length === 1 ? "" : "s"} · ${doneCount} done · position ${position.current}/${position.total}`
               : "Import a list or add patients to start bed-by-bed Focus."}
           </p>
         </header>
@@ -118,11 +122,11 @@ export const RoundHome = ({
                 touchFriendly && "min-h-[44px] text-base",
               )}
               onClick={onStartRound}
-              aria-label={isResume ? "Resume Round" : "Start Round"}
+              aria-label={startLabel}
               data-testid="round-home-start"
             >
               <Play className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
-              {isResume ? "Resume Round" : "Start Round"}
+              {startLabel}
             </Button>
           ) : (
             <p
@@ -135,7 +139,7 @@ export const RoundHome = ({
             </p>
           )}
 
-          {hasPatients && isResume && (
+          {hasPatients && isResume && !isCompleted && (
             <Button
               type="button"
               variant="outline"

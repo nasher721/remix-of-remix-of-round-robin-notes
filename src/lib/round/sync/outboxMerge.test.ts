@@ -209,6 +209,14 @@ test("selectPendingOutbox respects nextRetryAt backoff window", () => {
 test("missingTable soft-fail is not an ack and still counts pending", () => {
   assert.equal(resolveRoundStateUpsertOutcome({ missingTable: true }), "soft_fail");
   assert.equal(resolveRoundStateUpsertOutcome({ missingTable: false }), "ack");
+  assert.equal(
+    resolveRoundStateUpsertOutcome({
+      missingTable: false,
+      requestedRoundId: "round-new",
+      acceptedRoundId: "round-current",
+    }),
+    "generation_conflict",
+  );
 
   const soft = entry({
     kind: "round_state",

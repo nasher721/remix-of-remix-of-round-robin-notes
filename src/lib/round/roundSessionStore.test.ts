@@ -229,6 +229,35 @@ describe("expanded system and continuity fields", () => {
     assert.equal(completed.expandedSystemId, null);
   });
 
+  it("treats a completed Round as immutable clinical lifecycle state", () => {
+    const completed = completeRound(
+      markCurrentDone(createSampleRound(), FIXED_NOW),
+      LATER,
+    );
+
+    const attemptedTransitions = [
+      selectPatient(completed, "p3", "2026-08-11T12:06:00.000Z"),
+      nextPatient(completed, "2026-08-11T12:06:00.000Z"),
+      prevPatient(completed, "2026-08-11T12:06:00.000Z"),
+      markCurrentSkipped(completed, "2026-08-11T12:06:00.000Z"),
+      clearCurrentWalkStatus(completed, "2026-08-11T12:06:00.000Z"),
+      markDoneAndNext(completed, "2026-08-11T12:06:00.000Z"),
+      setRoundFilters(completed, { hideDone: true }, "2026-08-11T12:06:00.000Z"),
+      setActiveSection(completed, "todos", "2026-08-11T12:06:00.000Z"),
+      setExpandedSystem(completed, "resp", "2026-08-11T12:06:00.000Z"),
+      setRoundSyncStatus(completed, "failed", "2026-08-11T12:06:00.000Z"),
+      replaceRoundPatients(completed, ["p3", "p4"], "2026-08-11T12:06:00.000Z"),
+    ];
+
+    for (const attempted of attemptedTransitions) {
+      assert.strictEqual(
+        attempted,
+        completed,
+        "completed rounds must remain unchanged until a new Round is explicitly created",
+      );
+    }
+  });
+
   it("accepts failed sync status without sanitization fallback", () => {
     const round = setRoundSyncStatus(createSampleRound(), "failed", LATER);
     assert.equal(round.syncStatus, "failed");

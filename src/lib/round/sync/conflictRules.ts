@@ -41,6 +41,53 @@ export interface ContinuityMergeResult {
   usedRemoteExpand: boolean;
 }
 
+/**
+ * Reconcile local and remote lifecycle before merging ordinary continuity.
+ * A different active Round is a new generation and must never be completed by
+ * an older terminal snapshot from another device.
+ */
+export const resolveHydratedRoundContinuity = (
+  input: ContinuityMergeInput & { localIsFallback?: boolean },
+): ContinuityMergeResult => {
+  if (input.localIsFallback) {
+    return {
+      round: input.remoteRound,
+      continuity: input.remoteMeta,
+      usedRemoteNav: true,
+      usedRemoteExpand: true,
+    };
+  }
+
+  const sameRound = input.localRound.id === input.remoteRound.id;
+
+  if (sameRound && input.localRound.status === "active" && input.remoteRound.status === "active") {
+    return mergeRoundContinuity(input);
+  }
+
+  let useRemote: boolean;
+  if (sameRound) {
+    if (input.localRound.status !== input.remoteRound.status) {
+      useRemote = input.remoteRound.status === "completed";
+    } else {
+      useRemote = isNewer(input.remoteRound.updatedAt, input.localRound.updatedAt);
+    }
+  } else if (input.localRound.status !== input.remoteRound.status) {
+    // An active Round with a different id is the newer explicit generation.
+    useRemote = input.remoteRound.status === "active";
+  } else {
+    useRemote = isNewer(input.remoteRound.updatedAt, input.localRound.updatedAt);
+  }
+
+  const round = useRemote ? input.remoteRound : input.localRound;
+  const continuity = useRemote ? input.remoteMeta : input.localMeta;
+  return {
+    round,
+    continuity,
+    usedRemoteNav: useRemote,
+    usedRemoteExpand: useRemote,
+  };
+};
+
 /** Resolve dedicated continuity timestamps with Round.updatedAt fallback for older envelopes. */
 export const resolveContinuityFieldUpdatedAt = (
   dedicatedIso: string | undefined,

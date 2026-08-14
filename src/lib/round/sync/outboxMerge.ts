@@ -52,7 +52,19 @@ export const shouldDrainOutboxAfterHydrate = (isOnline: boolean): boolean => isO
  */
 export const resolveRoundStateUpsertOutcome = (input: {
   missingTable: boolean;
-}): "ack" | "soft_fail" => (input.missingTable ? "soft_fail" : "ack");
+  requestedRoundId?: string;
+  acceptedRoundId?: string | null;
+}): "ack" | "soft_fail" | "generation_conflict" => {
+  if (input.missingTable) return "soft_fail";
+  if (
+    input.requestedRoundId
+    && input.acceptedRoundId
+    && input.requestedRoundId !== input.acceptedRoundId
+  ) {
+    return "generation_conflict";
+  }
+  return "ack";
+};
 
 /**
  * Draft push `missing` (patient row absent) must not silent-ack — keep soft_fail

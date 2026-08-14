@@ -6,6 +6,7 @@ import {
   detectDraftFieldConflict,
   mergeRoundContinuity,
   pickLastWriteField,
+  resolveHydratedRoundContinuity,
 } from "./conflictRules";
 import type { RoundContinuityMeta, VersionedField } from "./types";
 
@@ -92,6 +93,120 @@ test("last-focused expanded system wins across devices", () => {
   assert.equal(merged.round.expandedSystemId, "cv");
   assert.equal(merged.usedRemoteExpand, true);
   assert.equal(merged.continuity.expandedUpdatedAt, T3);
+});
+
+test("completed lifecycle wins for the same Round during hydration", () => {
+  const active = createRound({
+    userId: "u1",
+    patientIds: ["a", "b"],
+    id: "round-1",
+    now: BASE,
+  });
+  const completed = {
+    ...active,
+    status: "completed" as const,
+    currentIndex: 1,
+    updatedAt: T2,
+  };
+
+  const resolved = resolveHydratedRoundContinuity({
+    localRound: completed,
+    localMeta: meta({ deviceId: "phone" }),
+    remoteRound: { ...active, updatedAt: T3 },
+    remoteMeta: meta({ deviceId: "workstation" }),
+  });
+
+  assert.equal(resolved.round.status, "completed");
+  assert.equal(resolved.round.id, "round-1");
+  assert.equal(resolved.round.currentIndex, 1);
+});
+
+test("a different active Round supersedes an older completed generation", () => {
+  const completed = {
+    ...createRound({
+      userId: "u1",
+      patientIds: ["a", "b"],
+      id: "round-old",
+      now: BASE,
+    }),
+    status: "completed" as const,
+    updatedAt: T3,
+  };
+  const active = createRound({
+    userId: "u1",
+    patientIds: ["a", "b"],
+    id: "round-new",
+    now: T2,
+  });
+
+  const resolved = resolveHydratedRoundContinuity({
+    localRound: completed,
+    localMeta: meta({ deviceId: "stale-phone" }),
+    remoteRound: active,
+    remoteMeta: meta({ deviceId: "workstation" }),
+  });
+
+  assert.equal(resolved.round.status, "active");
+  assert.equal(resolved.round.id, "round-new");
+});
+
+test("an unsynced active Round supersedes an older remote completion", () => {
+  const active = createRound({
+    userId: "u1",
+    patientIds: ["a", "b"],
+    id: "round-new",
+    now: T2,
+  });
+  const completed = {
+    ...createRound({
+      userId: "u1",
+      patientIds: ["a", "b"],
+      id: "round-old",
+      now: BASE,
+    }),
+    status: "completed" as const,
+    updatedAt: T3,
+  };
+
+  const resolved = resolveHydratedRoundContinuity({
+    localRound: active,
+    localMeta: meta({ deviceId: "phone" }),
+    remoteRound: completed,
+    remoteMeta: meta({ deviceId: "workstation" }),
+  });
+
+  assert.equal(resolved.round.status, "active");
+  assert.equal(resolved.round.id, "round-new");
+});
+
+test("a persisted remote completion supersedes an unpersisted synthetic fallback", () => {
+  const fallback = createRound({
+    userId: "u1",
+    patientIds: ["a", "b"],
+    id: "synthetic-fallback",
+    now: T3,
+  });
+  const completed = {
+    ...createRound({
+      userId: "u1",
+      patientIds: ["a", "b"],
+      id: "persisted-round",
+      now: BASE,
+    }),
+    status: "completed" as const,
+    updatedAt: T2,
+  };
+
+  const resolved = resolveHydratedRoundContinuity({
+    localRound: fallback,
+    localMeta: meta({ deviceId: "new-browser" }),
+    remoteRound: completed,
+    remoteMeta: meta({ deviceId: "workstation" }),
+    localIsFallback: true,
+  });
+
+  assert.equal(resolved.round.status, "completed");
+  assert.equal(resolved.round.id, "persisted-round");
 });
 
 test("filters use dedicated timestamp, not navigation-bumped updatedAt", () => {

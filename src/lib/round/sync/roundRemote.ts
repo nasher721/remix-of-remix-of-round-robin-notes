@@ -106,14 +106,15 @@ export const remoteStateToRoundParts = (
   };
 };
 
-export async function fetchRemoteRoundState(
+const fetchRemoteRoundByStatus = async (
   userId: string,
-): Promise<{ round: Round; continuity: RoundContinuityMeta } | null> {
+  status: Round["status"],
+): Promise<{ round: Round; continuity: RoundContinuityMeta } | null> => {
   const { data, error } = await supabase
     .from("round_state")
     .select(ROUND_STATE_SELECT_COLUMNS)
     .eq("user_id", userId)
-    .eq("status", "active")
+    .eq("status", status)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -124,12 +125,23 @@ export async function fetchRemoteRoundState(
   }
   if (!data) return null;
   return remoteStateToRoundParts(data as unknown as RoundStateRemoteRow);
+};
+
+export async function fetchRemoteRoundState(
+  userId: string,
+): Promise<{ round: Round; continuity: RoundContinuityMeta } | null> {
+  // Active is the current generation. Only restore the latest completed Round
+  // when no explicit new active Round exists.
+  return (
+    (await fetchRemoteRoundByStatus(userId, "active"))
+    ?? (await fetchRemoteRoundByStatus(userId, "completed"))
+  );
 }
 
 export async function upsertRemoteRoundState(
   input: UpsertRoundStateInput,
-): Promise<{ ok: boolean; missingTable: boolean }> {
-  const { error } = await supabase.rpc("upsert_owned_round_state", {
+): Promise<{ ok: boolean; missingTable: boolean; acceptedRoundId: string | null }> {
+  const { data, error } = await supabase.rpc("upsert_owned_round_state", {
     p_round_id: input.round.id,
     p_status: input.round.status,
     p_state: roundToRemoteState(input.round, input.continuity) as Json,
@@ -141,11 +153,15 @@ export async function upsertRemoteRoundState(
 
   if (error) {
     if (isMissingTableError(error)) {
-      return { ok: false, missingTable: true };
+      return { ok: false, missingTable: true, acceptedRoundId: null };
     }
     throw error;
   }
-  return { ok: true, missingTable: false };
+  return {
+    ok: true,
+    missingTable: false,
+    acceptedRoundId: data?.[0]?.id ?? null,
+  };
 }
 
 /**

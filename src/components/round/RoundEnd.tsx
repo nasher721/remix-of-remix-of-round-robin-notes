@@ -40,8 +40,10 @@ export const RoundEnd = ({
     pendingCount,
     failedCount,
     softFailedCount,
+    generationConflictCount,
     conflicts,
     completionSafety,
+    adoptRemoteRoundGeneration,
   } = useRoundSession()
   const [printOpen, setPrintOpen] = React.useState(false)
 
@@ -180,6 +182,23 @@ export const RoundEnd = ({
               {blockedSyncParts || "One or more patient changes still need attention."}
               {" "}Use the sync control in the top bar to retry or review. Print / Export remains available for recovery.
             </p>
+            {generationConflictCount > 0 ? (
+              <div className="mt-3 space-y-2 border-t border-amber-500/30 pt-3">
+                <p className="text-xs leading-relaxed">
+                  Another device started a different active Round. Retry first if this Round was just created; otherwise use the remotely saved Round. Patient notes and Todos are not discarded.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="min-h-[44px] w-full border-amber-600/50 bg-background/80 text-amber-950 dark:text-amber-100"
+                  onClick={() => void adoptRemoteRoundGeneration()}
+                  data-testid="round-use-remote-generation"
+                >
+                  Use Round from another device
+                </Button>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -221,17 +240,19 @@ export const RoundEnd = ({
         </div>
 
         <div className="flex flex-col gap-2 border-t border-border/30 pt-4 sm:flex-row">
-          <Button
-            type="button"
-            variant="ghost"
-            className={cn("gap-2", touchFriendly && "min-h-[44px]")}
-            onClick={onBackToFocus}
-            disabled={patients.length === 0}
-            aria-label="Back to patient Focus"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to Focus
-          </Button>
+          {!isComplete ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn("gap-2", touchFriendly && "min-h-[44px]")}
+              onClick={onBackToFocus}
+              disabled={patients.length === 0}
+              aria-label="Back to patient Focus"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back to Focus
+            </Button>
+          ) : null}
           <Button
             type="button"
             variant="ghost"

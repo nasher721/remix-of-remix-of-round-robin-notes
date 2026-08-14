@@ -43,6 +43,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
     nextPatient,
     prevPatient,
     markDoneAndNext,
+    startNewRound,
   } = useRoundSession()
 
   const [rosterOpen, setRosterOpen] = React.useState(false)
@@ -51,6 +52,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
     patients.length === 0 ? "home" : "focus",
   )
   const [hasStartedRound, setHasStartedRound] = React.useState(() => patients.length > 0)
+  const hydratedSurfaceInitializedRef = React.useRef(false)
 
   const patient = React.useMemo((): Patient | null => {
     if (!currentPatientId) return null
@@ -63,6 +65,15 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
       setHasStartedRound(false)
     }
   }, [patients.length])
+
+  React.useEffect(() => {
+    if (!isHydrated || hydratedSurfaceInitializedRef.current) return
+    hydratedSurfaceInitializedRef.current = true
+    if (round.status === "completed") {
+      setSurface("home")
+      setHasStartedRound(true)
+    }
+  }, [isHydrated, round.status])
 
   React.useEffect(() => {
     if (!navigator.onLine) return
@@ -87,9 +98,12 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   }, [])
 
   const handleStartRound = React.useCallback(() => {
+    if (round.status === "completed") {
+      startNewRound()
+    }
     setHasStartedRound(true)
     setSurface("focus")
-  }, [])
+  }, [round.status, startNewRound])
 
   const handleEndRound = React.useCallback(() => {
     setSurface("end")

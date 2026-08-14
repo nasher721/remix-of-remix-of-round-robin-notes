@@ -407,6 +407,18 @@ close. All engineering-controlled items are complete and evidenced below.
   longer silently reduce the handoff while the completion summary still shows
   the full Round count; a regression harness opens the real lazy export dialog
   and verifies every Round patient is present.
+- **Terminal Round lifecycle:** Marking a Round complete now makes its walk,
+  filters, section, and sync metadata immutable. Completed state restores to
+  Round Home after local, remote, or new-browser hydration and requires the
+  explicit **Start New Round** action before Focus can reopen. Completion is
+  durably queued before the new active generation, while a failed terminal
+  write cannot prevent the new generation from being saved. The authenticated
+  Round RPC now addresses the exact Round id, so a delayed device cannot
+  overwrite a newer active Round. A rejected competing generation remains
+  visible and retryable; End Round offers an explicit action to adopt the
+  authoritative Round from another device without discarding patient notes or
+  Todos. Store, provider, hydration, UI, migration-contract, and rejection-path
+  regressions cover these boundaries.
 
 ## 3. Final release gate status (from plan)
 
