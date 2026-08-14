@@ -124,6 +124,12 @@ Leaving the value unset is the supported password-only deployment.
 
 Configure repository variables `CLINICAL_PHI_LLM_PROVIDER` and `CLINICAL_PHI_LLM_MODEL` under **Actions → Variables**. Set both variables to `disabled` until a provider is contractually approved; deployment continues while clinical AI remains fail-closed. To enable clinical imports, use one approved allowlisted pair as described in [Clinical import provider approval](#clinical-import-provider-approval).
 
+The core roster workflow does not depend on that approval: **Import Patient
+List** opens the client-side CSV/spreadsheet mapper by default. CSV upload,
+paste, validation, preview, and import stay inside the browser until the
+validated patient rows are written to Supabase. Only the separate
+**Document / image** tab invokes clinical AI.
+
 The anon key is the same **public** key as `VITE_SUPABASE_PUBLISHABLE_KEY` / dashboard **Project API → anon public**.
 
 If you change **`project_id`** in [`supabase/config.toml`](../supabase/config.toml), set **`SUPABASE_PROJECT_ID`** in GitHub to the **same** ref and run **`supabase link --project-ref <ref>`** locally so CLI and CI target one project.

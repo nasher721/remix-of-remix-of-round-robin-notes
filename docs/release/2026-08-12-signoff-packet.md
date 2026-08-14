@@ -147,6 +147,12 @@ close. All engineering-controlled items are complete and evidenced below.
   frontend release to deploy together without asserting contractual approval.
   Clinical AI stays fail-closed in this state; provider approval remains a
   human gate before those workflows can be marketed or used with PHI.
+- **Usable roster intake without clinical AI:** the first-class Round Home
+  import now opens the deterministic, client-side CSV/spreadsheet mapper by
+  default. The optional document/image tab states its approved-provider
+  requirement explicitly, so a deployment in `disabled` mode still has a
+  complete first-run roster path. Component coverage and authenticated
+  Chromium/WebKit coverage exercise the tab order and 390px layout.
 - **Fail-closed federated sign-in:** production is password-only by default.
   Google and Apple controls render only when the provider is configured in
   Supabase Auth and explicitly allowlisted through

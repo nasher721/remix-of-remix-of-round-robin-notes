@@ -106,7 +106,12 @@ supabase link --project-ref your-project-ref
 supabase functions deploy
 ```
 
-Clinical imports remain fail-closed while the deployment policy is `disabled`. Enabling them requires `CLINICAL_PHI_LLM_PROVIDER` and `CLINICAL_PHI_LLM_MODEL` to name one contractually approved provider/model pair; see [docs/deployment.md](docs/deployment.md#clinical-import-provider-approval).
+Clinical AI remains fail-closed while the deployment policy is `disabled`. The
+primary **Import Patient List** flow still supports client-side CSV upload,
+paste, column mapping, and import without sending roster content to an AI
+provider. Document and image parsing requires `CLINICAL_PHI_LLM_PROVIDER` and
+`CLINICAL_PHI_LLM_MODEL` to name one contractually approved provider/model
+pair; see [docs/deployment.md](docs/deployment.md#clinical-import-provider-approval).
 
 ## Features
 

@@ -387,6 +387,32 @@ describe("Focus-first Round runner harness", () => {
     assert.ok(screen.getByTestId("round-home-start"));
   });
 
+  it("opens a client-side CSV importer before the optional clinical-AI path", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    fireEvent.click(screen.getByTestId("round-go-home"));
+    fireEvent.click(screen.getByTestId("round-home-import"));
+
+    const dialog = await screen.findByRole("dialog");
+    assert.ok(within(dialog).getByRole("heading", { name: "Import Patient List" }));
+
+    const csvTab = within(dialog).getByRole("tab", { name: /CSV \/ spreadsheet/i });
+    const documentTab = within(dialog).getByRole("tab", { name: /Document \/ image/i });
+    assert.equal(csvTab.getAttribute("aria-selected"), "true");
+    assert.ok(within(dialog).getByLabelText("Or paste CSV content here:"));
+
+    fireEvent.mouseDown(documentTab, { button: 0, ctrlKey: false });
+    assert.ok(await within(dialog).findByRole("button", { name: "Upload patient list file" }));
+    assert.equal(
+      within(dialog).getByRole("tab", { name: /Document \/ image/i }).getAttribute("aria-selected"),
+      "true",
+    );
+  });
+
   it("labels a newly populated Round as Start until Focus has been entered", async () => {
     const view = render(
       <RoundProviders patients={[]}>

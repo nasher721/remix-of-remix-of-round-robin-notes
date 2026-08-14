@@ -38,11 +38,16 @@ import {
 interface CSVColumnMapperProps {
   onImportPatients: (patients: Record<string, string>[]) => Promise<void>;
   noDialog?: boolean;
+  hideHeader?: boolean;
 }
 
 type Step = "upload" | "mapping" | "preview";
 
-export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColumnMapperProps) => {
+export const CSVColumnMapper = ({
+  onImportPatients,
+  noDialog = false,
+  hideHeader = false,
+}: CSVColumnMapperProps) => {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>("upload");
   const [csvContent, setCsvContent] = useState("");
@@ -282,16 +287,18 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
 
   const content = (
     <>
-      <DialogHeader className="flex-shrink-0">
-        {/* DialogTitle works for both owned Dialog and parent Dialog wrappers (noDialog). */}
-        <DialogTitle className="flex items-center gap-2">
-          <Table2 className="h-5 w-5" aria-hidden="true" />
-          Import from CSV
-        </DialogTitle>
-        <DialogDescription>
-          Upload or paste CSV content, map columns to patient fields, then import selected rows.
-        </DialogDescription>
-      </DialogHeader>
+      {!hideHeader ? (
+        <DialogHeader className="flex-shrink-0">
+          {/* DialogTitle works for both owned Dialog and parent Dialog wrappers (noDialog). */}
+          <DialogTitle className="flex items-center gap-2">
+            <Table2 className="h-5 w-5" aria-hidden="true" />
+            Import from CSV
+          </DialogTitle>
+          <DialogDescription>
+            Upload or paste CSV content, map columns to patient fields, then import selected rows.
+          </DialogDescription>
+        </DialogHeader>
+      ) : null}
 
       <div className="flex-1 overflow-y-auto min-h-0 py-2">
         {step === "upload" && (
@@ -304,7 +311,7 @@ export const CSVColumnMapper = ({ onImportPatients, noDialog = false }: CSVColum
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="relative">
                 <input
                   ref={fileInputRef}

@@ -169,6 +169,7 @@ test.describe("Round runner Focus-first path", () => {
   });
 
   test("Round Home keeps Import Patient List first-class", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     const goHome = page.getByTestId("round-go-home");
     if (await goHome.isVisible().catch(() => false)) {
       await goHome.click();
@@ -182,6 +183,17 @@ test.describe("Round runner Focus-first path", () => {
     }
 
     await expect(page.getByTestId("round-home")).toBeVisible({ timeout: 8_000 });
-    await expect(page.getByTestId("round-home-import")).toBeVisible();
+    const importButton = page.getByTestId("round-home-import");
+    await expect(importButton).toBeVisible();
+    await importButton.click();
+
+    const importer = page.getByRole("dialog", { name: "Import Patient List" });
+    await expect(importer).toBeVisible();
+    await expect(importer.getByTestId("round-import-csv-tab")).toHaveAttribute("aria-selected", "true");
+    await expect(importer.getByTestId("round-import-csv-tab")).toHaveCSS("min-height", "40px");
+    await expect(importer.getByLabel("Or paste CSV content here:")).toBeVisible();
+
+    await importer.getByTestId("round-import-document-tab").click();
+    await expect(importer.getByRole("button", { name: "Upload patient list file" })).toBeVisible();
   });
 });

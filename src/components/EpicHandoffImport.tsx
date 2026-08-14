@@ -52,9 +52,15 @@ interface EpicHandoffImportProps {
     medications?: PatientMedications;
   }>) => Promise<void>;
   noDialog?: boolean;
+  hideHeader?: boolean;
 }
 
-export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = false }: EpicHandoffImportProps) => {
+export const EpicHandoffImport = ({
+  existingBeds,
+  onImportPatients,
+  noDialog = false,
+  hideHeader = false,
+}: EpicHandoffImportProps) => {
   const assertBackendReady = useAssertBackendReady();
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -334,9 +340,81 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
 
   const bedExists = (bed: string) => existingBeds.some(b => b.toLowerCase() === bed.toLowerCase());
 
+  const importSettings = (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Import settings">
+          <Settings2 className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80" align="end">
+        <div className="space-y-4">
+          <h4 className="font-medium leading-none">Import Settings</h4>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="ocr-enabled" className="flex flex-col gap-1">
+                <span>Enable OCR</span>
+                <span className="text-xs text-muted-foreground">For scanned PDFs/images</span>
+              </Label>
+              <Switch
+                id="ocr-enabled"
+                checked={settings.ocrEnabled}
+                onCheckedChange={(c) => updateSettings({ ocrEnabled: c })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="force-ocr" className="flex flex-col gap-1">
+                <span>Force OCR</span>
+                <span className="text-xs text-muted-foreground">Ignore extracted text</span>
+              </Label>
+              <Switch
+                id="force-ocr"
+                checked={settings.forceOcr}
+                onCheckedChange={(c) => updateSettings({ forceOcr: c })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label>Image Quality (Upscale)</Label>
+                <span className="text-xs text-muted-foreground">{settings.imageScale}x</span>
+              </div>
+              <Slider
+                min={1.0}
+                max={3.0}
+                step={0.5}
+                value={[settings.imageScale]}
+                onValueChange={([v]) => updateSettings({ imageScale: v })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Higher quality improves accuracy but takes longer.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label>Page Limit</Label>
+                <span className="text-xs text-muted-foreground">{getSafePageLimit()} parsed</span>
+              </div>
+              <Slider
+                min={1}
+                max={OCR_HARD_PAGE_LIMIT}
+                step={1}
+                value={[settings.pageLimit]}
+                onValueChange={([v]) => updateSettings({ pageLimit: v })}
+              />
+            </div>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+
   const content = (
     <>
-      <DialogHeader className="flex-shrink-0">
+      {!hideHeader ? (
+        <DialogHeader className="flex-shrink-0">
           <div className="flex justify-between items-center pr-8">
             <div className="space-y-1.5">
               {/* DialogTitle works for both owned Dialog and parent Dialog wrappers (noDialog). */}
@@ -349,76 +427,12 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
               </DialogDescription>
             </div>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80" align="end">
-                <div className="space-y-4">
-                  <h4 className="font-medium leading-none">Import Settings</h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="ocr-enabled" className="flex flex-col gap-1">
-                        <span>Enable OCR</span>
-                        <span className="text-xs text-muted-foreground">For scanned PDFs/images</span>
-                      </Label>
-                      <Switch
-                        id="ocr-enabled"
-                        checked={settings.ocrEnabled}
-                        onCheckedChange={(c) => updateSettings({ ocrEnabled: c })}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="force-ocr" className="flex flex-col gap-1">
-                        <span>Force OCR</span>
-                        <span className="text-xs text-muted-foreground">Ignore extracted text</span>
-                      </Label>
-                      <Switch
-                        id="force-ocr"
-                        checked={settings.forceOcr}
-                        onCheckedChange={(c) => updateSettings({ forceOcr: c })}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <Label>Image Quality (Upscale)</Label>
-                        <span className="text-xs text-muted-foreground">{settings.imageScale}x</span>
-                      </div>
-                      <Slider
-                        min={1.0}
-                        max={3.0}
-                        step={0.5}
-                        value={[settings.imageScale]}
-                        onValueChange={([v]) => updateSettings({ imageScale: v })}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Higher quality improves accuracy but takes longer.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <Label>Page Limit</Label>
-                        <span className="text-xs text-muted-foreground">{getSafePageLimit()} parsed</span>
-                      </div>
-                      <Slider
-                        min={1}
-                        max={OCR_HARD_PAGE_LIMIT}
-                        step={1}
-                        value={[settings.pageLimit]}
-                        onValueChange={([v]) => updateSettings({ pageLimit: v })}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
+            {importSettings}
           </div>
         </DialogHeader>
+      ) : (
+        <div className="flex flex-shrink-0 justify-end pr-1">{importSettings}</div>
+      )}
 
         <div className="flex-1 overflow-y-auto min-h-0 py-2">
           {step === "upload" && (
@@ -426,13 +440,13 @@ export const EpicHandoffImport = ({ existingBeds, onImportPatients, noDialog = f
               <div className="rounded-md bg-muted/50 p-4 text-sm text-muted-foreground flex gap-3">
                 <Info className="h-5 w-5 flex-shrink-0 text-blue-500" />
                 <p>
-                  Upload almost any patient list export (Word, Excel/CSV, HTML, JSON, RTF, images, or text)
-                  or paste the list. AI identifies each patient/room and organizes details into chart sections.
-                  PDF is temporarily unavailable for secure bundling reasons.
+                  Upload a Word, HTML, JSON, RTF, image, or text export, or paste the list.
+                  This mode uses the deployment-approved clinical AI service to identify each patient and organize chart sections.
+                  Use the CSV tab for deterministic spreadsheet mapping. PDF is temporarily unavailable for secure bundling reasons.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Card className="p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors border-dashed border-2 flex flex-col justify-center items-center h-48"
                   role="button"
                   tabIndex={0}

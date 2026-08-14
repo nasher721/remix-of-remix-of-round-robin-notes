@@ -1,11 +1,20 @@
 import * as React from "react"
 import { FileUp, Play, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EpicHandoffImport } from "@/components/EpicHandoffImport"
+import { CSVColumnMapper } from "@/components/import/CSVColumnMapper"
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { useDashboard } from "@/contexts/DashboardContext"
 import { useRoundSession } from "@/contexts/RoundSessionContext"
+import { organizeCsvImportRecord } from "@/lib/import/organizeImportedPatient"
 import { cn } from "@/lib/utils"
 
 export interface RoundHomeProps {
@@ -30,11 +39,13 @@ export const RoundHome = ({
   const { patients, onImportPatients, onSignOut, user } = useDashboard()
   const { position, round } = useRoundSession()
   const [importOpen, setImportOpen] = React.useState(false)
+  const [importMode, setImportMode] = React.useState<"csv" | "document">("csv")
 
   const hasPatients = patients.length > 0
   const doneCount = round.patients.filter((ref) => ref.status === "done").length
 
   const handleOpenImport = () => {
+    setImportMode("csv")
     setImportOpen(true)
   }
 
@@ -43,6 +54,10 @@ export const RoundHome = ({
   ) => {
     await onImportPatients(imported)
     setImportOpen(false)
+  }
+
+  const handleCsvImport = async (records: Record<string, string>[]) => {
+    await handleImportPatients(records.map(organizeCsvImportRecord))
   }
 
   return (
@@ -170,12 +185,55 @@ export const RoundHome = ({
       </div>
 
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <EpicHandoffImport
-            existingBeds={patients.map((p) => p.bed)}
-            onImportPatients={handleImportPatients}
-            noDialog
-          />
+        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0 pr-8">
+            <DialogTitle>Import Patient List</DialogTitle>
+            <DialogDescription>
+              CSV mapping runs in this browser. Document and image parsing requires the deployment&apos;s approved clinical AI service.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Tabs
+            value={importMode}
+            onValueChange={(value) => setImportMode(value as "csv" | "document")}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-2">
+              <TabsTrigger
+                value="csv"
+                className="min-h-[40px] px-2 sm:px-3"
+                aria-label="CSV / spreadsheet"
+                data-testid="round-import-csv-tab"
+              >
+                <span className="sm:hidden" aria-hidden="true">CSV</span>
+                <span className="hidden sm:inline" aria-hidden="true">CSV / spreadsheet</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="document"
+                className="min-h-[40px] px-2 sm:px-3"
+                aria-label="Document / image"
+                data-testid="round-import-document-tab"
+              >
+                <span className="sm:hidden" aria-hidden="true">Document</span>
+                <span className="hidden sm:inline" aria-hidden="true">Document / image</span>
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="csv" className="mt-3 min-h-0 flex-1 overflow-hidden">
+              <CSVColumnMapper
+                onImportPatients={handleCsvImport}
+                noDialog
+                hideHeader
+              />
+            </TabsContent>
+            <TabsContent value="document" className="mt-3 min-h-0 flex-1 overflow-hidden">
+              <EpicHandoffImport
+                existingBeds={patients.map((p) => p.bed)}
+                onImportPatients={handleImportPatients}
+                noDialog
+                hideHeader
+              />
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </div>
