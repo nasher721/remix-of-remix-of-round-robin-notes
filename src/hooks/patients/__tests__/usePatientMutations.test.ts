@@ -1,12 +1,12 @@
 import test, { afterEach } from "node:test";
 import assert from "node:assert/strict";
 import * as React from "react";
-import { cleanup, renderHook, act } from "@testing-library/react";
+import { cleanup, renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Patient } from "@/types/patient";
 import { QUERY_KEYS } from "@/lib/cache/cacheConfig";
 import { defaultSystemsValue, defaultMedicationsValue } from "@/services/patientService";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import {
   reconcilePatientSaveStates,
   usePatientMutations,
@@ -1048,22 +1048,24 @@ test("usePatientMutations removePatient scopes patient and todo cache updates to
     "remaining-id": [],
   });
 
-  const { result } = renderHook(() =>
-    usePatientMutations({
+  const { result } = renderHook(() => ({
+    auth: useAuth(),
+    mutations: usePatientMutations({
       patientsRef,
       setPatients,
       patientCounter: 2,
       setPatientCounter,
       fetchPatients,
     }),
-    { wrapper }
+  }),
+  { wrapper }
   );
 
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 20));
+  await waitFor(() => {
+    assert.equal(result.current.auth.user?.id, "test-user-id");
   });
   await act(async () => {
-    await result.current.removePatient("existing-id");
+    await result.current.mutations.removePatient("existing-id");
   });
 
   assert.deepEqual(queryClient.getQueryData<Patient[]>(QUERY_KEYS.patientList("test-user-id"))?.map((patient) => patient.id), ["remaining-id"]);

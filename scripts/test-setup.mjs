@@ -37,6 +37,12 @@ globalThis.DocumentFragment = dom.window.DocumentFragment;
 globalThis.Event = dom.window.Event;
 globalThis.CustomEvent = dom.window.CustomEvent;
 
+// Import after installing the DOM so Testing Library captures this document.
+// CI starts many TypeScript/jsdom files concurrently, so state-based waits need
+// more headroom than the default without falling back to fixed sleeps.
+const { configure } = await import("@testing-library/dom");
+configure({ asyncUtilTimeout: 5_000 });
+
 // Anime.js and other browser APIs read global requestAnimationFrame at module load.
 if (typeof globalThis.requestAnimationFrame !== "function") {
   globalThis.requestAnimationFrame = (callback) => setTimeout(() => callback(0), 0);
