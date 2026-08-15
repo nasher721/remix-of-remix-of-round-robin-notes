@@ -19,6 +19,7 @@
     "test": "node --import ./scripts/test-setup.mjs --loader ./scripts/test-mock-loader.mjs --loader ./scripts/supabase-mock-loader.mjs --loader ./scripts/ts-loader.mjs --test \"src/**/*.test.ts\" \"src/**/*.test.tsx\"",
     "test:auth": "node --import ./scripts/test-setup.mjs --loader ./scripts/supabase-mock-loader.mjs --loader ./scripts/ts-loader.mjs --test src/hooks/__tests__/useAuth.test.tsx src/pages/__tests__/Auth.test.tsx",
     "test:e2e": "playwright test --project=chromium",
+    "test:e2e:preview": "node scripts/test-e2e-preview.mjs",
     "test:e2e:public": "playwright test --grep \"@public\"",
     "test:e2e:synthetic": "playwright test --project=synthetic-chromium",
     "test:e2e:webkit": "playwright test --project=webkit",

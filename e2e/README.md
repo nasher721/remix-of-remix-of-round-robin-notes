@@ -34,6 +34,28 @@ against the production bundle instead of Vite's development module loader. To
 reproduce that mode locally, run `npm run build` first and then prefix the E2E
 command with `E2E_USE_PREVIEW=1`.
 
+Prefer the one-command equivalent, which also resets the E2E user's Round
+continuity first (see below):
+
+```bash
+npm run test:e2e:preview                 # full Chromium suite, release mode
+npm run test:e2e:preview -- --grep "Round runner"   # forward any Playwright args
+```
+
+Three specs are mode-sensitive and require the production bundle rather than
+the dev server: `auth-dashboard` reads build-emitted crawl assets
+(`robots.txt`, `sitemap.xml`, `llms.txt`) and hashed lazy chunks
+(`ibccContent-*`), `data-integrity` waits on the registered service worker,
+and `round-runner` asserts the lazy `PrintExportModal` chunk. They fail or hang
+against `npm run dev` by design; run them via `npm run test:e2e:preview`.
+
+The credential-gated round-runner walk path also assumes the E2E user's
+`round_state` starts fresh: a round resumed at the last patient leaves Next
+disabled and the walk cannot advance. `test:e2e:preview` deletes that user's
+own `round_state` row over PostgREST before building (owner-scoped RLS), so
+every run starts at Round 1/N. If you run preview mode manually, reset it by
+hand first.
+
 The scheduled production monitor runs only its reversible canary against an
 external HTTPS deployment:
 
