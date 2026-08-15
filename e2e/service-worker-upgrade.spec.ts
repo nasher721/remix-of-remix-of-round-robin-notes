@@ -35,16 +35,48 @@ const installFirstWorker = async (page: Page, version: string): Promise<void> =>
   await waitForController(page);
 };
 
-const installWaitingWorker = async (page: Page, version: string): Promise<void> => {
+type WorkerLifecycleSnapshot = {
+  active: ServiceWorkerState | undefined;
+  waiting: ServiceWorkerState | undefined;
+};
+
+const installWaitingWorker = async (
+  page: Page,
+  version: string,
+): Promise<WorkerLifecycleSnapshot> => {
   await setServedVersion(version);
-  await page.evaluate(async () => {
+  return page.evaluate(async () => {
     const registration = await navigator.serviceWorker.getRegistration("/");
     if (!registration) throw new Error("Missing service worker registration");
     await registration.update();
-  });
-  await page.waitForFunction(async () => {
-    const registration = await navigator.serviceWorker.getRegistration("/");
-    return registration?.waiting?.state === "installed";
+
+    if (registration.waiting?.state !== "installed") {
+      await new Promise<void>((resolve, reject) => {
+        const timer = window.setTimeout(() => {
+          reject(new Error("Updated service worker did not enter the waiting state"));
+        }, 5_000);
+        const installingWorker = registration.installing;
+        if (!installingWorker) {
+          window.clearTimeout(timer);
+          reject(new Error("Updated service worker was neither installing nor waiting"));
+          return;
+        }
+        installingWorker.addEventListener("statechange", () => {
+          if (installingWorker.state === "installed" && registration.waiting) {
+            window.clearTimeout(timer);
+            resolve();
+          } else if (installingWorker.state === "redundant") {
+            window.clearTimeout(timer);
+            reject(new Error("Updated service worker became redundant before waiting"));
+          }
+        });
+      });
+    }
+
+    return {
+      active: registration.active?.state,
+      waiting: registration.waiting?.state,
+    };
   });
 };
 
@@ -213,21 +245,15 @@ test("real worker upgrades preserve exact chunks across rapid deployments @publi
     "window.release = 'network-failure';",
   );
 
-  await installWaitingWorker(page, TEST_VERSIONS[1]);
-  const firstWaitingState = await page.evaluate(async () => {
-    const registration = await navigator.serviceWorker.getRegistration("/");
-    return {
-      active: registration?.active?.state,
-      waiting: registration?.waiting?.state,
-    };
-  });
+  const firstWaitingState = await installWaitingWorker(page, TEST_VERSIONS[1]);
   expect(firstWaitingState).toEqual({ active: "activated", waiting: "installed" });
   await activateWaitingWorker(page);
   await seedVersionedChunk(page, TEST_VERSIONS[1], "chunk-b.js", "window.release = 'b';");
   await expect.poll(() => readCachedChunk(page, TEST_VERSIONS[1], "chunk-b.js"))
     .toEqual({ body: "window.release = 'b';", cachedAt: expect.stringMatching(/^\d+$/) });
 
-  await installWaitingWorker(page, TEST_VERSIONS[2]);
+  expect(await installWaitingWorker(page, TEST_VERSIONS[2]))
+    .toEqual({ active: "activated", waiting: "installed" });
   expect(await readCachedChunk(page, TEST_VERSIONS[1], "chunk-b.js"))
     .toEqual({ body: "window.release = 'b';", cachedAt: expect.stringMatching(/^\d+$/) });
   await activateWaitingWorker(page);
