@@ -130,9 +130,14 @@ export function resolveClinicalProvider(
   return { valid: true, provider, model: CLINICAL_DEFAULT_MODELS[provider] };
 }
 
-/** Provider statuses that justify an automatic failover attempt. */
+/**
+ * Provider statuses that justify an automatic failover attempt: rejected
+ * credentials (401/403 — a configured key can be expired or revoked), rate
+ * limits (429), and server errors (5xx). A 400 is a malformed request that
+ * would fail identically on every provider, so it never fails over.
+ */
 export function isRetryableProviderStatus(status: number): boolean {
-  return status === 429 || status >= 500;
+  return status === 401 || status === 403 || status === 429 || status >= 500;
 }
 
 export interface ClinicalProviderAttempt {

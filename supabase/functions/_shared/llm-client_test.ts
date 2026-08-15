@@ -3,6 +3,7 @@ import {
   DEFAULT_LLM_OUTPUT_TOKENS,
   getLLMConfig,
   InvalidLLMModelError,
+  isRetryableProviderStatus,
   listConfiguredClinicalProviders,
   type LLMConfig,
   MAX_LLM_OUTPUT_TOKENS,
@@ -234,5 +235,20 @@ Deno.test("LLM output token limits are always finite and bounded", () => {
       MAX_LLM_OUTPUT_TOKENS
   ) {
     throw new Error("Expected oversized output limits to be capped");
+  }
+});
+
+Deno.test("provider failover covers rejected keys, rate limits, and server errors", () => {
+  for (const status of [401, 403, 429, 500, 503]) {
+    if (!isRetryableProviderStatus(status)) {
+      throw new Error(`Expected status ${status} to fail over`);
+    }
+  }
+  for (const status of [400, 404, 422]) {
+    if (isRetryableProviderStatus(status)) {
+      throw new Error(
+        `Expected status ${status} to stay on the active provider`,
+      );
+    }
   }
 });
