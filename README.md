@@ -117,12 +117,14 @@ supabase link --project-ref your-project-ref
 supabase functions deploy
 ```
 
-Clinical AI remains fail-closed while the deployment policy is `disabled`. The
-primary **Import Patient List** flow still supports client-side CSV upload,
-paste, column mapping, and import without sending roster content to an AI
-provider. Document and image parsing requires `CLINICAL_PHI_LLM_PROVIDER` and
-`CLINICAL_PHI_LLM_MODEL` to name one contractually approved provider/model
-pair; see [docs/deployment.md](docs/deployment.md#clinical-import-provider-approval).
+Clinical AI is key-based: it runs whenever at least one provider credential
+(`GEMINI_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY`) is configured in
+Supabase Edge secrets, resolving Gemini-first with automatic failover on
+provider rate limits and outages. Set the `CLINICAL_AI_DISABLED=true` secret
+to take clinical AI offline without removing keys. The primary
+**Import Patient List** flow still supports client-side CSV upload, paste,
+column mapping, and import without sending roster content to an AI provider;
+see [docs/deployment.md](docs/deployment.md#clinical-ai-provider-configuration).
 
 ## Features
 

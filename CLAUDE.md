@@ -323,7 +323,7 @@ import { usePatients } from "@/hooks/usePatients";
 
 **Pattern**:
 
-- If no clinical LLM provider/model has documented approval, deploy with both `CLINICAL_PHI_LLM_PROVIDER=disabled` and `CLINICAL_PHI_LLM_MODEL=disabled`; keep import AI fail-closed instead of inferring a vendor from available API keys.
+- Clinical AI is key-based: it runs whenever a provider credential (`GEMINI_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY`) exists in Edge secrets, resolving Gemini-first with automatic failover; use the `CLINICAL_AI_DISABLED=true` secret as the operational kill switch instead of inferring availability from deployment policy variables.
 - Require the exact `main` SHA to pass unit, security, migration, build, Edge, Clinical MCP, and zero-skipped authenticated Chromium/WebKit gates before production mutation.
 - Revalidate `main` before and after backend deployment, then require the Vercel hook and poll the canonical origin until `app-version` contains the exact short SHA plus the expected canonical origin, session policy, and public `llms.txt` index.
 - Finish with live public Chromium/WebKit checks and the production monitor's protected health, telemetry-ingest, and reversible authenticated-save canary.

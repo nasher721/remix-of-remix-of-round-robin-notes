@@ -33,61 +33,142 @@ export type ClinicalProviderPolicyResult =
   | { valid: false; error: string };
 
 /**
- * Resolve the single deployment-approved provider allowed to receive clinical
- * data. API-key presence alone is never approval.
+ * Provider preference order for clinical requests. Gemini is preferred for
+ * long-context patient-list parsing; OpenAI and Groq serve as automatic
+ * failovers when they are configured.
  */
-export function resolveApprovedClinicalProvider(
+export const CLINICAL_PROVIDER_PRIORITY: readonly ClinicalLLMProvider[] = [
+  "gemini",
+  "openai",
+  "grok",
+];
+
+/** Preferred production model per provider (all on the allowlist below). */
+export const CLINICAL_DEFAULT_MODELS: Record<ClinicalLLMProvider, string> = {
+  gemini: "gemini-2.5-flash",
+  openai: "gpt-4o-mini",
+  grok: "llama3-70b-8192",
+};
+
+function hasConfiguredProviderKey(
+  provider: ClinicalLLMProvider,
+  getEnvironmentValue: (name: string) => string | undefined,
+): boolean {
+  switch (provider) {
+    case "openai": {
+      const key = getEnvironmentValue("OPENAI_API_KEY");
+      return Boolean(key && key.length > 10 && !key.includes("placeholder"));
+    }
+    case "gemini": {
+      const key = getEnvironmentValue("GEMINI_API_KEY");
+      return Boolean(key && key.length > 10);
+    }
+    case "grok": {
+      const key = getEnvironmentValue("GROQ_API_KEY") ||
+        getEnvironmentValue("GROK_API_KEY");
+      return Boolean(key && key.length > 10);
+    }
+  }
+}
+
+/** Operational kill switch: CLINICAL_AI_DISABLED=true turns clinical AI off. */
+export function isClinicalAIDisabled(
+  getEnvironmentValue: (name: string) => string | undefined = Deno.env.get,
+): boolean {
+  return getEnvironmentValue("CLINICAL_AI_DISABLED")?.trim().toLowerCase() ===
+    "true";
+}
+
+/** Configured clinical providers in preference order. */
+export function listConfiguredClinicalProviders(
+  getEnvironmentValue: (name: string) => string | undefined = Deno.env.get,
+): ClinicalLLMProvider[] {
+  return CLINICAL_PROVIDER_PRIORITY.filter((provider) =>
+    hasConfiguredProviderKey(provider, getEnvironmentValue)
+  );
+}
+
+/**
+ * Resolve the provider and model for a clinical request.
+ *
+ * Clinical AI is available whenever at least one provider credential is
+ * configured; an explicit `CLINICAL_AI_DISABLED=true` kill switch overrides
+ * everything. A client-requested allowlisted model is honored when its
+ * provider is configured, otherwise resolution falls back to the preferred
+ * configured provider. Model allowlist validation still happens through
+ * `resolveRequestedModel`, so arbitrary model identifiers never reach a
+ * provider.
+ */
+export function resolveClinicalProvider(
   requestedModel?: string,
   getEnvironmentValue: (name: string) => string | undefined = Deno.env.get,
 ): ClinicalProviderPolicyResult {
-  const configured = getEnvironmentValue("CLINICAL_PHI_LLM_PROVIDER")
-    ?.trim()
-    .toLowerCase();
-  if (
-    configured !== "openai" && configured !== "gemini" && configured !== "grok"
-  ) {
+  if (isClinicalAIDisabled(getEnvironmentValue)) {
     return {
       valid: false,
-      error: "Clinical AI provider is not approved for this deployment",
+      error: "Clinical AI is disabled for this deployment",
     };
   }
 
-  const configuredModel = resolveRequestedModel(
-    getEnvironmentValue("CLINICAL_PHI_LLM_MODEL")?.trim(),
-  );
-  if (!configuredModel.valid || !configuredModel.model) {
+  const configured = listConfiguredClinicalProviders(getEnvironmentValue);
+  if (configured.length === 0) {
     return {
       valid: false,
-      error: "Clinical AI model is not approved for this deployment",
-    };
-  }
-  if (providerForModel(configuredModel.model) !== configured) {
-    return {
-      valid: false,
-      error: "Clinical AI model does not match the approved provider",
+      error: "Clinical AI is not configured for this deployment",
     };
   }
 
   const requestedProvider = providerForModel(requestedModel);
-  if (requestedProvider && requestedProvider !== configured) {
-    return {
-      valid: false,
-      error: "Requested model is not approved for clinical AI",
-    };
+  if (
+    requestedModel && requestedProvider &&
+    configured.includes(requestedProvider)
+  ) {
+    return { valid: true, provider: requestedProvider, model: requestedModel };
   }
 
-  if (requestedModel && requestedModel !== configuredModel.model) {
-    return {
-      valid: false,
-      error: "Requested model is not approved for clinical AI",
-    };
-  }
+  const provider = configured[0];
+  return { valid: true, provider, model: CLINICAL_DEFAULT_MODELS[provider] };
+}
 
-  return {
-    valid: true,
-    provider: configured,
-    model: configuredModel.model,
-  };
+/** Provider statuses that justify an automatic failover attempt. */
+export function isRetryableProviderStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+export interface ClinicalProviderAttempt {
+  config: LLMConfig;
+  model: string;
+}
+
+/**
+ * Ordered provider attempts for a clinical request: the resolved provider
+ * first, then every other configured provider as a failover target. Empty
+ * when clinical AI is disabled or no provider credential is configured.
+ */
+export function buildClinicalProviderAttempts(
+  requestedModel?: string,
+  getEnvironmentValue: (name: string) => string | undefined = Deno.env.get,
+): ClinicalProviderAttempt[] {
+  const policy = resolveClinicalProvider(requestedModel, getEnvironmentValue);
+  if (!policy.valid) return [];
+
+  const orderedProviders = [
+    policy.provider,
+    ...listConfiguredClinicalProviders(getEnvironmentValue).filter((provider) =>
+      provider !== policy.provider
+    ),
+  ];
+
+  const attempts: ClinicalProviderAttempt[] = [];
+  for (const provider of orderedProviders) {
+    const config = getLLMConfig(provider, getEnvironmentValue);
+    if (!config.apiKey) continue;
+    const model = provider === policy.provider
+      ? selectModelForConfig(policy.model, config)
+      : CLINICAL_DEFAULT_MODELS[provider];
+    attempts.push({ config, model });
+  }
+  return attempts;
 }
 
 export const DEFAULT_LLM_OUTPUT_TOKENS = 4_000;
@@ -401,19 +482,17 @@ export async function callLLM(
   if (!requestedModel.valid) {
     throw new InvalidLLMModelError(requestedModel.error);
   }
-  const providerPolicy = resolveApprovedClinicalProvider(requestedModel.model);
-  if (!providerPolicy.valid) {
-    throw new InvalidLLMModelError(providerPolicy.error);
+  const policy = resolveClinicalProvider(requestedModel.model);
+  if (!policy.valid) {
+    throw new MissingAPIKeyError(policy.error);
   }
-  const config = getLLMConfig(providerPolicy.provider);
 
-  if (!config.apiKey) {
+  const attempts = buildClinicalProviderAttempts(requestedModel.model);
+  if (attempts.length === 0) {
     throw new MissingAPIKeyError(
-      "No LLM API key configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to your Supabase project secrets.",
+      "No LLM API key configured. Add GEMINI_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY to your Supabase project secrets.",
     );
   }
-
-  const model = selectModelForConfig(providerPolicy.model, config);
 
   const sanitizedPrompts = sanitizeOutboundLLMPrompts(systemPrompt, userPrompt);
   const messages = [
@@ -421,40 +500,60 @@ export async function callLLM(
     { role: "user", content: sanitizedPrompts.userPrompt },
   ];
 
-  const body: LLMRequestBody = {
-    model,
-    messages,
-    temperature: normalizeTemperature(options.temperature),
-    max_tokens: normalizeOutputTokenLimit(options.maxTokens),
-  };
+  let lastError: LLMProviderError | null = null;
+  for (const attempt of attempts) {
+    const body: LLMRequestBody = {
+      model: attempt.model,
+      messages,
+      temperature: normalizeTemperature(options.temperature),
+      max_tokens: normalizeOutputTokenLimit(options.maxTokens),
+    };
 
-  if (options.jsonMode && config.provider === "openai") {
-    body.response_format = { type: "json_object" };
+    if (options.jsonMode && attempt.config.provider === "openai") {
+      body.response_format = { type: "json_object" };
+    }
+    // Note: Gemini/Groq JSON mode might vary, but standard OpenAI compat usually supports response_format or just prompt engineering.
+
+    let response: Response;
+    try {
+      response = await fetch(`${attempt.config.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${attempt.config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      // Network-level failure: fail over to the next configured provider.
+      logLLMEvent("error", "LLM provider request failed", {
+        provider: attempt.config.provider,
+      });
+      lastError = new LLMProviderError(
+        `LLM provider request failed (${attempt.config.provider})`,
+      );
+      continue;
+    }
+
+    if (!response.ok) {
+      logLLMEvent("error", "LLM provider request failed", {
+        provider: attempt.config.provider,
+        statusCode: response.status,
+      });
+      lastError = new LLMProviderError(
+        `LLM provider request failed (${attempt.config.provider}, status ${response.status})`,
+      );
+      if (isRetryableProviderStatus(response.status)) continue;
+      throw lastError;
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content;
+    return content;
   }
-  // Note: Gemini/Groq JSON mode might vary, but standard OpenAI compat usually supports response_format or just prompt engineering.
 
-  const response = await fetch(`${config.baseURL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    logLLMEvent("error", "LLM provider request failed", {
-      provider: config.provider,
-      statusCode: response.status,
-    });
-    throw new LLMProviderError(
-      `LLM provider request failed (${config.provider}, status ${response.status})`,
-    );
-  }
-
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content;
-  return content;
+  throw lastError ??
+    new LLMProviderError("All configured LLM providers failed");
 }
 
 export interface StreamOptions {
@@ -473,47 +572,74 @@ export async function* streamLLM(
   if (!requestedModel.valid) {
     throw new InvalidLLMModelError(requestedModel.error);
   }
-  const providerPolicy = resolveApprovedClinicalProvider(requestedModel.model);
-  if (!providerPolicy.valid) {
-    throw new InvalidLLMModelError(providerPolicy.error);
+  const policy = resolveClinicalProvider(requestedModel.model);
+  if (!policy.valid) {
+    throw new MissingAPIKeyError(policy.error);
   }
-  const config = getLLMConfig(providerPolicy.provider);
 
-  if (!config.apiKey) {
+  const attempts = buildClinicalProviderAttempts(requestedModel.model);
+  if (attempts.length === 0) {
     throw new MissingAPIKeyError("No LLM API key configured.");
   }
 
-  const model = selectModelForConfig(providerPolicy.model, config);
   const sanitizedPrompts = sanitizeOutboundLLMPrompts(systemPrompt, userPrompt);
 
-  const body = {
-    model,
-    messages: [
-      { role: "system", content: sanitizedPrompts.systemPrompt },
-      { role: "user", content: sanitizedPrompts.userPrompt },
-    ],
-    temperature: normalizeTemperature(options.temperature),
-    max_tokens: normalizeOutputTokenLimit(options.maxTokens),
-    stream: true,
-  };
+  // Failover is only possible before a stream starts; once tokens flow, an
+  // interrupted stream surfaces to the caller instead of silently switching
+  // providers mid-response.
+  let response: Response | null = null;
+  let lastError: LLMProviderError | null = null;
+  for (const attempt of attempts) {
+    const body = {
+      model: attempt.model,
+      messages: [
+        { role: "system", content: sanitizedPrompts.systemPrompt },
+        { role: "user", content: sanitizedPrompts.userPrompt },
+      ],
+      temperature: normalizeTemperature(options.temperature),
+      max_tokens: normalizeOutputTokenLimit(options.maxTokens),
+      stream: true,
+    };
 
-  const response = await fetch(`${config.baseURL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${config.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+    let candidate: Response;
+    try {
+      candidate = await fetch(`${attempt.config.baseURL}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${attempt.config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      logLLMEvent("error", "LLM streaming request failed", {
+        provider: attempt.config.provider,
+      });
+      lastError = new LLMProviderError(
+        `LLM streaming request failed (${attempt.config.provider})`,
+      );
+      continue;
+    }
 
-  if (!response.ok) {
-    logLLMEvent("error", "LLM streaming request failed", {
-      provider: config.provider,
-      statusCode: response.status,
-    });
-    throw new LLMProviderError(
-      `LLM streaming request failed (${config.provider}, status ${response.status})`,
-    );
+    if (!candidate.ok) {
+      logLLMEvent("error", "LLM streaming request failed", {
+        provider: attempt.config.provider,
+        statusCode: candidate.status,
+      });
+      lastError = new LLMProviderError(
+        `LLM streaming request failed (${attempt.config.provider}, status ${candidate.status})`,
+      );
+      if (isRetryableProviderStatus(candidate.status)) continue;
+      throw lastError;
+    }
+
+    response = candidate;
+    break;
+  }
+
+  if (!response) {
+    throw lastError ??
+      new LLMProviderError("All configured LLM providers failed");
   }
 
   if (!response.body) {

@@ -12,12 +12,12 @@ import {
   safeLog,
 } from "../_shared/mod.ts";
 import {
-  getLLMConfig,
+  buildClinicalProviderAttempts,
+  isRetryableProviderStatus,
   normalizeOutputTokenLimit,
-  resolveApprovedClinicalProvider,
+  resolveClinicalProvider,
   resolveRequestedModel,
   sanitizeOutboundLLMPrompts,
-  selectModelForConfig,
 } from "../_shared/llm-client.ts";
 
 interface MedicationCategories {
@@ -72,19 +72,18 @@ Deno.serve(async (req: Request) => {
     }
     const validMedications = medsCheck;
 
-    const providerPolicy = resolveApprovedClinicalProvider(modelResult.model);
+    const providerPolicy = resolveClinicalProvider(modelResult.model);
     if (!providerPolicy.valid) {
       return jsonResponse(req, { error: providerPolicy.error }, 503);
     }
-    const llmConfig = getLLMConfig(providerPolicy.provider);
-    if (!llmConfig.apiKey) {
+    const providerAttempts = buildClinicalProviderAttempts(modelResult.model);
+    if (providerAttempts.length === 0) {
       safeLog("error", "No LLM API key configured");
       return jsonResponse(req, {
         error:
-          "AI service not configured. Add OPENAI_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY to Supabase secrets.",
-      }, 500);
+          "Clinical AI is not configured for this deployment. Add a provider key (GEMINI_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY) to Supabase secrets.",
+      }, 503);
     }
-    const OPENAI_API_KEY = llmConfig.apiKey;
 
     const systemPrompt =
       `You are a medication formatting expert. Parse medication lists into structured categories.
@@ -124,60 +123,98 @@ Each array contains formatted medication strings.`;
       userPrompt,
     );
 
-    const response = await fetch(`${llmConfig.baseURL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: selectModelForConfig(providerPolicy.model, llmConfig),
-        max_tokens: normalizeOutputTokenLimit(4_000),
-        messages: [
-          { role: "system", content: sanitizedPrompts.systemPrompt },
-          {
-            role: "user",
-            content: sanitizedPrompts.userPrompt,
+    let response: Response | null = null;
+    let lastRetryableStatus = 0;
+
+    for (const attempt of providerAttempts) {
+      let candidate: Response;
+      try {
+        candidate = await fetch(`${attempt.config.baseURL}/chat/completions`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${attempt.config.apiKey}`,
+            "Content-Type": "application/json",
           },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "categorize_medications",
-              description:
-                "Categorize and format medications into infusions, scheduled, and PRN",
-              parameters: {
-                type: "object",
-                properties: {
-                  infusions: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Continuous infusion medications with rates",
-                  },
-                  scheduled: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Regularly scheduled medications",
-                  },
-                  prn: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "As-needed medications",
+          body: JSON.stringify({
+            model: attempt.model,
+            max_tokens: normalizeOutputTokenLimit(4_000),
+            messages: [
+              { role: "system", content: sanitizedPrompts.systemPrompt },
+              {
+                role: "user",
+                content: sanitizedPrompts.userPrompt,
+              },
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "categorize_medications",
+                  description:
+                    "Categorize and format medications into infusions, scheduled, and PRN",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      infusions: {
+                        type: "array",
+                        items: { type: "string" },
+                        description:
+                          "Continuous infusion medications with rates",
+                      },
+                      scheduled: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "Regularly scheduled medications",
+                      },
+                      prn: {
+                        type: "array",
+                        items: { type: "string" },
+                        description: "As-needed medications",
+                      },
+                    },
+                    required: ["infusions", "scheduled", "prn"],
+                    additionalProperties: false,
                   },
                 },
-                required: ["infusions", "scheduled", "prn"],
-                additionalProperties: false,
               },
+            ],
+            tool_choice: {
+              type: "function",
+              function: { name: "categorize_medications" },
             },
-          },
-        ],
-        tool_choice: {
-          type: "function",
-          function: { name: "categorize_medications" },
-        },
-      }),
-    });
+          }),
+        });
+      } catch {
+        safeLog("error", "Format medications provider request failed", {
+          requestId,
+          function: "format-medications",
+        });
+        continue;
+      }
+
+      if (!candidate.ok && isRetryableProviderStatus(candidate.status)) {
+        safeLog("error", "Format medications provider attempt failed", {
+          requestId,
+          function: "format-medications",
+          statusCode: candidate.status,
+        });
+        lastRetryableStatus = candidate.status;
+        continue;
+      }
+
+      response = candidate;
+      break;
+    }
+
+    if (!response) {
+      safeLog("error", "Format medications providers exhausted", { requestId });
+      if (lastRetryableStatus === 429) {
+        return jsonResponse(req, {
+          error: "Rate limit exceeded. Please try again.",
+        }, 429);
+      }
+      return jsonResponse(req, { error: "Failed to process medications" }, 500);
+    }
 
     if (!response.ok) {
       safeLog("error", "Format medications provider request failed", {

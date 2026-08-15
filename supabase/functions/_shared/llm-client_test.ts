@@ -1,80 +1,123 @@
 import {
+  buildClinicalProviderAttempts,
   DEFAULT_LLM_OUTPUT_TOKENS,
   getLLMConfig,
   InvalidLLMModelError,
+  listConfiguredClinicalProviders,
   type LLMConfig,
   MAX_LLM_OUTPUT_TOKENS,
   normalizeOutputTokenLimit,
   providerForModel,
-  resolveApprovedClinicalProvider,
+  resolveClinicalProvider,
   resolveRequestedModel,
   sanitizeOutboundLLMPrompts,
   selectModelForConfig,
 } from "./llm-client.ts";
 
-Deno.test("clinical AI requires an explicitly approved PHI provider", () => {
-  const missing = resolveApprovedClinicalProvider(undefined, () => undefined);
+Deno.test("clinical AI resolves the preferred configured provider without a gate", () => {
+  const missing = resolveClinicalProvider(undefined, () => undefined);
   if (missing.valid) {
     throw new Error(
-      "Expected missing clinical provider approval to fail closed",
+      "Expected clinical AI without provider keys to be unavailable",
     );
   }
 
-  const approved = resolveApprovedClinicalProvider(
-    undefined,
-    (key) => {
-      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "gemini";
-      if (key === "CLINICAL_PHI_LLM_MODEL") return "gemini-2.5-flash";
-      return undefined;
-    },
-  );
+  const geminiOnly = (key: string) =>
+    key === "GEMINI_API_KEY" ? "gemini-test-key-long-enough" : undefined;
+  const resolved = resolveClinicalProvider(undefined, geminiOnly);
   if (
-    !approved.valid || approved.provider !== "gemini" ||
-    approved.model !== "gemini-2.5-flash"
+    !resolved.valid || resolved.provider !== "gemini" ||
+    resolved.model !== "gemini-2.5-flash"
   ) {
-    throw new Error("Expected the deployment-approved provider to be selected");
+    throw new Error("Expected the configured Gemini provider to be selected");
   }
 });
 
-Deno.test("clinical AI stays fail-closed in explicit disabled deployment mode", () => {
-  const disabled = resolveApprovedClinicalProvider(
+Deno.test("clinical AI honors the explicit deployment kill switch", () => {
+  const disabled = resolveClinicalProvider(
     undefined,
     (key) => {
-      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "disabled";
-      if (key === "CLINICAL_PHI_LLM_MODEL") return "disabled";
+      if (key === "CLINICAL_AI_DISABLED") return "true";
+      if (key === "GEMINI_API_KEY") return "gemini-test-key-long-enough";
       return undefined;
     },
   );
   if (disabled.valid) {
-    throw new Error("Expected disabled clinical AI policy to reject requests");
+    throw new Error(
+      "Expected the kill switch to reject requests even with keys",
+    );
   }
 });
 
-Deno.test("clinical AI rejects cross-provider model selection", () => {
-  const result = resolveApprovedClinicalProvider(
-    "gpt-4o-mini",
-    (key) => {
-      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "gemini";
-      if (key === "CLINICAL_PHI_LLM_MODEL") return "gemini-2.5-flash";
-      return undefined;
-    },
-  );
-  if (result.valid) {
-    throw new Error("Expected cross-provider clinical model selection to fail");
+Deno.test("clinical AI honors an allowlisted client model when its provider is configured", () => {
+  const environment = (key: string) =>
+    key === "OPENAI_API_KEY" ? "openai-test-key-long-enough" : undefined;
+  const result = resolveClinicalProvider("gpt-4o-mini", environment);
+  if (
+    !result.valid || result.provider !== "openai" ||
+    result.model !== "gpt-4o-mini"
+  ) {
+    throw new Error(
+      "Expected the requested configured-provider model to be used",
+    );
   }
 });
 
-Deno.test("clinical AI rejects non-approved models within the approved provider", () => {
-  const result = resolveApprovedClinicalProvider(
-    "gemini-2.0-flash",
-    (key) => {
-      if (key === "CLINICAL_PHI_LLM_PROVIDER") return "gemini";
-      if (key === "CLINICAL_PHI_LLM_MODEL") return "gemini-2.5-flash";
-      return undefined;
-    },
+Deno.test("clinical AI falls back to a configured provider for cross-provider requests", () => {
+  const geminiOnly = (key: string) =>
+    key === "GEMINI_API_KEY" ? "gemini-test-key-long-enough" : undefined;
+  const result = resolveClinicalProvider("gpt-4o-mini", geminiOnly);
+  if (!result.valid || result.provider !== "gemini") {
+    throw new Error("Expected an unconfigured requested provider to fail over");
+  }
+});
+
+Deno.test("clinical provider attempts order the resolved provider first, then failovers", () => {
+  const environment = (key: string) => {
+    if (key === "GEMINI_API_KEY") return "gemini-test-key-long-enough";
+    if (key === "OPENAI_API_KEY") return "openai-test-key-long-enough";
+    return undefined;
+  };
+
+  const attempts = buildClinicalProviderAttempts(undefined, environment);
+  if (attempts.length !== 2) {
+    throw new Error("Expected one attempt per configured provider");
+  }
+  if (
+    attempts[0].config.provider !== "gemini" ||
+    attempts[0].model !== "gemini-2.5-flash"
+  ) {
+    throw new Error(
+      "Expected Gemini-first ordering with the Gemini default model",
+    );
+  }
+  if (
+    attempts[1].config.provider !== "openai" ||
+    attempts[1].model !== "gpt-4o-mini"
+  ) {
+    throw new Error(
+      "Expected the OpenAI failover attempt with its default model",
+    );
+  }
+
+  const requested = buildClinicalProviderAttempts("gpt-4o", environment);
+  if (
+    requested[0]?.config.provider !== "openai" ||
+    requested[0]?.model !== "gpt-4o"
+  ) {
+    throw new Error("Expected the requested configured-provider model to lead");
+  }
+
+  const none = buildClinicalProviderAttempts(undefined, () => undefined);
+  if (none.length !== 0) {
+    throw new Error("Expected no attempts without configured provider keys");
+  }
+
+  const killed = listConfiguredClinicalProviders((key) =>
+    key === "GEMINI_API_KEY" ? "gemini-test-key-long-enough" : undefined
   );
-  if (result.valid) {
-    throw new Error("Expected a same-provider model override to fail closed");
+  if (killed.length !== 1 || killed[0] !== "gemini") {
+    throw new Error("Expected configured provider enumeration to track keys");
   }
 });
 

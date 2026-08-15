@@ -122,7 +122,7 @@ repository variable and Vercel production environment. Supported values are
 `google` and `apple`; malformed or unsupported values block production builds.
 Leaving the value unset is the supported password-only deployment.
 
-Configure repository variables `CLINICAL_PHI_LLM_PROVIDER` and `CLINICAL_PHI_LLM_MODEL` under **Actions → Variables**. Set both variables to `disabled` until a provider is contractually approved; deployment continues while clinical AI remains fail-closed. To enable clinical imports, use one approved allowlisted pair as described in [Clinical import provider approval](#clinical-import-provider-approval).
+Clinical AI is **key-based**: it is available whenever at least one provider credential (`GEMINI_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY`) exists in Supabase Edge Function secrets. Requests resolve Gemini-first and automatically fail over to other configured providers on rate limits (429) and server errors (5xx). Client-supplied model names are still validated against a server-side allowlist, and outbound prompts are de-identified before dispatch. Set the repository variable `CLINICAL_AI_DISABLED=true` under **Actions → Variables** to deploy with the clinical-AI kill switch engaged; the workflow writes it to Edge Function secrets and AI endpoints return 503 until it is re-enabled.
 
 The core roster workflow does not depend on that approval: **Import Patient
 List** opens the client-side CSV/spreadsheet mapper by default. CSV upload,
@@ -167,32 +167,27 @@ not replace the post-PATCH verification with an unchecked dashboard setting.
 
 ---
 
-## Clinical import provider approval
+## Clinical AI provider configuration
 
 Clinical AI requests can contain names, MRNs, notes, page images, medications,
-or audio. Every workflow is therefore pinned to one deployment-approved
-provider/model pair and never fails over across vendors.
+or audio. Outbound prompts are de-identified at the Edge boundary (names, MRNs,
+DOBs, contact details, and similar direct identifiers are redacted) before any
+provider sees them, and every request stays behind the authenticated Edge
+gateway with per-user rate limiting.
 
-For a prelaunch or non-AI deployment, set both repository variables to
-`disabled`. The workflow records that policy in Edge Function secrets and
-deploys the backend without requiring a vendor key. Clinical AI requests stay
-fail-closed; this mode does not constitute provider approval and must not be
-represented as clinical-AI readiness.
+Clinical AI is key-based: configuring a provider credential enables it.
 
-1. Complete the required BAA/DPA, retention, training-use, and security review for one provider.
-2. Add repository Actions variables `CLINICAL_PHI_LLM_PROVIDER` and
-   `CLINICAL_PHI_LLM_MODEL` with one matching allowlisted pair.
-3. Store the matching API key in Supabase Edge Function secrets (`OPENAI_API_KEY`, `GEMINI_API_KEY`, or `GROQ_API_KEY`).
-4. Deploy through the Supabase workflow. It fails closed when either approval
-   variable is absent or mismatched, when the matching provider credential is
-   missing, and writes both approved values to Edge Function secrets before
-   deployment.
+1. Complete the required BAA/DPA, retention, training-use, and security review for each provider you intend to enable.
+2. Store the API key in Supabase Edge Function secrets (`GEMINI_API_KEY`, `OPENAI_API_KEY`, and/or `GROQ_API_KEY`).
+3. Deploy through the Supabase workflow. It verifies which provider credentials exist, records the `CLINICAL_AI_DISABLED` kill-switch state from the repository variable, and warns when no provider key is configured (AI endpoints then report "not configured" instead of failing the deployment).
 
-The browser does not accept provider credentials or select the clinical vendor
-or model. Missing approval or a missing matching key disables clinical AI
-instead of routing PHI elsewhere. Dictation additionally requires OpenAI to be
-the approved provider because its transcription step uses Whisper. Record the
-executed agreement and provider/model configuration in the release sign-off
+Requests resolve Gemini-first and fail over automatically across configured
+providers on rate limits and server errors. The browser does not accept
+provider credentials; client model selections are validated against a
+server-side allowlist before use. Dictation additionally requires
+`OPENAI_API_KEY` because its transcription step uses Whisper. Set
+`CLINICAL_AI_DISABLED=true` to suspend clinical AI without removing keys.
+Record the executed agreements and enabled providers in the release sign-off
 packet.
 
 ---

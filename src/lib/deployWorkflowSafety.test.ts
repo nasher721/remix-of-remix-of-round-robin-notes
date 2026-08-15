@@ -79,19 +79,19 @@ describe('Supabase deployment workflow', () => {
     assert.match(workflow, /PRODUCTION_SESSION_IDLE_TIMEOUT_SECONDS/)
   })
 
-  it('deploys safely with clinical AI explicitly disabled until provider approval exists', async () => {
+  it('runs clinical AI from configured provider keys behind an explicit kill switch', async () => {
     const workflow = await readFile('.github/workflows/deploy-supabase.yml', 'utf8')
     const providerPolicy = await readFile('supabase/functions/_shared/llm-client.ts', 'utf8')
     const deploymentGuide = await readFile('docs/deployment.md', 'utf8')
 
-    assert.match(workflow, /CLINICAL_PHI_LLM_PROVIDER:-\}" in[\s\S]*disabled\)/)
-    assert.match(workflow, /CLINICAL_PHI_LLM_PROVIDER=disabled/)
-    assert.match(workflow, /CLINICAL_PHI_LLM_MODEL=disabled/)
-    assert.match(workflow, /Clinical AI is explicitly disabled/)
-    assert.match(workflow, /openai\|gemini\|grok/)
-    assert.match(workflow, /approved provider credential \$required_key is not configured/)
-    assert.match(providerPolicy, /configured !== "openai" && configured !== "gemini" && configured !== "grok"/)
-    assert.match(deploymentGuide, /Set both variables to `disabled`/)
+    assert.match(workflow, /CLINICAL_AI_DISABLED: \$\{\{ vars\.CLINICAL_AI_DISABLED \}\}/)
+    assert.match(workflow, /supabase secrets list/)
+    assert.match(workflow, /for key in OPENAI_API_KEY GEMINI_API_KEY GROQ_API_KEY/)
+    assert.match(workflow, /Clinical AI is explicitly disabled via CLINICAL_AI_DISABLED/)
+    assert.match(providerPolicy, /isClinicalAIDisabled/)
+    assert.match(providerPolicy, /listConfiguredClinicalProviders/)
+    assert.match(providerPolicy, /buildClinicalProviderAttempts/)
+    assert.match(deploymentGuide, /CLINICAL_AI_DISABLED/)
   })
 
   it('pins every third-party workflow action and grants read-only repository access', async () => {

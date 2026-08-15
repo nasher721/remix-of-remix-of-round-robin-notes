@@ -26,9 +26,9 @@ export function AIModelSettingsPanel() {
           <div className="flex gap-3 rounded-xl border border-border/60 bg-muted/20 p-4">
             <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden />
             <div>
-              <h3 className="text-sm font-semibold">Approved by your organization</h3>
+              <h3 className="text-sm font-semibold">Managed by your organization</h3>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Availability depends on the deployment operator&apos;s provider agreement, privacy review, and clinical policy.
+                Availability depends on the deployment operator&apos;s provider agreements, privacy review, and clinical policy.
               </p>
             </div>
           </div>
@@ -38,7 +38,7 @@ export function AIModelSettingsPanel() {
             <div>
               <h3 className="text-sm font-semibold">Configured on the server</h3>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                The deployment selects one approved provider. Requests do not fail over to another vendor.
+                Requests use the deployment&apos;s configured providers and automatically fail over during rate limits or outages. Identifiers are removed before anything leaves the service.
               </p>
             </div>
           </div>

@@ -32,20 +32,23 @@ test("the browser source tree contains no provider router or model-selection cap
   );
 });
 
-test("shared clinical completions require the single approved provider", () => {
+test("shared clinical completions resolve a configured clinical provider with failover", () => {
   const client = read("supabase/functions/_shared/llm-client.ts");
 
-  assert.match(client, /resolveApprovedClinicalProvider\(requestedModel\.model\)/);
-  assert.doesNotMatch(client, /Requests without an explicit model may auto-discover a configured vendor/);
+  assert.match(client, /resolveClinicalProvider\(requestedModel\.model\)/);
+  assert.match(client, /buildClinicalProviderAttempts/);
+  assert.match(client, /isRetryableProviderStatus/);
+  assert.doesNotMatch(client, /CLINICAL_PHI_LLM_PROVIDER/);
 });
 
 test("direct medication and audio provider calls use the clinical provider policy", () => {
   const medications = read("supabase/functions/format-medications/index.ts");
   const transcription = read("supabase/functions/transcribe-audio/index.ts");
 
-  assert.match(medications, /resolveApprovedClinicalProvider\(modelResult\.model\)/);
+  assert.match(medications, /resolveClinicalProvider\(modelResult\.model\)/);
   assert.match(medications, /sanitizeOutboundLLMPrompts/);
-  assert.match(transcription, /resolveApprovedClinicalProvider\(\)/);
+  assert.match(transcription, /isClinicalAIDisabled\(\)/);
+  assert.match(transcription, /getLLMConfig\("openai"\)/);
 });
 
 test("browser Edge requests do not select deployment providers or models", () => {
@@ -69,15 +72,15 @@ test("browser Edge requests do not select deployment providers or models", () =>
   }
 });
 
-test("production deployment verifies the approved model and matching provider key", () => {
+test("production deployment verifies clinical AI provider keys and the kill switch", () => {
   const workflow = read(".github/workflows/deploy-supabase.yml");
 
-  assert.match(workflow, /CLINICAL_PHI_LLM_MODEL:.*vars\.CLINICAL_PHI_LLM_MODEL/);
+  assert.match(workflow, /CLINICAL_AI_DISABLED:.*vars\.CLINICAL_AI_DISABLED/);
   assert.match(workflow, /supabase secrets list/);
-  assert.match(workflow, /required_key="OPENAI_API_KEY"/);
-  assert.match(workflow, /required_key="GEMINI_API_KEY"/);
-  assert.match(workflow, /required_key="GROQ_API_KEY"/);
-  assert.match(workflow, /CLINICAL_PHI_LLM_MODEL=\$\{CLINICAL_PHI_LLM_MODEL\}/);
+  assert.match(workflow, /OPENAI_API_KEY/);
+  assert.match(workflow, /GEMINI_API_KEY/);
+  assert.match(workflow, /GROQ_API_KEY/);
+  assert.match(workflow, /CLINICAL_AI_DISABLED=\$\{disabled_flag\}/);
 });
 
 test("the production bundle gate rejects direct clinical provider origins", () => {

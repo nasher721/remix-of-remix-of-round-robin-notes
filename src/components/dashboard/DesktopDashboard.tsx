@@ -749,7 +749,7 @@ export const DesktopDashboard = () => {
           <TooltipContent side="left" className="max-w-[240px]">
             <p className="font-medium">AI workspace</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Drafting, analysis, and utilities use your organization&apos;s approved provider.
+              Drafting, analysis, and utilities use your organization&apos;s configured AI providers.
             </p>
             <p className="text-xs text-muted-foreground mt-1">Shortcut: ⌘⇧A</p>
           </TooltipContent>

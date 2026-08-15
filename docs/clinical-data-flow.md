@@ -21,17 +21,16 @@ Before enabling any clinical AI or import workflow, deployment owner must record
 - audit-log fields that exclude note text and identifiers;
 - clinician review and correction process for parsing/generation errors.
 
-Until provider approval is complete, set the Edge Function secrets
-`CLINICAL_PHI_LLM_PROVIDER` and `CLINICAL_PHI_LLM_MODEL` to `disabled`; the
-server rejects all clinical AI requests. To enable a workflow, replace both
-values with exactly one approved provider/model pair. API-key presence alone is
-not approval. The server rejects missing, disabled, or mismatched policy,
-ignores browser model selection, and does not fail over clinical text, audio,
-or images to another vendor.
+Clinical AI is key-based: the server enables it whenever at least one provider
+credential (`GEMINI_API_KEY`, `OPENAI_API_KEY`, or `GROQ_API_KEY`) is present
+in Edge Function secrets, and the `CLINICAL_AI_DISABLED=true` secret suspends
+it without removing keys. The server validates browser model selection against
+an allowlist, redacts direct identifiers before dispatch, and fails over
+across configured providers on rate limits and server errors.
 
 The browser never accepts provider credentials and never connects directly to
-an AI vendor. The deployment workflow also verifies that the matching provider
-credential exists before deploying the Edge functions.
+an AI vendor. The deployment workflow also verifies which provider
+credentials exist before deploying the Edge functions.
 
 Smart Patient Import shows this uncertainty before clipboard access or parsing, requires explicit confirmation, then requires field-by-field preview before import.
 

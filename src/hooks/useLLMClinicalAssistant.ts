@@ -2,7 +2,7 @@
  * Edge-only clinical AI hook.
  *
  * Every clinical request crosses the authenticated Supabase Edge boundary,
- * where the deployment's single approved provider policy is enforced.
+ * where provider resolution, de-identification, and rate limits are enforced.
  */
 
 import { useCallback, useRef, useState } from 'react';

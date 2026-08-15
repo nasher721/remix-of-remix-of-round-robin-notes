@@ -11,11 +11,11 @@ import {
   safeLog,
 } from "../_shared/mod.ts";
 import {
-  getLLMConfig,
+  buildClinicalProviderAttempts,
+  isRetryableProviderStatus,
   normalizeOutputTokenLimit,
-  resolveApprovedClinicalProvider,
+  resolveClinicalProvider,
   resolveRequestedModel,
-  selectModelForConfig,
 } from "../_shared/llm-client.ts";
 
 interface PatientSystems {
@@ -115,20 +115,21 @@ Deno.serve(async (req: Request) => {
     }
     const validContent = contentCheck;
 
-    const providerPolicy = resolveApprovedClinicalProvider(modelResult.model);
+    const providerPolicy = resolveClinicalProvider(modelResult.model);
     if (!providerPolicy.valid) {
-      safeLog("error", "Clinical import provider policy rejected request");
+      safeLog("error", "Clinical AI unavailable for single-patient parse", {
+        reason: providerPolicy.error,
+      });
       return jsonResponse(req, { error: providerPolicy.error }, 503);
     }
 
-    const config = getLLMConfig(providerPolicy.provider);
-
-    if (!config.apiKey) {
+    const providerAttempts = buildClinicalProviderAttempts(modelResult.model);
+    if (providerAttempts.length === 0) {
       safeLog("error", "No valid LLM API key found");
       return jsonResponse(req, {
         error:
-          `Approved clinical import provider (${providerPolicy.provider}) is not configured.`,
-      }, 500);
+          "Clinical AI is not configured for this deployment. Add a provider key (GEMINI_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY) to Supabase secrets.",
+      }, 503);
     }
 
     const systemPrompt = `You organize clinical notes into sections.
@@ -181,156 +182,201 @@ MEDICATION FORMATTING RULES:
 INPUT:
 ${validContent}`;
 
-    safeLog("info", "Parse single patient provider request started", {
-      provider: config.provider,
-      inputChars: validContent.length,
-    });
+    let response: Response | null = null;
+    let activeProvider: string | null = null;
+    let lastRetryableStatus = 0;
 
-    const modelToUse = selectModelForConfig(providerPolicy.model, config);
+    for (const attempt of providerAttempts) {
+      safeLog("info", "Parse single patient provider request started", {
+        provider: attempt.config.provider,
+        inputChars: validContent.length,
+      });
 
-    const response = await fetch(`${config.baseURL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: modelToUse,
-        max_tokens: normalizeOutputTokenLimit(8_000),
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "organize_patient_data",
-              description: "Organize clinical notes. Use <BR> for line breaks.",
-              parameters: {
-                type: "object",
-                properties: {
-                  name: { type: "string", description: "Patient name" },
-                  bed: { type: "string", description: "Room/bed" },
-                  clinicalSummary: {
-                    type: "string",
-                    description: "History/diagnoses. Use <BR> for line breaks",
-                  },
-                  intervalEvents: {
-                    type: "string",
-                    description: "Recent events. Use <BR> for line breaks",
-                  },
-                  imaging: {
-                    type: "string",
-                    description: "ONLY standalone imaging sections",
-                  },
-                  labs: {
-                    type: "string",
-                    description: "ONLY standalone lab sections",
-                  },
-                  neuro: {
-                    type: "string",
-                    description: "ALL neuro content with <BR> for line breaks",
-                  },
-                  cv: {
-                    type: "string",
-                    description: "ALL cv content with <BR> for line breaks",
-                  },
-                  resp: {
-                    type: "string",
-                    description: "ALL resp content with <BR> for line breaks",
-                  },
-                  renalGU: {
-                    type: "string",
-                    description:
-                      "ALL renal/GU content with <BR> for line breaks",
-                  },
-                  gi: {
-                    type: "string",
-                    description: "ALL GI content with <BR> for line breaks",
-                  },
-                  endo: {
-                    type: "string",
-                    description: "ALL endo content with <BR> for line breaks",
-                  },
-                  heme: {
-                    type: "string",
-                    description: "ALL heme content with <BR> for line breaks",
-                  },
-                  infectious: {
-                    type: "string",
-                    description: "ALL ID content with <BR> for line breaks",
-                  },
-                  skinLines: {
-                    type: "string",
-                    description:
-                      "ALL skin/lines content with <BR> for line breaks",
-                  },
-                  dispo: {
-                    type: "string",
-                    description:
-                      "ALL disposition content with <BR> for line breaks",
-                  },
-                  medicationsRaw: {
-                    type: "string",
-                    description: "Raw medication text from input",
-                  },
-                  medicationsInfusions: {
-                    type: "array",
-                    items: { type: "string" },
-                    description:
-                      "Continuous infusion medications with rates (e.g., Norepinephrine 5 mcg/min)",
-                  },
-                  medicationsScheduled: {
-                    type: "array",
-                    items: { type: "string" },
-                    description:
-                      "Regularly scheduled medications (e.g., Metoprolol 25 mg PO BID)",
-                  },
-                  medicationsPrn: {
-                    type: "array",
-                    items: { type: "string" },
-                    description:
-                      "As-needed medications (e.g., Morphine 2 mg IV PRN)",
+      let candidate: Response;
+      try {
+        candidate = await fetch(`${attempt.config.baseURL}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${attempt.config.apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: attempt.model,
+            max_tokens: normalizeOutputTokenLimit(8_000),
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "organize_patient_data",
+                  description:
+                    "Organize clinical notes. Use <BR> for line breaks.",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string", description: "Patient name" },
+                      bed: { type: "string", description: "Room/bed" },
+                      clinicalSummary: {
+                        type: "string",
+                        description:
+                          "History/diagnoses. Use <BR> for line breaks",
+                      },
+                      intervalEvents: {
+                        type: "string",
+                        description: "Recent events. Use <BR> for line breaks",
+                      },
+                      imaging: {
+                        type: "string",
+                        description: "ONLY standalone imaging sections",
+                      },
+                      labs: {
+                        type: "string",
+                        description: "ONLY standalone lab sections",
+                      },
+                      neuro: {
+                        type: "string",
+                        description:
+                          "ALL neuro content with <BR> for line breaks",
+                      },
+                      cv: {
+                        type: "string",
+                        description: "ALL cv content with <BR> for line breaks",
+                      },
+                      resp: {
+                        type: "string",
+                        description:
+                          "ALL resp content with <BR> for line breaks",
+                      },
+                      renalGU: {
+                        type: "string",
+                        description:
+                          "ALL renal/GU content with <BR> for line breaks",
+                      },
+                      gi: {
+                        type: "string",
+                        description: "ALL GI content with <BR> for line breaks",
+                      },
+                      endo: {
+                        type: "string",
+                        description:
+                          "ALL endo content with <BR> for line breaks",
+                      },
+                      heme: {
+                        type: "string",
+                        description:
+                          "ALL heme content with <BR> for line breaks",
+                      },
+                      infectious: {
+                        type: "string",
+                        description: "ALL ID content with <BR> for line breaks",
+                      },
+                      skinLines: {
+                        type: "string",
+                        description:
+                          "ALL skin/lines content with <BR> for line breaks",
+                      },
+                      dispo: {
+                        type: "string",
+                        description:
+                          "ALL disposition content with <BR> for line breaks",
+                      },
+                      medicationsRaw: {
+                        type: "string",
+                        description: "Raw medication text from input",
+                      },
+                      medicationsInfusions: {
+                        type: "array",
+                        items: { type: "string" },
+                        description:
+                          "Continuous infusion medications with rates (e.g., Norepinephrine 5 mcg/min)",
+                      },
+                      medicationsScheduled: {
+                        type: "array",
+                        items: { type: "string" },
+                        description:
+                          "Regularly scheduled medications (e.g., Metoprolol 25 mg PO BID)",
+                      },
+                      medicationsPrn: {
+                        type: "array",
+                        items: { type: "string" },
+                        description:
+                          "As-needed medications (e.g., Morphine 2 mg IV PRN)",
+                      },
+                    },
+                    required: [
+                      "name",
+                      "bed",
+                      "clinicalSummary",
+                      "intervalEvents",
+                      "imaging",
+                      "labs",
+                      "neuro",
+                      "cv",
+                      "resp",
+                      "renalGU",
+                      "gi",
+                      "endo",
+                      "heme",
+                      "infectious",
+                      "skinLines",
+                      "dispo",
+                      "medicationsRaw",
+                      "medicationsInfusions",
+                      "medicationsScheduled",
+                      "medicationsPrn",
+                    ],
+                    additionalProperties: false,
                   },
                 },
-                required: [
-                  "name",
-                  "bed",
-                  "clinicalSummary",
-                  "intervalEvents",
-                  "imaging",
-                  "labs",
-                  "neuro",
-                  "cv",
-                  "resp",
-                  "renalGU",
-                  "gi",
-                  "endo",
-                  "heme",
-                  "infectious",
-                  "skinLines",
-                  "dispo",
-                  "medicationsRaw",
-                  "medicationsInfusions",
-                  "medicationsScheduled",
-                  "medicationsPrn",
-                ],
-                additionalProperties: false,
               },
+            ],
+            tool_choice: {
+              type: "function",
+              function: { name: "organize_patient_data" },
             },
-          },
-        ],
-        tool_choice: {
-          type: "function",
-          function: { name: "organize_patient_data" },
-        },
-      }),
-    });
+          }),
+        });
+      } catch {
+        safeLog("error", "Parse single patient provider request failed", {
+          provider: attempt.config.provider,
+        });
+        continue;
+      }
+
+      if (!candidate.ok && isRetryableProviderStatus(candidate.status)) {
+        safeLog("error", "Parse single patient provider attempt failed", {
+          provider: attempt.config.provider,
+          statusCode: candidate.status,
+        });
+        lastRetryableStatus = candidate.status;
+        continue;
+      }
+
+      response = candidate;
+      activeProvider = attempt.config.provider;
+      break;
+    }
+
+    if (!response) {
+      safeLog("error", "Parse single patient providers exhausted");
+      if (lastRetryableStatus === 429) {
+        return jsonResponse(req, {
+          error: "Rate limit exceeded. Please try again in a moment.",
+        }, 429);
+      }
+      return jsonResponse(
+        req,
+        { error: "Failed to process clinical notes" },
+        500,
+      );
+    }
 
     if (!response.ok) {
       safeLog("error", "Parse single patient provider request failed", {
-        provider: config.provider,
+        provider: activeProvider,
         statusCode: response.status,
       });
 

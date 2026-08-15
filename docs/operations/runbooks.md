@@ -81,16 +81,17 @@ edge logs show provider 429/5xx; client timeout (~180 s) messages.
 
 **Remediation**
 
-1. Confirm the single deployment-approved provider/model pair and its status
-   page. Clinical PHI never fails over to another vendor; check Edge logs for
-   the approved provider's fixed-schema error metadata.
-2. Verify the matching provider credential and
-   `CLINICAL_PHI_LLM_PROVIDER` / `CLINICAL_PHI_LLM_MODEL` policy secrets, then
-   redeploy only after key rotation or an approved model change.
-3. If policy is explicitly `disabled`, keep document/image parsing unavailable.
-   The primary Import Patient List flow still supports client-side CSV upload,
-   paste, mapping, and import without an AI provider.
-4. During an approved-provider outage, use client-side CSV import or type notes
+1. Check Edge logs for the failing provider's fixed-schema error metadata.
+   Requests resolve Gemini-first and automatically fail over to other
+   configured providers on 429/5xx, so a user-visible failure means every
+   configured provider was exhausted.
+2. Verify the provider credentials (`GEMINI_API_KEY`, `OPENAI_API_KEY`,
+   `GROQ_API_KEY`) in Edge Function secrets and rotate keys as needed, then
+   redeploy.
+3. If the `CLINICAL_AI_DISABLED` kill switch is set, document/image parsing
+   stays unavailable. The primary Import Patient List flow still supports
+   client-side CSV upload, paste, mapping, and import without an AI provider.
+4. During a multi-provider outage, use client-side CSV import or type notes
    manually and retry document/image parsing later. Announce through the
    support channel and log a clinical incident review if work is delayed past
    a rounding session.

@@ -13,7 +13,7 @@ import {
 import {
   callLLM,
   getLLMConfig,
-  resolveApprovedClinicalProvider,
+  isClinicalAIDisabled,
 } from "../_shared/llm-client.ts";
 
 // Process base64 in chunks to prevent memory issues
@@ -185,24 +185,23 @@ Deno.serve(async (req: Request) => {
     formData.append("language", "en");
     formData.append("prompt", WHISPER_MEDICAL_PROMPT);
 
-    // Whisper is an OpenAI service. Audio may leave the Edge boundary only
-    // when OpenAI is the deployment-approved clinical provider.
-    const providerPolicy = resolveApprovedClinicalProvider();
-    if (!providerPolicy.valid || providerPolicy.provider !== "openai") {
+    // Whisper is an OpenAI service, so audio transcription requires the
+    // OpenAI credential; the clinical AI kill switch applies as well.
+    if (isClinicalAIDisabled()) {
       return createErrorResponse(
         req,
-        "Audio transcription is not approved for this deployment.",
+        "Clinical AI is disabled for this deployment.",
         503,
       );
     }
-    const llmConfig = getLLMConfig(providerPolicy.provider);
+    const llmConfig = getLLMConfig("openai");
     const OPENAI_API_KEY = llmConfig.apiKey;
 
     if (!OPENAI_API_KEY) {
       return createErrorResponse(
         req,
         "Audio transcription requires OPENAI_API_KEY secret to be configured for Whisper API access.",
-        400,
+        503,
       );
     }
 

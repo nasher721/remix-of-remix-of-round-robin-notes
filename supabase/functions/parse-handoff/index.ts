@@ -12,29 +12,14 @@ import {
   validateImageArray,
 } from "../_shared/mod.ts";
 import {
-  getLLMConfig,
-  type LLMConfig,
+  buildClinicalProviderAttempts,
+  type ClinicalProviderAttempt,
+  isRetryableProviderStatus,
   MissingAPIKeyError,
   normalizeOutputTokenLimit,
-  resolveApprovedClinicalProvider,
+  resolveClinicalProvider,
   resolveRequestedModel,
-  selectModelForConfig,
 } from "../_shared/llm-client.ts";
-
-type ProviderAttempt = {
-  config: LLMConfig;
-  model: string;
-};
-
-const buildProviderAttempt = (
-  requestedModel: string | undefined,
-): ProviderAttempt | null => {
-  const policy = resolveApprovedClinicalProvider(requestedModel);
-  if (!policy.valid) return null;
-  const config = getLLMConfig(policy.provider);
-  if (!config.apiKey) return null;
-  return { config, model: selectModelForConfig(policy.model, config) };
-};
 
 interface PatientSystems {
   neuro: string;
@@ -445,30 +430,32 @@ Deno.serve(async (req: Request) => {
       }, 413);
     }
 
-    const providerPolicy = resolveApprovedClinicalProvider(modelResult.model);
+    const providerPolicy = resolveClinicalProvider(modelResult.model);
     if (!providerPolicy.valid) {
-      safeLog("error", "Clinical import provider policy rejected request");
+      safeLog("error", "Clinical AI unavailable for import request", {
+        reason: providerPolicy.error,
+      });
       return jsonResponse(req, {
         success: false,
         error: providerPolicy.error,
       }, 503);
     }
 
-    const providerAttempt = buildProviderAttempt(modelResult.model);
-    if (!providerAttempt) {
+    const providerAttempts = buildClinicalProviderAttempts(modelResult.model);
+    if (providerAttempts.length === 0) {
       safeLog("error", "No LLM API key configured");
       return jsonResponse(req, {
         success: false,
         error:
-          `Approved clinical import provider (${providerPolicy.provider}) is not configured.`,
-      }, 500);
+          "Clinical AI is not configured for this deployment. Add a provider key (GEMINI_API_KEY, OPENAI_API_KEY, or GROQ_API_KEY) to Supabase secrets.",
+      }, 503);
     }
 
     safeLog("info", "Parse handoff processing started", {
       imageCount: images?.length ?? 0,
       hasText: Boolean(pdfContent),
-      providerCount: 1,
-      primaryProvider: providerAttempt.config.provider,
+      providerCount: providerAttempts.length,
+      primaryProvider: providerAttempts[0].config.provider,
     });
 
     const systemPrompt =
@@ -634,43 +621,77 @@ SYSTEM MAPPING GUIDANCE:
         `Parse the following patient list / handoff document and extract all patient data with system-based organization. CRITICAL: Each patient/bed/room should appear only ONCE. Remove any repeated content. Preserve formatting with HTML tags. Place clinical details into the correct chart sections/systems:\n\n${pdfContent}`;
     }
 
-    // Clinical PHI is bound to one deployment-approved provider. Never fail
-    // over this request to another vendor.
-    const providerPayload = JSON.stringify({
-      model: providerAttempt.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-      max_tokens: normalizeOutputTokenLimit(8_000),
-    });
+    // Try the resolved provider first, then fail over to every other
+    // configured provider on rate limits (429) and server errors (5xx).
+    let response: Response | null = null;
+    let activeAttempt: ClinicalProviderAttempt | null = null;
+    let providersTried = 0;
+    let lastProviderStatus = 0;
+    let lastProviderName: string | null = null;
 
-    const response = await fetch(
-      `${providerAttempt.config.baseURL}/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${providerAttempt.config.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: providerPayload,
-      },
-    );
+    for (const attempt of providerAttempts) {
+      providersTried += 1;
+      const providerPayload = JSON.stringify({
+        model: attempt.model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        max_tokens: normalizeOutputTokenLimit(8_000),
+      });
 
-    if (response.status === 402) {
-      return jsonResponse(req, {
-        success: false,
-        error: "AI credits exhausted. Please add funds.",
-      }, 402);
+      let candidate: Response;
+      try {
+        candidate = await fetch(
+          `${attempt.config.baseURL}/chat/completions`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${attempt.config.apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: providerPayload,
+          },
+        );
+      } catch {
+        safeLog("error", "Parse handoff provider request failed", {
+          provider: attempt.config.provider,
+        });
+        lastProviderStatus = 0;
+        lastProviderName = attempt.config.provider;
+        continue;
+      }
+
+      if (candidate.status === 402) {
+        return jsonResponse(req, {
+          success: false,
+          error: "AI credits exhausted. Please add funds.",
+        }, 402);
+      }
+
+      if (!candidate.ok && isRetryableProviderStatus(candidate.status)) {
+        safeLog("error", "Parse handoff provider attempt failed", {
+          statusCode: candidate.status,
+          provider: attempt.config.provider,
+          providersTried,
+        });
+        lastProviderStatus = candidate.status;
+        lastProviderName = attempt.config.provider;
+        continue;
+      }
+
+      response = candidate;
+      activeAttempt = attempt;
+      break;
     }
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        safeLog("error", "Parse handoff provider rate limited", {
+    if (!response || !activeAttempt) {
+      if (lastProviderStatus === 429) {
+        safeLog("error", "Parse handoff providers rate limited", {
           statusCode: 429,
-          provider: providerAttempt.config.provider,
+          provider: lastProviderName,
           source: "provider",
-          providersTried: 1,
+          providersTried,
           retryAfter: 5,
         });
         return jsonResponse(req, {
@@ -680,9 +701,16 @@ SYSTEM MAPPING GUIDANCE:
           retryAfter: 5,
         }, 429);
       }
+      return jsonResponse(req, {
+        success: false,
+        error: "AI processing failed",
+      }, 500);
+    }
+
+    if (!response.ok) {
       safeLog("error", "Parse handoff provider request failed", {
         statusCode: response.status,
-        provider: providerAttempt.config.provider,
+        provider: activeAttempt.config.provider,
       });
       return jsonResponse(req, {
         success: false,
@@ -691,8 +719,9 @@ SYSTEM MAPPING GUIDANCE:
     }
 
     safeLog("info", "Parse handoff provider selected", {
-      provider: providerAttempt.config.provider,
-      model: providerAttempt.model,
+      provider: activeAttempt.config.provider,
+      model: activeAttempt.model,
+      providersTried,
     });
 
     const aiResponse = await response.json();
