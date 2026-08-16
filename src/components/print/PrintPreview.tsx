@@ -29,11 +29,12 @@ import {
   Table2,
   LayoutGrid,
   List,
+  Columns2,
+  FileText,
 } from "lucide-react";
 
 interface PrintPreviewProps extends PrintDataProps {
   settings: PrintSettings;
-  onViewModeChange?: (mode: 'table' | 'cards' | 'list') => void;
 }
 
 const ZOOM_LEVELS = [
@@ -52,7 +53,6 @@ export function PrintPreview({
   patientImageOwnerId,
   patientImageSignedUrls,
   settings,
-  onViewModeChange 
 }: PrintPreviewProps) {
   const prefersReducedMotion = useReducedMotion();
   const [zoom, setZoom] = React.useState(100);
@@ -67,7 +67,22 @@ export function PrintPreview({
 
   // Paged preview: when onePatientPerPage is true, each patient gets their own page
   // When false, show ALL patients in a single scrollable preview (no pagination)
-  const isPaginated = settings.onePatientPerPage;
+  //
+  // The rounds document lays out its own sheets, so it is previewed whole —
+  // slicing it here would hide the page breaks the format exists to produce.
+  const isRounds = settings.activeTab === 'rounds';
+  const isPaginated = !isRounds && settings.onePatientPerPage;
+
+  const twoColumnRounds = isRounds && settings.rounds?.variant === 'twoColumn';
+  const FormatIcon = isRounds ? (twoColumnRounds ? Columns2 : FileText)
+    : settings.activeTab === 'cards' ? LayoutGrid
+    : settings.activeTab === 'list' ? List
+    : Table2;
+  const formatLabel = isRounds
+    ? `Rounds · ${twoColumnRounds ? 'two column' : 'single column'}`
+    : settings.activeTab === 'cards' ? 'Cards'
+    : settings.activeTab === 'list' ? 'List'
+    : 'Table';
   const totalPages = isPaginated ? patients.length : 1;
   const patientsPerPage = isPaginated ? 1 : patients.length;
 
@@ -247,76 +262,11 @@ export function PrintPreview({
           </TooltipProvider>
         </div>
 
-        {/* View Mode Switcher (only if onViewModeChange is provided) */}
-        {onViewModeChange && (
-          <div className="flex bg-muted p-1 rounded-lg">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onViewModeChange('table')}
-                    className={cn(
-                      "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
-                      settings.activeTab === 'table'
-                        ? "bg-background shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                    aria-label="Table view"
-                  >
-                    <Table2 className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Table</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Table View</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onViewModeChange('cards')}
-                    className={cn(
-                      "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
-                      settings.activeTab === 'cards'
-                        ? "bg-background shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                    aria-label="Cards view"
-                  >
-                    <LayoutGrid className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Cards</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Cards View</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={() => onViewModeChange('list')}
-                    className={cn(
-                      "px-2 py-1 text-xs rounded-md flex items-center gap-1 transition-colors",
-                      settings.activeTab === 'list'
-                        ? "bg-background shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                    aria-label="List view"
-                  >
-                    <List className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">List</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>List View</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
+        {/* Active format — chosen in the sidebar, echoed here for orientation */}
+        <div className="flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 whitespace-nowrap">
+          <FormatIcon className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+          <span className="text-xs font-medium">{formatLabel}</span>
+        </div>
 
         {/* Page Navigation (only when onePatientPerPage is true) */}
         {isPaginated && (
@@ -370,8 +320,10 @@ export function PrintPreview({
         </TooltipProvider>
 
         {/* Settings Summary */}
-        <div className="text-xs text-muted-foreground hidden sm:block">
-          {settings.printOrientation}, {settings.printFontSize}pt
+        <div className="text-xs text-muted-foreground hidden sm:block whitespace-nowrap">
+          {isRounds
+            ? `${settings.rounds?.pageSize ?? 'letter'}, ${settings.rounds?.orientation ?? 'portrait'}, ${settings.rounds?.bodyPt ?? 9}pt`
+            : `${settings.printOrientation}, ${settings.printFontSize}pt`}
         </div>
       </div>
 
@@ -396,7 +348,8 @@ export function PrintPreview({
             patientImageOwnerId={patientImageOwnerId}
             patientImageSignedUrls={patientImageSignedUrls}
             settings={settings}
-            className="shadow-xl rounded-sm"
+            preview
+            className={cn(!isRounds && "shadow-xl rounded-sm")}
             documentId="preview"
           />
         </div>

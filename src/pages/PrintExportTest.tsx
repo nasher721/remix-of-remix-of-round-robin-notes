@@ -4,6 +4,7 @@ import type { PrintSettings } from "@/lib/print/types";
 import { defaultColumns, defaultColumnWidths, defaultCombinedColumnWidths } from "@/components/print/constants";
 import type { Patient } from "@/types/patient";
 import { defaultMedications, defaultSystems } from "@/types/patient";
+import { DEFAULT_ROUNDS_SINGLE, DEFAULT_ROUNDS_TWO_COLUMN } from "@/lib/print/roundsTypes";
 
 const createLongText = (length: number) =>
   Array.from({ length }, () => "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ")
@@ -171,6 +172,14 @@ export default function PrintExportTest() {
       { id: "portrait-table", settings: buildSettings({ activeTab: "table", printOrientation: "portrait", margins: "normal" }) },
       { id: "landscape-table", settings: buildSettings({ activeTab: "table", printOrientation: "landscape", margins: "narrow" }) },
       { id: "portrait-cards", settings: buildSettings({ activeTab: "cards", printOrientation: "portrait", margins: "wide" }) },
+      {
+        id: "rounds-single",
+        settings: buildSettings({ activeTab: "rounds", rounds: DEFAULT_ROUNDS_SINGLE }),
+      },
+      {
+        id: "rounds-two-column",
+        settings: buildSettings({ activeTab: "rounds", rounds: DEFAULT_ROUNDS_TWO_COLUMN }),
+      },
     ],
     []
   );

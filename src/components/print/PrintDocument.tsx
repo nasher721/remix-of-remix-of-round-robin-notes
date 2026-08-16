@@ -13,11 +13,15 @@ import {
   PATIENT_IMAGE_KEY_ATTRIBUTE,
   resolveOwnedPatientImageSignedUrl,
 } from "@/lib/patientImages";
+import { RoundsDocument } from "./RoundsDocument";
+import { normalizeRoundsSettings } from "@/lib/print/roundsTypes";
 
 interface PrintDocumentProps extends PrintDataProps {
   settings: PrintSettings;
   className?: string;
   documentId?: string;
+  /** Renders paper sheets with shadows; used by the on-screen preview only. */
+  preview?: boolean;
 }
 
 const PRINT_ALLOWED_TAGS = new Set([
@@ -138,9 +142,14 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
       settings,
       className,
       documentId,
+      preview = false,
     },
     ref,
   ) => {
+    const roundsSettings = React.useMemo(
+      () => normalizeRoundsSettings(settings.rounds, settings.rounds?.variant ?? "single"),
+      [settings.rounds],
+    );
     React.useEffect(() => {
       if (!document.getElementById(PRINT_STYLE_ID)) {
         const style = document.createElement("style");
@@ -359,6 +368,21 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
         </div>
       );
     };
+
+    if (settings.activeTab === "rounds") {
+      return (
+        <RoundsDocument
+          ref={ref}
+          patients={patients}
+          patientTodos={patientTodos}
+          settings={roundsSettings}
+          physicianName={settings.physicianName}
+          preview={preview}
+          className={className}
+          documentId={documentId}
+        />
+      );
+    }
 
     return (
       <div
