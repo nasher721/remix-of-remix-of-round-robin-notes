@@ -113,6 +113,10 @@ jobs:
         if: github.event_name != 'push' || github.ref != 'refs/heads/main'
         env:
           E2E_USE_PREVIEW: "1"
+          # The auth-bootstrap contract seeds a cached session under the
+          # Supabase storage key, so it needs the project ref at test runtime.
+          # Non-secret repo variable, same one the build step above consumes.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
         run: npm run test:e2e:public
       - name: Required authenticated Chromium suite
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
