@@ -143,22 +143,27 @@ test("usePatientMutations addPatient calls supabase insert with expected payload
   const { wrapper } = createAuthQueryWrapper();
 
   const { result } = renderHook(
-    () =>
-      usePatientMutations({
+    () => ({
+      auth: useAuth(),
+      mutations: usePatientMutations({
         patientsRef,
         setPatients,
         patientCounter: 1,
         setPatientCounter,
         fetchPatients,
       }),
+    }),
     { wrapper }
   );
 
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 20));
+  // addPatient returns early when the session has not resolved yet, so wait on
+  // observable auth readiness. A fixed sleep loses the race on a loaded runner
+  // and the insert never happens, which reads as a missing-call assertion.
+  await waitFor(() => {
+    assert.equal(result.current.auth.user?.id, "test-user-id");
   });
   await act(async () => {
-    await result.current.addPatient();
+    await result.current.mutations.addPatient();
   });
 
   const capture = (globalThis as unknown as { __supabaseInsertCapture?: { table: string; rows: unknown[] }[] }).__supabaseInsertCapture;
