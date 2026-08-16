@@ -112,6 +112,25 @@ export function PrintControls({
                         <Button
                             type="button"
                             variant="outline"
+                            onClick={onExportExcel}
+                            disabled={isGenerating}
+                            aria-label="Export as Excel spreadsheet"
+                            className="gap-1.5"
+                        >
+                            <FileSpreadsheet className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                            <span className="hidden sm:inline">Excel</span>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Export the patient list as a spreadsheet</TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            type="button"
+                            variant="outline"
                             onClick={onExportWord}
                             disabled={isGenerating}
                             aria-label="Export as Word document"
@@ -147,13 +166,6 @@ export function PrintControls({
                         </span>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                        onClick={onExportExcel}
-                        aria-label="Export as Excel spreadsheet"
-                    >
-                        <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-500" aria-hidden="true" />
-                        Excel (.xlsx)
-                    </DropdownMenuItem>
                     <DropdownMenuItem
                         onClick={onExportTwoColumnText}
                         aria-label="Export ICU rounds as two-column print text"
