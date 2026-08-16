@@ -811,6 +811,7 @@ body *:not(.animate-spin)::after {
 
 /* Roster rail items */
 .rr-roster-item {
+  position: relative;
   display: block;
   width: 100%;
   text-align: left;
@@ -823,7 +824,28 @@ body *:not(.animate-spin)::after {
   color: var(--rr-label-1);
 }
 .rr-roster-item:hover { background: var(--rr-f1); }
-.rr-roster-item.rr-sel { background: var(--rr-f2); }
+/*
+ * Selected = "this is the chart open in the workspace". A neutral gray fill is
+ * too easy to lose in a dense roster, so the open row carries the accent tint
+ * plus a leading accent bar. forced-colors falls back to the system Highlight.
+ */
+.rr-roster-item.rr-sel,
+.rr-roster-item.rr-sel:hover { background: var(--rr-light-blue-bg); }
+.rr-roster-item.rr-sel::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--rr-blue);
+}
+@media (forced-colors: active) {
+  .rr-roster-item.rr-sel,
+  .rr-roster-item.rr-sel:hover { background: Highlight !important; color: HighlightText !important; }
+  .rr-roster-item.rr-sel::before { background: HighlightText !important; }
+}
 .rr-bed-chip {
   font-size: 12px;
   font-weight: 500;

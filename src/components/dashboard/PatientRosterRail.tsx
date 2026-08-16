@@ -8,6 +8,7 @@ import {
   Search,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ import {
   getDocumentationSectionStatus,
   type DocumentationStatus,
 } from "@/lib/patientDocumentation";
+import { resolveRosterNavigationIndex } from "@/lib/rosterNavigation";
 import { cn } from "@/lib/utils";
 
 const STATUS_SEGMENT_CLASS: Record<DocumentationStatus, string> = {
@@ -145,6 +147,58 @@ export const PatientRosterRail = ({
     setSearchQuery("");
     setFilter(PatientFilterType.All);
   }, [setSearchQuery, setFilter]);
+
+  /** Live row nodes, so arrow keys can move real focus and selection can scroll into view. */
+  const rowRefs = React.useRef(new Map<string, HTMLButtonElement>());
+
+  const registerRow = React.useCallback((patientId: string, node: HTMLButtonElement | null) => {
+    if (node) rowRefs.current.set(patientId, node);
+    else rowRefs.current.delete(patientId);
+  }, []);
+
+  /**
+   * Arrow/Home/End/PageUp/PageDown move through the roster with selection
+   * following focus, so the open chart always matches the highlighted row.
+   */
+  const handleRosterKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLUListElement>) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const currentIndex = filteredPatients.findIndex((p) => p.id === effectiveSelectedId);
+      const nextIndex = resolveRosterNavigationIndex(
+        event.key,
+        currentIndex,
+        filteredPatients.length,
+      );
+      if (nextIndex === null) return;
+      event.preventDefault();
+      const nextPatient = filteredPatients[nextIndex];
+      if (!nextPatient) return;
+      setDesktopSelectedPatientId(nextPatient.id);
+      rowRefs.current.get(nextPatient.id)?.focus();
+    },
+    [filteredPatients, effectiveSelectedId, setDesktopSelectedPatientId],
+  );
+
+  /**
+   * Keep the open chart's row visible when selection changes from outside the
+   * rail (Cmd+] / Cmd+[, sort changes, or a filter that moves the row offscreen).
+   */
+  React.useEffect(() => {
+    if (!effectiveSelectedId) return;
+    const node = rowRefs.current.get(effectiveSelectedId);
+    if (typeof node?.scrollIntoView !== "function") return;
+    node.scrollIntoView({ block: "nearest" });
+  }, [effectiveSelectedId]);
+
+  const handleSearchKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== "Escape" || !searchQuery) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setSearchQuery("");
+    },
+    [searchQuery, setSearchQuery],
+  );
 
   return (
     <aside
@@ -272,12 +326,32 @@ export const PatientRosterRail = ({
             placeholder="Search patients..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
             aria-label="Search patients"
             autoComplete="off"
             autoFocus
-            className="h-8 rounded-[8px] border-transparent pl-8 text-[13px] shadow-none focus-visible:ring-1"
+            className={cn(
+              "h-8 rounded-[8px] border-transparent pl-8 text-[13px] shadow-none focus-visible:ring-1",
+              searchQuery ? "pr-8" : undefined,
+            )}
             style={{ background: "var(--rr-f1)", color: "var(--rr-label-1)" }}
           />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                searchInputRef.current?.focus();
+              }}
+              aria-label="Clear search"
+              title="Clear search (Esc)"
+              data-testid="clear-roster-search"
+              className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[6px] hover:bg-black/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/[0.08]"
+              style={{ color: "var(--rr-label-3)" }}
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -305,7 +379,12 @@ export const PatientRosterRail = ({
               </>
             )}
           </span>
-          {activeFilterCount > 0 ? (
+          {/*
+            When filters hide every patient the recovery action moves into the
+            empty list body, where the clinician is already looking. Rendering
+            both would put two identical "Clear filters" controls on screen.
+          */}
+          {activeFilterCount > 0 && filteredPatients.length > 0 ? (
             <button
               type="button"
               className="shrink-0 text-[11px] font-medium hover:underline"
@@ -331,19 +410,44 @@ export const PatientRosterRail = ({
         <p className="text-[10px] leading-[14px]" style={{ color: "var(--rr-label-4)" }}>
           Doc progress: Summary · Events · Systems · Results · Meds
         </p>
+        <p id="roster-keyboard-hint" className="sr-only">
+          Use the up and down arrow keys to move between patients. Home and End jump to the first
+          and last patient. The highlighted patient&apos;s chart opens automatically.
+        </p>
       </div>
 
       {/* Patient rows */}
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {filteredPatients.length === 0 ? (
-          <p
-            className="px-2 py-8 text-center text-[12px] leading-[18px]"
-            style={{ color: "var(--rr-label-3)" }}
-          >
-            No patients in this view
-          </p>
+          <div className="px-2 py-8 text-center">
+            <p className="text-[12px] leading-[18px]" style={{ color: "var(--rr-label-3)" }}>
+              No patients in this view
+            </p>
+            {activeFilterCount > 0 ? (
+              <>
+                <p className="mt-1 text-[11px] leading-[16px]" style={{ color: "var(--rr-label-4)" }}>
+                  {patients.length} patient{patients.length === 1 ? "" : "s"} hidden by the current
+                  search or filter.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 h-7 text-[12px]"
+                  onClick={clearFilters}
+                  data-testid="roster-empty-clear-filters"
+                >
+                  Clear filters
+                </Button>
+              </>
+            ) : null}
+          </div>
         ) : (
-          <ul className="flex flex-col gap-0.5">
+          <ul
+            className="flex flex-col gap-0.5"
+            onKeyDown={handleRosterKeyDown}
+            aria-describedby="roster-keyboard-hint"
+          >
             {filteredPatients.map((patient) => {
               const isActive = patient.id === effectiveSelectedId;
               const openTodoCount = (todosMap[patient.id] ?? []).filter(
@@ -355,13 +459,22 @@ export const PatientRosterRail = ({
                 : `Record …${patient.id.slice(-4)}`;
               const diagnosis = toOneLine(patient.clinicalSummary);
               const compact = patientListViewMode === "compact";
+              const sectionStatuses = DOCUMENTATION_SECTIONS.map((section) => ({
+                section,
+                status: getDocumentationSectionStatus(patient, section.id),
+              }));
+              const readySectionCount = sectionStatuses.filter(
+                ({ status }) => status === "ready",
+              ).length;
               return (
                 <li key={patient.id}>
                   <button
                     type="button"
+                    ref={(node) => registerRow(patient.id, node)}
                     onClick={() => setDesktopSelectedPatientId(patient.id)}
                     aria-current={isActive ? "true" : undefined}
-                    aria-label={`Select ${patient.name || "unnamed patient"}, ${locationLabel}, ${stableIdentifier}${openTodoCount > 0 ? `, ${openTodoCount} open tasks` : ""}`}
+                    tabIndex={isActive ? 0 : -1}
+                    aria-label={`Select ${patient.name || "unnamed patient"}, ${locationLabel}, ${stableIdentifier}${openTodoCount > 0 ? `, ${openTodoCount} open tasks` : ""}, ${readySectionCount} of ${sectionStatuses.length} sections ready`}
                     className={cn(
                       "rr-roster-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       isActive && "rr-sel",
@@ -415,16 +528,20 @@ export const PatientRosterRail = ({
                       </span>
                     ) : null}
                     <span className={cn("flex items-center gap-1", compact ? "mt-1" : "mt-1.5")}>
-                      {DOCUMENTATION_SECTIONS.map((section) => {
-                        const status = getDocumentationSectionStatus(patient, section.id);
-                        return (
-                          <span
-                            key={section.id}
-                            className={cn("rr-seg", STATUS_SEGMENT_CLASS[status])}
-                            title={`${section.label}: ${DOCUMENTATION_STATUS_LABELS[status]}`}
-                          />
-                        );
-                      })}
+                      {sectionStatuses.map(({ section, status }) => (
+                        <span
+                          key={section.id}
+                          className={cn("rr-seg", STATUS_SEGMENT_CLASS[status])}
+                          title={`${section.label}: ${DOCUMENTATION_STATUS_LABELS[status]}`}
+                        />
+                      ))}
+                      <span
+                        className="ml-auto text-[10px] tabular-nums"
+                        style={{ color: "var(--rr-label-4)" }}
+                        aria-hidden="true"
+                      >
+                        {readySectionCount}/{sectionStatuses.length}
+                      </span>
                     </span>
                   </button>
                 </li>
