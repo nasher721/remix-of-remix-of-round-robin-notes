@@ -263,7 +263,10 @@ describe('Supabase deployment workflow', () => {
 
     assert.match(workflow, /VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/)
     assert.match(workflow, /VITE_SUPABASE_PUBLISHABLE_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/)
-    assert.equal((workflow.match(/VITE_SUPABASE_URL:/g) ?? []).length, 4)
+    // The project URL is bound once more than the anon key: the public browser
+    // smoke step derives the Supabase storage key from the project ref and must
+    // not receive credentials.
+    assert.equal((workflow.match(/VITE_SUPABASE_URL:/g) ?? []).length, 5)
     assert.equal((workflow.match(/VITE_SUPABASE_PUBLISHABLE_KEY:/g) ?? []).length, 4)
     assert.match(gitignore, /^\.env$/m)
   })
@@ -313,8 +316,15 @@ describe('Supabase deployment workflow', () => {
     assert.match(workflow, /run: npm run test:e2e:webkit\n/)
     assert.equal((workflow.match(/E2E_USE_PREVIEW: "1"/g) ?? []).length, 3)
     assert.equal((workflow.match(/E2E_REQUIRE_FULL_SUITE: "1"/g) ?? []).length, 2)
-    assert.equal((workflow.match(/VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/g) ?? []).length, 4)
+    // Build step, both authenticated suites, and the public smoke step bind the
+    // project URL; only the first three carry the anon key.
+    assert.equal((workflow.match(/VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/g) ?? []).length, 5)
     assert.equal((workflow.match(/VITE_SUPABASE_PUBLISHABLE_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/g) ?? []).length, 4)
+    // The public smoke step gets the project ref but must stay credential-free.
+    assert.doesNotMatch(
+      workflow.split('name: Public Chromium and WebKit auth-page smoke')[1]?.split('- name:')[0] ?? '',
+      /SUPABASE_ANON_KEY|E2E_TEST_PASSWORD/,
+    )
     assert.match(workflow, /group: e2e-shared-account/)
     assert.doesNotMatch(workflow, /test:e2e:webkit -- --grep/)
     assert.match(packageJson.scripts['test:e2e:public'], /--grep "@public"/)
