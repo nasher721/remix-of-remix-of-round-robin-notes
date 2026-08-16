@@ -1,17 +1,19 @@
 /**
  * Keyboard navigation math for the desktop patient roster rail.
  *
- * Kept as a pure function (no DOM, no React) so the wrap-around and clamping
- * rules that decide which chart a clinician lands on are unit-testable on their
- * own. The rail owns focus movement and selection; this module only answers
- * "which index does this key go to?".
+ * A thin, vertical, paging-enabled binding of the shared traversal rules in
+ * `listKeyboardNavigation`. Kept as its own module so the rail imports an
+ * intention-revealing name and so roster-specific behavior has one place to
+ * grow if it ever diverges from the chart's tab strip.
  */
 
-/** Rows moved by PageUp / PageDown in one press. */
-export const ROSTER_PAGE_STEP = 5;
+import {
+  PAGE_STEP,
+  resolveSequentialNavigationIndex,
+} from "@/lib/listKeyboardNavigation";
 
-const clamp = (index: number, count: number): number =>
-  Math.min(Math.max(index, 0), count - 1);
+/** Rows moved by PageUp / PageDown in one press. */
+export const ROSTER_PAGE_STEP = PAGE_STEP;
 
 /**
  * Resolves the roster index a navigation key should move to.
@@ -33,25 +35,8 @@ export function resolveRosterNavigationIndex(
   currentIndex: number,
   count: number,
 ): number | null {
-  if (count <= 0) return null;
-
-  const hasSelection = Number.isInteger(currentIndex) && currentIndex >= 0 && currentIndex < count;
-  const current = hasSelection ? currentIndex : -1;
-
-  switch (key) {
-    case "ArrowDown":
-      return current < 0 ? 0 : (current + 1) % count;
-    case "ArrowUp":
-      return current < 0 ? count - 1 : (current - 1 + count) % count;
-    case "Home":
-      return 0;
-    case "End":
-      return count - 1;
-    case "PageDown":
-      return clamp((current < 0 ? 0 : current) + ROSTER_PAGE_STEP, count);
-    case "PageUp":
-      return clamp((current < 0 ? count - 1 : current) - ROSTER_PAGE_STEP, count);
-    default:
-      return null;
-  }
+  return resolveSequentialNavigationIndex(key, currentIndex, count, {
+    orientation: "vertical",
+    paging: true,
+  });
 }

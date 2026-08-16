@@ -1060,4 +1060,67 @@ describe("production dashboard roster regression harness", () => {
       assert.equal(document.activeElement, rosterRows()[0]);
     });
   });
+
+  /** Documentation tab strip: same traversal as the rail, on the other axis. */
+  const sectionTabs = () =>
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>("[data-documentation-tab]"),
+    );
+
+  it("moves focus across the documentation tabs with the horizontal arrows", async () => {
+    renderKeyboardRosterHarness();
+
+    await screen.findByRole("button", { name: /^Select Alex Morgan, A01/ });
+    const tabs = sectionTabs();
+    assert.equal(tabs.length, 5, "expected the five documentation sections");
+
+    tabs[0].focus();
+    fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+    await waitFor(() => assert.equal(document.activeElement, tabs[1]));
+
+    fireEvent.keyDown(tabs[1], { key: "End" });
+    await waitFor(() => assert.equal(document.activeElement, tabs[4]));
+
+    // Wraps forward off the end, and back off the front.
+    fireEvent.keyDown(tabs[4], { key: "ArrowRight" });
+    await waitFor(() => assert.equal(document.activeElement, tabs[0]));
+
+    fireEvent.keyDown(tabs[0], { key: "ArrowLeft" });
+    await waitFor(() => assert.equal(document.activeElement, tabs[4]));
+  });
+
+  it("keeps documentation tabs on manual activation so focus stays in the strip", async () => {
+    renderKeyboardRosterHarness();
+
+    await screen.findByRole("button", { name: /^Select Alex Morgan, A01/ });
+    const tabs = sectionTabs();
+
+    // Arrowing moves focus without activating: the pressed tab must not change,
+    // otherwise jumpToSection would pull focus into the section's editor.
+    const pressedBefore = tabs.map((tab) => tab.getAttribute("aria-pressed"));
+    tabs[0].focus();
+    fireEvent.keyDown(tabs[0], { key: "ArrowRight" });
+    await waitFor(() => assert.equal(document.activeElement, tabs[1]));
+    assert.deepEqual(
+      sectionTabs().map((tab) => tab.getAttribute("aria-pressed")),
+      pressedBefore,
+    );
+
+    // Exactly one tab is in the tab order, and it is the active one.
+    const tabIndexes = sectionTabs().map((tab) => tab.getAttribute("tabindex"));
+    assert.equal(tabIndexes.filter((value) => value === "0").length, 1);
+    const activeIndex = sectionTabs().findIndex(
+      (tab) => tab.getAttribute("aria-pressed") === "true",
+    );
+    assert.equal(tabIndexes[activeIndex], "0");
+
+    // Vertical arrows belong to the scroll container, not the strip.
+    tabs[1].focus();
+    fireEvent.keyDown(tabs[1], { key: "ArrowDown" });
+    assert.equal(document.activeElement, tabs[1]);
+
+    // Modifier combos belong to app-level shortcuts.
+    fireEvent.keyDown(tabs[1], { key: "ArrowRight", metaKey: true });
+    assert.equal(document.activeElement, tabs[1]);
+  });
 });

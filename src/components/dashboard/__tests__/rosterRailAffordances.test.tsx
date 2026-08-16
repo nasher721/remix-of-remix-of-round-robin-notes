@@ -11,7 +11,25 @@ function readSource(relativePath: string) {
 }
 
 const railSource = readSource("src/components/dashboard/PatientRosterRail.tsx");
+const workspaceSource = readSource("src/components/dashboard/PatientWorkspace.tsx");
 const cssSource = readSource("src/index.css");
+
+describe("shared workspace keyboard navigation", () => {
+  it("routes both the rail and the documentation tabs through one traversal module", () => {
+    // Divergent wrap/clamp rules between the two navigators would be a subtle
+    // inconsistency for anyone driving the chart from the keyboard.
+    assert.match(
+      readSource("src/lib/rosterNavigation.ts"),
+      /from "@\/lib\/listKeyboardNavigation"/,
+    );
+    assert.match(workspaceSource, /from "@\/lib\/listKeyboardNavigation"/);
+  });
+
+  it("gives each navigator the orientation its layout implies", () => {
+    assert.match(readSource("src/lib/rosterNavigation.ts"), /orientation: "vertical"/);
+    assert.match(workspaceSource, /orientation: "horizontal"/);
+  });
+});
 
 describe("desktop roster rail keyboard navigation", () => {
   it("routes roster key presses through the shared navigation resolver", () => {
