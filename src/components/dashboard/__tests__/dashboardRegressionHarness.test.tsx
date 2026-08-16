@@ -961,4 +961,103 @@ describe("production dashboard roster regression harness", () => {
       assert.ok(screen.getByRole("button", { name: "Import Patient List - Upload a list file or paste patient text" }));
     });
   });
+
+  /**
+   * The roster rail is the primary way a clinician moves between charts, so
+   * arrow-key traversal is exercised against the real rail inside the real
+   * desktop shell rather than asserted from source.
+   */
+  function renderKeyboardRosterHarness() {
+    setViewport(1440, 900);
+
+    function KeyboardRosterHarness() {
+      const [selectedId, setSelectedId] = React.useState<string | null>(dashboardPatients8[0].id);
+      return (
+        <MemoryRouter>
+          <AppProviders
+            patients={dashboardPatients8}
+            desktopSelectedPatientId={selectedId}
+            setDesktopSelectedPatientId={setSelectedId}
+          >
+            <DesktopDashboard />
+          </AppProviders>
+        </MemoryRouter>
+      );
+    }
+
+    render(<KeyboardRosterHarness />);
+  }
+
+  /** Rail rows only — the trailing readiness clause is unique to the rail. */
+  const rosterRows = () => screen.getAllByRole("button", { name: /^Select .* sections ready$/ });
+
+  it("moves roster selection and focus with the arrow keys, wrapping at the ends", async () => {
+    renderKeyboardRosterHarness();
+
+    const first = await screen.findByRole("button", { name: /^Select Alex Morgan, A01/ });
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowDown" });
+
+    await waitFor(() => {
+      const second = rosterRows()[1];
+      assert.equal(second.getAttribute("aria-current"), "true");
+      assert.equal(document.activeElement, second);
+    });
+
+    // Selection follows focus, so the open chart tracks the highlighted row.
+    const secondName = rosterRows()[1]
+      .getAttribute("aria-label")
+      ?.replace(/^Select /, "")
+      .split(",")[0];
+    await waitFor(() => {
+      assert.equal(
+        screen.getByRole("textbox", { name: "Patient name" }).getAttribute("value"),
+        secondName,
+      );
+    });
+
+    // Back to the top, then ArrowUp wraps to the bottom of the roster.
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Home" });
+    await waitFor(() => {
+      assert.equal(rosterRows()[0].getAttribute("aria-current"), "true");
+    });
+
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "ArrowUp" });
+    await waitFor(() => {
+      const rows = rosterRows();
+      assert.equal(rows[rows.length - 1].getAttribute("aria-current"), "true");
+      assert.equal(document.activeElement, rows[rows.length - 1]);
+    });
+  });
+
+  it("jumps with Home/End, ignores modified presses, and keeps one row tabbable", async () => {
+    renderKeyboardRosterHarness();
+
+    const first = await screen.findByRole("button", { name: /^Select Alex Morgan, A01/ });
+
+    // Exactly one row is reachable by Tab; the rest are arrow-key targets.
+    const initialRows = rosterRows();
+    assert.ok(initialRows.length > 1, "expected a multi-patient roster");
+    assert.deepEqual(
+      initialRows.map((row) => row.getAttribute("tabindex")),
+      initialRows.map((_, index) => (index === 0 ? "0" : "-1")),
+    );
+
+    // Modifier combos belong to app-level shortcuts, not the rail.
+    first.focus();
+    fireEvent.keyDown(first, { key: "ArrowDown", metaKey: true });
+    assert.equal(first.getAttribute("aria-current"), "true");
+    assert.equal(document.activeElement, first);
+
+    fireEvent.keyDown(first, { key: "End" });
+    await waitFor(() => {
+      const rows = rosterRows();
+      assert.equal(document.activeElement, rows[rows.length - 1]);
+    });
+
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Home" });
+    await waitFor(() => {
+      assert.equal(document.activeElement, rosterRows()[0]);
+    });
+  });
 });
