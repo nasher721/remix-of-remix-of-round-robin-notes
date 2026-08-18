@@ -78,8 +78,7 @@ export function usePatientSearch(patients: Patient[]) {
       result = result.filter((p) => {
         const meds = p.medications as PatientMedications | undefined;
         if (!meds) return false;
-        const infusions = meds.infusions;
-        const totalMeds = (infusions?.length || 0) + (meds.scheduled?.length || 0) + (meds.prn?.length || 0);
+        const totalMeds = (meds.infusions?.length || 0) + (meds.scheduled?.length || 0) + (meds.prn?.length || 0);
         return totalMeds > 0;
       });
     }

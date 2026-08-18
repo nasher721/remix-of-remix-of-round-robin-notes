@@ -96,10 +96,11 @@ export function ProtocolChecklist({
     new Set(activeProtocols.map(p => p.protocolId))
   );
 
+  const searchLower = searchTerm.toLowerCase();
   const availableProtocols = DEFAULT_PROTOCOLS.filter(p => {
     const isActive = activeProtocols.some(ap => ap.protocolId === p.id);
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.shortName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = p.name.toLowerCase().includes(searchLower) ||
+      p.shortName.toLowerCase().includes(searchLower);
     const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
     return !isActive && matchesSearch && matchesCategory && p.enabled;
   });

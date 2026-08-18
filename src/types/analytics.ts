@@ -135,29 +135,25 @@ export const calculateUnitMetrics = (patients: Array<{
     renalGU?: string;
   };
 }>): Partial<UnitMetrics> => {
-  const now = new Date();
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const admissions24h = patients.filter(p => new Date(p.createdAt) > oneDayAgo).length;
 
   // Estimate ventilated/vasopressor/dialysis from system notes
-  const ventilated = patients.filter(p =>
-    p.systems?.resp?.toLowerCase().includes('vent') ||
-    p.systems?.resp?.toLowerCase().includes('intubat')
-  ).length;
+  const countMatching = (
+    select: (p: (typeof patients)[number]) => string | undefined,
+    needles: string[],
+  ) => patients.filter(p => {
+    const text = select(p)?.toLowerCase();
+    if (!text) return false;
+    return needles.some(needle => text.includes(needle));
+  }).length;
 
-  const vasopressor = patients.filter(p =>
-    p.systems?.cv?.toLowerCase().includes('vasopressor') ||
-    p.systems?.cv?.toLowerCase().includes('levophed') ||
-    p.systems?.cv?.toLowerCase().includes('norepinephrine') ||
-    p.systems?.cv?.toLowerCase().includes('vasopressin')
-  ).length;
-
-  const dialysis = patients.filter(p =>
-    p.systems?.renalGU?.toLowerCase().includes('dialysis') ||
-    p.systems?.renalGU?.toLowerCase().includes('crrt') ||
-    p.systems?.renalGU?.toLowerCase().includes('cvvh')
-  ).length;
+  const ventilated = countMatching(p => p.systems?.resp, ['vent', 'intubat']);
+  const vasopressor = countMatching(p => p.systems?.cv, [
+    'vasopressor', 'levophed', 'norepinephrine', 'vasopressin',
+  ]);
+  const dialysis = countMatching(p => p.systems?.renalGU, ['dialysis', 'crrt', 'cvvh']);
 
   return {
     totalPatients: patients.length,

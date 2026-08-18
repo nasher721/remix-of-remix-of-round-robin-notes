@@ -220,6 +220,35 @@ export const PATIENT_TARGET_FIELDS = [
   { key: 'isolation', label: 'Isolation', type: 'select', options: ['None', 'Contact', 'Droplet', 'Airborne'] },
 ];
 
+type PatientTargetField = (typeof PATIENT_TARGET_FIELDS)[number];
+
+const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Lookup tables derived once from PATIENT_TARGET_FIELDS, so header auto-mapping and
+ * row validation do not re-normalize the same constant field metadata on every call.
+ */
+const TARGET_FIELDS_BY_KEY = new Map<string, PatientTargetField>(
+  PATIENT_TARGET_FIELDS.map(field => [field.key, field]),
+);
+
+const NORMALIZED_TARGETS = PATIENT_TARGET_FIELDS.map(field => ({
+  field,
+  key: field.key.toLowerCase(),
+  label: normalizeHeader(field.label),
+}));
+
+const SELECT_FIELD_OPTIONS = new Map<string, { allowed: Set<string>; display: string }>(
+  PATIENT_TARGET_FIELDS.flatMap(field =>
+    'options' in field && field.options
+      ? [[field.key, {
+          allowed: new Set(field.options.map(option => option.toLowerCase())),
+          display: field.options.join(', '),
+        }] as [string, { allowed: Set<string>; display: string }]]
+      : [],
+  ),
+);
+
 /**
  * Auto-map columns based on header name similarity
  */
@@ -227,21 +256,18 @@ export function autoMapColumns(csvHeaders: string[]): FieldMapping[] {
   const mappings: FieldMapping[] = [];
   
   for (const csvHeader of csvHeaders) {
-    const normalizedHeader = csvHeader.toLowerCase().replace(/[^a-z0-9]/g, '');
-    
-    for (const target of PATIENT_TARGET_FIELDS) {
-      const targetKey = target.key.toLowerCase();
-      const targetLabel = target.label.toLowerCase().replace(/[^a-z0-9]/g, '');
-      
-      if (normalizedHeader.includes(targetKey) || 
-          targetKey.includes(normalizedHeader) ||
-          normalizedHeader.includes(targetLabel) ||
-          targetLabel.includes(normalizedHeader)) {
-        
+    const normalizedHeader = normalizeHeader(csvHeader);
+
+    for (const { field, key, label } of NORMALIZED_TARGETS) {
+      if (normalizedHeader.includes(key) ||
+          key.includes(normalizedHeader) ||
+          normalizedHeader.includes(label) ||
+          label.includes(normalizedHeader)) {
+
         mappings.push({
           csvColumn: csvHeader,
-          targetField: target.key,
-          transform: target.type === 'date' ? 'date' : undefined
+          targetField: field.key,
+          transform: field.type === 'date' ? 'date' : undefined
         });
         break;
       }
@@ -309,7 +335,7 @@ export function validateRow(
     if (colIndex === -1) continue;
     
     const value = row[colIndex];
-    const targetField = PATIENT_TARGET_FIELDS.find(f => f.key === map.targetField);
+    const targetField = TARGET_FIELDS_BY_KEY.get(map.targetField);
     
     if (!targetField) continue;
     
@@ -325,16 +351,16 @@ export function validateRow(
       continue;
     }
     
-    if (targetField.type === 'select' && targetField.options) {
-      const allowedValues = targetField.options.map(option => option.toLowerCase());
-      if (!allowedValues.includes(value.trim().toLowerCase())) {
-        errors.push({
-          row: 0,
-          column: map.csvColumn,
-          message: `Invalid value "${value}". Must be one of: ${targetField.options.join(', ')}`,
-          value
-        });
-      }
+    const selectOptions = targetField.type === 'select'
+      ? SELECT_FIELD_OPTIONS.get(targetField.key)
+      : undefined;
+    if (selectOptions && !selectOptions.allowed.has(value.trim().toLowerCase())) {
+      errors.push({
+        row: 0,
+        column: map.csvColumn,
+        message: `Invalid value "${value}". Must be one of: ${selectOptions.display}`,
+        value
+      });
     }
 
     if (targetField.type === 'date') {

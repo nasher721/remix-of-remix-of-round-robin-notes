@@ -338,7 +338,10 @@ export const EpicHandoffImport = ({
     setStatusMessage("");
   };
 
-  const bedExists = (bed: string) => existingBeds.some(b => b.toLowerCase() === bed.toLowerCase());
+  const bedExists = (bed: string) => {
+    const normalizedBed = bed.toLowerCase();
+    return existingBeds.some(b => b.toLowerCase() === normalizedBed);
+  };
 
   const importSettings = (
     <Popover>
