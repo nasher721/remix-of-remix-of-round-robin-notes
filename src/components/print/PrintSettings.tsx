@@ -35,7 +35,8 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
-import type { PrintSettings as SettingsType, ColumnConfig, ColumnWidthsType, CustomCombination } from "@/lib/print/types";
+import type { PaperSize, PrintSettings as SettingsType, ColumnConfig, ColumnWidthsType, CustomCombination } from "@/lib/print/types";
+import { PAPER_SIZE_LABELS } from "@/lib/print/layout";
 import { columnCombinations } from "./constants";
 import { CustomCombinationDialog } from "./CustomCombinationDialog";
 
@@ -212,7 +213,8 @@ export function PrintSettings({
             <LayoutGrid className="h-4 w-4 text-muted-foreground" />
             <span>Layout</span>
             <Badge variant="outline" className="ml-2 text-xs font-normal">
-              {settings.printOrientation === 'portrait' ? 'Portrait' : 'Landscape'}
+              {settings.printOrientation === 'portrait' ? 'Portrait' : 'Landscape'} ·
+              {PAPER_SIZE_LABELS[settings.paperSize ?? 'a4']}
             </Badge>
           </div>
         </AccordionTrigger>
@@ -242,6 +244,25 @@ export function PrintSettings({
                   Landscape
                 </button>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Paper Size</Label>
+              <Select
+                value={settings.paperSize ?? 'a4'}
+                onValueChange={(value) => onUpdateSettings({ paperSize: value as PaperSize })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select paper size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="a4">A4</SelectItem>
+                  <SelectItem value="letter">Letter</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Affects browser print and PDF exports
+              </p>
             </div>
 
             <div className="flex items-center justify-between">

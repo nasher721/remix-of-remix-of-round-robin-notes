@@ -23,7 +23,7 @@ import type { LayoutConfig } from "@/types/layoutDesigner";
 import type { PrintSettings as PrintSettingsType, ColumnConfig, CustomCombination } from "@/lib/print/types";
 import { getTemplateById, mergeTemplateCustomizations, PrintTemplatePreset, PrintTemplateType } from "@/types/printTemplates";
 import { defaultColumnWidths, defaultColumns, defaultCombinedColumnWidths } from "./print/constants";
-import { getPageMetrics } from "@/lib/print/layout";
+import { getPageCss, DEFAULT_PAPER_SIZE } from "@/lib/print/layout";
 import { STORAGE_KEYS } from "@/constants/config";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -159,6 +159,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     columns: defaultColumns,
     combinedColumns: [],
     printOrientation: 'portrait',
+    paperSize: 'a4' as const,
     printFontSize: 9,
     printFontFamily: 'system',
     onePatientPerPage: false,
@@ -194,6 +195,10 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     printStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS, JSON.stringify(nextSettings.combinedColumns));
     printStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS, JSON.stringify(nextSettings.combinedColumnWidths));
     printStorage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, nextSettings.printOrientation);
+    printStorage.setItem(
+      STORAGE_KEYS.PRINT_PAPER_SIZE,
+      nextSettings.paperSize ?? DEFAULT_PAPER_SIZE,
+    );
     printStorage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, nextSettings.printFontSize.toString());
     printStorage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, nextSettings.printFontFamily);
     printStorage.setItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE, nextSettings.onePatientPerPage.toString());
@@ -271,6 +276,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
           combinedColumns: parseStoredJson(savedCombined, defaultSettings.combinedColumns),
           combinedColumnWidths: parseStoredJson(savedCombinedWidths, defaultSettings.combinedColumnWidths),
           printOrientation: (printStorage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as 'portrait' | 'landscape') || defaultSettings.printOrientation,
+          paperSize: (printStorage.getItem(STORAGE_KEYS.PRINT_PAPER_SIZE) as 'a4' | 'letter') || defaultSettings.paperSize,
           printFontSize: parseInt(printStorage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE) || `${defaultSettings.printFontSize}`, 10),
           printFontFamily: printStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || defaultSettings.printFontFamily,
           onePatientPerPage: printStorage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true',
@@ -376,14 +382,16 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     };
   }, [user, buildPrintPayload, syncPrintSettingsToDb]);
 
-  // Debounce the @page CSS update — orientation + margins rarely change rapidly,
+  // Debounce the @page CSS update — page settings rarely change rapidly,
   // and forcing a style recalc on every settings mutation causes layout jitter.
+  // This keeps native Ctrl+P (while the modal is open) consistent with the
+  // selected paper size, orientation, and margins; printElement() also injects
+  // the same rule itself for the modal-driven Print button.
   const applyPageStyleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { printOrientation, margins } = settings;
+  const { printOrientation, margins, paperSize } = settings;
   React.useEffect(() => {
     if (applyPageStyleRef.current) clearTimeout(applyPageStyleRef.current);
     applyPageStyleRef.current = setTimeout(() => {
-      const { marginMm } = getPageMetrics({ printOrientation, margins } as typeof settings);
       const styleId = "print-page-style";
       let style = document.getElementById(styleId) as HTMLStyleElement | null;
       if (!style) {
@@ -391,11 +399,10 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
         style.id = styleId;
         document.head.appendChild(style);
       }
-      style.textContent = `@page { size: A4 ${printOrientation}; margin: 0; }`;
-      document.documentElement.style.setProperty("--print-page-margin", `${marginMm}mm`);
+      style.textContent = `@page { ${getPageCss({ printOrientation, margins, paperSize })} }`;
     }, 150);
     return () => { if (applyPageStyleRef.current) clearTimeout(applyPageStyleRef.current); };
-  }, [printOrientation, margins]);
+  }, [printOrientation, margins, paperSize]);
 
   React.useEffect(() => {
     syncSettingsToLocalStorage(settings);
@@ -601,6 +608,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     printFontSize: settings.printFontSize,
     printFontFamily: settings.printFontFamily,
     printOrientation: settings.printOrientation,
+    paperSize: settings.paperSize,
     onePatientPerPage: settings.onePatientPerPage,
     margins: settings.margins,
     isColumnEnabled,
@@ -615,16 +623,23 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
   }), [patients, patientTodos, settings, isColumnEnabled, getPatientTodos, patientNotes, isFiltered, totalPatientCount, user?.id, patientImageSignedUrls]);
 
   const handlePrint = () => {
-    try {
-      printElement(exportRef.current);
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: "Print Failed",
-        description: error instanceof Error ? error.message : "The print report could not be prepared.",
-        variant: "destructive",
+    const pageStyle = getPageCss(settings);
+    const title = settings.physicianName?.trim()
+      ? `Patient Rounding Report — ${settings.physicianName.trim()}`
+      : "Patient Rounding Report";
+
+    void printElement(exportRef.current, { pageStyle, title })
+      .then(() => {
+        toast({ title: "Print complete", description: title });
+      })
+      .catch((error) => {
+        console.error(error);
+        toast({
+          title: "Print Failed",
+          description: error instanceof Error ? error.message : "The print report could not be prepared.",
+          variant: "destructive",
+        });
       });
-    }
   };
 
   // Handle applying a layout from the designer

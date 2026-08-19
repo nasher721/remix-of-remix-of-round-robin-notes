@@ -186,6 +186,8 @@ export interface ExportContext {
   printFontSize: number;
   printFontFamily: string;
   printOrientation: 'portrait' | 'landscape';
+  /** Paper format for PDF/Word exports; defaults to A4 when unset. */
+  paperSize?: 'a4' | 'letter';
   onePatientPerPage: boolean;
   margins: 'narrow' | 'normal' | 'wide';
   isColumnEnabled: (key: string) => boolean;
@@ -851,7 +853,7 @@ const exportWithHtml2PdfFallback = async (ctx: ExportContext, element: HTMLEleme
       },
       jsPDF: {
         unit: 'mm',
-        format: 'a4',
+        format: ctx.paperSize ?? 'a4',
         orientation: ctx.printOrientation,
       },
     })
@@ -973,7 +975,7 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
     const doc = new JsPdf({
       orientation: ctx.printOrientation,
       unit: 'mm',
-      format: 'a4',
+      format: ctx.paperSize ?? 'a4',
     });
 
     const pdfFontFamily = resolvePdfFontFamily(ctx.printFontFamily);

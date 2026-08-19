@@ -17,6 +17,8 @@ export interface ColumnCombination {
 
 export type PdfColumnLayout = 1 | 2 | 3;
 
+export type PaperSize = 'a4' | 'letter';
+
 export interface PdfExportSettings {
     layoutColumns?: PdfColumnLayout;
     preserveHighlightColors?: boolean;
@@ -58,6 +60,7 @@ export interface PrintPreset {
     columns: ColumnConfig[];
     combinedColumns: string[];
     printOrientation: 'portrait' | 'landscape';
+    paperSize?: PaperSize;
     printFontSize: number;
     printFontFamily: string;
     onePatientPerPage: boolean;
@@ -80,6 +83,7 @@ export interface PrintSettings {
     columns: ColumnConfig[];
     combinedColumns: string[];
     printOrientation: 'portrait' | 'landscape';
+    paperSize?: PaperSize;
     printFontSize: number;
     printFontFamily: string;
     onePatientPerPage: boolean;

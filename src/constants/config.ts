@@ -32,6 +32,7 @@ export const STORAGE_KEYS = {
   PRINT_COMBINED_COLUMN_WIDTHS: 'printCombinedColumnWidths',
   PRINT_SYSTEMS_REVIEW_COLUMN_COUNT: 'printSystemsReviewColumnCount',
   PRINT_ORIENTATION: 'printOrientation',
+  PRINT_PAPER_SIZE: 'printPaperSize',
   PRINT_CUSTOM_PRESETS: 'printCustomPresets',
   PRINT_CUSTOM_COMBINATIONS: 'printCustomCombinations',
   PRINT_TEMPLATE_PRESETS: 'printTemplatePresets',

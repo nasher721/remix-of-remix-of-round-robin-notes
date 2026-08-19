@@ -1,9 +1,18 @@
-import type { PrintSettings } from "./types";
+import type { PaperSize, PrintSettings } from "./types";
 
-export const PAGE_SIZES_MM = {
-  portrait: { width: 210, height: 297 },
-  landscape: { width: 297, height: 210 },
-} as const;
+export type { PaperSize };
+
+export const PAPER_SIZE_MM: Record<PaperSize, { width: number; height: number }> = {
+  a4: { width: 210, height: 297 },
+  letter: { width: 215.9, height: 279.4 },
+};
+
+export const PAPER_SIZE_LABELS: Record<PaperSize, string> = {
+  a4: "A4",
+  letter: "Letter",
+};
+
+export const DEFAULT_PAPER_SIZE: PaperSize = "a4";
 
 export const MARGIN_MM_BY_SETTING = {
   narrow: 10,
@@ -11,13 +20,31 @@ export const MARGIN_MM_BY_SETTING = {
   wide: 20,
 } as const;
 
-export const getPageMetrics = (settings: Pick<PrintSettings, "printOrientation" | "margins">) => {
-  const pageSize = PAGE_SIZES_MM[settings.printOrientation];
+type PageSettingSource = Pick<PrintSettings, "printOrientation" | "margins" | "paperSize">;
+
+export const getPageMetrics = (settings: PageSettingSource) => {
+  const paperSize = settings.paperSize && PAPER_SIZE_MM[settings.paperSize]
+    ? settings.paperSize
+    : DEFAULT_PAPER_SIZE;
+  const base = PAPER_SIZE_MM[paperSize];
+  const oriented =
+    settings.printOrientation === "landscape"
+      ? { width: base.height, height: base.width }
+      : base;
   const margin = MARGIN_MM_BY_SETTING[settings.margins] ?? MARGIN_MM_BY_SETTING.normal;
 
   return {
-    widthMm: pageSize.width,
-    heightMm: pageSize.height,
+    paperSize,
+    widthMm: oriented.width,
+    heightMm: oriented.height,
     marginMm: margin,
   };
+};
+
+/** CSS body for the `@page` rule shared by browser print (`window.print()`) */
+export const getPageCss = (settings: PageSettingSource): string => {
+  const { paperSize, marginMm } = getPageMetrics(settings);
+  const orientation =
+    settings.printOrientation === "landscape" ? "landscape" : "portrait";
+  return `size: ${paperSize} ${orientation}; margin: ${marginMm}mm;`;
 };
