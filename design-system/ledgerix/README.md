@@ -31,7 +31,9 @@ import it yourself.
 | `tokens.ts` | Typed mirror of the tokens, for charts / canvas / PDF / RN. |
 | `tailwind.preset.ts` | Tailwind 3.x preset mapping tokens to utilities. |
 | `react/index.tsx` | React primitives (Button, Card, StatCard, Table, shell…). |
-| `react/charts.tsx` | Recharts theme, tooltip, legend, formatters. |
+| `react/charts.tsx` | Chart components — tooltip, legend, gradient. |
+| `react/chartTheme.ts` | Chart prop bundles, theme hook, formatters. |
+| `react/utils.ts` | `cx` class joiner. |
 | `style-guide.html` | Living style guide — open it in a browser, no build step. |
 
 `style-guide.html` inlines `tokens.css` and `components.css` verbatim, so it is a
@@ -265,9 +267,16 @@ one-off and should be styled as one.
 **Input** — `Button` `Field` `Input` `Textarea` `Select` `SearchInput`
 `Switch` `Segmented`
 
-**Charts** — `useChartTheme` `useEmphasisFills` `axisProps` `gridProps`
-`chartMargin` `AreaGradient` `LedgerixTooltip` `ChartLegend` `compactCurrency`
-`compactNumber`
+**Charts** — components in `react/charts.tsx`: `AreaGradient` `LedgerixTooltip`
+`ChartLegend`. Everything else in `react/chartTheme.ts`: `useChartTheme`
+`useEmphasisFills` `axisProps` `gridProps` `chartMargin` `compactCurrency`
+`compactNumber`.
+
+The split is deliberate: a module that exports both components and non-components
+breaks React Fast Refresh, so components live in `.tsx` files and helpers in
+`.ts` ones throughout. `useChartTheme` is intentionally **not** memoised — its
+whole job is to follow the active theme, and a memo keyed on anything short of
+"the theme actually changed" hands back the previous theme's colours.
 
 Every React component is a thin wrapper over a `.lx-*` class and forwards all
 native props, so anything you can do in HTML you can do here.

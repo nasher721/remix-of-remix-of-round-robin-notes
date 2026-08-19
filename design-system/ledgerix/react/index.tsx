@@ -13,6 +13,9 @@
  * …and `className="lx-root"` on <body> or your app's outermost element, which
  * is what scopes the reset, focus ring and scrollbar styling.
  *
+ * `cx` lives in `./utils` and the chart theme in `./chartTheme`, so this
+ * module exports components only and Fast Refresh keeps working.
+ *
  * These are deliberately NOT built on Radix. If you need a real modal, menu
  * or combobox, use your existing shadcn/Radix components and pass the
  * matching `.lx-*` class — the styling layer is independent of the behaviour
@@ -21,14 +24,11 @@
 
 import * as React from "react";
 
+import { cx } from "./utils";
+
 /* ==========================================================================
    UTIL
    ========================================================================== */
-
-/** Minimal class joiner. Swap for the app's `cn()` if it already has one. */
-export function cx(...parts: Array<string | false | null | undefined>): string {
-  return parts.filter(Boolean).join(" ");
-}
 
 type Polymorphic<E extends React.ElementType> = {
   as?: E;
