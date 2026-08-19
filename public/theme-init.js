@@ -1,6 +1,6 @@
 (function () {
-  var LIGHT_THEME_COLOR = '#f8fafc';
-  var DARK_THEME_COLOR = '#0f172a';
+  var LIGHT_THEME_COLOR = '#f5f7f3';
+  var DARK_THEME_COLOR = '#0a0b0a';
   var preference = 'system';
   var highContrast = false;
 

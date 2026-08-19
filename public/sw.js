@@ -16,6 +16,10 @@ const CACHE_TTL = {
 // Avoid precaching HTML/navigations: stale HTML can reference deleted hashed chunks after deploy.
 const PRECACHE_ASSETS = [
   '/theme-init.js',
+  // Self-hosted Urbanist. Precached so the UI keeps its typeface offline
+  // instead of falling back to system-ui mid-shift.
+  '/fonts/urbanist-latin.woff2',
+  '/fonts/urbanist-latin-ext.woff2',
   '/icons/favicon-64.png',
   '/icons/apple-touch-icon.png',
   '/icons/icon-192.png',

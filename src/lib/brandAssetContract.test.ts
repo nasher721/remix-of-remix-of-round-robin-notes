@@ -63,8 +63,8 @@ test("browser and installed-app icons use the Rolling Rounds asset set", () => {
     startUrl: "/",
     scope: "/",
     display: "standalone",
-    backgroundColor: "#f8fafc",
-    themeColor: "#135776",
+    backgroundColor: "#f5f7f3",
+    themeColor: "#00c56a",
     lang: "en",
     dir: "ltr",
     orientation: "any",
@@ -78,7 +78,7 @@ test("browser and installed-app icons use the Rolling Rounds asset set", () => {
   assert.match(serviceWorker, /'\/icons\/favicon-64\.png'/);
   assert.match(serviceWorker, /'\/icons\/icon-192\.png'/);
   assert.match(serviceWorker, /'\/theme-init\.js'/);
-  assert.match(html, /<meta name="theme-color" content="#f8fafc" \/>/);
+  assert.match(html, /<meta name="theme-color" content="#f5f7f3" \/>/);
   assert.match(html, /<script src="\/theme-init\.js"><\/script>/);
   assert.ok(
     html.indexOf('name="theme-color"') < html.indexOf('src="/theme-init.js"'),
@@ -89,8 +89,8 @@ test("browser and installed-app icons use the Rolling Rounds asset set", () => {
   assert.match(html, /<meta name="apple-mobile-web-app-title" content="Rolling Rounds" \/>/);
   assert.match(themeBootstrap, /window\.localStorage\.getItem\('vite-ui-theme'\)/);
   assert.match(themeBootstrap, /window\.localStorage\.getItem\('vite-ui-high-contrast'\)/);
-  assert.match(themeBootstrap, /'#f8fafc'/);
-  assert.match(themeBootstrap, /'#0f172a'/);
+  assert.match(themeBootstrap, /'#f5f7f3'/);
+  assert.match(themeBootstrap, /'#0a0b0a'/);
   assert.doesNotMatch(`${html}\n${JSON.stringify(manifest)}\n${serviceWorker}`, /\/favicon\.ico/);
 
   assert.deepEqual(readPngDimensions("public/icons/favicon-64.png"), { width: 64, height: 64 });
