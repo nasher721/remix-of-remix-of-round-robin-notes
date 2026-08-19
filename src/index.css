@@ -8,10 +8,11 @@
 /* =========================================================================
    URBANIST — self-hosted variable font
    -------------------------------------------------------------------------
-   Served from /public/fonts rather than Google Fonts because the production
-   CSP is `font-src 'self' data:`; loading from fonts.gstatic.com would mean
-   widening the CSP of a PHI-bearing app for a typeface. Self-hosting also
-   keeps the font available offline, which the service worker relies on.
+   Served from /public/fonts, never a third-party font host. The production
+   CSP is `font-src 'self' data:`, and widening it for a typeface is the wrong
+   trade in a PHI-bearing app; deployWorkflowSafety.test.ts enforces this.
+   Self-hosting also keeps the font available offline, which the service
+   worker precache relies on.
 
    One variable file per subset covers weights 400–800, so there is no
    per-weight request fan-out. `font-display: swap` keeps first paint text
