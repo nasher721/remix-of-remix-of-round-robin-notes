@@ -26,7 +26,8 @@ import it yourself.
 
 | File | What it is |
 |---|---|
-| `tokens.css` | **Source of truth.** All CSS variables, light + dark. |
+| `ledgerix.css` | **Everything in one file** — tokens + components. Start here. |
+| `tokens.css` | Source of truth. All CSS variables, light + dark. |
 | `components.css` | `.lx-*` component classes. Framework-free. |
 | `tokens.ts` | Typed mirror of the tokens, for charts / canvas / PDF / RN. |
 | `tailwind.preset.ts` | Tailwind 3.x preset mapping tokens to utilities. |
@@ -50,14 +51,23 @@ so is Tailwind + the preset with no CSS classes at all.
 
 ### 1. Any project (plain CSS)
 
-```html
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="design-system/ledgerix/tokens.css">
-<link rel="stylesheet" href="design-system/ledgerix/components.css">
+One file, nothing else required:
 
-<body class="lx-root">…</body>
+```html
+<link rel="stylesheet" href="ledgerix.css">
+
+<body class="lx-root">
+  <button class="lx-btn lx-btn--primary">Export</button>
+</body>
+```
+
+`ledgerix.css` is `tokens.css` + `components.css` concatenated, and pulls
+Urbanist itself. Use the two files separately instead if you want to swap the
+token layer without touching components:
+
+```html
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
 ```
 
 `tokens.css` also `@import`s Urbanist itself, so the font links are an
