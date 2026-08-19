@@ -154,21 +154,21 @@ test.describe("Auth and dashboard", () => {
 
     await page.goto("/");
     await expect(page.locator("html")).toHaveClass(/dark/);
-    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0f172a");
-    await expectFirstThemeFrame("dark", "#0f172a");
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0a0b0a");
+    await expectFirstThemeFrame("dark", "#0a0b0a");
 
     await page.evaluate(() => window.localStorage.setItem("vite-ui-theme", "system"));
     await page.emulateMedia({ colorScheme: "dark" });
     await page.reload();
     await expect(page.locator("html")).toHaveClass(/dark/);
-    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0f172a");
-    await expectFirstThemeFrame("dark", "#0f172a");
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#0a0b0a");
+    await expectFirstThemeFrame("dark", "#0a0b0a");
 
     await page.evaluate(() => window.localStorage.setItem("vite-ui-theme", "light"));
     await page.reload();
     await expect(page.locator("html")).toHaveClass(/light/);
-    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#f8fafc");
-    await expectFirstThemeFrame("light", "#f8fafc");
+    await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#f5f7f3");
+    await expectFirstThemeFrame("light", "#f5f7f3");
   });
 
   test("crawl assets publish only canonical public surfaces @public", async ({ request }) => {
