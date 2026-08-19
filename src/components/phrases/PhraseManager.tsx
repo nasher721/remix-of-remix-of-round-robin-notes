@@ -205,11 +205,12 @@ export const PhraseManager: React.FC<PhraseManagerProps> = ({
   }, [editingFolder, isCreatingFolder, selectedFolder]);
 
   // Filter phrases
+  const searchLower = search.toLowerCase();
   const filteredPhrases = phrases.filter(p => {
-    const matchesSearch = !search || 
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.content.toLowerCase().includes(search.toLowerCase()) ||
-      p.shortcut?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = !search ||
+      p.name.toLowerCase().includes(searchLower) ||
+      p.content.toLowerCase().includes(searchLower) ||
+      p.shortcut?.toLowerCase().includes(searchLower);
     
     const matchesFolder = !selectedFolder || p.folderId === selectedFolder;
     

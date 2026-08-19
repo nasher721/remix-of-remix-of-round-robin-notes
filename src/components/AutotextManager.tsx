@@ -193,16 +193,18 @@ export const AutotextManager = ({
     }
   };
 
-  const filteredAutotexts = autotexts.filter(a => 
-    a.shortcut.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.expansion.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    a.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const searchLower = searchQuery.toLowerCase();
+
+  const filteredAutotexts = autotexts.filter(a =>
+    a.shortcut.toLowerCase().includes(searchLower) ||
+    a.expansion.toLowerCase().includes(searchLower) ||
+    a.category.toLowerCase().includes(searchLower)
   );
 
   const filteredTemplates = templates.filter(t =>
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.content.toLowerCase().includes(searchQuery.toLowerCase())
+    t.name.toLowerCase().includes(searchLower) ||
+    t.category.toLowerCase().includes(searchLower) ||
+    t.content.toLowerCase().includes(searchLower)
   );
 
   const autotextCategories = [...new Set(autotexts.map(a => a.category))];

@@ -58,11 +58,16 @@ export function useGuidelinesSearch({
     // Expand query with keyword mappings
     const expandedTerms = new Set<string>(queryWords);
     Object.entries(keywordMap).forEach(([key, synonyms]) => {
-      if (queryWords.some(w => key.toLowerCase().includes(w) || synonyms.some(s => s.toLowerCase().includes(w)))) {
-        expandedTerms.add(key.toLowerCase());
-        synonyms.forEach(s => expandedTerms.add(s.toLowerCase()));
+      const keyLower = key.toLowerCase();
+      const synonymsLower = synonyms.map(synonym => synonym.toLowerCase());
+      if (queryWords.some(w => keyLower.includes(w) || synonymsLower.some(s => s.includes(w)))) {
+        expandedTerms.add(keyLower);
+        synonymsLower.forEach(s => expandedTerms.add(s));
       }
     });
+
+    // Materialize once: the per-keyword match below runs for every keyword of every guideline.
+    const expandedTermList = [...expandedTerms];
 
     const results: GuidelineSearchResult[] = [];
 
@@ -97,7 +102,7 @@ export function useGuidelinesSearch({
       // Check keywords
       guideline.keywords.forEach(keyword => {
         const keywordLower = keyword.toLowerCase();
-        if (Array.from(expandedTerms).some(term => keywordLower.includes(term) || term.includes(keywordLower))) {
+        if (expandedTermList.some(term => keywordLower.includes(term) || term.includes(keywordLower))) {
           score += 5;
           matchedKeywords.push(keyword);
         }

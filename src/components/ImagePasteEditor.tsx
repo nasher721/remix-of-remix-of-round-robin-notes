@@ -762,7 +762,8 @@ export const ImagePasteEditor = ({
     if (e.key === " " || e.key === "Tab") {
       const { word } = getCurrentWord();
       if (word) {
-        const autotext = autotexts.find(a => a.shortcut.toLowerCase() === word.toLowerCase());
+        const normalizedWord = word.toLowerCase();
+        const autotext = autotexts.find(a => a.shortcut.toLowerCase() === normalizedWord);
         if (autotext) {
           e.preventDefault();
           replaceCurrentWord(autotext.expansion);

@@ -50,6 +50,32 @@ const WARNING_KEYWORDS: Record<string, string[]> = {
   labs: ["hgb <7", "plt <50", "k >6", "k <2.5", "na >160", "na <120", "glu >400", "lactate >4"],
 };
 
+const HIGH_RISK_MEDS = [
+  "heparin", "warfarin", "insulin", "digoxin", "phenytoin",
+  "lithium", "methotrexate", "amiodarone", "fentanyl", "midazolam",
+];
+
+const SEVERITY_ORDER: Record<AlertSeverity, number> = { critical: 0, warning: 1, info: 2, success: 3 };
+
+interface SearchableSystem {
+  system: string;
+  /** Keyword pairs: `label` is shown to the user, `search` is the pre-lowercased needle. */
+  keywords: Array<{ label: string; search: string }>;
+}
+
+/** Pre-lowercases each keyword once at module load rather than on every patient. */
+function toSearchableSystems(source: Record<string, string[]>): SearchableSystem[] {
+  return Object.entries(source).map(([system, keywords]) => ({
+    system,
+    keywords: keywords.map((label) => ({ label, search: label.toLowerCase() })),
+  }));
+}
+
+const CRITICAL_SYSTEMS = toSearchableSystems(CRITICAL_KEYWORDS);
+const WARNING_SYSTEMS = toSearchableSystems(WARNING_KEYWORDS);
+
+const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+
 const DOCUMENTATION_ALERTS = {
   missingSummary: {
     title: "Missing Clinical Summary",
@@ -81,45 +107,43 @@ export function analyzePatientForAlerts(patient: Patient): ClinicalAlert[] {
   const alerts: ClinicalAlert[] = [];
   const now = new Date().toISOString();
 
-  Object.entries(CRITICAL_KEYWORDS).forEach(([system, keywords]) => {
-    const text = getSystemText(patient, system);
-    keywords.forEach((keyword) => {
-      if (text.toLowerCase().includes(keyword.toLowerCase())) {
-        alerts.push({
-          id: `${patient.id}-${system}-${keyword}-${Date.now()}`,
-          patientId: patient.id,
-          patientName: patient.name,
-          title: `Critical ${system.charAt(0).toUpperCase() + system.slice(1)} Finding`,
-          message: `Detected "${keyword}" in ${system} assessment`,
-          severity: "critical",
-          category: system as AlertCategory,
-          field: `systems.${system}`,
-          suggestedAction: "Review immediately and consider escalation",
-          dismissed: false,
-          createdAt: now,
-        });
-      }
+  CRITICAL_SYSTEMS.forEach(({ system, keywords }) => {
+    const text = getSystemText(patient, system).toLowerCase();
+    keywords.forEach(({ label, search }) => {
+      if (!text.includes(search)) return;
+      alerts.push({
+        id: `${patient.id}-${system}-${label}-${Date.now()}`,
+        patientId: patient.id,
+        patientName: patient.name,
+        title: `Critical ${capitalize(system)} Finding`,
+        message: `Detected "${label}" in ${system} assessment`,
+        severity: "critical",
+        category: system as AlertCategory,
+        field: `systems.${system}`,
+        suggestedAction: "Review immediately and consider escalation",
+        dismissed: false,
+        createdAt: now,
+      });
     });
   });
 
-  Object.entries(WARNING_KEYWORDS).forEach(([system, keywords]) => {
-    const text = getSystemText(patient, system);
-    keywords.forEach((keyword) => {
-      if (text.toLowerCase().includes(keyword.toLowerCase())) {
-        alerts.push({
-          id: `${patient.id}-${system}-warning-${keyword}-${Date.now()}`,
-          patientId: patient.id,
-          patientName: patient.name,
-          title: `${system.charAt(0).toUpperCase() + system.slice(1)} Alert`,
-          message: `Detected "${keyword}" in ${system} assessment`,
-          severity: "warning",
-          category: system as AlertCategory,
-          field: `systems.${system}`,
-          suggestedAction: "Consider follow-up or monitoring",
-          dismissed: false,
-          createdAt: now,
-        });
-      }
+  WARNING_SYSTEMS.forEach(({ system, keywords }) => {
+    const text = getSystemText(patient, system).toLowerCase();
+    keywords.forEach(({ label, search }) => {
+      if (!text.includes(search)) return;
+      alerts.push({
+        id: `${patient.id}-${system}-warning-${label}-${Date.now()}`,
+        patientId: patient.id,
+        patientName: patient.name,
+        title: `${capitalize(system)} Alert`,
+        message: `Detected "${label}" in ${system} assessment`,
+        severity: "warning",
+        category: system as AlertCategory,
+        field: `systems.${system}`,
+        suggestedAction: "Consider follow-up or monitoring",
+        dismissed: false,
+        createdAt: now,
+      });
     });
   });
 
@@ -158,38 +182,30 @@ export function analyzePatientForAlerts(patient: Patient): ClinicalAlert[] {
     });
   }
 
-  const highRiskMeds = [
-    "heparin", "warfarin", "insulin", "digoxin", "phenytoin",
-    "lithium", "methotrexate", "amiodarone", "fentanyl", "midazolam"
-  ];
   const allMeds = [
     ...patient.medications.infusions,
     ...patient.medications.scheduled,
     ...patient.medications.prn,
   ].join(" ").toLowerCase();
 
-  highRiskMeds.forEach((med) => {
-    if (allMeds.includes(med)) {
-      alerts.push({
-        id: `${patient.id}-highrisk-${med}-${Date.now()}`,
-        patientId: patient.id,
-        patientName: patient.name,
-        title: "High-Risk Medication",
-        message: `Patient on ${med.charAt(0).toUpperCase() + med.slice(1)}`,
-        severity: "warning",
-        category: "medication",
-        field: "medications",
-        suggestedAction: "Verify dosing and monitoring parameters",
-        dismissed: false,
-        createdAt: now,
-      });
-    }
+  HIGH_RISK_MEDS.forEach((med) => {
+    if (!allMeds.includes(med)) return;
+    alerts.push({
+      id: `${patient.id}-highrisk-${med}-${Date.now()}`,
+      patientId: patient.id,
+      patientName: patient.name,
+      title: "High-Risk Medication",
+      message: `Patient on ${capitalize(med)}`,
+      severity: "warning",
+      category: "medication",
+      field: "medications",
+      suggestedAction: "Verify dosing and monitoring parameters",
+      dismissed: false,
+      createdAt: now,
+    });
   });
 
-  return alerts.sort((a, b) => {
-    const severityOrder = { critical: 0, warning: 1, info: 2, success: 3 };
-    return severityOrder[a.severity] - severityOrder[b.severity];
-  });
+  return alerts.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 
 /**

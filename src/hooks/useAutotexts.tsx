@@ -279,7 +279,8 @@ export const useCloudAutotexts = () => {
   }, [isCurrentOwner, ownerId, toast]);
 
   const getExpansion = React.useCallback((shortcut: string): string | null => {
-    const autotext = autotexts.find((entry) => entry.shortcut.toLowerCase() === shortcut.toLowerCase());
+    const normalizedShortcut = shortcut.toLowerCase();
+    const autotext = autotexts.find((entry) => entry.shortcut.toLowerCase() === normalizedShortcut);
     return autotext?.expansion || null;
   }, [autotexts]);
 
