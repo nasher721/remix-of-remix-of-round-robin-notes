@@ -48,7 +48,7 @@ export const PrintCards = ({
           <div className="p-4 space-y-4">
             {isColumnEnabled("clinicalSummary") && patient.clinicalSummary && (
               <div className="border-2 border-primary/30 rounded-lg overflow-hidden">
-                <div className="bg-primary text-white font-bold uppercase px-3 py-2 print-col-dynamic" style={{ '--print-fs': `${printFontSize + 1}px` } as React.CSSProperties}>
+                <div className="bg-primary text-primary-foreground font-bold uppercase px-3 py-2 print-col-dynamic" style={{ '--print-fs': `${printFontSize + 1}px` } as React.CSSProperties}>
                   Clinical Summary
                 </div>
                 <div
@@ -61,7 +61,7 @@ export const PrintCards = ({
 
             {isColumnEnabled("intervalEvents") && patient.intervalEvents && (
               <div className="border-2 border-primary/30 rounded-lg overflow-hidden">
-                <div className="bg-primary text-white font-bold uppercase px-3 py-2 print-col-dynamic" style={{ '--print-fs': `${printFontSize + 1}px` } as React.CSSProperties}>
+                <div className="bg-primary text-primary-foreground font-bold uppercase px-3 py-2 print-col-dynamic" style={{ '--print-fs': `${printFontSize + 1}px` } as React.CSSProperties}>
                   Interval Events
                 </div>
                 <div
@@ -118,7 +118,7 @@ export const PrintCards = ({
                   return (
                     <div key={key} className="border-2 border-primary rounded-lg overflow-hidden">
                       <div
-                        className="bg-primary text-white font-bold uppercase px-2 py-1.5 text-center print-col-dynamic"
+                        className="bg-primary text-primary-foreground font-bold uppercase px-2 py-1.5 text-center print-col-dynamic"
                         style={{ '--print-fs': `${printFontSize}px` } as React.CSSProperties}
                       >
                         {systemLabels[key]}

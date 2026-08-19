@@ -49,3 +49,6 @@ supabase/.temp/
 
 # Duplicate local planning artifact (canonical copy lives under docs/plans/)
 /2026-08-11-clinical-production-readiness-plan.md
+
+# Generated bundle for the Ledgerix design system (rebuild with `zip -r`)
+design-system/ledgerix-design-system.zip

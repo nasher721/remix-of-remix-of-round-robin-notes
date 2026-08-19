@@ -257,7 +257,7 @@ test('theme provider falls back to defaults and in-memory updates when storage m
       assert.equal(result.current.highContrast, false);
       assert.equal(document.documentElement.classList.contains('light'), true);
       assert.equal(document.documentElement.style.colorScheme, 'light');
-      assert.equal(themeColor.content, '#f8fafc');
+      assert.equal(themeColor.content, '#f5f7f3');
 
       assert.doesNotThrow(() => {
         act(() => result.current.setTheme('dark'));
@@ -265,7 +265,7 @@ test('theme provider falls back to defaults and in-memory updates when storage m
       assert.equal(result.current.theme, 'dark');
       assert.equal(document.documentElement.classList.contains('dark'), true);
       assert.equal(document.documentElement.style.colorScheme, 'dark');
-      assert.equal(themeColor.content, '#0f172a');
+      assert.equal(themeColor.content, '#0a0b0a');
 
       assert.doesNotThrow(() => {
         act(() => result.current.setHighContrast(true));

@@ -279,8 +279,16 @@ describe('Supabase deployment workflow', () => {
 
     assert.doesNotMatch(shippedSurface, /fonts\.googleapis\.com/)
     assert.doesNotMatch(shippedSurface, /fonts\.gstatic\.com/)
-    assert.match(css, /--font-heading: ui-rounded, "SF Pro Rounded"/)
-    assert.match(css, /--font-sans: Inter, ui-sans-serif, system-ui/)
+    // Urbanist ships self-hosted from /public/fonts. Asserting the @font-face
+    // src (rather than only the family stack) is what actually pins the policy:
+    // a stack naming Urbanist would still pass if someone later pointed it at
+    // a CDN, and the CSP is font-src 'self' data:.
+    assert.match(css, /@font-face/)
+    assert.match(css, /src: url\("\/fonts\/urbanist-latin\.woff2"\) format\("woff2"\)/)
+    assert.match(css, /src: url\("\/fonts\/urbanist-latin-ext\.woff2"\) format\("woff2"\)/)
+    assert.doesNotMatch(css, /@font-face[\s\S]*?src:[^;]*url\(\s*["']?https?:/)
+    assert.match(css, /--font-heading: "Urbanist", ui-sans-serif, system-ui/)
+    assert.match(css, /--font-sans: "Urbanist", ui-sans-serif, system-ui/)
   })
 
   it('generates environment-correct crawl assets instead of shipping a stale static sitemap', async () => {
