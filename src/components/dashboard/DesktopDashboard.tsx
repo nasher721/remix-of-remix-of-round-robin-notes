@@ -1,4 +1,11 @@
 import * as React from "react";
+import { SmartLabParser } from "@/components/SmartLabParser";
+import { OneClickSignOff } from "@/components/OneClickSignOff";
+import { ClinicalPhraseAnalytics } from "@/components/ClinicalPhraseAnalytics";
+import { ProtocolTriggerSuggestions } from "@/components/ProtocolTriggerSuggestions";
+import { MedicationDoseCalculators } from "@/components/MedicationDoseCalculators";
+import { useClinicalPhrases } from "@/hooks/useClinicalPhrases";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { createTimeline } from "animejs";
@@ -891,6 +898,16 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
 }) => {
   const MENU_OPEN_STORAGE_KEY = "rr-desktop-utility-menu-open";
 
+  const { phrases } = useClinicalPhrases();
+  
+  const handleSignOff = async (patientIds: string[]) => {
+    toast.success(`Signed off ${patientIds.length} patient${patientIds.length === 1 ? '' : 's'}`);
+  };
+
+  const handleProtocolActivate = (protocolId: string, patientId: string) => {
+    toast.success(`Activated protocol for patient`);
+  };
+
   const [menuOpen, setMenuOpenState] = React.useState(() => {
     if (typeof window === "undefined") return false;
     return safeLocalStorage.getItem(MENU_OPEN_STORAGE_KEY) === "1";
@@ -1079,6 +1096,19 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                     <UnitCensusDashboard patients={patients} />
                     <ContextAwareHelp />
                     <BatchCourseGenerator patients={patients} todosMap={todosMap} />
+                  </CollapsibleContent>
+                </Collapsible>
+                <Collapsible className="rounded-md border border-border/30 bg-card/40 animate-[stagger-fade-up_0.3s_ease-out_forwards]" style={{ animationDelay: '200ms', opacity: 0 }}>
+                  <CollapsibleTrigger className="group flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-secondary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    <span>Clinical Tools</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
+                    <SmartLabParser />
+                    <MedicationDoseCalculators />
+                    <OneClickSignOff patients={patients} todosMap={todosMap} onSignOff={handleSignOff} />
+                    <ProtocolTriggerSuggestions patients={patients} onProtocolActivate={handleProtocolActivate} />
+                    <ClinicalPhraseAnalytics phrases={phrases} />
                   </CollapsibleContent>
                 </Collapsible>
               </div>
