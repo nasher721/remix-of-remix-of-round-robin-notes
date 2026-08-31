@@ -17,6 +17,25 @@ import { indexedDBQueue } from "@/lib/offline/indexedDBQueue";
 
 const queryClients: QueryClient[] = [];
 
+/**
+ * Mutation surface plus the live auth session.
+ *
+ * Every mutation in usePatientMutations returns early while `user` is still
+ * null, so a test that acts before AuthProvider resolves silently exercises
+ * nothing. Spreading keeps `result.current.<mutation>` working while exposing
+ * `__auth` for an observable readiness wait instead of a fixed sleep.
+ */
+function useMutationsWithAuth(options: Parameters<typeof usePatientMutations>[0]) {
+  return { ...usePatientMutations(options), __auth: useAuth() };
+}
+
+/** Block until the provider has a session, replacing fixed-sleep auth waits. */
+async function waitForAuthSession(result: { current: { __auth: ReturnType<typeof useAuth> } }) {
+  await waitFor(() => {
+    assert.ok(result.current.__auth.user?.id, "auth session should be ready");
+  });
+}
+
 afterEach(() => {
   cleanup();
   queryClients.splice(0).forEach((queryClient) => queryClient.clear());
@@ -144,7 +163,7 @@ test("usePatientMutations addPatient calls supabase insert with expected payload
 
   const { result } = renderHook(
     () =>
-      usePatientMutations({
+      useMutationsWithAuth({
         patientsRef,
         setPatients,
         patientCounter: 1,
@@ -154,9 +173,7 @@ test("usePatientMutations addPatient calls supabase insert with expected payload
     { wrapper }
   );
 
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.addPatient();
   });
@@ -187,7 +204,7 @@ test("usePatientMutations updatePatient calls supabase update", async () => {
   queryClient.setQueryData(QUERY_KEYS.patientList("test-user-id"), [{ ...mockPatient }]);
 
   const { result } = renderHook(() =>
-    usePatientMutations({
+    useMutationsWithAuth({
       patientsRef,
       setPatients,
       patientCounter: 1,
@@ -197,9 +214,7 @@ test("usePatientMutations updatePatient calls supabase update", async () => {
     { wrapper }
   );
 
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.updatePatient("existing-id", "name", "Updated Name");
   });
@@ -222,7 +237,7 @@ test("sticky known-offline patient updates queue without issuing a Supabase upda
       : action;
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
@@ -230,7 +245,7 @@ test("sticky known-offline patient updates queue without issuing a Supabase upda
     fetchPatients: async () => {},
   }), { wrapper });
 
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
+  await waitForAuthSession(result);
   await indexedDBQueue.clear();
   const updateCapture = (globalThis as unknown as {
     __supabaseUpdateCapture?: Array<{ table: string; data: unknown }>;
@@ -270,14 +285,14 @@ test("successful patient updates emit fixed PHI-safe mutation metrics", async ()
       : action;
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
     setPatientCounter: () => {},
     fetchPatients: async () => {},
   }), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await waitForAuthSession(result);
 
   const originalConsoleLog = console.log;
   const lines: string[] = [];
@@ -313,14 +328,14 @@ test("updates for a missing patient never leave a phantom saving state", async (
   setupAuthMock();
   const patientsRef = { current: [{ ...mockPatient }] };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients: () => {},
     patientCounter: 1,
     setPatientCounter: () => {},
     fetchPatients: async () => {},
   }), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await waitForAuthSession(result);
 
   await act(async () => {
     await result.current.updatePatient("missing-id", "name", "Never persisted");
@@ -348,7 +363,7 @@ test("usePatientMutations forces a server refresh after failed optimistic patien
   });
 
   const { result } = renderHook(() =>
-    usePatientMutations({
+    useMutationsWithAuth({
       patientsRef,
       setPatients,
       patientCounter: 1,
@@ -358,9 +373,7 @@ test("usePatientMutations forces a server refresh after failed optimistic patien
     { wrapper }
   );
 
-  await act(async () => {
-    await new Promise((r) => setTimeout(r, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.updatePatient("existing-id", "name", "Failed Update");
   });
@@ -391,7 +404,7 @@ test("usePatientMutations rejects a stale cross-tab revision instead of overwrit
     return { data: null, error: null, count: 0 };
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
@@ -399,7 +412,7 @@ test("usePatientMutations rejects a stale cross-tab revision instead of overwrit
     fetchPatients: async (options) => { fetchCalls.push(options); },
   }), { wrapper });
 
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.updatePatient("existing-id", "name", "Stale edit");
   });
@@ -442,14 +455,14 @@ test("one stale revision blocks already-queued keystrokes from issuing repeated 
   };
 
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
     setPatientCounter: () => {},
     fetchPatients: async (options) => { fetchCalls.push(options); },
   }), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await waitForAuthSession(result);
 
   let writes!: Promise<void>[];
   await act(async () => {
@@ -499,14 +512,14 @@ test("an edit started after a conflict waits for the forced refresh before writi
     };
   });
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
     setPatientCounter: () => {},
     fetchPatients,
   }), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await waitForAuthSession(result);
 
   await act(async () => {
     await result.current.updatePatient("existing-id", "clinicalSummary", "Stale local edit");
@@ -565,7 +578,7 @@ test("usePatientMutations ignores a deferred user-A rollback after switching to 
       }),
     );
   const { result } = renderHook(() =>
-    usePatientMutations({
+    useMutationsWithAuth({
       patientsRef,
       setPatients,
       patientCounter: 1,
@@ -575,9 +588,7 @@ test("usePatientMutations ignores a deferred user-A rollback after switching to 
     { wrapper },
   );
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 30));
-  });
+  await waitForAuthSession(result);
 
   let pendingUpdate!: Promise<void>;
   await act(async () => {
@@ -622,7 +633,7 @@ test("a failed older update rolls back only its field and preserves a newer succ
     return { error: null };
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
@@ -630,9 +641,7 @@ test("a failed older update rolls back only its field and preserves a newer succ
     fetchPatients: async (options) => { fetchCalls.push(options); },
   }), { wrapper });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  await waitForAuthSession(result);
 
   let olderUpdate!: Promise<void>;
   let newerUpdate!: Promise<void>;
@@ -674,14 +683,14 @@ test("a failed deferred systems patch cannot leak through a concurrent sibling u
   };
 
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
     setPatientCounter: () => {},
     fetchPatients: async () => {},
   }), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await waitForAuthSession(result);
 
   let neuroRequest!: Promise<void>;
   let cvRequest!: Promise<void>;
@@ -730,14 +739,14 @@ test("deferred medication sibling patches persist without last-completer JSON lo
   };
 
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
     setPatientCounter: () => {},
     fetchPatients: async () => {},
   }), { wrapper });
-  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+  await waitForAuthSession(result);
 
   let infusionsRequest!: Promise<void>;
   let scheduledRequest!: Promise<void>;
@@ -778,7 +787,7 @@ test("a failed collapse-all request restores only collapse state and preserves n
     return { error: null };
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
@@ -786,9 +795,7 @@ test("a failed collapse-all request restores only collapse state and preserves n
     fetchPatients: async () => {},
   }), { wrapper });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  await waitForAuthSession(result);
 
   let collapseRequest!: Promise<void>;
   await act(async () => {
@@ -818,7 +825,7 @@ test("imaging updates delete superseded objects only after persistence succeeds"
       : action;
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
@@ -826,9 +833,7 @@ test("imaging updates delete superseded objects only after persistence succeeds"
     fetchPatients: async () => {},
   }), { wrapper });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.updatePatient(
       "existing-id",
@@ -858,7 +863,7 @@ test("failed imaging persistence removes only the uncommitted upload and restore
     error: new Error("forced imaging failure"),
   });
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
@@ -866,9 +871,7 @@ test("failed imaging persistence removes only the uncommitted upload and restore
     fetchPatients: async () => {},
   }), { wrapper });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.updatePatient(
       "existing-id",
@@ -900,7 +903,7 @@ test("patient deletion preserves an image object still referenced by another pat
       : action;
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 2,
@@ -908,9 +911,7 @@ test("patient deletion preserves an image object still referenced by another pat
     fetchPatients: async () => {},
   }), { wrapper });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.removePatient("existing-id");
   });
@@ -934,7 +935,7 @@ test("patient deletion removes image objects that are no longer referenced", asy
       : action;
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 1,
@@ -942,9 +943,7 @@ test("patient deletion removes image objects that are no longer referenced", asy
     fetchPatients: async () => {},
   }), { wrapper });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.removePatient("existing-id");
   });
@@ -983,7 +982,7 @@ test("clearing all patients removes each owner image object once after the datab
       : action;
   };
   const { wrapper } = createAuthQueryWrapper();
-  const { result } = renderHook(() => usePatientMutations({
+  const { result } = renderHook(() => useMutationsWithAuth({
     patientsRef,
     setPatients,
     patientCounter: 2,
@@ -991,9 +990,7 @@ test("clearing all patients removes each owner image object once after the datab
     fetchPatients: async () => {},
   }), { wrapper });
 
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  });
+  await waitForAuthSession(result);
   await act(async () => {
     await result.current.clearAll();
   });
@@ -1094,7 +1091,7 @@ test("usePatientMutations returns addPatient, updatePatient, removePatient, dupl
   const { wrapper } = createAuthQueryWrapper();
 
   const { result } = renderHook(() =>
-    usePatientMutations({
+    useMutationsWithAuth({
       patientsRef,
       setPatients,
       patientCounter: 1,

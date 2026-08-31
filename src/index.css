@@ -5,46 +5,100 @@
 /* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind directives are required */
 @tailwind utilities;
 
+/* =========================================================================
+   URBANIST — self-hosted variable font
+   -------------------------------------------------------------------------
+   Served from /public/fonts, never a third-party font host. The production
+   CSP is `font-src 'self' data:`, and widening it for a typeface is the wrong
+   trade in a PHI-bearing app; deployWorkflowSafety.test.ts enforces this.
+   Self-hosting also keeps the font available offline, which the service
+   worker precache relies on.
+
+   One variable file per subset covers weights 400–800, so there is no
+   per-weight request fan-out. `font-display: swap` keeps first paint text
+   visible; the fallback stack below is metric-similar enough that the swap
+   does not reflow layout badly.
+   ========================================================================= */
+
+@font-face {
+  font-family: "Urbanist";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/urbanist-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Urbanist";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("/fonts/urbanist-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 @layer base {
   :root {
-    --background: 210 24% 98%;
-    --foreground: 222 24% 12%;
+    /* Ledgerix palette. Neutrals carry a faint green cast (hue ~90-100) so the
+       chrome and the brand accent read as one family rather than a green
+       swatch dropped onto grey. */
+    --background: 90 20% 96%;
+    --foreground: 100 11% 5%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 12%;
+    --card-foreground: 100 11% 5%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 12%;
+    --popover-foreground: 100 11% 5%;
 
-    /* Minimal clinical product palette */
-    --primary: 199 72% 27%;
-    --primary-foreground: 0 0% 100%;
+    /* Brand green — interactive chrome only (buttons, active nav, links).
+       --primary-foreground is INK, not white: white on this green measures
+       2.28:1, ink measures 8.43:1. Revisit only if the green gets darker. */
+    --primary: 152 100% 39%;
+    --primary-foreground: 100 11% 5%;
 
-    --secondary: 210 20% 95%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 86 20% 93%;
+    --secondary-foreground: 100 11% 5%;
 
-    --muted: 210 20% 94%;
-    --muted-foreground: 215 15% 42%;
+    --muted: 86 20% 93%;
+    --muted-foreground: 102 5% 43%;
 
-    --accent: 199 55% 94%;
-    --accent-foreground: 198 70% 30%;
+    --accent: 145 70% 95%;
+    --accent-foreground: 152 100% 25%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    /* Deepened from the raw Ledgerix red-500 (59% L): white on that measures
+       3.92:1. 52% clears AA while staying the same hue. */
+    --destructive: 358 75% 52%;
+    --destructive-foreground: 0 0% 100%;
 
-    --success: 150 60% 40%;
+    /* Clinical status green is deliberately TEAL, not the brand green. In this
+       app green already means "normal / stable / in range"; if success shared
+       the brand hue, a status chip and a call-to-action would look identical.
+       Hue 178 keeps the "good" reading while staying clearly not-a-button. */
+    --success: 178 64% 30%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 40 85% 55%;
-    --warning-foreground: 30 90% 10%;
+    --warning: 37 91% 55%;
+    --warning-foreground: 38 100% 15%;
 
-    --border: 214 22% 88%;
-    --input: 214 22% 88%;
-    --ring: 198 70% 30%;
+    --border: 90 14% 89%;
+    /* Inputs are interactive boundaries and need 3:1 against the surface,
+       unlike decorative card hairlines. */
+    --input: 98 5% 50%;
+    --ring: 152 100% 32%;
 
-    /* Radius: compact and consistent for dense clinical UI */
-    --radius: 0.5rem;
-    --radius-sm: 0.375rem;
+    /* Ledgerix assigns radius by role, not by size: controls 12px, inner tiles
+       16px, cards 20px. --radius is the control step; Tailwind derives
+       md/sm/xl/2xl from it, so rounded-xl lands at ~18px for cards. Kept a
+       step tighter than Ledgerix's 20px because this is a dense clinical
+       roster, not a four-tile finance dashboard. */
+    --radius: 0.75rem;
+    --radius-sm: 0.5rem;
 
     /* Shadows: card and modal for consistent elevation */
     --shadow-card: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
@@ -54,10 +108,10 @@
 
     /* Surface elevation: 4 levels for depth hierarchy (base→card→panel→overlay) */
     --surface-0: 0 0% 100%;
-    --surface-1: 0 0% 99%;
-    --surface-2: 0 0% 97%;
-    --surface-3: 0 0% 94%;
-    --surface-4: 210 20% 90%;
+    --surface-1: 90 20% 98%;
+    --surface-2: 90 20% 96%;
+    --surface-3: 86 20% 93%;
+    --surface-4: 90 14% 89%;
 
     /* Functional surfaces: keep legacy utility names, remove decorative mesh by default */
     --gradient-header-mesh: linear-gradient(180deg, hsl(var(--card)) 0%, hsl(var(--card)) 100%);
@@ -73,8 +127,8 @@
     --space-6: 1.5rem;
     --space-8: 2rem;
 
-    --font-heading: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
-    --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-heading: "Urbanist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-sans: "Urbanist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
     /* Typography scale (align with fluid where used) */
     --text-fluid-xs: 0.8125rem;
@@ -93,45 +147,49 @@
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
+    /* Dark builds depth from a surface lightness ladder rather than shadow —
+       canvas 4% -> card 7% -> raised 10% — because drop shadows on near-black
+       are invisible and only muddy the panel. */
+    --background: 120 5% 4%;
+    --foreground: 90 20% 98%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 120 5% 7%;
+    --card-foreground: 90 20% 98%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 96 9% 10%;
+    --popover-foreground: 90 20% 98%;
 
-    --primary: 198 70% 50%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 152 100% 39%;
+    --primary-foreground: 120 5% 4%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 94 10% 14%;
+    --secondary-foreground: 90 20% 98%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 94 10% 14%;
+    --muted-foreground: 98 5% 55%;
 
-    --accent: 198 50% 15%;
-    --accent-foreground: 198 70% 60%;
+    --accent: 151 80% 16%;
+    --accent-foreground: 152 80% 45%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 358 86% 65%;
+    --destructive-foreground: 120 5% 4%;
 
-    --success: 150 55% 45%;
-    --success-foreground: 0 0% 100%;
+    /* Clinical teal, lightened for the dark ground. */
+    --success: 178 52% 52%;
+    --success-foreground: 120 5% 4%;
 
-    --warning: 40 80% 60%;
-    --warning-foreground: 30 80% 8%;
+    --warning: 41 96% 61%;
+    --warning-foreground: 120 5% 4%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 198 70% 60%;
+    --border: 94 10% 14%;
+    --input: 102 5% 43%;
+    --ring: 152 80% 45%;
 
-    --surface-0: 222 47% 11%;
-    --surface-1: 222 40% 13%;
-    --surface-2: 222 35% 15%;
-    --surface-3: 222 30% 18%;
-    --surface-4: 222 25% 22%;
+    --surface-0: 120 5% 4%;
+    --surface-1: 120 5% 7%;
+    --surface-2: 96 9% 10%;
+    --surface-3: 94 10% 14%;
+    --surface-4: 102 9% 21%;
 
     --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.25);
     --shadow-modal: 0 18px 50px -24px rgba(0, 0, 0, 0.6), 0 8px 20px -18px rgba(0, 0, 0, 0.4);
@@ -141,21 +199,21 @@
 
   /* High contrast: stronger text, borders, and focus (WCAG-friendly) — stacks with .light / .dark on html */
   .light.high-contrast {
-    --foreground: 240 12% 8%;
-    --muted-foreground: 222 18% 28%;
-    --border: 222 22% 52%;
-    --input: 222 22% 52%;
-    --ring: 198 95% 22%;
-    --card-foreground: 240 12% 8%;
+    --foreground: 100 11% 3%;
+    --muted-foreground: 98 7% 26%;
+    --border: 98 5% 45%;
+    --input: 98 7% 31%;
+    --ring: 152 100% 25%;
+    --card-foreground: 100 11% 3%;
   }
 
   .dark.high-contrast {
-    --foreground: 210 45% 99%;
-    --muted-foreground: 215 22% 82%;
-    --border: 215 22% 42%;
-    --input: 215 22% 42%;
-    --ring: 198 95% 58%;
-    --card-foreground: 210 45% 99%;
+    --foreground: 0 0% 100%;
+    --muted-foreground: 93 11% 81%;
+    --border: 97 8% 66%;
+    --input: 97 8% 66%;
+    --ring: 151 68% 60%;
+    --card-foreground: 0 0% 100%;
   }
 }
 
@@ -319,6 +377,293 @@
 
 [data-browser-print-root] {
   display: none;
+}
+
+/*
+ * Rounds print format
+ *
+ * Reproduces the clinician's rounds document house style. Every tunable value
+ * arrives as a CSS custom property set inline on `[data-rounds-document]`, so
+ * the same stylesheet serves the on-screen preview, the hidden export sandbox
+ * and the browser print clone without re-injecting styles per render.
+ */
+[data-rounds-document] {
+  --rounds-body-pt: 9pt;
+  --rounds-title-pt: 10pt;
+  --rounds-system-pt: 9pt;
+  --rounds-header-pt: 14pt;
+  --rounds-summary-pt: 9pt;
+  --rounds-line-height: 1.25;
+  --rounds-indent: 8pt;
+  --rounds-section-gap: 6pt;
+  --rounds-page-width: 215.9mm;
+  --rounds-page-height: 279.4mm;
+  --rounds-page-margin: 12.7mm;
+  --rounds-column-count: 1;
+  --rounds-column-gap: 6mm;
+  --rounds-column-rule: none;
+  --rounds-header-bg: #2e3a4e;
+  --rounds-header-text: #ffffff;
+  --rounds-header-accent: #ffd966;
+  --rounds-summary-text: #d9e2f0;
+  --rounds-body-text: #1f2d3d;
+  --rounds-title-text: #1f2d3d;
+  --rounds-dispo-bg: #ebf3fb;
+  --rounds-dispo-text: #1f2d3d;
+
+  color: var(--rounds-body-text);
+  font-size: var(--rounds-body-pt);
+  line-height: var(--rounds-line-height);
+  background: #ffffff;
+}
+
+.rounds-page {
+  width: var(--rounds-page-width);
+  padding: var(--rounds-page-margin);
+  background: #ffffff;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+
+/* Preview only: show the full sheet so page breaks are obvious on screen. */
+[data-rounds-preview="true"] .rounds-page {
+  min-height: var(--rounds-page-height);
+  margin-bottom: 8mm;
+  box-shadow: 0 8px 24px -12px rgb(15 23 42 / 0.35);
+  border: 1px solid rgb(148 163 184 / 0.35);
+}
+
+.rounds-flow {
+  column-count: var(--rounds-column-count);
+  column-gap: var(--rounds-column-gap);
+  column-rule: var(--rounds-column-rule);
+  /*
+   * Continuous flow balances across the columns; a multicol box with automatic
+   * height would otherwise put every section in column 1 and leave column 2
+   * blank, because `auto` fill has no height to fill against.
+   */
+  column-fill: balance;
+}
+
+/*
+ * Sequential fill runs column 1 to the bottom of the sheet before column 2
+ * starts, like the paper document. That needs a real height, so the flow is
+ * floored at the page's content box. Content taller than one page grows the box
+ * and fragments onto the next printed page rather than clipping.
+ */
+.rounds-flow--sequential {
+  column-fill: auto;
+  min-height: calc(var(--rounds-page-height) - (var(--rounds-page-margin) * 2));
+}
+
+.rounds-patient {
+  break-inside: auto;
+}
+
+.rounds-patient--separated {
+  border-top: 1pt solid #cbd5e1;
+  padding-top: var(--rounds-section-gap);
+  margin-top: var(--rounds-section-gap);
+}
+
+.rounds-patient--spaced {
+  margin-top: calc(var(--rounds-section-gap) * 2.5);
+}
+
+.rounds-banner {
+  background: var(--rounds-header-bg);
+  color: var(--rounds-header-text);
+  padding: 4pt 6pt;
+  break-inside: avoid;
+  break-after: avoid;
+}
+
+.rounds-banner--plain {
+  background: transparent;
+  color: var(--rounds-body-text);
+  border-bottom: 1.5pt solid var(--rounds-body-text);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.rounds-banner__title {
+  font-size: var(--rounds-header-pt);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.rounds-banner__bed {
+  color: var(--rounds-header-text);
+  margin-right: 0.5em;
+}
+
+.rounds-banner--plain .rounds-banner__bed {
+  color: inherit;
+}
+
+.rounds-banner__name {
+  color: var(--rounds-header-accent);
+}
+
+.rounds-banner--plain .rounds-banner__name {
+  color: inherit;
+}
+
+.rounds-banner__meta,
+.rounds-banner__summary,
+.rounds-banner__allergies {
+  font-size: var(--rounds-summary-pt);
+  color: var(--rounds-summary-text);
+  line-height: var(--rounds-line-height);
+  margin-top: 1.5pt;
+}
+
+.rounds-banner--plain .rounds-banner__meta,
+.rounds-banner--plain .rounds-banner__summary,
+.rounds-banner--plain .rounds-banner__allergies {
+  color: var(--rounds-body-text);
+}
+
+.rounds-banner__summary {
+  font-style: italic;
+}
+
+.rounds-banner__allergies {
+  font-weight: 700;
+}
+
+.rounds-section {
+  margin-top: var(--rounds-section-gap);
+}
+
+.rounds-section--together {
+  break-inside: avoid;
+}
+
+.rounds-section__header {
+  font-size: var(--rounds-system-pt);
+  font-weight: 700;
+  line-height: 1.2;
+  break-after: avoid;
+}
+
+.rounds-section__header--bar {
+  background: var(--rounds-section-color);
+  color: var(--rounds-section-on-color);
+  padding: 1.5pt 5pt;
+}
+
+.rounds-section__header--underline {
+  color: var(--rounds-section-color);
+  border-bottom: 1pt solid var(--rounds-section-color);
+  padding-bottom: 1pt;
+}
+
+.rounds-section__header--plain {
+  color: var(--rounds-section-color);
+}
+
+.rounds-section__body {
+  margin-top: 2pt;
+  padding-left: var(--rounds-indent);
+}
+
+.rounds-line {
+  font-size: var(--rounds-body-pt);
+  line-height: var(--rounds-line-height);
+  margin: 0 0 1pt;
+  overflow-wrap: anywhere;
+}
+
+.rounds-line--heading {
+  font-size: var(--rounds-title-pt);
+  font-weight: 700;
+  color: var(--rounds-title-text);
+  margin-top: 2pt;
+  margin-left: calc(var(--rounds-indent) * -1);
+  break-after: avoid;
+}
+
+.rounds-todo {
+  display: flex;
+  gap: 0.4em;
+  align-items: flex-start;
+}
+
+.rounds-todo__box {
+  flex: 0 0 auto;
+  font-family: "DejaVu Sans", "Segoe UI Symbol", sans-serif;
+}
+
+.rounds-notes__line {
+  border-bottom: 0.75pt solid #94a3b8;
+  height: calc(var(--rounds-body-pt) * 1.9);
+}
+
+.rounds-dispo {
+  margin-top: var(--rounds-section-gap);
+  background: var(--rounds-dispo-bg);
+  color: var(--rounds-dispo-text);
+  border: 0.75pt solid #cbd5e1;
+  padding: 3pt 6pt;
+  break-inside: avoid;
+}
+
+.rounds-dispo__label {
+  font-weight: 700;
+  margin-right: 0.4em;
+}
+
+.rounds-doc-header {
+  border-bottom: 1pt solid #cbd5e1;
+  padding-bottom: 4pt;
+  margin-bottom: var(--rounds-section-gap);
+  break-inside: avoid;
+}
+
+.rounds-doc-header__title {
+  font-size: calc(var(--rounds-header-pt) * 1.05);
+  font-weight: 700;
+  color: var(--rounds-body-text);
+}
+
+.rounds-doc-header__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  font-size: var(--rounds-summary-pt);
+  color: #475569;
+  margin-top: 2pt;
+}
+
+@media print {
+  [data-rounds-document] {
+    width: 100% !important;
+  }
+
+  .rounds-page {
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    break-after: page;
+  }
+
+  .rounds-page:last-child {
+    break-after: auto;
+  }
+
+  .rounds-page--continuous {
+    break-after: auto;
+  }
+
+  .rounds-banner,
+  .rounds-section__header--bar,
+  .rounds-dispo {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
 
 /* Print Styles that must remain for clinical functionality */
@@ -811,6 +1156,7 @@ body *:not(.animate-spin)::after {
 
 /* Roster rail items */
 .rr-roster-item {
+  position: relative;
   display: block;
   width: 100%;
   text-align: left;
@@ -823,7 +1169,28 @@ body *:not(.animate-spin)::after {
   color: var(--rr-label-1);
 }
 .rr-roster-item:hover { background: var(--rr-f1); }
-.rr-roster-item.rr-sel { background: var(--rr-f2); }
+/*
+ * Selected = "this is the chart open in the workspace". A neutral gray fill is
+ * too easy to lose in a dense roster, so the open row carries the accent tint
+ * plus a leading accent bar. forced-colors falls back to the system Highlight.
+ */
+.rr-roster-item.rr-sel,
+.rr-roster-item.rr-sel:hover { background: var(--rr-light-blue-bg); }
+.rr-roster-item.rr-sel::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--rr-blue);
+}
+@media (forced-colors: active) {
+  .rr-roster-item.rr-sel,
+  .rr-roster-item.rr-sel:hover { background: Highlight !important; color: HighlightText !important; }
+  .rr-roster-item.rr-sel::before { background: HighlightText !important; }
+}
 .rr-bed-chip {
   font-size: 12px;
   font-weight: 500;

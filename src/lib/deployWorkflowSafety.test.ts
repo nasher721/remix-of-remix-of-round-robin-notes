@@ -263,7 +263,10 @@ describe('Supabase deployment workflow', () => {
 
     assert.match(workflow, /VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/)
     assert.match(workflow, /VITE_SUPABASE_PUBLISHABLE_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/)
-    assert.equal((workflow.match(/VITE_SUPABASE_URL:/g) ?? []).length, 4)
+    // The project URL is bound once more than the anon key: the public browser
+    // smoke step derives the Supabase storage key from the project ref and must
+    // not receive credentials.
+    assert.equal((workflow.match(/VITE_SUPABASE_URL:/g) ?? []).length, 5)
     assert.equal((workflow.match(/VITE_SUPABASE_PUBLISHABLE_KEY:/g) ?? []).length, 4)
     assert.match(gitignore, /^\.env$/m)
   })
@@ -276,8 +279,16 @@ describe('Supabase deployment workflow', () => {
 
     assert.doesNotMatch(shippedSurface, /fonts\.googleapis\.com/)
     assert.doesNotMatch(shippedSurface, /fonts\.gstatic\.com/)
-    assert.match(css, /--font-heading: ui-rounded, "SF Pro Rounded"/)
-    assert.match(css, /--font-sans: Inter, ui-sans-serif, system-ui/)
+    // Urbanist ships self-hosted from /public/fonts. Asserting the @font-face
+    // src (rather than only the family stack) is what actually pins the policy:
+    // a stack naming Urbanist would still pass if someone later pointed it at
+    // a CDN, and the CSP is font-src 'self' data:.
+    assert.match(css, /@font-face/)
+    assert.match(css, /src: url\("\/fonts\/urbanist-latin\.woff2"\) format\("woff2"\)/)
+    assert.match(css, /src: url\("\/fonts\/urbanist-latin-ext\.woff2"\) format\("woff2"\)/)
+    assert.doesNotMatch(css, /@font-face[\s\S]*?src:[^;]*url\(\s*["']?https?:/)
+    assert.match(css, /--font-heading: "Urbanist", ui-sans-serif, system-ui/)
+    assert.match(css, /--font-sans: "Urbanist", ui-sans-serif, system-ui/)
   })
 
   it('generates environment-correct crawl assets instead of shipping a stale static sitemap', async () => {
@@ -313,8 +324,15 @@ describe('Supabase deployment workflow', () => {
     assert.match(workflow, /run: npm run test:e2e:webkit\n/)
     assert.equal((workflow.match(/E2E_USE_PREVIEW: "1"/g) ?? []).length, 3)
     assert.equal((workflow.match(/E2E_REQUIRE_FULL_SUITE: "1"/g) ?? []).length, 2)
-    assert.equal((workflow.match(/VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/g) ?? []).length, 4)
+    // Build step, both authenticated suites, and the public smoke step bind the
+    // project URL; only the first three carry the anon key.
+    assert.equal((workflow.match(/VITE_SUPABASE_URL: \$\{\{ vars\.VITE_SUPABASE_URL \}\}/g) ?? []).length, 5)
     assert.equal((workflow.match(/VITE_SUPABASE_PUBLISHABLE_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/g) ?? []).length, 4)
+    // The public smoke step gets the project ref but must stay credential-free.
+    assert.doesNotMatch(
+      workflow.split('name: Public Chromium and WebKit auth-page smoke')[1]?.split('- name:')[0] ?? '',
+      /SUPABASE_ANON_KEY|E2E_TEST_PASSWORD/,
+    )
     assert.match(workflow, /group: e2e-shared-account/)
     assert.doesNotMatch(workflow, /test:e2e:webkit -- --grep/)
     assert.match(packageJson.scripts['test:e2e:public'], /--grep "@public"/)

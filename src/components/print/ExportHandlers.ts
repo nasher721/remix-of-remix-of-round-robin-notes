@@ -203,6 +203,14 @@ export interface ExportContext {
   pdf?: PdfExportSettings;
   patientImageOwnerId?: string;
   patientImageSignedUrls?: ReadonlyMap<string, string>;
+  /**
+   * The rounds document is a rendered layout rather than a column model, so PDF
+   * export must rasterize the prepared DOM instead of rebuilding a table.
+   */
+  roundsDocument?: {
+    pageSize: 'letter' | 'a4' | 'legal';
+    orientation: 'portrait' | 'landscape';
+  };
 }
 
 const getEnabledSystemKeys = (isColumnEnabled: (key: string) => boolean) =>
@@ -835,9 +843,14 @@ const renderPdfMultiColumnLayout = (
   }
 };
 
+/** html2pdf.js accepts `pagebreak`, but its shipped types omit the field. */
+type Html2PdfConfig = Record<string, unknown>;
+
 const exportWithHtml2PdfFallback = async (ctx: ExportContext, element: HTMLElement, fileName: string) => {
   const { default: html2pdf } = await import('html2pdf.js');
   await html2pdf()
+    // `pagebreak` is supported by html2pdf.js but missing from its shipped
+    // types; without it the rounds document's CSS page breaks are ignored.
     .set({
       filename: fileName,
       margin: 0,
@@ -851,12 +864,13 @@ const exportWithHtml2PdfFallback = async (ctx: ExportContext, element: HTMLEleme
         logging: false,
         backgroundColor: '#ffffff',
       },
+      pagebreak: { mode: ['css', 'legacy'] },
       jsPDF: {
         unit: 'mm',
-        format: ctx.paperSize ?? 'a4',
-        orientation: ctx.printOrientation,
+        format: ctx.roundsDocument?.pageSize ?? ctx.paperSize ?? 'a4',
+        orientation: ctx.roundsDocument?.orientation ?? ctx.printOrientation,
       },
-    })
+    } as Html2PdfConfig)
     .from(element)
     .save();
 };
@@ -961,7 +975,7 @@ export const handleExportPDF = async (ctx: ExportContext, element?: HTMLElement 
   // The vector text renderer cannot preserve clinical images. When the
   // disposable export tree contains safely hydrated private images, use the
   // existing async HTML renderer so the visual export includes them.
-  if (element && containsPrintablePatientImages(element)) {
+  if (element && (ctx.roundsDocument || containsPrintablePatientImages(element))) {
     await waitForPrintablePatientImages(element);
     await exportWithHtml2PdfFallback(ctx, element, fileName);
     return fileName;

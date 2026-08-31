@@ -341,9 +341,10 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
     }
   };
 
+  const searchLower = search.toLowerCase();
   const filteredActions = QUICK_ACTIONS.filter(action =>
-    action.label.toLowerCase().includes(search.toLowerCase()) ||
-    action.description?.toLowerCase().includes(search.toLowerCase())
+    action.label.toLowerCase().includes(searchLower) ||
+    action.description?.toLowerCase().includes(searchLower)
   );
 
   const groupedActions = {
@@ -359,7 +360,8 @@ export function QuickActionsPanel({ patient, onUpdatePatient, className }: Quick
       if (!open) return;
       if (e.metaKey || e.ctrlKey) return;
 
-      const action = QUICK_ACTIONS.find(a => a.shortcut?.toLowerCase() === e.key.toLowerCase());
+      const pressedKey = e.key.toLowerCase();
+      const action = QUICK_ACTIONS.find(a => a.shortcut?.toLowerCase() === pressedKey);
       if (action) {
         e.preventDefault();
         executeAction(action);

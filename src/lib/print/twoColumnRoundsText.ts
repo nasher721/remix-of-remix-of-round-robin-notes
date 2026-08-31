@@ -1,6 +1,6 @@
-import { sanitizeHtml } from "@/lib/sanitize";
-import type { Patient, PatientMedications } from "@/types/patient";
+import type { Patient } from "@/types/patient";
 import type { PatientTodo } from "@/types/todo";
+import { htmlToSourceLines, medicationSourceLines as medicationLines } from "./htmlLines";
 
 type PatientTodosMap = Record<string, PatientTodo[]>;
 
@@ -12,57 +12,6 @@ interface TextSection {
 const COLUMN_WIDTH = 62;
 const COLUMN_GUTTER = "   |   ";
 const PAGE_WIDTH = COLUMN_WIDTH * 2 + COLUMN_GUTTER.length;
-const BLOCK_TAGS = new Set([
-  "DIV",
-  "H1",
-  "H2",
-  "H3",
-  "H4",
-  "H5",
-  "H6",
-  "LI",
-  "OL",
-  "P",
-  "TABLE",
-  "TD",
-  "TH",
-  "TR",
-  "UL",
-]);
-
-const htmlToSourceLines = (html: string): string[] => {
-  if (!html) return [];
-
-  const container = document.createElement("div");
-  container.innerHTML = sanitizeHtml(html);
-
-  const readNode = (node: Node): string => {
-    if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? "";
-    if (node.nodeType !== Node.ELEMENT_NODE) return "";
-
-    const element = node as HTMLElement;
-    if (element.tagName === "BR") return "\n";
-
-    const content = Array.from(element.childNodes).map(readNode).join("");
-    return BLOCK_TAGS.has(element.tagName) ? `${content}\n` : content;
-  };
-
-  return Array.from(container.childNodes)
-    .map(readNode)
-    .join("")
-    .replace(/\r\n?/g, "\n")
-    .split("\n")
-    .filter((line) => line.length > 0);
-};
-
-const medicationLines = (medications: PatientMedications): string[] => {
-  const lines: string[] = [];
-  if (medications.infusions.length) lines.push(`Infusions: ${medications.infusions.join(", ")}`);
-  if (medications.scheduled.length) lines.push(`Scheduled: ${medications.scheduled.join(", ")}`);
-  if (medications.prn.length) lines.push(`PRN: ${medications.prn.join(", ")}`);
-  if (!lines.length && medications.rawText) lines.push(...htmlToSourceLines(medications.rawText));
-  return lines;
-};
 
 const section = (label: string, lines: string[]): TextSection | null =>
   lines.length ? { label, lines } : null;

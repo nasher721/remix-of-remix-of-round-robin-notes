@@ -17,9 +17,10 @@ export function usePatientFilter({ patients, sortBy, currentUserId }: UsePatient
   const [filter, setFilter] = useState<PatientFilterType>(PatientFilterType.All);
 
   const filteredPatients = useMemo(() => {
+    const searchLower = searchQuery.toLowerCase();
+
     return patients
       .filter((patient) => {
-        const searchLower = searchQuery.toLowerCase();
         const matchesSearch =
           !searchQuery ||
           patient.name.toLowerCase().includes(searchLower) ||

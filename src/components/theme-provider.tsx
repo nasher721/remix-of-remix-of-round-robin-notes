@@ -10,8 +10,8 @@ type ThemeProviderProps = {
 }
 
 const HIGH_CONTRAST_KEY = "vite-ui-high-contrast"
-const LIGHT_THEME_COLOR = "#f8fafc"
-const DARK_THEME_COLOR = "#0f172a"
+const LIGHT_THEME_COLOR = "#f5f7f3"
+const DARK_THEME_COLOR = "#0a0b0a"
 
 type ThemeProviderState = {
     theme: Theme

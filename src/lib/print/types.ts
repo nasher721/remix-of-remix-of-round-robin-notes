@@ -1,5 +1,13 @@
 import type { Patient } from "@/types/patient";
 import type { PatientTodo } from "@/types/todo";
+import type { RoundsSettings } from "./roundsTypes";
+
+/**
+ * Which document the print pipeline renders. `table`, `cards` and `list` are
+ * the column-driven layouts; `rounds` is the organ-system rounds document whose
+ * own knobs live in `PrintSettings.rounds`.
+ */
+export type PrintFormat = "table" | "cards" | "list" | "rounds";
 
 export interface ColumnConfig {
     key: string;
@@ -99,9 +107,12 @@ export interface PrintSettings {
     compactMode: boolean;
     physicianName?: string;
     pdf?: PdfExportSettings;
+    /** Active document format. Kept as `activeTab` for stored-payload compatibility. */
     activeTab: string;
     showNotesColumn: boolean;
     showTodosColumn: boolean;
+    /** Rounds-document configuration; present once the rounds format is used. */
+    rounds?: RoundsSettings;
 }
 
 export interface PrintDataProps {

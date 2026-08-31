@@ -16,7 +16,7 @@ export const PrintSystemsReview = ({ systems, enabledSystemKeys, fontSize }: Pri
     return (
         <div>
             <div
-                className="bg-primary text-white font-bold uppercase px-3 py-2 rounded-t-lg"
+                className="bg-primary text-primary-foreground font-bold uppercase px-3 py-2 rounded-t-lg"
                 style={{ fontSize: 'calc(var(--print-fs) + 1px)', letterSpacing: '0.5px' } as React.CSSProperties}
             >
                 Systems Review
@@ -30,7 +30,7 @@ export const PrintSystemsReview = ({ systems, enabledSystemKeys, fontSize }: Pri
                             sysIdx % 5 === 4 && "border-r-0"
                         )}>
                             <div
-                                className="bg-primary/90 text-white font-bold uppercase px-2 py-1.5 text-center"
+                                className="bg-primary/90 text-primary-foreground font-bold uppercase px-2 py-1.5 text-center"
                                 style={{ fontSize: 'var(--print-fs)', letterSpacing: '0.3px' } as React.CSSProperties}
                             >
                                 {systemLabels[key]}

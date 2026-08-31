@@ -18,12 +18,28 @@ import { PrintTemplateSelector } from "./print/PrintTemplateSelector";
 import { PrintDocument } from "./print/PrintDocument";
 import { LayoutDesigner } from "./print/layoutDesigner";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import type { LayoutConfig } from "@/types/layoutDesigner";
-import type { PrintSettings as PrintSettingsType, ColumnConfig, CustomCombination } from "@/lib/print/types";
+import type {
+  PrintSettings as PrintSettingsType,
+  ColumnConfig,
+  CustomCombination,
+  PrintFormat,
+} from "@/lib/print/types";
+import {
+  DEFAULT_ROUNDS_SINGLE,
+  DEFAULT_ROUNDS_TWO_COLUMN,
+  ROUNDS_PAGE_SIZE_CSS,
+  getRoundsPageMetrics,
+  normalizeRoundsSettings,
+  type RoundsSettings,
+} from "@/lib/print/roundsTypes";
+import { RoundsSettingsPanel } from "./print/RoundsSettingsPanel";
+import { PrintFormatPicker, type PrintFormatChoice } from "./print/PrintFormatPicker";
 import { getTemplateById, mergeTemplateCustomizations, PrintTemplatePreset, PrintTemplateType } from "@/types/printTemplates";
 import { defaultColumnWidths, defaultColumns, defaultCombinedColumnWidths } from "./print/constants";
-import { getPageCss, DEFAULT_PAPER_SIZE } from "@/lib/print/layout";
+import { getPageCss, getPageMetrics, DEFAULT_PAPER_SIZE } from "@/lib/print/layout";
 import { STORAGE_KEYS } from "@/constants/config";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -50,6 +66,7 @@ import {
 import type { PrintExportModalProps, PatientTodosMap } from "./print/types";
 import { printElement } from "@/lib/print/printElement";
 import { downloadTwoColumnRoundsText } from "@/lib/print/twoColumnRoundsText";
+import { downloadRoundsWordDocument } from "@/lib/print/roundsWordExport";
 
 export type { PrintExportModalProps, PatientTodosMap };
 
@@ -175,7 +192,8 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     compactMode: false,
     activeTab: 'table',
     showNotesColumn: false,
-    showTodosColumn: true
+    showTodosColumn: true,
+    rounds: DEFAULT_ROUNDS_SINGLE,
   }), []);
 
   const [settings, setSettings] = React.useState<PrintSettingsType>(defaultSettings);
@@ -187,6 +205,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     combinedColumns: stored?.combinedColumns ?? [],
     columnWidths: { ...defaultColumnWidths, ...(stored?.columnWidths ?? {}) },
     combinedColumnWidths: { ...defaultCombinedColumnWidths, ...(stored?.combinedColumnWidths ?? {}) },
+    rounds: normalizeRoundsSettings(stored?.rounds, stored?.rounds?.variant ?? 'single'),
   }), [defaultSettings]);
 
   const syncSettingsToLocalStorage = React.useCallback((nextSettings: PrintSettingsType) => {
@@ -210,6 +229,8 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     printStorage.setItem('printShowTimestamp', nextSettings.showTimestamp.toString());
     printStorage.setItem('printAlternateRowColors', nextSettings.alternateRowColors.toString());
     printStorage.setItem('printCompactMode', nextSettings.compactMode.toString());
+    printStorage.setItem(STORAGE_KEYS.PRINT_FORMAT, nextSettings.activeTab);
+    printStorage.setItem(STORAGE_KEYS.PRINT_ROUNDS_SETTINGS, JSON.stringify(nextSettings.rounds));
   }, [printStorage]);
 
   const buildPrintPayload = React.useCallback(() => ({
@@ -288,6 +309,11 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
           showTimestamp: printStorage.getItem('printShowTimestamp') !== 'false',
           alternateRowColors: printStorage.getItem('printAlternateRowColors') !== 'false',
           compactMode: printStorage.getItem('printCompactMode') === 'true',
+          activeTab: printStorage.getItem(STORAGE_KEYS.PRINT_FORMAT) || defaultSettings.activeTab,
+          rounds: parseStoredJson<RoundsSettings | undefined>(
+            printStorage.getItem(STORAGE_KEYS.PRINT_ROUNDS_SETTINGS),
+            undefined,
+          ),
         }),
         customCombinations: parseStoredJson<CustomCombination[]>(
           printStorage.getItem(STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS),
@@ -388,7 +414,20 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
   // selected paper size, orientation, and margins; printElement() also injects
   // the same rule itself for the modal-driven Print button.
   const applyPageStyleRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { printOrientation, margins, paperSize } = settings;
+  const { printOrientation, margins, paperSize, activeTab } = settings;
+  const roundsSettings = React.useMemo(
+    () => normalizeRoundsSettings(settings.rounds, settings.rounds?.variant ?? 'single'),
+    [settings.rounds],
+  );
+  // The rounds document owns its own paper size, so `@page` has to follow the
+  // active format — printing a Letter layout onto an A4 sheet reflows it.
+  const isRoundsFormat = activeTab === 'rounds';
+  const pageCss = isRoundsFormat
+    ? `size: ${ROUNDS_PAGE_SIZE_CSS[roundsSettings.pageSize]} ${roundsSettings.orientation}; margin: 0;`
+    : getPageCss({ printOrientation, margins, paperSize });
+  const pageMarginMm = isRoundsFormat
+    ? getRoundsPageMetrics(roundsSettings).marginMm
+    : getPageMetrics({ printOrientation, margins, paperSize }).marginMm;
   React.useEffect(() => {
     if (applyPageStyleRef.current) clearTimeout(applyPageStyleRef.current);
     applyPageStyleRef.current = setTimeout(() => {
@@ -399,10 +438,11 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
         style.id = styleId;
         document.head.appendChild(style);
       }
-      style.textContent = `@page { ${getPageCss({ printOrientation, margins, paperSize })} }`;
+      style.textContent = `@page { ${pageCss} }`;
+      document.documentElement.style.setProperty("--print-page-margin", `${pageMarginMm}mm`);
     }, 150);
     return () => { if (applyPageStyleRef.current) clearTimeout(applyPageStyleRef.current); };
-  }, [printOrientation, margins, paperSize]);
+  }, [pageCss, pageMarginMm]);
 
   React.useEffect(() => {
     syncSettingsToLocalStorage(settings);
@@ -429,6 +469,52 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
 
   const handleUpdateColumns = React.useCallback((newColumns: ColumnConfig[]) => {
     setSettings(prev => ({ ...prev, columns: newColumns }));
+  }, []);
+
+  const handleUpdateRounds = React.useCallback((patch: Partial<RoundsSettings>) => {
+    setSettings(prev => {
+      const current = normalizeRoundsSettings(prev.rounds, prev.rounds?.variant ?? 'single');
+      return { ...prev, rounds: normalizeRoundsSettings({ ...current, ...patch }, current.variant) };
+    });
+  }, []);
+
+  /**
+   * Switching to a rounds variant seeds that variant's house defaults the first
+   * time it is chosen, then preserves whatever the clinician tuned afterwards.
+   */
+  const handleSelectFormat = React.useCallback((choice: PrintFormatChoice) => {
+    setSettings(prev => {
+      if (choice.format !== 'rounds') {
+        return { ...prev, activeTab: choice.format };
+      }
+
+      const current = prev.rounds
+        ? normalizeRoundsSettings(prev.rounds, prev.rounds.variant)
+        : null;
+
+      if (current && current.variant === choice.variant) {
+        return { ...prev, activeTab: 'rounds' };
+      }
+
+      const base =
+        choice.variant === 'twoColumn' ? DEFAULT_ROUNDS_TWO_COLUMN : DEFAULT_ROUNDS_SINGLE;
+
+      return {
+        ...prev,
+        activeTab: 'rounds',
+        rounds: normalizeRoundsSettings(
+          {
+            ...base,
+            // Section choices are the clinician's content decisions and survive
+            // a switch between the one- and two-column variants.
+            sections: current
+              ? current.sections.map(section => ({ ...section }))
+              : base.sections.map(section => ({ ...section })),
+          },
+          choice.variant,
+        ),
+      };
+    });
   }, []);
 
   // Single atomic setState — avoids the previous 2-render cascade
@@ -620,7 +706,13 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     totalPatientCount,
     patientImageOwnerId: user?.id,
     patientImageSignedUrls,
-  }), [patients, patientTodos, settings, isColumnEnabled, getPatientTodos, patientNotes, isFiltered, totalPatientCount, user?.id, patientImageSignedUrls]);
+    physicianName: settings.physicianName,
+    showPageNumbers: settings.showPageNumbers,
+    showTimestamp: settings.showTimestamp,
+    roundsDocument: isRoundsFormat
+      ? { pageSize: roundsSettings.pageSize, orientation: roundsSettings.orientation }
+      : undefined,
+  }), [patients, patientTodos, settings, isColumnEnabled, getPatientTodos, patientNotes, isFiltered, totalPatientCount, user?.id, patientImageSignedUrls, isRoundsFormat, roundsSettings.pageSize, roundsSettings.orientation]);
 
   const handlePrint = () => {
     const pageStyle = getPageCss(settings);
@@ -710,7 +802,11 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
   const onExportWord = async () => {
     setIsGenerating(true);
     try {
-      const fileName = await handleExportDOC(getExportContext());
+      // Exports follow the previewed format: the rounds layout has its own
+      // Word writer so paper size, columns and colour bars survive the round trip.
+      const fileName = isRoundsFormat
+        ? downloadRoundsWordDocument(patients, patientTodos, roundsSettings, settings.physicianName)
+        : await handleExportDOC(getExportContext());
       toast({ title: "Word Export Complete", description: fileName });
     } catch (e) {
       console.error(e);
@@ -760,6 +856,22 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     }
   };
 
+  /** One-line description of what the current settings will actually print. */
+  const formatSummary = isRoundsFormat
+    ? [
+        `Rounds · ${roundsSettings.variant === 'twoColumn' ? `${roundsSettings.columnCount}-column` : 'single column'}`,
+        roundsSettings.pageSize === 'a4' ? 'A4' : roundsSettings.pageSize === 'legal' ? 'Legal' : 'Letter',
+        roundsSettings.orientation,
+        `${roundsSettings.bodyPt}pt`,
+        roundsSettings.onePatientPerPage ? 'one patient per page' : 'continuous',
+      ].join(' · ')
+    : [
+        settings.activeTab === 'cards' ? 'Cards' : settings.activeTab === 'list' ? 'List' : 'Table',
+        'A4',
+        settings.printOrientation,
+        `${settings.printFontSize}pt`,
+      ].join(' · ');
+
   // If layout designer is open, show it fullscreen
   if (showLayoutDesigner) {
     return (
@@ -786,27 +898,28 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
       <DialogContent className="max-w-7xl w-[95vw] md:w-full h-[95vh] md:h-[90vh] max-h-[95vh] md:max-h-[90vh] flex flex-col p-0 gap-0 top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] overflow-hidden rounded-2xl border-0 shadow-2xl bg-background/95 backdrop-blur-xl">
         <DialogHeader className="px-5 md:px-6 py-4 pr-14 md:pr-16 border-b border-border/30 flex-shrink-0 bg-gradient-to-b from-muted/20 to-transparent">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-2 min-w-0">
-            <DialogTitle className="flex items-center gap-2.5 min-w-0 shrink text-lg font-semibold tracking-tight">
-              <div className="p-1.5 rounded-lg bg-primary/10">
-                <Printer className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-              </div>
-              Print & Export
-              {appliedLayout && (
-                <span className="text-xs font-normal text-muted-foreground ml-2 px-2 py-0.5 rounded bg-primary/10">
-                  Using: {appliedLayout.name}
-                </span>
-              )}
-            </DialogTitle>
+            <div className="min-w-0 shrink">
+              <DialogTitle className="flex items-center gap-2.5 min-w-0 text-lg font-semibold tracking-tight">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <Printer className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                </div>
+                Print &amp; Export
+              </DialogTitle>
+              <p className="mt-0.5 truncate pl-[2.4rem] text-xs text-muted-foreground">
+                {formatSummary}
+                {appliedLayout ? ` · layout: ${appliedLayout.name}` : ''}
+              </p>
+            </div>
             <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full justify-end sm:justify-end">
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => setShowLayoutDesigner(true)}
                 className="gap-1.5 shrink-0"
               >
                 <LayoutTemplate className="h-4 w-4 shrink-0" aria-hidden />
-                Layout Designer
+                <span className="hidden lg:inline">Layout Designer</span>
               </Button>
               <PrintControls
                 onPrint={handlePrint}
@@ -818,6 +931,10 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
                 onExportMarkdown={onExportMarkdown}
                 onExportTwoColumnText={onExportTwoColumnText}
                 isGenerating={isGenerating || patientImagesLoading}
+                filenamePreview={generateExportFilename('pdf', {
+                  physicianName: settings.physicianName,
+                  patientCount: patients.length,
+                })}
               />
             </div>
           </div>
@@ -828,27 +945,69 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
 
         <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
           {/* Left Sidebar - Settings (scrollable; cap height on small screens so preview keeps space) */}
-          <div className="w-full md:w-80 border-b md:border-b-0 md:border-r bg-muted/5 flex flex-col min-h-0 max-h-[min(42vh,320px)] md:max-h-none overflow-hidden flex-shrink-0">
-            <Tabs defaultValue="settings" className="flex-1 flex flex-col min-h-0">
+          <div className="w-full md:w-[21rem] border-b md:border-b-0 md:border-r bg-muted/5 flex flex-col min-h-0 max-h-[min(46vh,360px)] md:max-h-none overflow-hidden flex-shrink-0">
+            <Tabs defaultValue="format" className="flex-1 flex flex-col min-h-0">
               <div className="px-4 pt-3 md:pt-4 flex-shrink-0">
                 <TabsList className="w-full">
-                  <TabsTrigger value="settings" className="flex-1">Settings</TabsTrigger>
+                  <TabsTrigger value="format" className="flex-1">Format</TabsTrigger>
+                  <TabsTrigger value="settings" className="flex-1">
+                    {isRoundsFormat ? 'Rounds' : 'Columns'}
+                  </TabsTrigger>
                   <TabsTrigger value="templates" className="flex-1">Templates</TabsTrigger>
                 </TabsList>
               </div>
 
+              <TabsContent value="format" className="flex-1 overflow-y-auto p-4 min-h-0 space-y-4">
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Document format
+                  </h4>
+                  <PrintFormatPicker
+                    format={settings.activeTab as PrintFormat}
+                    roundsVariant={roundsSettings.variant}
+                    onSelect={handleSelectFormat}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="print-team-name" className="text-xs font-medium">
+                    Physician / team name
+                  </Label>
+                  <Input
+                    id="print-team-name"
+                    value={settings.physicianName || ''}
+                    onChange={(event) => handleUpdateSettings({ physicianName: event.target.value })}
+                    placeholder="e.g. Dr. Smith — ICU Team A"
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Printed in the document header when one is enabled.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-border/60 bg-background p-3 text-[11px] leading-snug text-muted-foreground">
+                  <span className="font-medium text-foreground">{patients.length}</span>
+                  {' '}patient{patients.length === 1 ? '' : 's'} in this export
+                  {isFiltered && totalPatientCount ? ` (filtered from ${totalPatientCount})` : ''}.
+                </div>
+              </TabsContent>
+
               <TabsContent value="settings" className="flex-1 overflow-y-auto p-4 min-h-0">
-                <PrintSettings
-                  settings={settings}
-                  onUpdateSettings={handleUpdateSettings}
-                  onUpdateColumns={handleUpdateColumns}
-                  onResetColumns={handleResetColumns}
-                  onToggleCombination={handleToggleCombination}
-                  customCombinations={customCombinations}
-                  onAddCustomCombination={handleAddCustomCombination}
-                  onUpdateCustomCombination={handleUpdateCustomCombination}
-                  onDeleteCustomCombination={handleDeleteCustomCombination}
-                />
+                {isRoundsFormat ? (
+                  <RoundsSettingsPanel settings={roundsSettings} onChange={handleUpdateRounds} />
+                ) : (
+                  <PrintSettings
+                    settings={settings}
+                    onUpdateSettings={handleUpdateSettings}
+                    onUpdateColumns={handleUpdateColumns}
+                    onResetColumns={handleResetColumns}
+                    onToggleCombination={handleToggleCombination}
+                    customCombinations={customCombinations}
+                    onAddCustomCombination={handleAddCustomCombination}
+                    onUpdateCustomCombination={handleUpdateCustomCombination}
+                    onDeleteCustomCombination={handleDeleteCustomCombination}
+                  />
+                )}
               </TabsContent>
 
               <TabsContent value="templates" className="p-4 flex-1 overflow-y-auto min-h-0">
@@ -912,7 +1071,6 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
               patientImageOwnerId={user?.id}
               patientImageSignedUrls={patientImageSignedUrls}
               settings={settings}
-              onViewModeChange={(mode) => handleUpdateSettings({ activeTab: mode })}
             />
           </div>
         </div>
@@ -923,7 +1081,9 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
             position: "fixed",
             left: "-100000px",
             top: 0,
-            width: "210mm",
+            // Rasterized exports read the sandbox's real width, so it has to
+            // match the paper the active format targets.
+            width: isRoundsFormat ? `${getRoundsPageMetrics(roundsSettings).widthMm}mm` : "210mm",
             pointerEvents: "none",
           }}
         >

@@ -71,6 +71,7 @@ import {
   type DocumentationStatus,
 } from "@/lib/patientDocumentation";
 import type { Patient } from "@/types/patient";
+import { resolveSequentialNavigationIndex } from "@/lib/listKeyboardNavigation";
 import { cn } from "@/lib/utils";
 import { patientSafetyLabel } from "@/lib/patientIdentity";
 
@@ -281,6 +282,49 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
         ?.focus({ preventScroll: true });
     }, delay);
   }, []);
+
+  /** Live tab nodes, so arrow keys can move real focus across the strip. */
+  const sectionTabRefs = React.useRef(new Map<DocumentationSectionId, HTMLButtonElement>());
+
+  const registerSectionTab = React.useCallback(
+    (sectionId: DocumentationSectionId, node: HTMLButtonElement | null) => {
+      if (node) sectionTabRefs.current.set(sectionId, node);
+      else sectionTabRefs.current.delete(sectionId);
+    },
+    [],
+  );
+
+  /**
+   * Left/Right/Home/End move focus across the documentation tabs, matching the
+   * roster rail's traversal on the other axis.
+   *
+   * Manual activation on purpose: activating a tab scrolls to the section and
+   * focuses the first editable inside it, so activating on arrow would yank
+   * focus out of the strip after one press. Enter and Space still activate
+   * natively, which is what the pattern expects for a jump-to-section
+   * navigator whose sections are all mounted in one scroll body.
+   */
+  const handleSectionTabKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const focusedId = event.currentTarget.getAttribute("data-documentation-tab");
+      const currentIndex = DOCUMENTATION_SECTIONS.findIndex(
+        (section) => section.id === focusedId,
+      );
+      const nextIndex = resolveSequentialNavigationIndex(
+        event.key,
+        currentIndex,
+        DOCUMENTATION_SECTIONS.length,
+        { orientation: "horizontal" },
+      );
+      if (nextIndex === null) return;
+      event.preventDefault();
+      const nextSection = DOCUMENTATION_SECTIONS[nextIndex];
+      if (!nextSection) return;
+      sectionTabRefs.current.get(nextSection.id)?.focus();
+    },
+    [],
+  );
 
   const sectionStatuses = React.useMemo(() => {
     if (!patient) return null;
@@ -549,7 +593,9 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
         {/* Documentation tabs */}
         <nav className="mt-3 flex items-center gap-1 overflow-x-auto" aria-label="Documentation sections">
           <p className="sr-only">
-            Status colors: green means ready, amber means in progress, gray means not started.
+            Status colors: green means ready, amber means in progress, gray means not started. Use
+            the left and right arrow keys to move between sections, then Enter to jump to the
+            selected section.
           </p>
           <div
             className="mr-1 hidden items-center gap-2 text-[11px] xl:flex"
@@ -573,9 +619,13 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
             <button
               key={id}
               type="button"
+              ref={(node) => registerSectionTab(id, node)}
+              data-documentation-tab={id}
               className={cn("rr-tab", activeTab === id && "rr-active")}
               onClick={() => jumpToSection(id)}
+              onKeyDown={handleSectionTabKeyDown}
               aria-pressed={activeTab === id}
+              tabIndex={activeTab === id ? 0 : -1}
               aria-label={tabLabel}
               title={tabLabel}
             >
