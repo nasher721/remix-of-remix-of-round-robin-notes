@@ -39,6 +39,7 @@ export const STORAGE_KEYS = {
   PRINT_SELECTED_TEMPLATE_ID: 'printSelectedTemplateId',
   PRINT_FORMAT: 'printFormat',
   PRINT_ROUNDS_SETTINGS: 'printRoundsSettings',
+  PRINT_SECTION_SPACING: 'printSectionSpacing',
 } as const;
 
 // Clinical section keys for visibility toggles
@@ -81,6 +82,7 @@ export const DEFAULT_CONFIG = {
   PRINT_SHOW_TIMESTAMP: true,
   PRINT_ALTERNATE_ROW_COLORS: true,
   PRINT_COMPACT_MODE: false,
+  PRINT_SECTION_SPACING: 16,
 } as const;
 
 /** Editor note text uses pixel font size; base matches DEFAULT_CONFIG.GLOBAL_FONT_SIZE for % migration. */

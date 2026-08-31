@@ -292,15 +292,19 @@ test("usePatientImport addPatientWithData calls supabase insert and maps correct
 
   await waitForAuthenticatedUser(() => result.current.auth.user?.id);
   await act(async () => {
-    await result.current.patientImport.addPatientWithData({
-      name: "FHIR Patient",
-      bed: "B2",
-      clinicalSummary: "Summary",
-      intervalEvents: "Events",
-      imaging: "CXR",
-      labs: "CBC",
-      systems: defaultSystemsValue,
-      medications: defaultMedicationsValue,
+      await result.current.patientImport.addPatientWithData({
+        name: "FHIR Patient",
+        bed: "B2",
+        clinicalSummary: "Clinical Summary: Summary",
+        intervalEvents: "Overnight Events: Events",
+        imaging: "Imaging:\nCXR",
+        labs: "Labs - CBC",
+        systems: { ...defaultSystemsValue, neuro: "Neuro: Intact" },
+        medications: {
+          ...defaultMedicationsValue,
+          infusions: ["Infusions: Norepinephrine"],
+          rawText: "Meds: Aspirin",
+        },
     });
   });
 
@@ -318,6 +322,9 @@ test("usePatientImport addPatientWithData calls supabase insert and maps correct
   assert.equal(payload.interval_events, "Events");
   assert.equal(payload.imaging, "CXR");
   assert.equal(payload.labs, "CBC");
+  assert.equal((payload.systems as Record<string, unknown>).neuro, "Intact");
+  assert.deepEqual((payload.medications as Record<string, unknown>).infusions, ["Norepinephrine"]);
+  assert.equal((payload.medications as Record<string, unknown>).rawText, "Aspirin");
   assert.equal(payload.patient_number, 1);
   assert.equal(payload.mrn, "");
 });

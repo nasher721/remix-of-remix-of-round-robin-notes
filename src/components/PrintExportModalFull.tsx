@@ -39,7 +39,12 @@ import { RoundsSettingsPanel } from "./print/RoundsSettingsPanel";
 import { PrintFormatPicker, type PrintFormatChoice } from "./print/PrintFormatPicker";
 import { getTemplateById, mergeTemplateCustomizations, PrintTemplatePreset, PrintTemplateType } from "@/types/printTemplates";
 import { defaultColumnWidths, defaultColumns, defaultCombinedColumnWidths } from "./print/constants";
-import { getPageCss, getPageMetrics, DEFAULT_PAPER_SIZE } from "@/lib/print/layout";
+import {
+  getPageCss,
+  getPageMetrics,
+  DEFAULT_PAPER_SIZE,
+  normalizePrintSectionSpacing,
+} from "@/lib/print/layout";
 import { STORAGE_KEYS } from "@/constants/config";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -190,6 +195,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     showTimestamp: true,
     alternateRowColors: true,
     compactMode: false,
+    sectionSpacing: normalizePrintSectionSpacing(undefined),
     activeTab: 'table',
     showNotesColumn: false,
     showTodosColumn: true,
@@ -205,6 +211,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     combinedColumns: stored?.combinedColumns ?? [],
     columnWidths: { ...defaultColumnWidths, ...(stored?.columnWidths ?? {}) },
     combinedColumnWidths: { ...defaultCombinedColumnWidths, ...(stored?.combinedColumnWidths ?? {}) },
+    sectionSpacing: normalizePrintSectionSpacing(stored?.sectionSpacing),
     rounds: normalizeRoundsSettings(stored?.rounds, stored?.rounds?.variant ?? 'single'),
   }), [defaultSettings]);
 
@@ -229,6 +236,10 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     printStorage.setItem('printShowTimestamp', nextSettings.showTimestamp.toString());
     printStorage.setItem('printAlternateRowColors', nextSettings.alternateRowColors.toString());
     printStorage.setItem('printCompactMode', nextSettings.compactMode.toString());
+    printStorage.setItem(
+      STORAGE_KEYS.PRINT_SECTION_SPACING,
+      String(normalizePrintSectionSpacing(nextSettings.sectionSpacing)),
+    );
     printStorage.setItem(STORAGE_KEYS.PRINT_FORMAT, nextSettings.activeTab);
     printStorage.setItem(STORAGE_KEYS.PRINT_ROUNDS_SETTINGS, JSON.stringify(nextSettings.rounds));
   }, [printStorage]);
@@ -309,6 +320,9 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
           showTimestamp: printStorage.getItem('printShowTimestamp') !== 'false',
           alternateRowColors: printStorage.getItem('printAlternateRowColors') !== 'false',
           compactMode: printStorage.getItem('printCompactMode') === 'true',
+          sectionSpacing: normalizePrintSectionSpacing(
+            printStorage.getItem(STORAGE_KEYS.PRINT_SECTION_SPACING),
+          ),
           activeTab: printStorage.getItem(STORAGE_KEYS.PRINT_FORMAT) || defaultSettings.activeTab,
           rounds: parseStoredJson<RoundsSettings | undefined>(
             printStorage.getItem(STORAGE_KEYS.PRINT_ROUNDS_SETTINGS),

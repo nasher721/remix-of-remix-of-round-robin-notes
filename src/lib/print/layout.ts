@@ -1,4 +1,5 @@
 import type { PaperSize, PrintSettings } from "./types";
+import { DEFAULT_CONFIG } from "@/constants/config";
 
 export type { PaperSize };
 
@@ -13,6 +14,18 @@ export const PAPER_SIZE_LABELS: Record<PaperSize, string> = {
 };
 
 export const DEFAULT_PAPER_SIZE: PaperSize = "a4";
+
+export const MIN_PRINT_SECTION_SPACING = 0;
+export const MAX_PRINT_SECTION_SPACING = 40;
+
+export const normalizePrintSectionSpacing = (value: unknown): number => {
+  if (value === null || value === undefined || value === "") {
+    return DEFAULT_CONFIG.PRINT_SECTION_SPACING;
+  }
+  const numericValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return DEFAULT_CONFIG.PRINT_SECTION_SPACING;
+  return Math.min(MAX_PRINT_SECTION_SPACING, Math.max(MIN_PRINT_SECTION_SPACING, numericValue));
+};
 
 export const MARGIN_MM_BY_SETTING = {
   narrow: 10,

@@ -121,10 +121,10 @@ describe("organizeImportedPatient", () => {
       name: "Ada",
       bed: "1",
       clinicalSummary: "Base",
-      Pulm: "Intubated on volume control",
+      Pulm: "Pulm: Intubated on volume control",
       "Overnight events": "Started norepinephrine",
-      "Access / Lines": "Right IJ central line",
-      "Home meds": "Aspirin 81 mg daily",
+      "Access / Lines": "Access / Lines: Right IJ central line",
+      "Home meds": "Home meds: Aspirin 81 mg daily",
       BMP: { sodium: 140, creatinine: 1.1 },
       HR: 90,
     });
@@ -135,5 +135,49 @@ describe("organizeImportedPatient", () => {
     assert.equal(actual.systems.skinLines, "Right IJ central line");
     assert.equal(actual.medications.rawText, "Aspirin 81 mg daily");
     assert.equal(actual.labs, "sodium: 140, creatinine: 1.1");
+  });
+
+  it("removes a redundant leading title from imported section content", () => {
+    const actual = organizeImportedPatient({
+      name: "Ada",
+      systems: {
+        neuro: "Neurologic:\nAOx3, follows commands",
+        resp: "Resp - Intubated on volume control",
+        renalGU: "**Renal/GU:**\nCr 1.1, adequate urine output",
+        infectious: "ID/Infect - Afebrile, cultures negative",
+      },
+      labs: "Laboratory results:\nNa 140",
+      imaging: "Imaging\nCT head without acute change",
+      intervalEvents: "Overnight events: Started norepinephrine",
+      medications: {
+        infusions: ["Infusions: Norepinephrine"],
+        scheduled: ["Scheduled medications - Aspirin 81 mg"],
+        prn: ["PRN: Acetaminophen"],
+        rawText: "Meds:\nNorepinephrine",
+      },
+    });
+
+    assert.equal(actual.systems.neuro, "AOx3, follows commands");
+    assert.equal(actual.systems.resp, "Intubated on volume control");
+    assert.equal(actual.systems.renalGU, "Cr 1.1, adequate urine output");
+    assert.equal(actual.systems.infectious, "Afebrile, cultures negative");
+    assert.equal(actual.labs, "Na 140");
+    assert.equal(actual.imaging, "CT head without acute change");
+    assert.equal(actual.intervalEvents, "Started norepinephrine");
+    assert.equal(actual.medications.rawText, "Norepinephrine");
+    assert.deepEqual(actual.medications.infusions, ["Norepinephrine"]);
+    assert.deepEqual(actual.medications.scheduled, ["Aspirin 81 mg"]);
+    assert.deepEqual(actual.medications.prn, ["Acetaminophen"]);
+  });
+
+  it("does not strip a section word when it is meaningful prose", () => {
+    const actual = organizeImportedPatient({
+      name: "Ada",
+      systems: { neuro: "Neuro exam remains stable overnight." },
+      clinicalSummary: "Neurologic deficits are improving.",
+    });
+
+    assert.equal(actual.systems.neuro, "Neuro exam remains stable overnight.");
+    assert.equal(actual.clinicalSummary, "Neurologic deficits are improving.");
   });
 });

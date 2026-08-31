@@ -36,7 +36,12 @@ import {
   Square,
 } from "lucide-react";
 import type { PaperSize, PrintSettings as SettingsType, ColumnConfig, ColumnWidthsType, CustomCombination } from "@/lib/print/types";
-import { PAPER_SIZE_LABELS } from "@/lib/print/layout";
+import {
+  MAX_PRINT_SECTION_SPACING,
+  MIN_PRINT_SECTION_SPACING,
+  PAPER_SIZE_LABELS,
+  normalizePrintSectionSpacing,
+} from "@/lib/print/layout";
 import { columnCombinations } from "./constants";
 import { CustomCombinationDialog } from "./CustomCombinationDialog";
 
@@ -93,6 +98,7 @@ export function PrintSettings({
   onUpdateCustomCombination,
   onDeleteCustomCombination
 }: PrintSettingsProps) {
+  const sectionSpacing = normalizePrintSectionSpacing(settings.sectionSpacing);
   const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
   const [editingCombination, setEditingCombination] = React.useState<CustomCombination | undefined>();
   const [columnSearch, setColumnSearch] = React.useState("");
@@ -292,6 +298,23 @@ export function PrintSettings({
                   <SelectItem value="wide">Wide</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="print-section-spacing">Section spacing</Label>
+                <span className="text-xs text-muted-foreground">{sectionSpacing}px</span>
+              </div>
+              <Slider
+                id="print-section-spacing"
+                value={[sectionSpacing]}
+                min={MIN_PRINT_SECTION_SPACING}
+                max={MAX_PRINT_SECTION_SPACING}
+                step={1}
+                onValueChange={([sectionSpacing]) => onUpdateSettings({ sectionSpacing })}
+                aria-label="Section spacing"
+              />
+              <p className="text-xs text-muted-foreground">Adjust the vertical space between printed sections.</p>
             </div>
           </div>
         </AccordionContent>

@@ -13,11 +13,12 @@ import type { NewPatientSubmitPayload } from "@/components/dashboard/NewPatientS
 import { parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
 import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import {
-    acquirePatientImportAttempt,
+  acquirePatientImportAttempt,
     clearPatientImportAttempt,
     PatientImportStorageUnavailableError,
-    runPatientImportWrite,
+  runPatientImportWrite,
 } from "@/lib/import/patientImportIdempotency";
+import { organizeImportedPatient } from "@/lib/import/organizeImportedPatient";
 
 export interface PatientImportDeps {
     patientsRef: React.MutableRefObject<Patient[]>;
@@ -210,39 +211,40 @@ export function usePatientImport({
 
             const importAttempt = await acquirePatientImportAttempt(requestOwnerId, patientsToImport);
             if (!isCurrentOwner(requestOwnerId)) return;
-            const nextPatientNumber = getNextPatientCounter(patientsRef.current);
-            const preparedRows = patientsToImport.map((patientToImport, index): PreparedImportRow => {
-                const systems = parseSystemsJson({
-                    ...defaultSystemsValue,
-                    ...(patientToImport.systems ?? {}),
-                } as unknown as Json);
-                const medications = parseMedicationsJson(
-                    (patientToImport.medications ?? null) as unknown as Json,
-                );
+      const nextPatientNumber = getNextPatientCounter(patientsRef.current);
+      const preparedRows = patientsToImport.map((patientToImport, index): PreparedImportRow => {
+        const organizedPatient = organizeImportedPatient(patientToImport);
+        const systems = parseSystemsJson({
+          ...defaultSystemsValue,
+          ...organizedPatient.systems,
+        } as unknown as Json);
+        const medications = parseMedicationsJson(
+          organizedPatient.medications as unknown as Json,
+        );
 
-                return {
-                    name: patientToImport.name,
-                    payload: {
-                        ...buildPatientInsertPayload({
-                            userId: requestOwnerId,
-                            patientNumber: nextPatientNumber + index,
-                            name: patientToImport.name,
-                            mrn: patientToImport.mrn ?? "",
-                            bed: patientToImport.bed,
-                            clinicalSummary: patientToImport.clinicalSummary,
-                            intervalEvents: patientToImport.intervalEvents || "",
-                            imaging: patientToImport.imaging || "",
-                            labs: patientToImport.labs || "",
-                            systems,
-                            medications,
-                            age: patientToImport.age,
-                            dateOfBirth: patientToImport.dateOfBirth,
-                            gender: patientToImport.gender,
-                            admissionDate: patientToImport.admissionDate,
-                            serviceLine: patientToImport.serviceLine,
-                            attendingPhysician: patientToImport.attendingPhysician,
-                            codeStatus: patientToImport.codeStatus,
-                            alerts: patientToImport.alerts,
+        return {
+          name: organizedPatient.name,
+          payload: {
+            ...buildPatientInsertPayload({
+              userId: requestOwnerId,
+              patientNumber: nextPatientNumber + index,
+              name: organizedPatient.name,
+              mrn: organizedPatient.mrn,
+              bed: organizedPatient.bed,
+              clinicalSummary: organizedPatient.clinicalSummary,
+              intervalEvents: organizedPatient.intervalEvents,
+              imaging: organizedPatient.imaging,
+              labs: organizedPatient.labs,
+              systems,
+              medications,
+              age: organizedPatient.age,
+              dateOfBirth: organizedPatient.dateOfBirth,
+              gender: organizedPatient.gender,
+              admissionDate: organizedPatient.admissionDate,
+              serviceLine: organizedPatient.serviceLine,
+              attendingPhysician: organizedPatient.attendingPhysician,
+              codeStatus: organizedPatient.codeStatus,
+              alerts: organizedPatient.alerts,
                         }),
                         id: importAttempt.patientIds[index],
                     },
@@ -372,27 +374,28 @@ export function usePatientImport({
             throw new Error("Supabase not configured");
         }
 
-        try {
-            let insertNumber = getNextPatientCounter(patientsRef.current);
-            const systems = parseSystemsJson({
-                ...defaultSystemsValue,
-                ...(patientData.systems ?? {}),
-            } as unknown as Json);
-            const medications = parseMedicationsJson(
-                (patientData.medications ?? null) as unknown as Json,
-            );
+    try {
+      let insertNumber = getNextPatientCounter(patientsRef.current);
+      const organizedPatient = organizeImportedPatient(patientData);
+      const systems = parseSystemsJson({
+        ...defaultSystemsValue,
+        ...organizedPatient.systems,
+      } as unknown as Json);
+      const medications = parseMedicationsJson(
+        organizedPatient.medications as unknown as Json,
+      );
             let { data, error } = await supabase
                 .from("patients")
                 .insert([buildPatientInsertPayload({
                     userId: requestOwnerId,
                     patientNumber: insertNumber,
-                    name: patientData.name || "",
-                    mrn: patientData.mrn ?? "",
-                    bed: patientData.bed || "",
-                    clinicalSummary: patientData.clinicalSummary || "",
-                    intervalEvents: patientData.intervalEvents || "",
-                    imaging: patientData.imaging || "",
-                    labs: patientData.labs || "",
+          name: organizedPatient.name,
+          mrn: organizedPatient.mrn,
+          bed: organizedPatient.bed,
+          clinicalSummary: organizedPatient.clinicalSummary,
+          intervalEvents: organizedPatient.intervalEvents,
+          imaging: organizedPatient.imaging,
+          labs: organizedPatient.labs,
                     systems,
                     medications,
                     age: patientData.age,
@@ -419,13 +422,13 @@ export function usePatientImport({
                     .insert([buildPatientInsertPayload({
                         userId: requestOwnerId,
                         patientNumber: insertNumber,
-                        name: patientData.name || "",
-                        mrn: patientData.mrn ?? "",
-                        bed: patientData.bed || "",
-                        clinicalSummary: patientData.clinicalSummary || "",
-                        intervalEvents: patientData.intervalEvents || "",
-                        imaging: patientData.imaging || "",
-                        labs: patientData.labs || "",
+          name: organizedPatient.name,
+          mrn: organizedPatient.mrn,
+          bed: organizedPatient.bed,
+          clinicalSummary: organizedPatient.clinicalSummary,
+          intervalEvents: organizedPatient.intervalEvents,
+          imaging: organizedPatient.imaging,
+          labs: organizedPatient.labs,
                         systems,
                         medications,
                         age: patientData.age,

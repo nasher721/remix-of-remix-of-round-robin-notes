@@ -5,7 +5,7 @@ import type { PrintSettings, PrintDataProps } from "@/lib/print/types";
 import { COLUMN_COMBINATIONS } from "@/lib/print/constants";
 import type { Patient } from "@/types/patient";
 import { patientExportIdentifierLine } from "@/lib/patientIdentity";
-import { getPageMetrics } from "@/lib/print/layout";
+import { getPageMetrics, normalizePrintSectionSpacing } from "@/lib/print/layout";
 import { formatMedicationsHtml } from "./utils";
 import DOMPurify from "dompurify";
 import { sanitizeHtml } from "@/lib/sanitize";
@@ -232,6 +232,7 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
       settings.borderStyle === "none" ? 0 : settings.borderStyle === "heavy" ? 3 : settings.borderStyle === "medium" ? 2 : 1;
     const tableBorderClass = settings.borderStyle === "none" ? "" : "border border-slate-200";
     const cellPaddingClass = settings.compactMode ? "p-1" : "p-2";
+    const sectionSpacing = normalizePrintSectionSpacing(settings.sectionSpacing);
 
     const getRenderColumns = React.useCallback(() => {
       const renderCols: {
@@ -346,7 +347,11 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
 
     const renderCombinedCell = (patient: Patient, sourceKeys: string[]) => {
       return (
-        <div className="space-y-3">
+        <div
+          data-print-combined-sections
+          className="flex flex-col"
+          style={{ rowGap: `${sectionSpacing}px` }}
+        >
           {sourceKeys.map((key) => {
             const colConfig = settings.columns.find((c) => c.key === key);
             if (!colConfig?.enabled) return null;
@@ -490,9 +495,13 @@ export const PrintDocument = React.forwardRef<HTMLDivElement, PrintDocumentProps
                   </div>
 
                   <div
+                    data-print-sections
                     className={cn(
-                      settings.activeTab === "list" ? "grid grid-cols-1 md:grid-cols-3 gap-6" : "space-y-4"
+                      settings.activeTab === "list"
+                        ? "grid grid-cols-1 gap-x-6 md:grid-cols-3"
+                        : "flex flex-col"
                     )}
+                    style={{ rowGap: `${sectionSpacing}px` }}
                   >
                     {renderColumns
                       .filter((c) => c.id !== "patient")

@@ -160,6 +160,74 @@ const appendSectionText = (current: string, next: string): string => {
   return `${current.trim()}\n${incoming}`;
 };
 
+type ImportContentSection =
+  | keyof Pick<ChartReadyImportPatient, "clinicalSummary" | "intervalEvents" | "imaging" | "labs">
+  | keyof PatientSystems
+  | "medications";
+
+/**
+ * Remove a redundant heading only when it is the leading section label.
+ *
+ * The delimiter/newline requirement is intentional: a value such as
+ * "Neuro exam remains stable" is clinical content, not a heading.
+ */
+const IMPORT_SECTION_LABELS: Record<ImportContentSection, string[]> = {
+  clinicalSummary: ["summary", "clinical summary", "handoff summary", "assessment and plan", "assessment & plan"],
+  intervalEvents: ["interval events", "interval event", "overnight events", "rounds update", "rounds events", "what we did on rounds"],
+  imaging: ["imaging", "images", "radiology", "radiologic results", "cxr / imaging"],
+  labs: ["labs", "lab", "laboratory", "laboratory results", "bloodwork"],
+  neuro: ["neuro", "neurologic", "neurological", "neurologic exam", "neurological exam"],
+  cv: ["cv", "cardiac", "cardiovascular", "cardio / vasc", "hemodynamics", "hemodynamic"],
+  resp: ["resp", "respiratory", "pulm", "pulmonary", "pulm / vent", "vent", "ventilator", "vent settings"],
+  renalGU: ["renal", "renal gu", "renal / gu", "renal & gu", "genitourinary", "gu", "kidney"],
+  gi: ["gi", "gastrointestinal", "nutrition", "nutrition / gi", "nutritional"],
+  endo: ["endo", "endocrine", "glycemic", "glycaemic"],
+  heme: ["heme", "hematology", "hematologic", "heme / coag", "hematology / coag", "coagulation", "coags"],
+  infectious: ["id", "id / infect", "infectious", "infectious disease", "infection", "microbiology"],
+  skinLines: ["skin", "skin / lines", "lines", "access", "access and lines", "access / lines", "wounds"],
+  dispo: ["dispo", "disposition", "disposition / goals of care", "goals of care", "discharge"],
+  medications: [
+    "meds",
+    "meds / drips",
+    "medications",
+    "medication",
+    "infusions",
+    "drips",
+    "scheduled",
+    "scheduled medications",
+    "prn",
+    "as needed",
+    "home meds",
+    "home medications",
+  ],
+};
+
+const normalizeImportSectionLabel = (value: string): string => value
+  .replace(/[#*_`]/g, "")
+  .replace(/&/g, " and ")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+const stripLeadingSectionLabel = (value: string, section: ImportContentSection): string => {
+  const source = value.trim();
+  if (!source) return source;
+
+  const labels = new Set(IMPORT_SECTION_LABELS[section].map(normalizeImportSectionLabel));
+  const lines = source.split(/\r?\n/);
+  const firstLineLabel = normalizeImportSectionLabel(lines[0].replace(/[:\-–—]\s*$/, ""));
+  if (lines.length > 1 && labels.has(firstLineLabel)) {
+    return lines.slice(1).join("\n").trim();
+  }
+
+  const inlineHeading = source.match(/^(.{1,80}?)(?::\s*|\s+[-–—]\s+)([\s\S]*)$/);
+  if (!inlineHeading || !labels.has(normalizeImportSectionLabel(inlineHeading[1]))) {
+    return source;
+  }
+
+  return inlineHeading[2].replace(/^(?:\*\*|__)+\s*/, "").trim();
+};
+
 const stringifyImportFragment = (value: unknown): string => {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
@@ -240,21 +308,27 @@ export const organizeImportedPatient = (
 
   if (patient.systems) {
     for (const key of Object.keys(systems) as Array<keyof PatientSystems>) {
-      systems[key] = String(patient.systems[key] ?? "").trim();
+      systems[key] = stripLeadingSectionLabel(String(patient.systems[key] ?? "").trim(), key);
     }
   }
 
   if (patient.medications) {
     medications.infusions = Array.isArray(patient.medications.infusions)
-      ? patient.medications.infusions.map(String).filter(Boolean)
+      ? patient.medications.infusions
+        .map((value) => stripLeadingSectionLabel(String(value), "medications"))
+        .filter(Boolean)
       : [];
     medications.scheduled = Array.isArray(patient.medications.scheduled)
-      ? patient.medications.scheduled.map(String).filter(Boolean)
+      ? patient.medications.scheduled
+        .map((value) => stripLeadingSectionLabel(String(value), "medications"))
+        .filter(Boolean)
       : [];
     medications.prn = Array.isArray(patient.medications.prn)
-      ? patient.medications.prn.map(String).filter(Boolean)
+      ? patient.medications.prn
+        .map((value) => stripLeadingSectionLabel(String(value), "medications"))
+        .filter(Boolean)
       : [];
-    medications.rawText = String(patient.medications.rawText ?? "");
+    medications.rawText = stripLeadingSectionLabel(String(patient.medications.rawText ?? ""), "medications");
   }
 
   const bed = String(patient.bed || patient.room || "").trim();
@@ -299,41 +373,60 @@ export const organizeImportedPatient = (
     const target = classifyClinicalFragmentToChartSection(label, fragment);
     if (target === "skip") continue;
     if (target === "clinicalSummary") {
-      clinicalSummary = appendSectionText(clinicalSummary, fragment);
+      clinicalSummary = appendSectionText(
+        clinicalSummary,
+        stripLeadingSectionLabel(fragment, "clinicalSummary"),
+      );
       continue;
     }
     if (target === "intervalEvents") {
-      intervalEvents = appendSectionText(intervalEvents, fragment);
+      intervalEvents = appendSectionText(
+        intervalEvents,
+        stripLeadingSectionLabel(fragment, "intervalEvents"),
+      );
       continue;
     }
     if (target === "imaging") {
-      imaging = appendSectionText(imaging, fragment);
+      imaging = appendSectionText(imaging, stripLeadingSectionLabel(fragment, "imaging"));
       continue;
     }
     if (target === "labs") {
-      labs = appendSectionText(labs, fragment);
+      labs = appendSectionText(labs, stripLeadingSectionLabel(fragment, "labs"));
       continue;
     }
     if (target === "medications") {
-      medications.rawText = appendSectionText(medications.rawText ?? "", fragment);
+      medications.rawText = appendSectionText(
+        medications.rawText ?? "",
+        stripLeadingSectionLabel(fragment, "medications"),
+      );
       continue;
     }
     if (target.startsWith("systems.")) {
       const systemKey = target.replace("systems.", "") as keyof PatientSystems;
-      systems[systemKey] = appendSectionText(systems[systemKey], fragment);
+      systems[systemKey] = appendSectionText(
+        systems[systemKey],
+        stripLeadingSectionLabel(fragment, systemKey),
+      );
     }
+  }
+
+  for (const key of Object.keys(systems) as Array<keyof PatientSystems>) {
+    systems[key] = stripLeadingSectionLabel(systems[key], key);
   }
 
   return {
     name: formatImportedPatientDisplayName(patient),
     mrn: String(patient.mrn ?? "").trim(),
     bed,
-    clinicalSummary,
-    intervalEvents,
-    imaging,
-    labs,
+    clinicalSummary: stripLeadingSectionLabel(clinicalSummary, "clinicalSummary"),
+    intervalEvents: stripLeadingSectionLabel(intervalEvents, "intervalEvents"),
+    imaging: stripLeadingSectionLabel(imaging, "imaging"),
+    labs: stripLeadingSectionLabel(labs, "labs"),
     systems,
-    medications,
+    medications: {
+      ...medications,
+      rawText: stripLeadingSectionLabel(medications.rawText ?? "", "medications"),
+    },
     age: normalizeAge(patient.age),
     dateOfBirth: normalizeDate(patient.dateOfBirth ?? patient.dob, true),
     gender: normalizeGender(patient.gender ?? patient.sex),

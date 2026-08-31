@@ -9,6 +9,7 @@ import {
   quarantineLegacyPrintPreferences,
 } from '@/lib/print/preferences';
 import type { StorageLike } from '@/utils/safeStorage';
+import { normalizePrintSectionSpacing } from '@/lib/print/layout';
 
 // ---------------------------------------------------------------------------
 // State shape
@@ -27,6 +28,7 @@ interface PrintState {
   showTimestamp: boolean;
   alternateRowColors: boolean;
   compactMode: boolean;
+  sectionSpacing: number;
   onePatientPerPage: boolean;
   autoFitFontSize: boolean;
   combinedColumns: string[];
@@ -124,6 +126,10 @@ function buildInitialState(storage: StorageLike): PrintState {
     ? savedCompactMode === 'true'
     : DEFAULT_CONFIG.PRINT_COMPACT_MODE;
 
+  const sectionSpacing = normalizePrintSectionSpacing(
+    storage.getItem(STORAGE_KEYS.PRINT_SECTION_SPACING),
+  );
+
   const onePatientPerPage =
     storage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true';
 
@@ -160,6 +166,7 @@ function buildInitialState(storage: StorageLike): PrintState {
     showTimestamp,
     alternateRowColors,
     compactMode,
+    sectionSpacing,
     onePatientPerPage,
     autoFitFontSize,
     combinedColumns,
@@ -202,6 +209,7 @@ function reducer(state: PrintState, action: PrintAction): PrintState {
         showTimestamp: p.showTimestamp,
         alternateRowColors: p.alternateRowColors,
         compactMode: p.compactMode,
+        sectionSpacing: normalizePrintSectionSpacing(p.sectionSpacing ?? state.sectionSpacing),
         physicianName: p.physicianName ?? state.physicianName,
       };
     }
@@ -264,6 +272,7 @@ function persistState(storage: StorageLike, state: PrintState) {
   storage.setItem('printShowTimestamp', state.showTimestamp.toString());
   storage.setItem('printAlternateRowColors', state.alternateRowColors.toString());
   storage.setItem('printCompactMode', state.compactMode.toString());
+  storage.setItem(STORAGE_KEYS.PRINT_SECTION_SPACING, state.sectionSpacing.toString());
   storage.setItem(
     STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE,
     state.onePatientPerPage.toString()
@@ -387,6 +396,10 @@ export const usePrintStateForOwner = (storageOwnerId: string | null) => {
     dispatch({ type: 'SET_FIELD', field: 'compactMode', value: v });
   }, []);
 
+  const setSectionSpacing = React.useCallback((v: number) => {
+    dispatch({ type: 'SET_FIELD', field: 'sectionSpacing', value: normalizePrintSectionSpacing(v) });
+  }, []);
+
   const setOnePatientPerPage = React.useCallback((v: boolean) => {
     dispatch({ type: 'SET_FIELD', field: 'onePatientPerPage', value: v });
   }, []);
@@ -496,6 +509,7 @@ export const usePrintStateForOwner = (storageOwnerId: string | null) => {
         showTimestamp: state.showTimestamp,
         alternateRowColors: state.alternateRowColors,
         compactMode: state.compactMode,
+        sectionSpacing: state.sectionSpacing,
         physicianName: state.physicianName,
         createdAt: new Date().toISOString(),
       };
@@ -576,6 +590,7 @@ export const usePrintStateForOwner = (storageOwnerId: string | null) => {
             showTimestamp: data.showTimestamp ?? DEFAULT_CONFIG.PRINT_SHOW_TIMESTAMP,
             alternateRowColors: data.alternateRowColors ?? DEFAULT_CONFIG.PRINT_ALTERNATE_ROW_COLORS,
             compactMode: data.compactMode ?? DEFAULT_CONFIG.PRINT_COMPACT_MODE,
+            sectionSpacing: normalizePrintSectionSpacing(data.sectionSpacing),
             createdAt: new Date().toISOString(),
           };
           dispatch({
@@ -627,6 +642,8 @@ export const usePrintStateForOwner = (storageOwnerId: string | null) => {
     setAlternateRowColors,
     compactMode: state.compactMode,
     setCompactMode,
+    sectionSpacing: state.sectionSpacing,
+    setSectionSpacing,
     onePatientPerPage: state.onePatientPerPage,
     setOnePatientPerPage,
     autoFitFontSize: state.autoFitFontSize,

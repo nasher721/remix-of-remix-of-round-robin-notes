@@ -76,6 +76,8 @@ export interface PrintPreset {
   showTimestamp: boolean;
   alternateRowColors: boolean;
   compactMode: boolean;
+  /** Vertical space between content sections in standard print layouts, in px. */
+  sectionSpacing?: number;
   physicianName?: string;
   createdAt: string;
 }

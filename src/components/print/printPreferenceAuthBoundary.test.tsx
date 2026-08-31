@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { DEFAULT_CONFIG, STORAGE_KEYS } from "@/constants/config";
 import { createScopedPrintStorage } from "@/lib/print/preferences";
 import { getDefaultLayout } from "./layoutDesigner/defaultLayouts";
 import { useLayoutDesigner } from "./layoutDesigner/useLayoutDesigner";
@@ -61,4 +62,30 @@ test("legacy print state resets to owner B and never copies owner A's free-form 
   await waitFor(() => assert.equal(result.current.physicianName, ""));
   assert.equal(accountBStorage.getItem("printPhysicianName"), "");
   assert.equal(localStorage.getItem("printPhysicianName"), null);
+});
+
+test("section spacing loads, persists, and remains scoped to the active owner", async () => {
+  const accountAStorage = createScopedPrintStorage("user-a");
+  const accountBStorage = createScopedPrintStorage("user-b");
+  accountAStorage.setItem(STORAGE_KEYS.PRINT_SECTION_SPACING, "23");
+
+  const { result, rerender } = renderHook(
+    ({ ownerId }: { ownerId: string }) => usePrintStateForOwner(ownerId),
+    { initialProps: { ownerId: "user-a" } },
+  );
+
+  assert.equal(result.current.sectionSpacing, 23);
+  act(() => result.current.setSectionSpacing(31));
+  await waitFor(() => {
+    assert.equal(accountAStorage.getItem(STORAGE_KEYS.PRINT_SECTION_SPACING), "31");
+  });
+
+  rerender({ ownerId: "user-b" });
+  await waitFor(() => {
+    assert.equal(result.current.sectionSpacing, DEFAULT_CONFIG.PRINT_SECTION_SPACING);
+  });
+  assert.equal(
+    accountBStorage.getItem(STORAGE_KEYS.PRINT_SECTION_SPACING),
+    String(DEFAULT_CONFIG.PRINT_SECTION_SPACING),
+  );
 });

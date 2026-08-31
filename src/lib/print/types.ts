@@ -82,6 +82,8 @@ export interface PrintPreset {
     showTimestamp: boolean;
     alternateRowColors: boolean;
     compactMode: boolean;
+    /** Vertical space between content sections in the standard print layouts, in px. */
+    sectionSpacing?: number;
     physicianName?: string;
     pdf?: PdfExportSettings;
     createdAt: string;
@@ -105,6 +107,8 @@ export interface PrintSettings {
     showTimestamp: boolean;
     alternateRowColors: boolean;
     compactMode: boolean;
+    /** Vertical space between content sections in standard print layouts, in px. */
+    sectionSpacing?: number;
     physicianName?: string;
     pdf?: PdfExportSettings;
     /** Active document format. Kept as `activeTab` for stored-payload compatibility. */

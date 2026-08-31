@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import * as React from "react";
 import { cleanup, render } from "@testing-library/react";
 import { PrintDocument } from "@/components/print/PrintDocument";
 import {
@@ -50,6 +49,7 @@ const settings: PrintSettings = {
   showTimestamp: false,
   alternateRowColors: false,
   compactMode: false,
+  sectionSpacing: 24,
   activeTab: "table",
   showNotesColumn: false,
   showTodosColumn: false,
@@ -80,6 +80,28 @@ const patient: Patient = {
 afterEach(cleanup);
 
 describe("patient image print rendering", () => {
+  it("applies the configured section spacing to preview and print layout", () => {
+    const spacedSettings: PrintSettings = {
+      ...settings,
+      activeTab: "cards",
+      columns: settings.columns.map((column) => ({
+        ...column,
+        enabled: ["patient", "clinicalSummary", "imaging"].includes(column.key),
+      })),
+    };
+    const { container } = render(
+      <PrintDocument
+        patients={[{ ...patient, clinicalSummary: "Stable overnight" }]}
+        settings={spacedSettings}
+        preview
+      />,
+    );
+
+    const sections = container.querySelector("[data-print-sections]") as HTMLElement;
+    assert.equal(sections.children.length, 2);
+    assert.equal(sections.style.rowGap, "24px");
+  });
+
   it("renders only the active owner's transient signed image and ignores stored src/XSS", () => {
     const { container } = render(
       <PrintDocument
