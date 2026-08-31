@@ -52,3 +52,4 @@ supabase/.temp/
 
 # Generated bundle for the Ledgerix design system (rebuild with `zip -r`)
 design-system/ledgerix-design-system.zip
+.vercel
