@@ -1,5 +1,4 @@
 import * as React from "react";
-import { PatientAdvancedSearch } from "@/components/PatientAdvancedSearch";
 import {
   ChevronDown,
   ChevronsUpDown,
@@ -315,17 +314,45 @@ export const PatientRosterRail = ({
 
       {/* Search */}
       <div className="px-3 pb-2" role="search">
-        <PatientAdvancedSearch
-          patients={patients}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          filter={filter}
-          setFilter={setFilter}
-          onPatientSelect={(id) => {
-            const element = document.getElementById(`patient-card-${id}`);
-            element?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        />
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
+            style={{ color: "var(--rr-label-3)" }}
+            aria-hidden="true"
+          />
+          <Input
+            ref={searchInputRef}
+            id="desktop-patient-search"
+            placeholder="Search patients..."
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            aria-label="Search patients"
+            autoComplete="off"
+            autoFocus
+            className={cn(
+              "h-8 rounded-[8px] border-transparent pl-8 text-[13px] shadow-none focus-visible:ring-1",
+              searchQuery ? "pr-8" : undefined,
+            )}
+            style={{ background: "var(--rr-f1)", color: "var(--rr-label-1)" }}
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                searchInputRef.current?.focus();
+              }}
+              aria-label="Clear search"
+              title="Clear search (Esc)"
+              data-testid="clear-roster-search"
+              className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-[6px] hover:bg-black/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-white/[0.08]"
+              style={{ color: "var(--rr-label-3)" }}
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {/* Meta row: count + active filters */}

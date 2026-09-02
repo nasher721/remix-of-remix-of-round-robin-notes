@@ -648,6 +648,7 @@ export const DesktopDashboard = () => {
         ) : null}
         <DesktopUtilityPanel
           patients={patients}
+          selectedPatient={aiContextPatient}
           autotexts={autotexts}
           templates={templates}
           customDictionary={customDictionary}
@@ -833,6 +834,7 @@ export const DesktopDashboard = () => {
 
 interface DesktopUtilityPanelProps {
   patients: ReturnType<typeof useDashboard>["patients"];
+  selectedPatient: ReturnType<typeof useDashboard>["patients"][number] | undefined;
   autotexts: ReturnType<typeof useDashboard>["autotexts"];
   templates: ReturnType<typeof useDashboard>["templates"];
   customDictionary: ReturnType<typeof useDashboard>["customDictionary"];
@@ -866,6 +868,7 @@ interface DesktopUtilityPanelProps {
 
 const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   patients,
+  selectedPatient,
   autotexts,
   templates,
   customDictionary,
@@ -907,6 +910,15 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
   const handleProtocolActivate = (protocolId: string, patientId: string) => {
     toast.success(`Activated protocol for patient`);
   };
+
+  const handleLabsParsed = React.useCallback((labs: string) => {
+    if (!selectedPatient) return;
+
+    const nextLabs = [selectedPatient.labs.trim(), labs.trim()]
+      .filter(Boolean)
+      .join("\n");
+    void onUpdatePatient(selectedPatient.id, "labs", nextLabs);
+  }, [onUpdatePatient, selectedPatient]);
 
   const [menuOpen, setMenuOpenState] = React.useState(() => {
     if (typeof window === "undefined") return false;
@@ -1104,7 +1116,7 @@ const DesktopUtilityPanel: React.FC<DesktopUtilityPanelProps> = ({
                     <ChevronDown className="h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-2 px-3 pb-3 pt-0">
-                    <SmartLabParser />
+                    {selectedPatient ? <SmartLabParser onLabsParsed={handleLabsParsed} /> : null}
                     <MedicationDoseCalculators />
                     <OneClickSignOff patients={patients} todosMap={todosMap} onSignOff={handleSignOff} />
                     <ProtocolTriggerSuggestions patients={patients} onProtocolActivate={handleProtocolActivate} />

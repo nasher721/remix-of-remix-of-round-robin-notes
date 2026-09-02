@@ -73,6 +73,16 @@ const defaultFilterOptions: AdvancedFilterOptions = {
   },
 };
 
+const hasActiveFilters = (options: AdvancedFilterOptions): boolean => {
+  return (
+    Object.values(options.searchIn).some(v => !v) ||
+    Object.values(options.medications).some(v => v) ||
+    Object.values(options.labs).some(v => v) ||
+    Object.values(options.todos).some(v => v) ||
+    options.timeRange.enabled
+  );
+};
+
 interface PatientAdvancedSearchProps {
   patients: Patient[];
   searchQuery: string;
@@ -197,16 +207,6 @@ export function PatientAdvancedSearch({
   React.useEffect(() => {
     setMatchedPatientCount(matchedPatients.length);
   }, [matchedPatients]);
-
-  const hasActiveFilters = (options: AdvancedFilterOptions): boolean => {
-    return (
-      Object.values(options.searchIn).some(v => !v) ||
-      Object.values(options.medications).some(v => v) ||
-      Object.values(options.labs).some(v => v) ||
-      Object.values(options.todos).some(v => v) ||
-      options.timeRange.enabled
-    );
-  };
 
   const clearFilters = () => {
     setFilterOptions(defaultFilterOptions);
