@@ -136,6 +136,24 @@ If you change **`project_id`** in [`supabase/config.toml`](../supabase/config.to
 
 ---
 
+## Vercel preview environment
+
+Vercel preview deployments run `vite build` in production mode, so the same
+fail-closed browser-build checks apply before Vercel can publish a preview. In
+Vercel Project Settings, scope these client-safe variables to both **Preview**
+and **Production**:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_PUBLIC_APP_URL`
+- `VITE_SESSION_IDLE_TIMEOUT_SECONDS`
+- `VITE_TELEMETRY_INGEST_URL` (or the approved `VITE_SENTRY_DSN` alternative)
+
+The preview may use the canonical production origin for public metadata. Do not
+copy server-only database or service-role secrets into the Preview environment.
+Confirm the scopes with `vercel env ls`, then reproduce the hosted build with
+`vercel deploy . -y`.
+
 ## Hosted Auth security baseline
 
 The production deploy uses the Supabase Management API to enforce and verify:

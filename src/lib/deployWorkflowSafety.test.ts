@@ -114,6 +114,26 @@ describe('Supabase deployment workflow', () => {
     }
   })
 
+  it('documents the Vercel Preview variables required by production-mode Vite builds', async () => {
+    const deploymentGuide = await readFile('docs/deployment.md', 'utf8')
+    const previewSection = deploymentGuide
+      .split('## Vercel preview environment')[1]
+      ?.split('\n## ')[0] ?? ''
+
+    assert.match(previewSection, /Vercel preview deployments run `vite build` in production mode/)
+    assert.match(previewSection, /\*\*Preview\*\*\s+and \*\*Production\*\*/)
+    for (const variable of [
+      'VITE_SUPABASE_URL',
+      'VITE_SUPABASE_PUBLISHABLE_KEY',
+      'VITE_PUBLIC_APP_URL',
+      'VITE_SESSION_IDLE_TIMEOUT_SECONDS',
+      'VITE_TELEMETRY_INGEST_URL',
+    ]) {
+      assert.match(previewSection, new RegExp('`' + variable + '`'))
+    }
+    assert.match(previewSection, /Do not\s+copy server-only database or service-role secrets/)
+  })
+
   it('fails closed until Vercel publishes the exact backend-matched frontend release', async () => {
     const workflow = await readFile('.github/workflows/deploy-supabase.yml', 'utf8')
     const vercelConfig = await readFile('vercel.json', 'utf8')
