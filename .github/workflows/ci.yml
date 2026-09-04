@@ -35,36 +35,7 @@ jobs:
       - run: npm run edge:check-jwt-config
       - run: npm run verify:migrations
       - name: Audit production dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          audit_report="$(mktemp)"
-          trap 'rm -f "$audit_report"' EXIT
-
-          set +e
-          timeout 180s npm run audit:prod -- --json >"$audit_report" 2>&1
-          audit_status=$?
-          set -e
-          cat "$audit_report"
-
-          if [ "$audit_status" -eq 0 ]; then
-            exit 0
-          fi
-
-          # A completed audit report must remain fatal when it contains findings.
-          if grep -Eq '"vulnerabilities"[[:space:]]*:' "$audit_report"; then
-            exit "$audit_status"
-          fi
-
-          # Retry only when npm's advisory service was unavailable or timed out.
-          if [ "$audit_status" -ne 124 ] &&
-             ! grep -Eiq '503|audit endpoint returned an error|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|network' "$audit_report"; then
-            exit "$audit_status"
-          fi
-
-          echo "::warning::npm audit service unavailable; retrying through the Yarn registry mirror"
-          npm audit --omit=dev --omit=optional --registry=https://registry.yarnpkg.com
+        run: bash .github/scripts/audit-dependencies.sh --omit=dev --omit=optional
       - name: Build without exposing server credentials
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
@@ -110,7 +81,8 @@ jobs:
       - run: npm run clinical:typecheck
       - run: npm run clinical:test
       - run: npm run clinical:build
-      - run: npm audit --prefix clinical-mcp-server --omit=dev
+      - name: Audit clinical MCP production dependencies
+        run: bash .github/scripts/audit-dependencies.sh --prefix clinical-mcp-server --omit=dev
 
   browser-smoke:
     name: Browser smoke test
