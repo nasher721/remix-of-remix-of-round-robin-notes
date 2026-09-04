@@ -27,6 +27,7 @@ type OutboxListener = (queue: RoundOutboxEntry[]) => void;
 
 class RoundOutboxManager {
   private listeners = new Set<OutboxListener>();
+  private notificationVersion = 0;
   private ownerId: string | null = null;
   private memoryQueue: RoundOutboxEntry[] = [];
   private initialized = false;
@@ -51,8 +52,21 @@ class RoundOutboxManager {
     }
   }
 
-  private notify(): void {
+  private readLatest(
+    version: number,
+    publish: (queue: RoundOutboxEntry[]) => void,
+  ): void {
     void this.getQueue().then((queue) => {
+      if (version !== this.notificationVersion) return;
+      publish(queue);
+    }).catch(() => {
+      // A later mutation/owner transition will request another snapshot.
+    });
+  }
+
+  private notify(): void {
+    const version = ++this.notificationVersion;
+    this.readLatest(version, (queue) => {
       this.listeners.forEach((listener) => listener(queue));
     });
   }
@@ -68,7 +82,10 @@ class RoundOutboxManager {
 
   subscribe(listener: OutboxListener): () => void {
     this.listeners.add(listener);
-    void this.getQueue().then(listener);
+    const version = this.notificationVersion;
+    this.readLatest(version, (queue) => {
+      if (this.listeners.has(listener)) listener(queue);
+    });
     return () => {
       this.listeners.delete(listener);
     };

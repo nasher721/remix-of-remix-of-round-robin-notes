@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useStylus, StylusTool } from "@/hooks/useStylus";
 import { cn } from "@/lib/utils";
-import { safeLocalStorage } from "@/utils/safeStorage";
 
 export interface HandwritingCanvasProps {
   width?: number;
   height?: number;
   className?: string;
-  noteId?: string;
+  /** Parent-owned persistence callback; receives raster data without storing it globally. */
   onAutoSave?: (data: string) => void;
   onExportPNG?: (dataURL: string) => void;
 }
@@ -30,7 +29,6 @@ export function HandwritingCanvas({
   width = 800,
   height = 600,
   className,
-  noteId = "handwriting-note",
   onAutoSave,
   onExportPNG,
 }: HandwritingCanvasProps) {
@@ -59,50 +57,26 @@ export function HandwritingCanvas({
     palmRejection: true,
   });
 
-  // Auto-save to localStorage
-  const saveToLocalStorage = useCallback(async () => {
-    if (isSaving) return;
+  const autoSave = useCallback(() => {
+    if (isSaving || !onAutoSave) return;
     setIsSaving(true);
     try {
       const dataURL = exportPNG();
       if (dataURL) {
-        safeLocalStorage.setItem(`handwriting-${noteId}`, dataURL);
+        onAutoSave(dataURL);
         setLastSaved(new Date());
-        if (onAutoSave) onAutoSave(dataURL);
       }
     } finally {
       setIsSaving(false);
     }
-  }, [exportPNG, noteId, onAutoSave, isSaving]);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const saved = safeLocalStorage.getItem(`handwriting-${noteId}`);
-    if (saved && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = saved;
-      }
-    }
-  }, [noteId, canvasRef]);
+  }, [exportPNG, isSaving, onAutoSave]);
 
   // Auto-save every 30 seconds
   useEffect(() => {
-    const interval = setInterval(saveToLocalStorage, 30000);
+    if (!onAutoSave) return;
+    const interval = setInterval(autoSave, 30000);
     return () => clearInterval(interval);
-  }, [saveToLocalStorage]);
-
-  // Save on unmount
-  useEffect(() => {
-    return () => {
-      saveToLocalStorage();
-    };
-  }, [saveToLocalStorage]);
+  }, [autoSave, onAutoSave]);
 
   const handleExportPNG = () => {
     const dataURL = exportPNG();

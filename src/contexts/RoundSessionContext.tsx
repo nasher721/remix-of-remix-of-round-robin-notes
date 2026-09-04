@@ -35,6 +35,13 @@ import {
 } from "@/lib/round/sync";
 import { FieldConflictDialog } from "@/components/round/FieldConflictDialog";
 import { roundOutbox } from "@/lib/round/sync/roundOutbox";
+import {
+  countConflictOutbox,
+  countFailedOutbox,
+  countPendingOutbox,
+  countSoftFailedOutbox,
+  countUnresolvedOutbox,
+} from "@/lib/round/sync/outboxMerge";
 import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
 import { indexedDBQueue, type QueuedMutation } from "@/lib/offline/indexedDBQueue";
 import {
@@ -209,32 +216,30 @@ export const RoundSessionProvider = ({
       setConflicts(next);
     });
     const unsubSyncSuccess = roundSyncEngine.onSyncSuccess(setLastSuccessfulSyncAt);
-    const unsubOutbox = roundOutbox.subscribe(() => {
-      void (async () => {
-        const pending = await roundOutbox.getPendingCount();
-        const conflictCount = await roundOutbox.getConflictCount();
-        const failed = await roundOutbox.getFailedCount();
-        const softFailed = await roundOutbox.getSoftFailedCount();
-        const queue = await roundOutbox.getQueue();
-        const generationConflicts = queue.filter((entry) => (
-          entry.kind === "round_state"
-          && entry.softFailReason === "round_generation_conflict"
-        )).length;
-        const unresolved = await roundOutbox.getUnresolvedCount();
-        setPendingCount(pending);
-        setFailedCount(failed);
-        setSoftFailedCount(softFailed);
-        setGenerationConflictCount(generationConflicts);
-        setUnresolvedCount(unresolved);
-        const status = roundSyncEngine.deriveChromeStatus({
-          isOnline: !isBrowserKnownOffline(),
-          pendingCount: pending,
-          conflictCount,
-          failedCount: failed,
-          softFailedCount: softFailed,
-        });
-        setRound((prev) => setRoundSyncStatus(prev, status));
-      })();
+    const unsubOutbox = roundOutbox.subscribe((queue) => {
+      const ownerId = roundOutbox.getOwner();
+      const pending = countPendingOutbox(queue, ownerId);
+      const conflictCount = countConflictOutbox(queue, ownerId);
+      const failed = countFailedOutbox(queue, ownerId);
+      const softFailed = countSoftFailedOutbox(queue, ownerId);
+      const unresolved = countUnresolvedOutbox(queue, ownerId);
+      const generationConflicts = queue.filter((entry) => (
+        entry.kind === "round_state"
+        && entry.softFailReason === "round_generation_conflict"
+      )).length;
+      setPendingCount(pending);
+      setFailedCount(failed);
+      setSoftFailedCount(softFailed);
+      setGenerationConflictCount(generationConflicts);
+      setUnresolvedCount(unresolved);
+      const status = roundSyncEngine.deriveChromeStatus({
+        isOnline: !isBrowserKnownOffline(),
+        pendingCount: pending,
+        conflictCount,
+        failedCount: failed,
+        softFailedCount: softFailed,
+      });
+      setRound((prev) => setRoundSyncStatus(prev, status));
     });
     return () => {
       unsubStatus();

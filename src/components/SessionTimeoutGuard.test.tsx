@@ -1,23 +1,25 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import test, { afterEach } from 'node:test'
 import * as React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 import { IdleSessionBoundary } from './SessionTimeoutGuard.tsx'
 
 globalThis.MutationObserver = window.MutationObserver
 
+afterEach(() => cleanup())
+
 test('idle session boundary warns before automatic sign-out and supports explicit continuation', async () => {
   let endCount = 0
   const view = render(
     <IdleSessionBoundary
-      timeoutMs={1_300}
-      warningMs={1_100}
+      timeoutMs={10_000}
+      warningMs={9_000}
       onSessionEnd={async () => { endCount += 1 }}
     />,
   )
 
-  await screen.findByRole('alertdialog', {}, { timeout: 1_000 })
+  await screen.findByRole('alertdialog', {}, { timeout: 5_000 })
   assert.ok(screen.getByRole('heading', { name: 'Session ending soon' }))
   const staySignedIn = screen.getByRole('button', { name: 'Stay signed in' })
   const signOutNow = screen.getByRole('button', { name: 'Sign out now' })

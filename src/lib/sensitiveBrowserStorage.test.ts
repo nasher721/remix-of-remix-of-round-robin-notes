@@ -41,3 +41,12 @@ test('raw AI prompts and responses are not cached in browser IndexedDB', () => {
   assert.match(databaseSource, /version\(3\)\.stores\(\{\s*aiCache:\s*null/);
   assert.doesNotMatch(databaseSource, /interface\s+AICacheEntry|aiCache!:/);
 });
+
+test('handwriting raster data is not persisted in unscoped Web Storage', () => {
+  const source = readFileSync('src/components/HandwritingCanvas.tsx', 'utf8');
+  assert.doesNotMatch(
+    source,
+    /(?:safeLocalStorage|localStorage|sessionStorage)\.(?:getItem|setItem)\s*\(/,
+    'handwriting content must be delegated to an owner-scoped persistence boundary',
+  );
+});

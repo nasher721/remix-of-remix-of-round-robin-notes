@@ -8,6 +8,7 @@ import type { Json } from "@/integrations/supabase/types";
 import type { Round } from "@/types/round";
 import type { RoundContinuityMeta, RoundStateRemoteRow } from "./types";
 import { normalizeContinuityMeta } from "./roundSessionCache";
+import { resumeRound } from "../roundSessionStore";
 
 export interface UpsertRoundStateInput {
   round: Round;
@@ -38,6 +39,16 @@ const isMissingTableError = (error: { code?: string; message?: string } | null):
   );
 };
 
+const asRecord = (value: unknown): Record<string, unknown> => (
+  value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {}
+);
+
+const asNonEmptyString = (value: unknown): string | undefined => (
+  typeof value === "string" && value.trim().length > 0 ? value : undefined
+);
+
 export const roundToRemoteState = (
   round: Round,
   continuity: RoundContinuityMeta,
@@ -58,48 +69,49 @@ export const roundToRemoteState = (
 export const remoteStateToRoundParts = (
   row: RoundStateRemoteRow,
 ): { round: Round; continuity: RoundContinuityMeta } | null => {
-  const state = row.state ?? {};
-  const continuityFromState = (state.continuity ?? {}) as Partial<RoundContinuityMeta>;
+  const state = asRecord(row.state);
+  const continuityFromState = asRecord(state.continuity);
   const patients = Array.isArray(state.patients) ? state.patients : [];
-  if (typeof state.id !== "string" && !row.id) return null;
+  if (!asNonEmptyString(row.id) || !asNonEmptyString(row.user_id)) return null;
 
-  const round: Round = {
-    id: typeof state.id === "string" ? state.id : row.id,
-    userId: typeof state.userId === "string" ? state.userId : row.user_id,
-    status: state.status === "completed" ? "completed" : "active",
-    patients: patients as Round["patients"],
-    currentIndex: typeof state.currentIndex === "number" ? state.currentIndex : -1,
-    filters: (state.filters as Round["filters"]) ?? {
-      search: "",
-      hideDone: false,
-      hideSkipped: false,
+  const round = resumeRound({
+    round: {
+      // Identity and lifecycle live in dedicated, query-constrained columns.
+      // The JSON envelope can lag during migrations or interrupted writes.
+      id: row.id,
+      userId: row.user_id,
+      status: row.status === "completed" ? "completed" : "active",
+      patients: patients as Round["patients"],
+      currentIndex: typeof state.currentIndex === "number" ? state.currentIndex : -1,
+      filters: state.filters as Round["filters"],
+      activeSection: state.activeSection as Round["activeSection"],
+      expandedSystemId:
+        typeof state.expandedSystemId === "string" ? state.expandedSystemId : null,
+      syncStatus: "idle",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     },
-    activeSection:
-      state.activeSection === "systems" || state.activeSection === "todos"
-        ? state.activeSection
-        : "clinicalSummary",
-    expandedSystemId:
-      typeof state.expandedSystemId === "string" ? state.expandedSystemId : null,
-    syncStatus: "idle",
-    createdAt: typeof state.createdAt === "string" ? state.createdAt : row.created_at,
-    updatedAt: typeof state.updatedAt === "string" ? state.updatedAt : row.updated_at,
-  };
+    now: row.updated_at,
+  });
 
   return {
     round,
     continuity: normalizeContinuityMeta(
       {
         positionUpdatedAt:
-          row.position_updated_at
-          || continuityFromState.positionUpdatedAt
+          asNonEmptyString(row.position_updated_at)
+          || asNonEmptyString(continuityFromState.positionUpdatedAt)
           || round.updatedAt,
         expandedUpdatedAt:
-          row.expanded_updated_at
-          || continuityFromState.expandedUpdatedAt
+          asNonEmptyString(row.expanded_updated_at)
+          || asNonEmptyString(continuityFromState.expandedUpdatedAt)
           || round.updatedAt,
-        filtersUpdatedAt: continuityFromState.filtersUpdatedAt,
-        sectionUpdatedAt: continuityFromState.sectionUpdatedAt,
-        deviceId: row.device_id || continuityFromState.deviceId || "remote",
+        filtersUpdatedAt: asNonEmptyString(continuityFromState.filtersUpdatedAt),
+        sectionUpdatedAt: asNonEmptyString(continuityFromState.sectionUpdatedAt),
+        deviceId:
+          asNonEmptyString(row.device_id)
+          || asNonEmptyString(continuityFromState.deviceId)
+          || "remote",
       },
       round.updatedAt,
     ),

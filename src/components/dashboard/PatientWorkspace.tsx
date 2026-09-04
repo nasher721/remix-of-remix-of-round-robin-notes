@@ -190,7 +190,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
   React.useEffect(() => {
     const root = chartBodyRef.current;
-    if (!root || isSwitchingPatient || !patient) return;
+    if (!root || isSwitchingPatient || !patient?.id) return;
 
     const sections = Array.from(
       root.querySelectorAll<HTMLElement>("[data-documentation-section]"),
@@ -224,7 +224,7 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
 
     sections.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
-  }, [patient?.id, isSwitchingPatient, patient]);
+  }, [patient?.id, isSwitchingPatient]);
 
   // Record sign-offs in the per-patient activity feed (uses the existing
   // 'updated' action since the DB CHECK constraint only allows a fixed set).

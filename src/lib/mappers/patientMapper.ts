@@ -4,12 +4,12 @@
  *
  * Responsibility split: patientService owns Supabase row → Patient (mapPatientRecord,
  * buildPatientInsertPayload, shouldTrackTimestamp). This module owns JSON parsing
- * (parseSystemsJson, parseMedicationsJson, parseFieldTimestampsJson), DB↔UI field
- * name mapping (uiFieldToDbField, dbToUiPatient), and building update payloads
+ * (parseSystemsJson, parseMedicationsJson, parseFieldTimestampsJson), UI→DB field
+ * name mapping (uiFieldToDbField), and building update payloads
  * (prepareUpdateData) from field-level edits.
  */
 
-import type { DbPatient, Patient, PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
+import type { PatientSystems, PatientMedications, FieldTimestamps } from "@/types/patient";
 import type { Json } from "@/integrations/supabase/types";
 
 /**
@@ -81,40 +81,6 @@ export const parseFieldTimestampsJson = (timestamps: Json | null): FieldTimestam
   }
   return timestamps as FieldTimestamps;
 };
-
-/**
- * Convert database patient to UI patient (snake_case to camelCase)
- */
-export const dbToUiPatient = (dbPatient: DbPatient): Patient => ({
-  id: dbPatient.id,
-  patientNumber: dbPatient.patient_number,
-  name: dbPatient.name,
-  mrn: dbPatient.mrn ?? "",
-  bed: dbPatient.bed,
-  clinicalSummary: dbPatient.clinical_summary,
-  intervalEvents: dbPatient.interval_events,
-  imaging: dbPatient.imaging,
-  labs: dbPatient.labs,
-  systems: dbPatient.systems,
-  medications: dbPatient.medications || { infusions: [], scheduled: [], prn: [], rawText: "" },
-  fieldTimestamps: dbPatient.field_timestamps || {},
-  collapsed: dbPatient.collapsed,
-  createdAt: dbPatient.created_at,
-  lastModified: dbPatient.last_modified,
-  revision: dbPatient.revision ?? 0,
-  age: dbPatient.age,
-  dateOfBirth: dbPatient.date_of_birth ?? undefined,
-  gender: dbPatient.gender ?? undefined,
-  admissionDate: dbPatient.admission_date ?? undefined,
-  serviceLine: dbPatient.service_line ?? undefined,
-  attendingPhysician: dbPatient.attending_physician ?? undefined,
-  consultingTeam: dbPatient.consulting_team ?? undefined,
-  acuity: dbPatient.acuity ?? undefined,
-  codeStatus: dbPatient.code_status ?? undefined,
-  alerts: dbPatient.alerts ?? undefined,
-  vitals: dbPatient.vitals ?? undefined,
-  assignedTo: dbPatient.assigned_to ?? undefined,
-});
 
 /**
  * Map field names from UI (camelCase) to DB (snake_case)

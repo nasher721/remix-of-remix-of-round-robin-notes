@@ -87,53 +87,6 @@ export const defaultSystems: PatientSystems = {
 };
 
 /**
- * Database Patient - matches Supabase table schema
- * Uses snake_case to match database columns
- */
-export interface DbPatient {
-  id: string;
-  user_id: string;
-  patient_number: number;
-  name: string;
-  mrn: string;
-  bed: string;
-  clinical_summary: string;
-  interval_events: string;
-  imaging: string;
-  labs: string;
-  systems: PatientSystems;
-  medications: PatientMedications;
-  field_timestamps: FieldTimestamps;
-  collapsed: boolean;
-  created_at: string;
-  last_modified: string;
-  revision?: number;
-  age?: number;
-  /** ISO calendar date from the source roster; never inferred from age. */
-  date_of_birth?: string;
-  /** Normalized administrative sex/gender value from the source roster. */
-  gender?: PatientGender;
-  /** ISO timestamp for the current admission when supplied. */
-  admission_date?: string;
-  /** ICU service line (MICU, SICU, CVICU, etc.) */
-  service_line?: string;
-  /** Primary attending physician name */
-  attending_physician?: string;
-  /** Consulting teams involved in patient care */
-  consulting_team?: string[];
-  /** Patient acuity level for clinical prioritization */
-  acuity?: AcuityLevel;
-  /** Code status for resuscitation preferences */
-  code_status?: CodeStatus;
-  /** Clinical alerts (allergies, isolation precautions, etc.) */
-  alerts?: string[];
-  /** Most recent vital signs */
-  vitals?: Vitals;
-  /** User ID of the clinician assigned to this patient */
-  assigned_to?: string;
-}
-
-/**
  * UI Patient - used in components
  * Uses camelCase for React conventions
  */
