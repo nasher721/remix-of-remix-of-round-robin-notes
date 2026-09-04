@@ -34,6 +34,8 @@ jobs:
       - run: npm run security:check-auth-config
       - run: npm run edge:check-jwt-config
       - run: npm run verify:migrations
+      - name: Test dependency audit fallback
+        run: node --test .github/scripts/audit-osv.test.mjs
       - name: Audit production dependencies
         run: bash .github/scripts/audit-dependencies.sh --omit=dev --omit=optional
       - name: Build without exposing server credentials
