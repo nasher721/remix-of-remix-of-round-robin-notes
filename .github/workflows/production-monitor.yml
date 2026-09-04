@@ -97,7 +97,7 @@ jobs:
             --data @"$payload" \
             --output "$response"
           jq -e '.accepted == 1' "$response" >/dev/null
-      - run: npm ci
+      - run: npm ci --no-audit
       - run: npx playwright install --with-deps chromium
       - name: Run reversible production save canary
         env:
