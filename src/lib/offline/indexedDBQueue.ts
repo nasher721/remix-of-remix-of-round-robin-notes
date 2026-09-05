@@ -72,6 +72,7 @@ function coalesceMutation(
       ...existing,
       payload: { ...existing.payload, ...incoming.payload },
       conflictData: incoming.conflictData ?? existing.conflictData,
+      operationId: incoming.operationId ?? existing.operationId,
       timestamp: incoming.timestamp,
       retryCount: 0,
       status: 'pending',
@@ -82,6 +83,7 @@ function coalesceMutation(
     return {
       ...existing,
       payload: { ...existing.payload, ...incoming.payload },
+      operationId: incoming.operationId ?? existing.operationId,
       timestamp: incoming.timestamp,
       retryCount: 0,
       status: 'pending',
@@ -96,6 +98,7 @@ function coalesceMutation(
       // Compare replay against the oldest server snapshot, not against a
       // later optimistic value produced while this row was still queued.
       conflictData: existing.conflictData ?? incoming.conflictData,
+      operationId: incoming.operationId ?? existing.operationId,
     };
   }
 
@@ -121,6 +124,10 @@ class IndexedDBQueueManager {
   }
   
   private async initialize(): Promise<void> {
+    if (typeof globalThis.indexedDB === "undefined") {
+      this.useMemoryFallback();
+      return;
+    }
     try {
       await db.open();
       const fallbackQueue = readMemoryQueue();

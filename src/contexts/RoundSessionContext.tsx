@@ -43,12 +43,16 @@ import {
   countUnresolvedOutbox,
 } from "@/lib/round/sync/outboxMerge";
 import { isBrowserKnownOffline } from "@/lib/networkConnectivity";
-import { indexedDBQueue, type QueuedMutation } from "@/lib/offline/indexedDBQueue";
+import {
+  indexedDBQueue,
+  type QueuedMutation,
+} from "@/lib/offline/indexedDBQueue";
 import {
   deriveRoundCompletionSafety,
   type RoundCompletionSafety,
 } from "@/lib/round/roundCompletionSafety";
 import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
+import { decisionScribeOutbox } from "@/lib/decision-scribe/decisionScribeOutbox";
 
 export interface RoundSessionContextValue {
   round: Round;
@@ -68,6 +72,16 @@ export interface RoundSessionContextValue {
   failedCount: number;
   /** Outbox rows awaiting acknowledgement after a recoverable remote rejection. */
   softFailedCount: number;
+  /** Decision Scribe writes that have not received a remote acknowledgement. */
+  decisionScribePendingCount: number;
+  /** Decision Scribe writes that need retry after a failed delivery. */
+  decisionScribeFailedCount: number;
+  /** Decision Scribe writes that need an explicit conflict review. */
+  decisionScribeConflictCount: number;
+  /** Whether Decision Scribe state must be reviewed before leaving the Round. */
+  decisionScribeBlocked: boolean;
+  /** Actionable clinician-facing explanation for the Decision Scribe block. */
+  decisionScribeBlockReason: string | null;
   /** Competing active Round generations that require an explicit clinician choice. */
   generationConflictCount: number;
   /** Last time queued Round data received a remote acknowledgement. */
@@ -90,7 +104,9 @@ export interface RoundSessionContextValue {
   /** Create a new active Round after the prior Round reached its terminal state. */
   startNewRound: () => void;
   /** Queue a mid-rounds chart draft field for offline-capable sync. */
-  enqueueDraftField: (field: Omit<VersionedField, "deviceId"> & { deviceId?: string }) => Promise<void>;
+  enqueueDraftField: (
+    field: Omit<VersionedField, "deviceId"> & { deviceId?: string },
+  ) => Promise<void>;
   /** Retry persisted failed sync writes without reloading the session. */
   retryRoundSync: () => Promise<void>;
   /** Discard rejected local walk continuity and adopt the active Round saved remotely. */
@@ -103,7 +119,8 @@ export interface RoundSessionContextValue {
   openConflictDialog: (conflict?: FieldConflict) => void;
 }
 
-const RoundSessionContext = React.createContext<RoundSessionContextValue | null>(null);
+const RoundSessionContext =
+  React.createContext<RoundSessionContextValue | null>(null);
 
 export interface RoundSessionProviderProps {
   userId: string;
@@ -137,25 +154,38 @@ export const RoundSessionProvider = ({
   const [round, setRound] = React.useState<Round>(() =>
     createRound({ userId, patientIds }),
   );
-  const [continuity, setContinuity] = React.useState<RoundContinuityMeta | null>(null);
+  const [continuity, setContinuity] =
+    React.useState<RoundContinuityMeta | null>(null);
   const continuityRef = React.useRef<RoundContinuityMeta | null>(null);
   const [conflicts, setConflicts] = React.useState<FieldConflict[]>([]);
   const [pendingCount, setPendingCount] = React.useState(0);
   const [failedCount, setFailedCount] = React.useState(0);
   const [softFailedCount, setSoftFailedCount] = React.useState(0);
-  const [generationConflictCount, setGenerationConflictCount] = React.useState(0);
-  const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = React.useState<string | null>(null);
+  const [generationConflictCount, setGenerationConflictCount] =
+    React.useState(0);
+  const [lastSuccessfulSyncAt, setLastSuccessfulSyncAt] = React.useState<
+    string | null
+  >(null);
   const [retryResult, setRetryResult] = React.useState<string | null>(null);
   const [unresolvedCount, setUnresolvedCount] = React.useState(0);
-  const [clinicalMutations, setClinicalMutations] = React.useState<QueuedMutation[]>([]);
-  const [activeConflict, setActiveConflict] = React.useState<FieldConflict | null>(null);
+  const [decisionScribePending, setDecisionScribePending] = React.useState(0);
+  const [decisionScribeFailed, setDecisionScribeFailed] = React.useState(0);
+  const [decisionScribeConflicts, setDecisionScribeConflicts] =
+    React.useState(0);
+  const [clinicalMutations, setClinicalMutations] = React.useState<
+    QueuedMutation[]
+  >([]);
+  const [activeConflict, setActiveConflict] =
+    React.useState<FieldConflict | null>(null);
   const [conflictOpen, setConflictOpen] = React.useState(false);
   const autoOpenedConflictIdsRef = React.useRef(new Set<string>());
   const [hydrated, setHydrated] = React.useState(disablePersistence);
   const idsKey = patientIdsKey(patientIds);
   const previousIdsKeyRef = React.useRef(idsKey);
   const previousUserIdRef = React.useRef(userId);
-  const persistTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const skipPersistRef = React.useRef(true);
   const activeUserIdRef = React.useRef(userId);
   activeUserIdRef.current = userId;
@@ -215,7 +245,9 @@ export const RoundSessionProvider = ({
     const unsubConflicts = roundSyncEngine.onConflicts((next) => {
       setConflicts(next);
     });
-    const unsubSyncSuccess = roundSyncEngine.onSyncSuccess(setLastSuccessfulSyncAt);
+    const unsubSyncSuccess = roundSyncEngine.onSyncSuccess(
+      setLastSuccessfulSyncAt,
+    );
     const unsubOutbox = roundOutbox.subscribe((queue) => {
       const ownerId = roundOutbox.getOwner();
       const pending = countPendingOutbox(queue, ownerId);
@@ -223,10 +255,11 @@ export const RoundSessionProvider = ({
       const failed = countFailedOutbox(queue, ownerId);
       const softFailed = countSoftFailedOutbox(queue, ownerId);
       const unresolved = countUnresolvedOutbox(queue, ownerId);
-      const generationConflicts = queue.filter((entry) => (
-        entry.kind === "round_state"
-        && entry.softFailReason === "round_generation_conflict"
-      )).length;
+      const generationConflicts = queue.filter(
+        (entry) =>
+          entry.kind === "round_state" &&
+          entry.softFailReason === "round_generation_conflict",
+      ).length;
       setPendingCount(pending);
       setFailedCount(failed);
       setSoftFailedCount(softFailed);
@@ -260,7 +293,9 @@ export const RoundSessionProvider = ({
   // Auto-open conflict dialog when new same-field conflicts appear (no silent drop).
   React.useEffect(() => {
     if (conflicts.length === 0) return;
-    const unseen = conflicts.find((item) => !autoOpenedConflictIdsRef.current.has(item.id));
+    const unseen = conflicts.find(
+      (item) => !autoOpenedConflictIdsRef.current.has(item.id),
+    );
     if (!unseen) return;
     autoOpenedConflictIdsRef.current.add(unseen.id);
     setActiveConflict(unseen);
@@ -282,9 +317,13 @@ export const RoundSessionProvider = ({
 
   const schedulePersist = React.useCallback(
     (nextRound: Round, nextContinuity: RoundContinuityMeta) => {
-      if (skipPersistRef.current || !hydrated) return;
+      if (disablePersistence || skipPersistRef.current || !hydrated) return;
       const scheduledOwnerId = nextRound.userId;
-      if (scheduledOwnerId !== userId || activeUserIdRef.current !== scheduledOwnerId) return;
+      if (
+        scheduledOwnerId !== userId ||
+        activeUserIdRef.current !== scheduledOwnerId
+      )
+        return;
       clearPersistTimer();
       persistTimerRef.current = setTimeout(() => {
         persistTimerRef.current = null;
@@ -294,18 +333,20 @@ export const RoundSessionProvider = ({
         ) {
           return;
         }
-        void roundSyncEngine.persistRoundSession({
-          round: nextRound,
-          continuity: nextContinuity,
-          patientIds,
-        }).catch(() => {
-          if (activeUserIdRef.current !== scheduledOwnerId) return;
-          setFailedCount((current) => Math.max(1, current));
-          setRound((current) => setRoundSyncStatus(current, "failed"));
-        });
+        void roundSyncEngine
+          .persistRoundSession({
+            round: nextRound,
+            continuity: nextContinuity,
+            patientIds,
+          })
+          .catch(() => {
+            if (activeUserIdRef.current !== scheduledOwnerId) return;
+            setFailedCount((current) => Math.max(1, current));
+            setRound((current) => setRoundSyncStatus(current, "failed"));
+          });
       }, 250);
     },
-    [clearPersistTimer, hydrated, patientIds, userId],
+    [clearPersistTimer, disablePersistence, hydrated, patientIds, userId],
   );
 
   const applyRoundChange = React.useCallback(
@@ -337,33 +378,105 @@ export const RoundSessionProvider = ({
     [schedulePersist],
   );
 
-  const handleSelectPatient = React.useCallback((patientId: string) => {
+  const handleSelectPatient = React.useCallback(
+    (patientId: string) => {
+      const now = new Date().toISOString();
+      applyRoundChange((prev) => selectPatient(prev, patientId, now), {
+        positionUpdatedAt: now,
+      });
+    },
+    [applyRoundChange],
+  );
+
+  const handleNextPatient = React.useCallback(() => {
     const now = new Date().toISOString();
-    applyRoundChange((prev) => selectPatient(prev, patientId, now), {
+    applyRoundChange((prev) => nextPatient(prev, now), {
       positionUpdatedAt: now,
     });
   }, [applyRoundChange]);
 
-  const handleNextPatient = React.useCallback(() => {
-    const now = new Date().toISOString();
-    applyRoundChange((prev) => nextPatient(prev, now), { positionUpdatedAt: now });
-  }, [applyRoundChange]);
-
   const handlePrevPatient = React.useCallback(() => {
     const now = new Date().toISOString();
-    applyRoundChange((prev) => prevPatient(prev, now), { positionUpdatedAt: now });
+    applyRoundChange((prev) => prevPatient(prev, now), {
+      positionUpdatedAt: now,
+    });
   }, [applyRoundChange]);
 
+  React.useEffect(() => {
+    decisionScribeOutbox.setOwner(userId);
+    let cancelled = false;
+    const update = (
+      rows: Awaited<ReturnType<typeof decisionScribeOutbox.list>>,
+    ) => {
+      if (cancelled) return;
+      setDecisionScribePending(
+        rows.filter(
+          (row) => row.status !== "completed" && row.status !== "undone",
+        ).length,
+      );
+      setDecisionScribeFailed(
+        rows.filter((row) => row.status === "failed").length,
+      );
+      setDecisionScribeConflicts(
+        rows.filter((row) => row.status === "conflict").length,
+      );
+    };
+    const refresh = async () => {
+      try {
+        update(await decisionScribeOutbox.list(userId));
+      } catch (error) {
+        // An unreadable configured outbox is unsafe to treat as empty; a missing optional
+        // browser API remains the deliberate non-persistent test/runtime mode.
+        if (
+          (disablePersistence || typeof indexedDB === "undefined") &&
+          error instanceof Error &&
+          error.message.includes("IndexedDB API missing")
+        ) {
+          update([]);
+        } else {
+          setDecisionScribePending(1);
+          setDecisionScribeFailed(1);
+        }
+      }
+    };
+    void refresh();
+    const markUnreadable = () => {
+      setDecisionScribePending(1);
+      setDecisionScribeFailed(1);
+    };
+    const unsubscribe = decisionScribeOutbox.subscribe(update, markUnreadable);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [disablePersistence, userId]);
   const completionSafety = React.useMemo(
-    () => deriveRoundCompletionSafety({
-      roundUnresolvedCount: unresolvedCount,
-      roundConflictCount: conflicts.length,
-      mutations: clinicalMutations,
+    () =>
+      deriveRoundCompletionSafety({
+        roundUnresolvedCount: unresolvedCount + decisionScribePending,
+        roundConflictCount: conflicts.length,
+        mutations: clinicalMutations,
+        patientSaveStates,
+        dataVerificationBlockerCount: dataVerificationBlocked ? 1 : 0,
+      }),
+    [
+      clinicalMutations,
+      conflicts.length,
+      dataVerificationBlocked,
+      decisionScribePending,
       patientSaveStates,
-      dataVerificationBlockerCount: dataVerificationBlocked ? 1 : 0,
-    }),
-    [clinicalMutations, conflicts.length, dataVerificationBlocked, patientSaveStates, unresolvedCount],
+      unresolvedCount,
+    ],
   );
+  const decisionScribeBlocked = decisionScribePending > 0;
+  const decisionScribeBlockReason =
+    decisionScribeConflicts > 0
+      ? `${decisionScribeConflicts} approved Decision Scribe change${decisionScribeConflicts === 1 ? "" : "s"} conflict${decisionScribeConflicts === 1 ? "s" : ""}. Resolve the conflict in the Decision Scribe review before ending this Round.`
+      : decisionScribeFailed > 0
+        ? `${decisionScribeFailed} approved Decision Scribe change${decisionScribeFailed === 1 ? "" : "s"} failed to sync. Retry or review the Decision Scribe change before ending this Round.`
+        : decisionScribeBlocked
+          ? `${decisionScribePending} approved Decision Scribe change${decisionScribePending === 1 ? "" : "s"} is awaiting server acknowledgement. Wait for acknowledgement before ending this Round.`
+          : null;
   const canCompleteRound = completionSafety.canComplete;
 
   const handleMarkDone = React.useCallback(() => {
@@ -382,29 +495,40 @@ export const RoundSessionProvider = ({
   const handleMarkDoneAndNext = React.useCallback(() => {
     if (!canCompleteRound) return;
     const now = new Date().toISOString();
-    applyRoundChange((prev) => markDoneAndNext(prev, now), { positionUpdatedAt: now });
+    applyRoundChange((prev) => markDoneAndNext(prev, now), {
+      positionUpdatedAt: now,
+    });
   }, [applyRoundChange, canCompleteRound]);
 
-  const handleSetFilters = React.useCallback((patch: Partial<RoundFilters>) => {
-    const now = new Date().toISOString();
-    applyRoundChange((prev) => setRoundFilters(prev, patch, now), {
-      filtersUpdatedAt: now,
-    });
-  }, [applyRoundChange]);
+  const handleSetFilters = React.useCallback(
+    (patch: Partial<RoundFilters>) => {
+      const now = new Date().toISOString();
+      applyRoundChange((prev) => setRoundFilters(prev, patch, now), {
+        filtersUpdatedAt: now,
+      });
+    },
+    [applyRoundChange],
+  );
 
-  const handleSetActiveSection = React.useCallback((section: RoundActiveSection) => {
-    const now = new Date().toISOString();
-    applyRoundChange((prev) => setActiveSection(prev, section, now), {
-      sectionUpdatedAt: now,
-    });
-  }, [applyRoundChange]);
+  const handleSetActiveSection = React.useCallback(
+    (section: RoundActiveSection) => {
+      const now = new Date().toISOString();
+      applyRoundChange((prev) => setActiveSection(prev, section, now), {
+        sectionUpdatedAt: now,
+      });
+    },
+    [applyRoundChange],
+  );
 
-  const handleSetExpandedSystem = React.useCallback((systemId: string | null) => {
-    const now = new Date().toISOString();
-    applyRoundChange((prev) => setExpandedSystem(prev, systemId, now), {
-      expandedUpdatedAt: now,
-    });
-  }, [applyRoundChange]);
+  const handleSetExpandedSystem = React.useCallback(
+    (systemId: string | null) => {
+      const now = new Date().toISOString();
+      applyRoundChange((prev) => setExpandedSystem(prev, systemId, now), {
+        expandedUpdatedAt: now,
+      });
+    },
+    [applyRoundChange],
+  );
 
   const handleSetSyncStatus = React.useCallback((status: RoundSyncStatus) => {
     setRound((prev) => setRoundSyncStatus(prev, status));
@@ -419,8 +543,9 @@ export const RoundSessionProvider = ({
     if (round.status !== "completed") return;
     const now = new Date().toISOString();
     const completedRound = round;
-    const completedContinuity = continuityRef.current
-      ?? createContinuityMeta("local", completedRound.updatedAt);
+    const completedContinuity =
+      continuityRef.current ??
+      createContinuityMeta("local", completedRound.updatedAt);
     const nextRound = createRound({ userId, patientIds, now });
     const deviceId = completedContinuity.deviceId;
     const nextContinuity = createContinuityMeta(deviceId, now);
@@ -444,8 +569,8 @@ export const RoundSessionProvider = ({
         terminalPersistFailed = true;
       }
       if (
-        activeUserIdRef.current !== scheduledOwnerId
-        || roundOutbox.getOwner() !== scheduledOwnerId
+        activeUserIdRef.current !== scheduledOwnerId ||
+        roundOutbox.getOwner() !== scheduledOwnerId
       ) {
         return;
       }
@@ -455,28 +580,39 @@ export const RoundSessionProvider = ({
         patientIds,
       });
       if (terminalPersistFailed) {
-        throw new Error("Terminal Round persistence failed before the new Round was saved.");
+        throw new Error(
+          "Terminal Round persistence failed before the new Round was saved.",
+        );
       }
     })().catch(() => {
       if (activeUserIdRef.current !== scheduledOwnerId) return;
       setFailedCount((current) => Math.max(1, current));
       setRound((current) => setRoundSyncStatus(current, "failed"));
     });
-  }, [clearPersistTimer, disablePersistence, hydrated, patientIds, round, userId]);
+  }, [
+    clearPersistTimer,
+    disablePersistence,
+    hydrated,
+    patientIds,
+    round,
+    userId,
+  ]);
 
   const handleEnqueueDraftField = React.useCallback(
     async (field: Omit<VersionedField, "deviceId"> & { deviceId?: string }) => {
       // Block Done/End synchronously, before IndexedDB persistence finishes.
       setUnresolvedCount((current) => Math.max(1, current));
-      setRound((current) => setRoundSyncStatus(
-        current,
-        isBrowserKnownOffline() ? "offline" : "syncing",
-      ));
+      setRound((current) =>
+        setRoundSyncStatus(
+          current,
+          isBrowserKnownOffline() ? "offline" : "syncing",
+        ),
+      );
       try {
         const deviceId =
-          field.deviceId
-          ?? continuity?.deviceId
-          ?? (await roundSyncEngine.getDeviceId());
+          field.deviceId ??
+          continuity?.deviceId ??
+          (await roundSyncEngine.getDeviceId());
         await roundSyncEngine.enqueueDraft(
           { ...field, deviceId },
           userId,
@@ -494,15 +630,21 @@ export const RoundSessionProvider = ({
     setRetryResult("Retrying sync…");
     const result = await roundSyncEngine.retryFailedWrites();
     if (isBrowserKnownOffline()) {
-      setRetryResult("Retry could not start while offline. Edits remain saved locally.");
+      setRetryResult(
+        "Retry could not start while offline. Edits remain saved locally.",
+      );
       return;
     }
     if (result.failed > 0 || result.softFailed > 0) {
-      setRetryResult(`Retry finished with ${result.failed + result.softFailed} unsynced write${result.failed + result.softFailed === 1 ? "" : "s"}.`);
+      setRetryResult(
+        `Retry finished with ${result.failed + result.softFailed} unsynced write${result.failed + result.softFailed === 1 ? "" : "s"}.`,
+      );
       return;
     }
     if (result.success > 0) {
-      setRetryResult(`Retry synced ${result.success} write${result.success === 1 ? "" : "s"} remotely.`);
+      setRetryResult(
+        `Retry synced ${result.success} write${result.success === 1 ? "" : "s"} remotely.`,
+      );
       return;
     }
     setRetryResult("No failed writes were available to retry.");
@@ -510,15 +652,21 @@ export const RoundSessionProvider = ({
 
   const handleUseRemoteRoundGeneration = React.useCallback(async () => {
     setRetryResult("Loading the Round saved by another device…");
-    let remote: Awaited<ReturnType<typeof roundSyncEngine.reconcileRoundGeneration>>;
+    let remote: Awaited<
+      ReturnType<typeof roundSyncEngine.reconcileRoundGeneration>
+    >;
     try {
       remote = await roundSyncEngine.reconcileRoundGeneration(userId);
     } catch {
-      setRetryResult("The saved Round could not be stored safely. The conflict remains blocked; free device storage and retry.");
+      setRetryResult(
+        "The saved Round could not be stored safely. The conflict remains blocked; free device storage and retry.",
+      );
       return;
     }
     if (!remote || activeUserIdRef.current !== userId) {
-      setRetryResult("The saved Round could not be loaded. Reconnect and retry sync.");
+      setRetryResult(
+        "The saved Round could not be loaded. Reconnect and retry sync.",
+      );
       return;
     }
     continuityRef.current = remote.continuity;
@@ -529,20 +677,32 @@ export const RoundSessionProvider = ({
   }, [userId]);
 
   const handleResolveConflict = React.useCallback(
-    async (conflict: FieldConflict, choice: FieldConflictChoice, mergedValue?: string) => {
-      await roundSyncEngine.resolveConflict(conflict, choice, mergedValue, userId);
+    async (
+      conflict: FieldConflict,
+      choice: FieldConflictChoice,
+      mergedValue?: string,
+    ) => {
+      await roundSyncEngine.resolveConflict(
+        conflict,
+        choice,
+        mergedValue,
+        userId,
+      );
       setConflictOpen(false);
       setActiveConflict(null);
     },
     [userId],
   );
 
-  const handleOpenConflictDialog = React.useCallback((conflict?: FieldConflict) => {
-    const target = conflict ?? conflicts[0] ?? null;
-    if (!target) return;
-    setActiveConflict(target);
-    setConflictOpen(true);
-  }, [conflicts]);
+  const handleOpenConflictDialog = React.useCallback(
+    (conflict?: FieldConflict) => {
+      const target = conflict ?? conflicts[0] ?? null;
+      if (!target) return;
+      setActiveConflict(target);
+      setConflictOpen(true);
+    },
+    [conflicts],
+  );
 
   const handleConflictOpenChange = React.useCallback((open: boolean) => {
     setConflictOpen(open);
@@ -571,6 +731,11 @@ export const RoundSessionProvider = ({
       pendingCount,
       failedCount,
       softFailedCount,
+      decisionScribePendingCount: decisionScribePending,
+      decisionScribeFailedCount: decisionScribeFailed,
+      decisionScribeConflictCount: decisionScribeConflicts,
+      decisionScribeBlocked,
+      decisionScribeBlockReason,
       generationConflictCount,
       lastSuccessfulSyncAt,
       retryResult,
@@ -601,6 +766,11 @@ export const RoundSessionProvider = ({
     pendingCount,
     failedCount,
     softFailedCount,
+    decisionScribePending,
+    decisionScribeFailed,
+    decisionScribeConflicts,
+    decisionScribeBlocked,
+    decisionScribeBlockReason,
     generationConflictCount,
     lastSuccessfulSyncAt,
     retryResult,
@@ -640,13 +810,17 @@ export const RoundSessionProvider = ({
 };
 
 /** Optional resume helper; rehydrates from a Round snapshot. */
-export const resumeRoundSession = (round: Round, patientIds?: readonly string[]): Round =>
-  resumeRound({ round, patientIds });
+export const resumeRoundSession = (
+  round: Round,
+  patientIds?: readonly string[],
+): Round => resumeRound({ round, patientIds });
 
 export const useRoundSession = (): RoundSessionContextValue => {
   const context = React.useContext(RoundSessionContext);
   if (!context) {
-    throw new Error("useRoundSession must be used within a RoundSessionProvider");
+    throw new Error(
+      "useRoundSession must be used within a RoundSessionProvider",
+    );
   }
   return context;
 };

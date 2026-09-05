@@ -35,7 +35,10 @@ const DEFAULT_ALLOWED_ORIGINS = [
  * failures when the secret only adds extra origins).
  */
 function getAllowedOrigins(): string[] {
-  const envOrigins = Deno.env.get("ALLOWED_ORIGINS");
+  let envOrigins = "";
+  try {
+    envOrigins = Deno.env.get("ALLOWED_ORIGINS") ?? "";
+  } catch { /* env permission is optional in local tests */ }
   const fromEnv = envOrigins
     ? envOrigins.split(",").map((o) => o.trim()).filter(Boolean)
     : [];
@@ -48,7 +51,10 @@ function getAllowedOrigins(): string[] {
 
 /** When true, allow any HTTPS origin under `.vercel.app` (preview ergonomics). Default: off. */
 function isRelaxedVercelCorsEnabled(): boolean {
-  const v = Deno.env.get("RELAX_VERCEL_CORS")?.trim().toLowerCase();
+  let v = "";
+  try {
+    v = Deno.env.get("RELAX_VERCEL_CORS")?.trim().toLowerCase() ?? "";
+  } catch { /* env permission is optional in local tests */ }
   return v === "true" || v === "1" || v === "yes";
 }
 

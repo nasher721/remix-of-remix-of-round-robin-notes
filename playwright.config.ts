@@ -57,6 +57,26 @@ if (requireSynthetic) {
 const e2eBaseURL = externalBaseURL || `http://localhost:${e2ePort}`;
 const reuseExistingServer = process.env.E2E_REUSE_SERVER === "1";
 const useProductionPreview = process.env.E2E_USE_PREVIEW === "1";
+const decisionScribeHarnessRun = process.env.E2E_DECISION_SCRIBE === "1";
+
+// The synthetic harness intentionally does not need a Supabase project or
+// credentials, but the application graph still imports the Supabase client at
+// startup. Give only this test server a loopback URL and a non-secret fixture
+// key when the caller has not supplied real configuration. This keeps the
+// production client fail-closed and prevents the harness from contacting a
+// remote service during local browser tests.
+const decisionScribeHarnessEnv = decisionScribeHarnessRun
+  ? {
+      VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL ?? e2eBaseURL,
+      VITE_SUPABASE_PUBLISHABLE_KEY:
+        process.env.VITE_SUPABASE_PUBLISHABLE_KEY
+        ?? process.env.VITE_SUPABASE_ANON_KEY
+        ?? "decision-scribe-harness-public-key",
+      VITE_PUBLIC_APP_URL: process.env.VITE_PUBLIC_APP_URL ?? e2eBaseURL,
+      VITE_SESSION_IDLE_TIMEOUT_SECONDS:
+        process.env.VITE_SESSION_IDLE_TIMEOUT_SECONDS ?? "1800",
+    }
+  : undefined;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -106,5 +126,6 @@ export default defineConfig({
     url: e2eBaseURL,
     reuseExistingServer,
     timeout: 60_000,
+    env: decisionScribeHarnessEnv,
   },
 });

@@ -11,6 +11,10 @@ import { useRoundSession } from "@/contexts/RoundSessionContext"
 import type { Patient } from "@/types/patient"
 import type { RoundShellSurface } from "./roundShellSurface"
 import { exportRoundRecovery } from "@/lib/exportRoundRecovery"
+import type { ComposedDraft } from "@/lib/decision-scribe/draftComposer"
+import type { CaptureBinding, DecisionCandidate } from "@/types/decisionScribe"
+import type { CaptureState } from "@/lib/decision-scribe/captureController"
+import { toast } from "sonner"
 
 export type { RoundShellSurface }
 
@@ -20,6 +24,11 @@ export interface DesktopRoundShellProps {
    * Prefer ToolsSheet panels; this is clearly labeled legacy.
    */
   onOpenWorkbench?: () => void
+  decisionDraft?: ComposedDraft | null
+  onDecisionDraftChange?: (candidates: DecisionCandidate[]) => void
+  onDecisionAttest?: (candidates: DecisionCandidate[]) => void
+  onCaptureStopped?: (state: CaptureState) => void
+  onCaptureAudio?: (state: CaptureState, audio: Blob | undefined, mimeType: string | undefined, binding: CaptureBinding, patient: Patient) => void
 }
 
 const isTypingTarget = (target: EventTarget | null): boolean => {
@@ -34,7 +43,7 @@ const isTypingTarget = (target: EventTarget | null): boolean => {
  * Desktop Focus-first Round shell: chrome + lifecycle surfaces + Tools sheet.
  * Patient Focus stays mounted while the roster opens so drafts remain in memory.
  */
-export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) => {
+export const DesktopRoundShell = ({ onOpenWorkbench, decisionDraft, onDecisionDraftChange, onDecisionAttest, onCaptureStopped, onCaptureAudio }: DesktopRoundShellProps) => {
   const { patients, setDesktopSelectedPatientId } = useDashboard()
   const {
     currentPatientId,
@@ -44,6 +53,8 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
     prevPatient,
     markDoneAndNext,
     startNewRound,
+    decisionScribeBlocked,
+    decisionScribeBlockReason,
   } = useRoundSession()
 
   const [rosterOpen, setRosterOpen] = React.useState(false)
@@ -52,12 +63,18 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
     patients.length === 0 ? "home" : "focus",
   )
   const [hasStartedRound, setHasStartedRound] = React.useState(() => patients.length > 0)
+  const [decisionReviewOpen, setDecisionReviewOpen] = React.useState(false)
   const hydratedSurfaceInitializedRef = React.useRef(false)
 
   const patient = React.useMemo((): Patient | null => {
     if (!currentPatientId) return null
     return patients.find((entry) => entry.id === currentPatientId) ?? null
   }, [patients, currentPatientId])
+  const captureBinding = React.useMemo<CaptureBinding | null>(() => {
+    if (!patient?.id || !round.userId || !round.id) return null
+    const startedAt = new Date().toISOString()
+    return { sessionId: `capture-${round.id}-${patient.id}` as CaptureBinding["sessionId"], roundId: round.id, patientId: patient.id, physicianId: round.userId, deviceId: `round-device-${round.userId}`, startedAt, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(), source: "rounds-audio", patientSnapshotId: `${patient.id}:${patient.lastModified}`, patientSnapshotCapturedAt: patient.lastModified }
+  }, [patient, round.id, round.userId])
 
   React.useEffect(() => {
     if (patients.length === 0) {
@@ -65,6 +82,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
       setHasStartedRound(false)
     }
   }, [patients.length])
+  React.useEffect(() => { if (!decisionDraft) setDecisionReviewOpen(false) }, [decisionDraft])
 
   React.useEffect(() => {
     if (!isHydrated || hydratedSurfaceInitializedRef.current) return
@@ -106,8 +124,14 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
   }, [round.status, startNewRound])
 
   const handleEndRound = React.useCallback(() => {
+    if (decisionScribeBlocked) {
+      toast.warning("Review Decision Scribe changes before End Round", {
+        description: decisionScribeBlockReason ?? "An approved Decision Scribe change still needs server acknowledgement.",
+      })
+      return
+    }
     setSurface("end")
-  }, [])
+  }, [decisionScribeBlocked, decisionScribeBlockReason])
 
   React.useEffect(() => {
     if (!isHydrated) return
@@ -181,6 +205,11 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
         onEndRound={handleEndRound}
         showLifecycleActions={surface === "focus"}
         onExportRecovery={() => exportRoundRecovery(round, patients)}
+        decisionReviewCount={decisionDraft && !decisionReviewOpen ? decisionDraft.candidates.length : 0}
+        onOpenDecisionReview={decisionDraft ? () => setDecisionReviewOpen(true) : undefined}
+        captureBinding={surface === "focus" ? captureBinding : null}
+        onCaptureStopped={onCaptureStopped}
+        onCaptureAudio={(state, audio, mime) => { if (captureBinding && patient) onCaptureAudio?.(state, audio, mime, captureBinding, patient); }}
       />
       <main id="main-content" tabIndex={-1} className="min-h-0 flex-1">
         {surface === "home" && (
@@ -191,7 +220,7 @@ export const DesktopRoundShell = ({ onOpenWorkbench }: DesktopRoundShellProps) =
           />
         )}
         {surface === "focus" && (
-          <PatientFocus patient={patient} onGoHome={handleGoHome} />
+            <PatientFocus patient={patient} onGoHome={handleGoHome} decisionDraft={decisionReviewOpen ? decisionDraft : null} onDecisionDraftChange={onDecisionDraftChange} onDecisionReviewClose={() => setDecisionReviewOpen(false)} onDecisionAttest={onDecisionAttest} />
         )}
         {surface === "end" && (
           <RoundEnd

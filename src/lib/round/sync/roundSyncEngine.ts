@@ -147,6 +147,10 @@ class RoundSyncEngine {
 
   async getDeviceId(): Promise<string> {
     if (this.deviceId) return this.deviceId;
+    if (typeof globalThis.indexedDB === "undefined") {
+      this.deviceId = "node-test-device";
+      return this.deviceId;
+    }
     this.deviceId = await getOrCreateRoundDeviceId();
     return this.deviceId;
   }

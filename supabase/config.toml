@@ -62,3 +62,9 @@ verify_jwt = false
 
 [functions.transform-text]
 verify_jwt = false
+
+[functions.transcribe-decision-audio]
+verify_jwt = false
+
+[functions.compose-decision-draft]
+verify_jwt = false

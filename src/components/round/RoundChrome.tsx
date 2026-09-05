@@ -7,6 +7,9 @@ import { safeLocalStorage, safeSessionStorage } from "@/utils/safeStorage";
 import { describeRoundSync } from "@/lib/round/sync/syncPresentation";
 import { toast } from "sonner";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
+import { CaptureControl } from "@/components/decision-scribe/CaptureControl";
+import type { CaptureBinding } from "@/types/decisionScribe";
+import type { CaptureState } from "@/lib/decision-scribe/captureController";
 
 export interface RoundChromeProps {
   onOpenRoster: () => void;
@@ -32,6 +35,12 @@ export interface RoundChromeProps {
   onDoneAndNext?: () => void;
   /** Download local PHI recovery JSON when sync cannot be trusted. */
   onExportRecovery?: () => void;
+  /** Optional review entry point; transcript and raw capture stay out of chrome. */
+  decisionReviewCount?: number;
+  onOpenDecisionReview?: () => void;
+  captureBinding?: CaptureBinding | null;
+  onCaptureStopped?: (state: CaptureState) => void;
+  onCaptureAudio?: (state: CaptureState, audio?: Blob, mimeType?: string) => void;
 }
 
 /**
@@ -51,6 +60,11 @@ export const RoundChrome = ({
   onNext,
   onDoneAndNext,
   onExportRecovery,
+  decisionReviewCount = 0,
+  onOpenDecisionReview,
+  captureBinding,
+  onCaptureStopped,
+  onCaptureAudio,
 }: RoundChromeProps) => {
   const {
     position,
@@ -67,6 +81,8 @@ export const RoundChrome = ({
     retryResult,
     canCompleteRound,
     completionSafety,
+    decisionScribeBlocked,
+    decisionScribeBlockReason,
     retryRoundSync,
     clearWalkStatus,
   } = useRoundSession();
@@ -132,6 +148,12 @@ export const RoundChrome = ({
   };
 
   const handleEndRound = () => {
+    if (decisionScribeBlocked) {
+      toast.warning("Review Decision Scribe changes before End Round", {
+        description: decisionScribeBlockReason ?? "An approved Decision Scribe change still needs server acknowledgement.",
+      });
+      return;
+    }
     onEndRound?.();
   };
 
@@ -200,6 +222,9 @@ export const RoundChrome = ({
       <span id="round-done-help" className="sr-only">
         Done and End Round require all local edits to finish syncing and all conflicts to be resolved.
       </span>
+      <span id="round-decision-scribe-help" className="sr-only">
+        {decisionScribeBlockReason ?? "Decision Scribe changes must be acknowledged before End Round."}
+      </span>
       <span id="round-next-help" className="sr-only">
         Next is unavailable when the last patient is active or the roster is empty.
       </span>
@@ -223,6 +248,20 @@ export const RoundChrome = ({
         <ChevronLeft className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
         {touchFriendly && <span className="text-sm font-medium">Prev</span>}
       </Button>
+
+      {onOpenDecisionReview && decisionReviewCount > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          size={touchFriendly ? "default" : "sm"}
+          className={cn(touchFriendly ? "min-h-[44px] gap-1.5 px-3" : "gap-1.5 px-2", "border-amber-500/50 text-amber-800 dark:text-amber-200")}
+          onClick={onOpenDecisionReview}
+          aria-label={`Open ${decisionReviewCount} provisional decision review${decisionReviewCount === 1 ? "" : "s"}`}
+          data-testid="round-decision-review-entry"
+        >
+          <span aria-hidden="true">!</span><span>Review{touchFriendly ? ` · ${decisionReviewCount}` : ""}</span>
+        </Button>
+      )}
 
       <Button
         type="button"
@@ -358,6 +397,7 @@ export const RoundChrome = ({
           </button>
         ) : null}
       </div>
+        {captureBinding && <CaptureControl key={captureBinding.patientId} binding={captureBinding} requireConsent onStopped={(state, audio, mime) => { onCaptureStopped?.(state); onCaptureAudio?.(state, audio, mime); }} className="shrink-0" />}
 
       <div className="flex shrink-0 items-center gap-1">
         {showLifecycleActions && onGoHome && (
@@ -380,10 +420,11 @@ export const RoundChrome = ({
             variant="ghost"
             size="icon"
             onClick={handleEndRound}
+            disabled={decisionScribeBlocked}
             aria-label="End Round"
-            title="End Round"
+            aria-describedby={decisionScribeBlocked ? "round-decision-scribe-help" : "round-done-help"}
+            title={decisionScribeBlocked ? decisionScribeBlockReason ?? "Review Decision Scribe changes before End Round" : "End Round"}
             data-testid="round-end-entry"
-            aria-describedby="round-done-help"
             className={iconBtnClass}
           >
             <Printer className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />

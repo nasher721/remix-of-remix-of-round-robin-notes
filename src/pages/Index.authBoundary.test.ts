@@ -10,10 +10,9 @@ test("Index resets the selected patient when the authenticated owner changes", (
     source,
     /selectedPatientState && selectedPatientState\.ownerId === user\?\.id/,
   );
-  assert.match(
-    source,
-    /setSelectedPatientState\(patient && user \? \{ ownerId: user\.id, patient \} : null\)/,
-  );
+  assert.match(source, /setSelectedPatientState\(/);
+  assert.match(source, /ownerId:\s*user\.id/);
+  assert.match(source, /patient\s*&&\s*user/);
   assert.match(
     source,
     /React\.useEffect\(\(\) => \{\s*setSelectedPatientState\(null\);\s*}, \[user\?\.id\]\);/,

@@ -17,6 +17,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { logInfo } from '../observability/logger';
 import type { CachedRoundSession, RoundOutboxEntry } from '../round/sync/types';
+import type { DecisionScribeOutboxEntry } from '../decision-scribe/decisionScribeOutbox';
 
 // ============================================
 // Type Definitions
@@ -38,6 +39,8 @@ export interface QueuedMutationDB {
   conflictServerData?: Record<string, unknown> | null;
   /** The authenticated user that owns this mutation. */
   ownerId?: string;
+  /** Stable caller-supplied correlation/idempotency token; never sent as row data. */
+  operationId?: string;
 }
 
 export interface CachedPatient {
@@ -105,6 +108,7 @@ class RoundRobinDatabase extends Dexie {
   syncMetadata!: EntityTable<SyncMetadata, 'id'>;
   roundSessions!: EntityTable<CachedRoundSession, 'id'>;
   roundOutbox!: EntityTable<RoundOutboxEntry, 'id'>;
+  decisionScribeOutbox!: EntityTable<DecisionScribeOutboxEntry, 'id'>;
   todoSnapshots!: EntityTable<CachedTodoSnapshot, 'id'>;
   patientImportAttempts!: EntityTable<PatientImportAttemptRecord, 'id'>;
 
@@ -134,16 +138,19 @@ class RoundRobinDatabase extends Dexie {
 
     // Owner-scoped Todo snapshot used by End Round and print/export after a
     // cold offline reload. Pending mutations remain in the separate queue.
-    this.version(5).stores({
+  this.version(5).stores({
       todoSnapshots: 'id, ownerId, cachedAt',
     });
 
     // Stable client-generated IDs make patient-list import retry idempotent
     // when the server commits but its response is lost.
-    this.version(6).stores({
-      patientImportAttempts: 'id, ownerId, fingerprint, createdAt',
-    });
-  }
+  this.version(6).stores({
+    patientImportAttempts: 'id, ownerId, fingerprint, createdAt',
+  });
+  this.version(7).stores({
+    decisionScribeOutbox: 'id, ownerId, status, patientId, roundId, createdAt',
+  });
+}
 }
 
 // ============================================
@@ -151,6 +158,10 @@ class RoundRobinDatabase extends Dexie {
 // ============================================
 
 export const db = new RoundRobinDatabase();
+
+/** IndexedDB is optional in SSR/Node harnesses; browser persistence remains the default. */
+export const isIndexedDBAvailable = (): boolean =>
+  typeof globalThis.indexedDB !== "undefined";
 
 export const AUTH_OWNER_METADATA_ID = '__auth_owner__';
 
@@ -172,8 +183,9 @@ const ownerBoundDataTables = () => [
   db.guidelines,
   db.syncMetadata,
   db.roundSessions,
-  db.roundOutbox,
-  db.todoSnapshots,
+    db.roundOutbox,
+    db.decisionScribeOutbox,
+    db.todoSnapshots,
 ];
 
 const allDataTables = () => [
@@ -190,6 +202,7 @@ async function clearOwnerBoundData(): Promise<void> {
     db.syncMetadata.clear(),
     db.roundSessions.clear(),
     db.roundOutbox.clear(),
+    db.decisionScribeOutbox.clear(),
     db.todoSnapshots.clear(),
   ]);
 }
@@ -292,19 +305,21 @@ export async function getDatabaseStats(): Promise<{
   guidelines: number;
   roundSessions: number;
   roundOutbox: number;
+  decisionScribeOutbox: number;
   todoSnapshots: number;
   patientImportAttempts: number;
 }> {
-  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots, patientImportAttempts] = await Promise.all([
+  const [mutations, patients, phrases, guidelines, roundSessions, roundOutbox, decisionScribeOutbox, todoSnapshots, patientImportAttempts] = await Promise.all([
     db.mutations.count(),
     db.patients.count(),
     db.phrases.count(),
     db.guidelines.count(),
     db.roundSessions.count(),
     db.roundOutbox.count(),
+    db.decisionScribeOutbox.count(),
     db.todoSnapshots.count(),
     db.patientImportAttempts.count(),
   ]);
   
-  return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox, todoSnapshots, patientImportAttempts };
+  return { mutations, patients, phrases, guidelines, roundSessions, roundOutbox, decisionScribeOutbox, todoSnapshots, patientImportAttempts };
 }

@@ -1109,3 +1109,31 @@ test("usePatientMutations returns addPatient, updatePatient, removePatient, dupl
   assert.equal(typeof result.current.collapseAll, "function");
   assert.equal(typeof result.current.clearAll, "function");
 });
+test("patient decision updates keep operation IDs in queue metadata, never row payload", async () => {
+    setupAuthMock();
+    const patientsRef = { current: [{ ...mockPatient }] };
+    const setPatients = (action: React.SetStateAction<Patient[]>) => {
+        patientsRef.current = typeof action === "function"
+            ? (action as (previous: Patient[]) => Patient[])(patientsRef.current)
+            : action;
+    };
+    const { wrapper } = createAuthQueryWrapper();
+    const { result } = renderHook(() => useMutationsWithAuth({
+        patientsRef, setPatients, patientCounter: 1, setPatientCounter: () => {}, fetchPatients: async () => {},
+    }), { wrapper });
+    await waitForAuthSession(result);
+    await indexedDBQueue.clear();
+    Object.defineProperty(globalThis.navigator, "onLine", { configurable: true, value: false });
+    try {
+        await act(async () => {
+            await result.current.updatePatient("existing-id", "clinicalSummary", "Decision text", "scribe-op-1");
+        });
+        const queued = await indexedDBQueue.getQueue();
+        assert.equal(queued.length, 1);
+        assert.equal(queued[0]?.operationId, "scribe-op-1");
+        assert.equal(Object.keys(queued[0]?.payload ?? {}).some((key) => key.startsWith("__")), false);
+    } finally {
+        await indexedDBQueue.clear();
+        delete (globalThis.navigator as unknown as { onLine?: boolean }).onLine;
+    }
+});

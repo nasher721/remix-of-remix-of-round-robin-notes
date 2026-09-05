@@ -43,6 +43,9 @@ const DevAgentationOverlay = import.meta.env.DEV
 const DevPrintExportTest = import.meta.env.DEV
   ? React.lazy(() => import("./pages/PrintExportTest"))
   : null
+const DevDecisionScribeHarness = import.meta.env.DEV
+  ? React.lazy(() => import("./pages/DecisionScribeHarness"))
+  : null
 
 // Use optimized QueryClient (cache metrics, CACHE_CONFIG, structural sharing)
 const queryClient = createOptimizedQueryClient();
@@ -79,6 +82,12 @@ function AppRoutesShell({ authenticated }: { authenticated: boolean }): React.Re
                 <DevPrintExportTest />
               </React.Suspense>
             )}
+          />
+        )}
+        {DevDecisionScribeHarness && (
+          <Route
+            path="/__decision-scribe-test"
+            element={<React.Suspense fallback={null}><DevDecisionScribeHarness /></React.Suspense>}
           />
         )}
         <Route path="*" element={<NotFound />} />

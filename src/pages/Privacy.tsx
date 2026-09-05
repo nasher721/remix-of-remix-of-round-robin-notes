@@ -95,6 +95,12 @@ const Privacy: React.FC = () => {
           </p>
         </section>
         <section className="space-y-3 leading-[1.5] text-muted-foreground">
+          <h2 className="text-lg font-semibold text-foreground">Decision Scribe</h2>
+          <p>Decision Scribe requires an explicit recording disclosure, your consent, and acknowledgement of the institution&apos;s policy before capture. It listens only to rounds audio while the current in-app patient is in focus; it does not capture in the background, access a live EHR, or infer from silent longitudinal history.</p>
+          <p>Raw audio and temporary transcripts are encrypted in memory only and are discarded when capture stops, is interrupted, or is revoked. They are not placed in browser storage, the database, offline outbox, durable logs, or telemetry. Only physician-approved structured changes may be retained through the normal chart workflow.</p>
+          <p>You can disable consent at any time. Disabling immediately stops capture and discards temporary material. Rollout modes remain off or full-review until institutional, encryption, retention, model/context, and pilot safety gates are verified.</p>
+        </section>
+        <section className="space-y-3 leading-[1.5] text-muted-foreground">
           <h2 className="text-lg font-semibold text-foreground">Health information and agreements</h2>
           <p>
             The software does not by itself establish HIPAA compliance. Do not enter protected health information unless the deployment operator has approved the configuration and workflow and has executed any required Business Associate Agreements (BAAs).

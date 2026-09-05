@@ -376,7 +376,7 @@ export function usePatientMutations({
         }
     }, [user, notifications, isCurrentOwner, commitPatients, setPatientCounter, patientsRef]);
 
-    const updatePatient = React.useCallback(async (id: string, field: string, value: unknown) => {
+const updatePatient = React.useCallback(async (id: string, field: string, value: unknown, idempotencyKey?: string) => {
         if (!user) return;
         const requestOwnerId = user.id;
         if (!hasSupabaseConfig) {
@@ -497,7 +497,8 @@ export function usePatientMutations({
                 operation: "update",
                 table: "patients",
                 entityId: id,
-                payload: persistenceData as Record<string, unknown>,
+                payload: { ...(persistenceData as Record<string, unknown>) },
+                ...(idempotencyKey ? { operationId: idempotencyKey } : {}),
                 conflictData: {
                     last_modified: oldPatient.lastModified,
                     revision: patientServerRevisionRef.current.get(patientUpdateKey)

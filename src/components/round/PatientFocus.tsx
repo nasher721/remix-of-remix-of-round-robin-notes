@@ -13,6 +13,9 @@ import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { cn } from "@/lib/utils";
 import type { Patient, PatientSystems } from "@/types/patient";
 import { getPatientIdentity } from "@/lib/patientIdentity";
+import { DecisionReview } from "@/components/decision-scribe/DecisionReview";
+import type { ComposedDraft } from "@/lib/decision-scribe/draftComposer";
+import type { DecisionCandidate } from "@/types/decisionScribe";
 
 export interface PatientFocusProps {
   patient: Patient | null;
@@ -24,6 +27,11 @@ export interface PatientFocusProps {
   touchFriendly?: boolean;
   /** Empty-state coaching: jump to Round Home for Import. */
   onGoHome?: () => void;
+  /** Provisional Decision Scribe output. It is review-only until an explicit attestation. */
+  decisionDraft?: ComposedDraft | null;
+  onDecisionDraftChange?: (candidates: DecisionCandidate[]) => void;
+  onDecisionReviewClose?: () => void;
+  onDecisionAttest?: (candidates: DecisionCandidate[]) => void;
 }
 
 const toPlainCue = (value: string | undefined, max = 80): string => {
@@ -61,6 +69,10 @@ export const PatientFocus = ({
   className,
   touchFriendly = false,
   onGoHome,
+  decisionDraft,
+  onDecisionDraftChange,
+  onDecisionReviewClose,
+  onDecisionAttest,
 }: PatientFocusProps) => {
   const { autotexts, onUpdatePatient } = useDashboard();
   const todosMap = useDashboardTodos();
@@ -411,6 +423,18 @@ export const PatientFocus = ({
       data-touch-friendly={touchFriendly ? "true" : undefined}
     >
       <div className="shrink-0 border-b border-border/30 bg-card/30 px-4 py-3 md:px-6">
+        {decisionDraft && (
+          <div className="mb-3" data-testid="patient-focus-decision-review">
+            <DecisionReview
+              draft={decisionDraft}
+              patientId={patient.id}
+              touchFriendly={touchFriendly}
+              onChange={onDecisionDraftChange}
+              onClose={onDecisionReviewClose}
+              onAttest={onDecisionAttest}
+            />
+          </div>
+        )}
         <dl className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4" data-testid="patient-focus-identity">
           <div className="sm:col-span-2 lg:col-span-4">
             <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</dt>

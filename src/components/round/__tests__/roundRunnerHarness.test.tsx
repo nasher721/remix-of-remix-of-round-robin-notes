@@ -5,7 +5,7 @@
 import * as React from "react";
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SettingsProvider } from "@/contexts/SettingsContext";
@@ -22,8 +22,20 @@ import { completeRound, createRound } from "@/lib/round/roundSessionStore";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DesktopRoundShell } from "@/components/round/DesktopRoundShell";
 import { MobileRoundShell } from "@/components/round/MobileRoundShell";
+import { RoundEnd } from "@/components/round/RoundEnd";
 import { dashboardPatients3, makeDashboardTodosMap } from "@/test/dashboardRegressionFixtures";
 import { PatientFilterType } from "@/constants/config";
+import {
+  asAttestationId,
+  asDecisionCandidateId,
+  asDecisionDraftId,
+  asCaptureSessionId,
+} from "@/types/decisionScribe";
+import {
+  createMemoryDecisionScribeOutboxStore,
+  decisionScribeOutbox,
+  type DecisionScribeOutboxEntry,
+} from "@/lib/decision-scribe/decisionScribeOutbox";
 import type { Patient } from "@/types/patient";
 import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
 import type { PatientRosterVerification } from "@/hooks/patients/usePatientFetch";
@@ -141,6 +153,7 @@ function RoundProviders({
   patientVerification = "verified",
   todosVerification = "verified",
   dataVerificationBlocked = false,
+  decisionScribeStatus,
   disablePersistence = true,
   children,
 }: {
@@ -150,6 +163,7 @@ function RoundProviders({
   patientVerification?: PatientRosterVerification;
   todosVerification?: "loading" | "verified" | "local" | "stale";
   dataVerificationBlocked?: boolean;
+  decisionScribeStatus?: DecisionScribeOutboxEntry["status"];
   disablePersistence?: boolean;
   children: React.ReactNode;
 }) {
@@ -158,6 +172,48 @@ function RoundProviders({
     [],
   );
   const patientIds = React.useMemo(() => patients.map((patient) => patient.id), [patients]);
+  const decisionScribeStore = React.useMemo(() => {
+    const store = createMemoryDecisionScribeOutboxStore();
+    if (!decisionScribeStatus) return store;
+    const candidateId = asDecisionCandidateId("decision-candidate-1");
+    const patientId = patients[0]?.id ?? "patient-1";
+    const roundId = "round-test";
+    const draftId = asDecisionDraftId("decision-draft-1");
+    const sessionId = asCaptureSessionId("capture-session-1");
+    const now = "2026-09-04T12:00:00.000Z";
+    void store.add({
+      id: "decision-entry-1",
+      operationId: "test-user:attestation-1:decision-candidate-1",
+      ownerId: "test-user",
+      patientId,
+      roundId,
+      candidate: {
+        id: candidateId,
+        destination: "todo",
+        statementType: "task",
+        polarity: "proposed",
+        changeType: "add",
+        proposedContent: "Review the provisional decision.",
+      },
+      attestation: {
+        id: asAttestationId("attestation-1"),
+        draftId,
+        sessionId,
+        patientId,
+        physicianId: "test-user",
+        attestedAt: now,
+        approvedCandidateIds: [candidateId],
+        roundId,
+        deviceId: "device-1",
+      },
+      payloadFingerprint: "test-fingerprint",
+      status: decisionScribeStatus,
+      createdAt: now,
+      retryCount: 0,
+    });
+    return store;
+  }, [decisionScribeStatus, patients]);
+  decisionScribeOutbox.setStore(decisionScribeStore);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -406,6 +462,113 @@ describe("Focus-first Round runner harness", () => {
       false,
       "Print/export remains a recovery path while completion is blocked",
     );
+  });
+
+  it("blocks every desktop End Round path while a Decision Scribe write is unresolved", async () => {
+    for (const status of ["pending", "failed", "conflict"] as const) {
+      render(
+        <RoundProviders patients={dashboardPatients3} decisionScribeStatus={status}>
+          <DesktopRoundShell />
+        </RoundProviders>,
+      );
+
+      await screen.findByText(/approved Decision Scribe change/i);
+      const endEntry = screen.getByTestId("round-end-entry") as HTMLButtonElement;
+      assert.equal(endEntry.disabled, true, `${status} Decision Scribe write must block End Round entry`);
+      assert.match(endEntry.getAttribute("title") ?? "", /Decision Scribe|conflict|failed/i);
+      assert.equal((screen.getByTestId("round-next") as HTMLButtonElement).disabled, false);
+      assert.ok(screen.getByTestId("round-roster-entry"));
+      assert.ok(screen.getByTestId("round-tools-entry"));
+
+      fireEvent.click(screen.getByTestId("round-go-home"));
+      const homeEnd = screen.getByTestId("round-home-end");
+      fireEvent.click(homeEnd);
+      assert.equal(
+        screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"),
+        "home",
+        `${status} Decision Scribe write must block the Round Home End path`,
+      );
+
+      cleanup();
+    }
+  });
+
+  it("blocks every mobile End Round path while a Decision Scribe write is unresolved", async () => {
+    for (const status of ["pending", "failed", "conflict"] as const) {
+      render(
+        <RoundProviders patients={dashboardPatients3} decisionScribeStatus={status}>
+          <MobileRoundShell />
+        </RoundProviders>,
+      );
+
+      await screen.findByText(/approved Decision Scribe change/i);
+      assert.equal((screen.getByTestId("round-end-entry") as HTMLButtonElement).disabled, true);
+      fireEvent.click(screen.getByTestId("round-go-home"));
+      fireEvent.click(screen.getByTestId("round-home-end"));
+      assert.equal(
+        screen.getByTestId("mobile-round-shell").getAttribute("data-round-surface"),
+        "home",
+      );
+      cleanup();
+    }
+  });
+
+  it("keeps the Decision Scribe review action actionable and blocks final completion", async () => {
+    const decisionDraft = {
+      candidates: [{ id: asDecisionCandidateId("decision-candidate-1") }],
+    } as unknown as React.ComponentProps<typeof DesktopRoundShell>["decisionDraft"];
+    render(
+      <RoundProviders patients={dashboardPatients3} decisionScribeStatus="conflict">
+        <DesktopRoundShell decisionDraft={decisionDraft} />
+      </RoundProviders>,
+    );
+
+    await screen.findByText(/approved Decision Scribe change/i);
+    const review = screen.getByRole("button", { name: /Open 1 provisional decision review/i });
+    assert.equal(review.getAttribute("aria-label"), "Open 1 provisional decision review");
+    fireEvent.click(screen.getByTestId("round-go-home"));
+    fireEvent.click(screen.getByTestId("round-home-end"));
+    assert.equal(screen.queryByTestId("round-end"), null, "blocked Home End must not open End Round");
+    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "home");
+  });
+
+  it("keeps Print / Export available on End Round while Decision Scribe completion is blocked", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3} decisionScribeStatus="failed">
+        <RoundEnd onBackToFocus={() => undefined} onBackToHome={() => undefined} />
+      </RoundProviders>,
+    );
+
+    await screen.findByTestId("round-completion-guard");
+    assert.equal((screen.getByTestId("round-end-print") as HTMLButtonElement).disabled, false);
+    assert.equal((screen.getByTestId("round-end-complete") as HTMLButtonElement).disabled, true);
+    assert.match(screen.getByTestId("round-completion-guard").textContent ?? "", /failed to sync/i);
+  });
+
+  it("allows End Round and Mark Round complete after the Decision Scribe write is acknowledged", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3} decisionScribeStatus="completed">
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    await waitFor(() => assert.equal((screen.getByTestId("round-end-entry") as HTMLButtonElement).disabled, false));
+    fireEvent.click(screen.getByTestId("round-end-entry"));
+    assert.equal((screen.getByTestId("round-end-complete") as HTMLButtonElement).disabled, false);
+    fireEvent.click(screen.getByTestId("round-end-complete"));
+    assert.ok(screen.getByTestId("round-end-completed"));
+  });
+
+  it("allows End Round after a Decision Scribe write is explicitly undone", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3} decisionScribeStatus="undone">
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    await waitFor(() => assert.equal((screen.getByTestId("round-end-entry") as HTMLButtonElement).disabled, false));
+    fireEvent.click(screen.getByTestId("round-end-entry"));
+    assert.equal((screen.getByTestId("round-end-complete") as HTMLButtonElement).disabled, false);
   });
 
   it("keeps stale local Todos visible for recovery export while blocking completion", async () => {

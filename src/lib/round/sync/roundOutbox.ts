@@ -38,6 +38,10 @@ class RoundOutboxManager {
   }
 
   private async initialize(): Promise<void> {
+    if (typeof globalThis.indexedDB === "undefined") {
+      this.initialized = false;
+      return;
+    }
     try {
       await db.open();
       if (this.memoryQueue.length > 0) {

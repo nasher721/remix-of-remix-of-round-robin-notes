@@ -12,7 +12,10 @@ import { useIBCCState } from "@/contexts/IBCCContext";
 import { ChangeTrackingProvider } from "@/contexts/ChangeTrackingContext";
 import { DashboardProvider } from "@/contexts/DashboardContext";
 import { DashboardTodosProvider } from "@/contexts/DashboardTodosContext";
-import { useSetActivePatientId, useSetCurrentPatients } from "@/contexts/CurrentPatientsContext";
+import {
+  useSetActivePatientId,
+  useSetCurrentPatients,
+} from "@/contexts/CurrentPatientsContext";
 import { RoundSessionProvider } from "@/contexts/RoundSessionContext";
 import { isRoundRunnerEnabled } from "@/lib/round/isRoundRunnerEnabled";
 import { PatientListSkeleton } from "@/components/PatientCardSkeleton";
@@ -22,10 +25,33 @@ import type { Patient } from "@/types/patient";
 import { EdgeHealthProvider } from "@/contexts/EdgeHealthContext";
 import { BackendStatusBanner } from "@/components/BackendStatusBanner";
 import { PatientRosterStatusBanner } from "@/components/PatientRosterStatusBanner";
-import { NewPatientSheet, type NewPatientSubmitPayload } from "@/components/dashboard/NewPatientSheet";
+import {
+  NewPatientSheet,
+  type NewPatientSubmitPayload,
+} from "@/components/dashboard/NewPatientSheet";
 import { syncEngine } from "@/lib/offline/syncEngine";
 import { useDashboardLayout } from "@/context/DashboardLayoutContext";
 import type { PatientSaveState } from "@/hooks/patients/usePatientMutations";
+import type { CaptureState } from "@/lib/decision-scribe/captureController";
+import { runDecisionScribePipeline } from "@/lib/decision-scribe/clientPipeline";
+import type {
+  CaptureBinding,
+  DecisionCandidate,
+  DecisionDraft,
+} from "@/types/decisionScribe";
+import type { ComposedDraft } from "@/lib/decision-scribe/draftComposer";
+import {
+  attest,
+  undoDecisionOperation,
+  retryDecisionScribeOutbox,
+  type AttestationCommitOutcome,
+} from "@/lib/decision-scribe/attestationController";
+import { decisionScribeOutbox } from "@/lib/decision-scribe/decisionScribeOutbox";
+import { usePatientTodos } from "@/hooks/usePatientTodos";
+import { ConflictReview } from "@/components/decision-scribe/ConflictReview";
+import type { DecisionScribeOutboxEntry } from "@/lib/decision-scribe/decisionScribeOutbox";
+import { indexedDBQueue } from "@/lib/offline/indexedDBQueue";
+import { mapDecisionCandidate } from "@/lib/decision-scribe/decisionMutationMapping";
 
 const DesktopDashboard = React.lazy(() =>
   import("@/components/dashboard/DesktopDashboard").then((module) => ({
@@ -71,6 +97,9 @@ function IndexContent(): React.ReactElement | null {
   const isMobile = useIsMobile();
   const { setCurrentPatient } = useIBCCState();
   const { user, loading: authLoading, signOut } = useAuth();
+  React.useEffect(() => {
+    decisionScribeOutbox.setOwner(user?.id ?? null);
+  }, [user?.id]);
   const { sortBy } = useSettings();
   const {
     patients,
@@ -87,7 +116,14 @@ function IndexContent(): React.ReactElement | null {
     refetch: refetchPatients,
     patientSaveStates,
   } = usePatients();
-  const { autotexts, templates, addAutotext, removeAutotext, addTemplate, removeTemplate } = useCloudAutotexts();
+  const {
+    autotexts,
+    templates,
+    addAutotext,
+    removeAutotext,
+    addTemplate,
+    removeTemplate,
+  } = useCloudAutotexts();
   const { customDictionary, importDictionary } = useCloudDictionary();
   const setCurrentPatients = useSetCurrentPatients();
   const setActivePatientId = useSetActivePatientId();
@@ -100,19 +136,128 @@ function IndexContent(): React.ReactElement | null {
   }, [patients, setCurrentPatients]);
 
   // Fetch todos for all patients for print/export
-  const patientIds = React.useMemo(() => patients.map(p => p.id), [patients]);
-  const { todosMap, verification: todosVerification } = useAllPatientTodos(patientIds);
+  const patientIds = React.useMemo(() => patients.map((p) => p.id), [patients]);
+  const { todosMap, verification: todosVerification } =
+    useAllPatientTodos(patientIds);
 
   // Patient filtering and sorting
-  const { searchQuery, setSearchQuery, filter, setFilter, filteredPatients } = usePatientFilter({
-    patients,
-    sortBy,
-    currentUserId: user?.id,
-  });
+  const { searchQuery, setSearchQuery, filter, setFilter, filteredPatients } =
+    usePatientFilter({
+      patients,
+      sortBy,
+      currentUserId: user?.id,
+    });
 
   const [lastSaved, setLastSaved] = React.useState<Date>(new Date());
   const [newPatientSheetOpen, setNewPatientSheetOpen] = React.useState(false);
-  const [desktopSelectedPatientId, setDesktopSelectedPatientId] = React.useState<string | null>(null);
+  const [desktopSelectedPatientId, setDesktopSelectedPatientId] =
+    React.useState<string | null>(null);
+  const [decisionScribeNotice, setDecisionScribeNotice] = React.useState<
+    string | null
+  >(null);
+  const [lastDecisionScribeEntryId, setLastDecisionScribeEntryId] =
+    React.useState<string | null>(null);
+  const [decisionScribeConflicts, setDecisionScribeConflicts] = React.useState<
+    DecisionScribeOutboxEntry[]
+  >([]);
+  React.useEffect(() => {
+    if (!user?.id) {
+      setDecisionScribeConflicts([]);
+      return;
+    }
+    const refresh = async () => {
+      try {
+        setDecisionScribeConflicts(
+          (await decisionScribeOutbox.list(user.id)).filter(
+            (entry) => entry.status === "conflict" && entry.conflict,
+          ),
+        );
+      } catch {
+        setDecisionScribeNotice(
+          "Decision Scribe outbox is unavailable. Approved changes remain blocked until it can be read safely.",
+        );
+      }
+    };
+    void refresh();
+    const unsubscribe = decisionScribeOutbox.subscribe(
+      (entries) => {
+        setDecisionScribeConflicts(
+          entries.filter(
+            (entry) => entry.status === "conflict" && entry.conflict,
+          ),
+        );
+      },
+      () => {
+        setDecisionScribeNotice(
+          "Decision Scribe outbox is unavailable. Approved changes remain blocked until it can be read safely.",
+        );
+      },
+    );
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.id]);
+  const [decisionDraft, setDecisionDraft] =
+    React.useState<ComposedDraft | null>(null);
+  const handleDecisionCaptureStopped = React.useCallback(
+    (state: CaptureState) => {
+      if (state.lifecycle === "review") {
+        setDecisionScribeNotice(
+          "Capture stopped. Review is unavailable until a validated decision draft is prepared.",
+        );
+      } else if (state.reason) {
+        setDecisionScribeNotice(
+          `Decision Scribe stopped safely: ${state.reason}`,
+        );
+      }
+    },
+    [],
+  );
+  const handleDecisionCaptureAudio = React.useCallback(
+    async (
+      _state: CaptureState,
+      audio: Blob | undefined,
+      _mime: string | undefined,
+      binding: CaptureBinding,
+      patient: Patient,
+    ) => {
+      if (!audio) {
+        setDecisionScribeNotice(
+          "Capture stopped without audio. No review was created.",
+        );
+        return;
+      }
+      setDecisionScribeNotice("Preparing a provisional decision review…");
+      try {
+        const result = await runDecisionScribePipeline(audio, binding, {
+          patientId: patient.id,
+          snapshotId: binding.patientSnapshotId,
+          capturedAt: binding.patientSnapshotCapturedAt,
+          clinicalSummary: patient.clinicalSummary,
+          systems: { ...patient.systems },
+        });
+        const draft = result.draft as ComposedDraft;
+        setDecisionDraft({
+          ...draft,
+          candidates: draft.candidates.map((candidate) =>
+            candidate.destination === "medications" && !candidate.currentValue
+              ? {
+                  ...candidate,
+                  currentValue: JSON.stringify(patient.medications),
+                }
+              : candidate,
+          ),
+        });
+        setDecisionScribeNotice(null);
+      } catch {
+        setDecisionDraft(null);
+        setDecisionScribeNotice(
+          "Decision review could not be prepared. No changes were saved.",
+        );
+      }
+    },
+    [],
+  );
 
   // Mobile-specific state
   const [mobileTab, setMobileTab] = React.useState<MobileTab>("patients");
@@ -120,12 +265,33 @@ function IndexContent(): React.ReactElement | null {
     ownerId: string;
     patient: Patient;
   } | null>(null);
-  const selectedPatient = selectedPatientState && selectedPatientState.ownerId === user?.id
-    ? selectedPatientState.patient
-    : null;
-  const setSelectedPatient = React.useCallback((patient: Patient | null) => {
-    setSelectedPatientState(patient && user ? { ownerId: user.id, patient } : null);
-  }, [user]);
+  const selectedPatient =
+    selectedPatientState && selectedPatientState.ownerId === user?.id
+      ? selectedPatientState.patient
+      : null;
+  const setSelectedPatient = React.useCallback(
+    (patient: Patient | null) => {
+      setSelectedPatientState(
+        patient && user ? { ownerId: user.id, patient } : null,
+      );
+    },
+    [user],
+  );
+  React.useEffect(() => {
+    const activePatientId = isMobile
+      ? selectedPatient?.id
+      : desktopSelectedPatientId;
+    if (
+      decisionDraft &&
+      activePatientId &&
+      decisionDraft.binding.patientId !== activePatientId
+    ) {
+      setDecisionDraft(null);
+      setDecisionScribeNotice(
+        "Patient changed. The provisional review was discarded safely.",
+      );
+    }
+  }, [decisionDraft, desktopSelectedPatientId, isMobile, selectedPatient?.id]);
 
   React.useEffect(() => {
     setSelectedPatientState(null);
@@ -165,6 +331,20 @@ function IndexContent(): React.ReactElement | null {
     return undefined;
   }, [filteredPatients, isMobile, selectedPatient, desktopSelectedPatientId]);
 
+  const decisionTodos = usePatientTodos(currentPatient?.id ?? null, {
+    initialTodos: currentPatient
+      ? (todosMap[currentPatient.id] ?? [])
+      : undefined,
+  });
+  const commitDecisionCandidateRef = React.useRef<
+    | ((
+        candidate: DecisionCandidate,
+        attestation: import("@/types/decisionScribe").Attestation,
+        operationId?: string,
+      ) => Promise<AttestationCommitOutcome>)
+    | null
+  >(null);
+
   // Update IBCC context with current patient for context-aware suggestions
   React.useEffect(() => {
     setCurrentPatient(currentPatient);
@@ -173,8 +353,170 @@ function IndexContent(): React.ReactElement | null {
   }, [currentPatient, setCurrentPatient, setActivePatientId]);
 
   const handleUpdatePatient = React.useCallback(
-    (id: string, field: string, value: unknown) => updatePatient(id, field, value),
+    (id: string, field: string, value: unknown) =>
+      updatePatient(id, field, value),
     [updatePatient],
+  );
+
+  const commitDecisionCandidate = React.useCallback(
+    async (
+      candidate: DecisionCandidate,
+      attestation: import("@/types/decisionScribe").Attestation,
+      operationId?: string,
+    ): Promise<AttestationCommitOutcome> => {
+      if (
+        !user ||
+        !currentPatient ||
+        currentPatient.id !== attestation.patientId ||
+        user.id !== attestation.physicianId
+      )
+        throw new Error("Decision Scribe owner or patient changed");
+      if (candidate.destination === "todo") {
+        const mutation = mapDecisionCandidate(
+          candidate,
+          currentPatient,
+          operationId ?? candidate.id,
+        );
+        if (mutation.kind !== "todo")
+          throw new Error("Decision mapping produced an invalid todo mutation");
+        if (candidate.changeType === "remove") {
+          await decisionTodos.deleteTodo(mutation.content);
+        } else {
+          await decisionTodos.addTodo(
+            mutation.content,
+            null,
+            mutation.id.replace("decision-", ""),
+          );
+        }
+      } else {
+        const mutation = mapDecisionCandidate(
+          candidate,
+          currentPatient,
+          operationId ?? candidate.id,
+        );
+        if (mutation.kind !== "patient")
+          throw new Error(
+            "Decision mapping produced an invalid patient mutation",
+          );
+        await updatePatient(
+          currentPatient.id,
+          mutation.field,
+          mutation.value,
+          operationId,
+        );
+      }
+      if (operationId) {
+        const queued = (await indexedDBQueue.getQueue()).find(
+          (mutation) =>
+            mutation.ownerId === user.id &&
+            mutation.operationId === operationId,
+        );
+        if (queued?.status === "pending") return "queued";
+        if (queued?.conflictData) {
+          const server = queued.conflictData.serverData as Record<
+            string,
+            unknown
+          > | null;
+          const serverValue =
+            candidate.destination === "systems" &&
+            server &&
+            typeof server.systems === "object" &&
+            server.systems !== null
+              ? (server.systems as Record<string, unknown>)[
+                  candidate.changeType ?? "notes"
+                ]
+              : candidate.destination === "clinicalSummary"
+                ? server?.clinical_summary
+                : server?.[candidate.destination];
+          return {
+            status: "conflict",
+            conflict: {
+              mine: candidate.proposedContent,
+              theirs: typeof serverValue === "string" ? serverValue : undefined,
+            },
+          };
+        }
+      }
+      return "committed";
+    },
+    [currentPatient, decisionTodos, updatePatient, user],
+  );
+  commitDecisionCandidateRef.current = commitDecisionCandidate;
+  React.useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const drain = () => {
+      if (!cancelled && commitDecisionCandidateRef.current)
+        void retryDecisionScribeOutbox(user.id, (operation) =>
+          commitDecisionCandidateRef.current!(
+            operation.candidate as DecisionCandidate,
+            operation.attestation,
+            operation.operationId,
+          ),
+        ).catch(() => {
+          setDecisionScribeNotice(
+            "Decision Scribe outbox is unavailable. Approved changes remain blocked until it can be read safely.",
+          );
+        });
+    };
+    drain();
+    window.addEventListener("online", drain);
+    document.addEventListener("visibilitychange", drain);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", drain);
+      document.removeEventListener("visibilitychange", drain);
+    };
+  }, [user?.id]);
+
+  const handleDecisionAttest = React.useCallback(
+    async (candidates: DecisionCandidate[]) => {
+      if (!user || !currentPatient || !decisionDraft) return;
+      decisionScribeOutbox.setOwner(user.id);
+      try {
+        const result = await attest(
+          {
+            ownerId: user.id,
+            physicianId: user.id,
+            draft: { ...decisionDraft, candidates },
+            binding: decisionDraft.binding,
+            patientSnapshotId: decisionDraft.binding.patientSnapshotId,
+            approvedCandidateIds: candidates.map((candidate) => candidate.id),
+            approvedCandidates: candidates,
+          },
+          { commit: commitDecisionCandidate },
+        );
+        setDecisionDraft((draft) =>
+          result.status === "committed"
+            ? null
+            : draft
+              ? { ...draft, status: "review" }
+              : draft,
+        );
+        setDecisionScribeNotice(
+          result.status === "committed"
+            ? "Approved changes saved."
+            : result.status === "conflict"
+              ? "Approved changes need conflict resolution."
+              : "Approved changes queued for sync.",
+        );
+        if (result.status === "committed" || result.status === "queued") {
+          const firstCandidateId = result.candidateIds[0];
+          setLastDecisionScribeEntryId(
+            firstCandidateId
+              ? `decision-${result.attestation.draftId}-${firstCandidateId}-${result.attestation.patientId}`
+              : null,
+          );
+        }
+      } catch (error) {
+        setDecisionScribeNotice(
+          error instanceof Error
+            ? error.message
+            : "Attestation failed. No changes were saved.",
+        );
+      }
+    },
+    [commitDecisionCandidate, currentPatient, decisionDraft, user],
   );
 
   const handleRemovePatient = React.useCallback(
@@ -222,90 +564,93 @@ function IndexContent(): React.ReactElement | null {
   }, [navigate, signOut]);
 
   // Build dashboard context value (todosMap is in DashboardTodosContext to reduce re-renders)
-  const dashboardContextValue = React.useMemo(() => ({
-    user,
-    patients,
-    filteredPatients,
-    searchQuery,
-    setSearchQuery,
-    filter,
-    setFilter,
-    autotexts,
-    templates,
-    customDictionary,
-    onAddPatient: handleAddPatient,
-    onAddPatientWithData: addPatientWithData,
-    onUpdatePatient: handleUpdatePatient,
-    onRemovePatient: handleRemovePatient,
-    onDuplicatePatient: handleDuplicatePatient,
-    onToggleCollapse: handleToggleCollapse,
-    onCollapseAll: collapseAll,
-    onClearAll: clearAll,
-    onImportPatients: importPatients,
-    onRefetchPatients: handleRefetchPatients,
-    desktopSelectedPatientId,
-    setDesktopSelectedPatientId,
-    onAddAutotext: addAutotext,
-    onRemoveAutotext: removeAutotext,
-    onAddTemplate: addTemplate,
-    onRemoveTemplate: removeTemplate,
-    onImportDictionary: importDictionary,
-    onSignOut: handleSignOut,
-    onPatientSelect: setSelectedPatient,
-    selectedPatient,
-    mobileTab,
-    setMobileTab,
-    lastSaved,
-    patientListViewMode,
-    setPatientListViewMode,
-    patientSaveStates,
-    patientVerification,
-  }), [
-    user,
-    patients,
-    filteredPatients,
-    searchQuery,
-    setSearchQuery,
-    filter,
-    setFilter,
-    autotexts,
-    templates,
-    customDictionary,
-    handleAddPatient,
-    addPatientWithData,
-    handleUpdatePatient,
-    handleRemovePatient,
-    handleDuplicatePatient,
-    handleToggleCollapse,
-    collapseAll,
-    clearAll,
-    importPatients,
-    handleRefetchPatients,
-    desktopSelectedPatientId,
-    setDesktopSelectedPatientId,
-    addAutotext,
-    removeAutotext,
-    addTemplate,
-    removeTemplate,
-    importDictionary,
-    handleSignOut,
-    setSelectedPatient,
-    selectedPatient,
-    mobileTab,
-    setMobileTab,
-    lastSaved,
-    patientListViewMode,
-    setPatientListViewMode,
-    patientSaveStates,
-    patientVerification,
-  ]);
+  const dashboardContextValue = React.useMemo(
+    () => ({
+      user,
+      patients,
+      filteredPatients,
+      searchQuery,
+      setSearchQuery,
+      filter,
+      setFilter,
+      autotexts,
+      templates,
+      customDictionary,
+      onAddPatient: handleAddPatient,
+      onAddPatientWithData: addPatientWithData,
+      onUpdatePatient: handleUpdatePatient,
+      onRemovePatient: handleRemovePatient,
+      onDuplicatePatient: handleDuplicatePatient,
+      onToggleCollapse: handleToggleCollapse,
+      onCollapseAll: collapseAll,
+      onClearAll: clearAll,
+      onImportPatients: importPatients,
+      onRefetchPatients: handleRefetchPatients,
+      desktopSelectedPatientId,
+      setDesktopSelectedPatientId,
+      onAddAutotext: addAutotext,
+      onRemoveAutotext: removeAutotext,
+      onAddTemplate: addTemplate,
+      onRemoveTemplate: removeTemplate,
+      onImportDictionary: importDictionary,
+      onSignOut: handleSignOut,
+      onPatientSelect: setSelectedPatient,
+      selectedPatient,
+      mobileTab,
+      setMobileTab,
+      lastSaved,
+      patientListViewMode,
+      setPatientListViewMode,
+      patientSaveStates,
+      patientVerification,
+    }),
+    [
+      user,
+      patients,
+      filteredPatients,
+      searchQuery,
+      setSearchQuery,
+      filter,
+      setFilter,
+      autotexts,
+      templates,
+      customDictionary,
+      handleAddPatient,
+      addPatientWithData,
+      handleUpdatePatient,
+      handleRemovePatient,
+      handleDuplicatePatient,
+      handleToggleCollapse,
+      collapseAll,
+      clearAll,
+      importPatients,
+      handleRefetchPatients,
+      desktopSelectedPatientId,
+      setDesktopSelectedPatientId,
+      addAutotext,
+      removeAutotext,
+      addTemplate,
+      removeTemplate,
+      importDictionary,
+      handleSignOut,
+      setSelectedPatient,
+      selectedPatient,
+      mobileTab,
+      setMobileTab,
+      lastSaved,
+      patientListViewMode,
+      setPatientListViewMode,
+      patientSaveStates,
+      patientVerification,
+    ],
+  );
 
   if (
-    authLoading
-    || patientsLoading
-    || patientVerification === "loading"
-    || isMobile === undefined
-    || (patientIds.length > 0 && todosVerification === "loading")
+    authLoading ||
+    patientsLoading ||
+    patientVerification === "loading" ||
+    isMobile === undefined ||
+    (patientIds.length > 0 && todosVerification === "loading")
   ) {
     return (
       <div
@@ -346,28 +691,52 @@ function IndexContent(): React.ReactElement | null {
     return null;
   }
 
-  const dataVerificationBlocked = patientVerification === "stale"
-    || todosVerification === "stale";
+  const dataVerificationBlocked =
+    patientVerification === "stale" || todosVerification === "stale";
 
   const dashboard = isMobile ? (
     <DashboardProvider {...dashboardContextValue}>
-      <DashboardTodosProvider todosMap={todosMap} verification={todosVerification}>
+      <DashboardTodosProvider
+        todosMap={todosMap}
+        verification={todosVerification}
+      >
         <MobileShellGate
           userId={user.id}
           patientIds={patientIds}
           patientSaveStates={patientSaveStates}
           dataVerificationBlocked={dataVerificationBlocked}
+          onCaptureStopped={handleDecisionCaptureStopped}
+          onCaptureAudio={handleDecisionCaptureAudio}
+          decisionDraft={decisionDraft}
+          onDecisionDraftChange={(candidates: DecisionCandidate[]) =>
+            setDecisionDraft((draft) =>
+              draft ? { ...draft, candidates } : draft,
+            )
+          }
+          onDecisionAttest={handleDecisionAttest}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
   ) : (
     <DashboardProvider {...dashboardContextValue}>
-      <DashboardTodosProvider todosMap={todosMap} verification={todosVerification}>
+      <DashboardTodosProvider
+        todosMap={todosMap}
+        verification={todosVerification}
+      >
         <DesktopShellGate
           userId={user.id}
           patientIds={patientIds}
           patientSaveStates={patientSaveStates}
           dataVerificationBlocked={dataVerificationBlocked}
+          onCaptureStopped={handleDecisionCaptureStopped}
+          onCaptureAudio={handleDecisionCaptureAudio}
+          decisionDraft={decisionDraft}
+          onDecisionDraftChange={(candidates: DecisionCandidate[]) =>
+            setDecisionDraft((draft) =>
+              draft ? { ...draft, candidates } : draft,
+            )
+          }
+          onDecisionAttest={handleDecisionAttest}
         />
       </DashboardTodosProvider>
     </DashboardProvider>
@@ -376,6 +745,81 @@ function IndexContent(): React.ReactElement | null {
   return (
     <EdgeHealthProvider>
       <BackendStatusBanner />
+      {decisionScribeNotice && (
+        <p
+          role="status"
+          className="border-b border-amber-500/40 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-900 dark:text-amber-100"
+        >
+          <span>{decisionScribeNotice}</span>
+          {lastDecisionScribeEntryId && user?.id && currentPatient && (
+            <button
+              type="button"
+              className="ml-2 underline"
+              onClick={() => {
+                void undoDecisionOperation(
+                  user.id,
+                  lastDecisionScribeEntryId,
+                  (operation) =>
+                    commitDecisionCandidateRef.current!(
+                      operation.candidate as DecisionCandidate,
+                      operation.attestation,
+                      operation.operationId,
+                    ),
+                )
+                  .then((result) => {
+                    setDecisionScribeNotice(
+                      result.status === "undone"
+                        ? "Last Decision Scribe change undone."
+                        : result.status === "queued"
+                          ? "Undo queued for sync."
+                          : (result.reason ?? "Undo unavailable."),
+                    );
+                    if (result.status === "undone")
+                      setLastDecisionScribeEntryId(null);
+                  })
+                  .catch(() => {
+                    setDecisionScribeNotice(
+                      "Undo could not be completed. No additional change was saved.",
+                    );
+                  });
+              }}
+            >
+              Undo last change
+            </button>
+          )}
+        </p>
+      )}
+      {decisionScribeConflicts[0]?.conflict && (
+        <ConflictReview
+          mine={decisionScribeConflicts[0].conflict.mine}
+          theirs={decisionScribeConflicts[0].conflict.theirs}
+          onResolve={(choice, merged) =>
+            void (async () => {
+              try {
+                const entry = decisionScribeConflicts[0];
+                await decisionScribeOutbox.resolveConflict(
+                  entry.id,
+                  choice,
+                  merged,
+                  user.id,
+                );
+                if (commitDecisionCandidateRef.current)
+                  await retryDecisionScribeOutbox(user.id, (operation) =>
+                    commitDecisionCandidateRef.current!(
+                      operation.candidate as DecisionCandidate,
+                      operation.attestation,
+                      operation.operationId,
+                    ),
+                  );
+              } catch {
+                setDecisionScribeNotice(
+                  "Decision Scribe outbox is unavailable. Approved changes remain blocked until it can be read safely.",
+                );
+              }
+            })()
+          }
+        />
+      )}
       <PatientRosterStatusBanner
         verification={patientVerification}
         onRetry={handleRefetchPatients}
@@ -411,11 +855,27 @@ function DesktopShellGate({
   patientIds,
   patientSaveStates,
   dataVerificationBlocked,
+  onCaptureStopped,
+  onCaptureAudio,
+  decisionDraft,
+  onDecisionDraftChange,
+  onDecisionAttest,
 }: {
   userId: string;
   patientIds: readonly string[];
   patientSaveStates: Readonly<Record<string, PatientSaveState>>;
   dataVerificationBlocked: boolean;
+  onCaptureStopped: (state: CaptureState) => void;
+  onCaptureAudio: (
+    state: CaptureState,
+    audio: Blob | undefined,
+    mimeType: string | undefined,
+    binding: CaptureBinding,
+    patient: Patient,
+  ) => void;
+  decisionDraft: ComposedDraft | null;
+  onDecisionDraftChange: (candidates: DecisionCandidate[]) => void;
+  onDecisionAttest: (candidates: DecisionCandidate[]) => void;
 }): React.ReactElement {
   const roundRunnerOn = isRoundRunnerEnabled();
   const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
@@ -457,7 +917,14 @@ function DesktopShellGate({
           <DesktopDashboard />
         </div>
       ) : (
-        <DesktopRoundShell onOpenWorkbench={handleOpenWorkbench} />
+        <DesktopRoundShell
+          onOpenWorkbench={handleOpenWorkbench}
+          onCaptureStopped={onCaptureStopped}
+          onCaptureAudio={onCaptureAudio}
+          decisionDraft={decisionDraft}
+          onDecisionDraftChange={onDecisionDraftChange}
+          onDecisionAttest={onDecisionAttest}
+        />
       )}
     </RoundSessionProvider>
   );
@@ -473,11 +940,27 @@ function MobileShellGate({
   patientIds,
   patientSaveStates,
   dataVerificationBlocked,
+  onCaptureStopped,
+  onCaptureAudio,
+  decisionDraft,
+  onDecisionDraftChange,
+  onDecisionAttest,
 }: {
   userId: string;
   patientIds: readonly string[];
   patientSaveStates: Readonly<Record<string, PatientSaveState>>;
   dataVerificationBlocked: boolean;
+  onCaptureStopped: (state: CaptureState) => void;
+  onCaptureAudio: (
+    state: CaptureState,
+    audio: Blob | undefined,
+    mimeType: string | undefined,
+    binding: CaptureBinding,
+    patient: Patient,
+  ) => void;
+  decisionDraft: ComposedDraft | null;
+  onDecisionDraftChange: (candidates: DecisionCandidate[]) => void;
+  onDecisionAttest: (candidates: DecisionCandidate[]) => void;
 }): React.ReactElement {
   const roundRunnerOn = isRoundRunnerEnabled();
   const [useClassicWorkbench, setUseClassicWorkbench] = React.useState(false);
@@ -519,7 +1002,14 @@ function MobileShellGate({
           <MobileDashboard />
         </div>
       ) : (
-        <MobileRoundShell onOpenWorkbench={handleOpenWorkbench} />
+        <MobileRoundShell
+          onOpenWorkbench={handleOpenWorkbench}
+          onCaptureStopped={onCaptureStopped}
+          onCaptureAudio={onCaptureAudio}
+          decisionDraft={decisionDraft}
+          onDecisionDraftChange={onDecisionDraftChange}
+          onDecisionAttest={onDecisionAttest}
+        />
       )}
     </RoundSessionProvider>
   );

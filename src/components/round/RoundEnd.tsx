@@ -43,6 +43,8 @@ export const RoundEnd = ({
     generationConflictCount,
     conflicts,
     completionSafety,
+    decisionScribeBlocked,
+    decisionScribeBlockReason,
     adoptRemoteRoundGeneration,
   } = useRoundSession()
   const [printOpen, setPrintOpen] = React.useState(false)
@@ -54,6 +56,7 @@ export const RoundEnd = ({
   const isComplete = round.status === "completed"
   const activePendingCount = Math.max(0, pendingCount - softFailedCount)
   const blockedSyncParts = [
+    decisionScribeBlocked ? decisionScribeBlockReason : null,
     activePendingCount > 0 ? `${activePendingCount} pending` : null,
     softFailedCount > 0 ? `${softFailedCount} stalled` : null,
     failedCount > 0 ? `${failedCount} failed` : null,
@@ -80,6 +83,12 @@ export const RoundEnd = ({
   }
 
   const handleMarkComplete = () => {
+    if (!canCompleteRound || decisionScribeBlocked) {
+      toast.warning("Review Decision Scribe changes before marking complete", {
+        description: decisionScribeBlockReason ?? "Local changes still need server acknowledgement.",
+      })
+      return
+    }
     completeRound()
     toast.success("Round marked complete", {
       description: "Print or export anytime from this screen.",
@@ -180,7 +189,9 @@ export const RoundEnd = ({
             </p>
             <p className="mt-1 text-xs leading-relaxed text-amber-900/90 dark:text-amber-100/80">
               {blockedSyncParts || "One or more patient changes still need attention."}
-              {" "}Use the sync control in the top bar to retry or review. Print / Export remains available for recovery.
+              {" "}{decisionScribeBlocked
+                ? "Use the Decision Scribe review above to retry or resolve this change."
+                : "Use the sync control in the top bar to retry or review."} Print / Export remains available for recovery.
             </p>
             {generationConflictCount > 0 ? (
               <div className="mt-3 space-y-2 border-t border-amber-500/30 pt-3">
