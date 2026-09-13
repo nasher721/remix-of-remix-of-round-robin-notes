@@ -15,7 +15,8 @@ export type DecisionMutation =
 
 const systemAliases: Array<[keyof PatientSystems, string[]]> = [
   ["renalGU", ["renal", "kidney", "gu", "urinary"]],
-  ["skinLines", ["skin", "line", "lines", "drain", "wound"]],
+  ["skinLines", ["line", "lines", "drain", "access", "l/d/a"]],
+  ["skin", ["skin", "wound", "wounds"]],
   [
     "infectious",
     ["infectious", "infection", "sepsis", "cultures", "antibiotic"],

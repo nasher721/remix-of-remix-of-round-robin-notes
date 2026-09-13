@@ -58,6 +58,25 @@ test("copies a readable note without empty sections", async ({ page, context }) 
   await expect(page.getByRole("status")).toContainText("Note copied.");
 });
 
+test("requested system titles stay ordered and L/D/A and SKIN edit independently", async ({ page }) => {
+  const sections = page.locator('[data-note-section^="systems."]');
+  await expect(sections.locator("h2")).toHaveText([
+    "NEURO", "CV", "RESP", "RENAL/GU", "GI", "ENDO", "HEME/ONC", "ID", "L/D/A", "SKIN", "DISPO",
+  ]);
+  await page.getByRole("button", { name: "L/D/A, empty", exact: true }).click();
+  await page.keyboard.type("Line assessment");
+  await page.getByRole("button", { name: "SKIN, empty", exact: true }).click();
+  await page.keyboard.type("Skin assessment");
+  const state = JSON.parse(await page.getByTestId("chart-state").innerText());
+  expect(state.systems.skinLines).toContain("Line assessment");
+  expect(state.systems.skinLines).not.toContain("Skin assessment");
+  expect(state.systems.skin).toContain("Skin assessment");
+  await page.getByRole("button", { name: "Sections", exact: true }).click();
+  await page.getByRole("button", { name: "One page", exact: true }).click();
+  await expect(page.locator('[data-note-body="systems.skinLines"]')).toContainText("Line assessment");
+  await expect(page.locator('[data-note-body="systems.skin"]')).toContainText("Skin assessment");
+});
+
 test("protects section headings and keeps patients isolated", async ({ page }) => {
   await page.getByRole("button", { name: "Clinical summary, has text", exact: true }).click();
   await page.keyboard.press("ControlOrMeta+A");

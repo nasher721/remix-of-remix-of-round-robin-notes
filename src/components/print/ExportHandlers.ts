@@ -403,7 +403,7 @@ const getPatientFieldCellData = (ctx: ExportContext, patient: Patient, fieldKey:
 
   if (fieldKey.startsWith('systems.')) {
     const systemKey = fieldKey.replace('systems.', '') as keyof typeof patient.systems;
-    const value = patient.systems[systemKey];
+    const value = patient.systems[systemKey] ?? "";
     return {
       text: htmlToStructuredText(value),
       color: extractDominantColor(value),
@@ -929,7 +929,7 @@ export const handleExportExcel = async (ctx: ExportContext) => {
 
     systemKeys.forEach(key => {
       if (isColumnEnabled(`systems.${key}`)) {
-        row[systemLabels[key]] = stripHtml(patient.systems[key as keyof typeof patient.systems]);
+        row[systemLabels[key]] = stripHtml(patient.systems[key as keyof typeof patient.systems] ?? "");
       }
     });
 
@@ -1059,7 +1059,7 @@ export const handleExportTXT = (ctx: ExportContext) => {
     if (enabledSystemKeys.length > 0) {
       content += `SYSTEMS REVIEW:\n`;
       enabledSystemKeys.forEach(key => {
-        const value = patient.systems[key as keyof typeof patient.systems];
+        const value = patient.systems[key as keyof typeof patient.systems] ?? "";
         if (value) {
           content += `  ${systemLabels[key]}: ${stripHtml(value)}\n`;
         }
@@ -1146,7 +1146,7 @@ export const handleExportRTF = (ctx: ExportContext) => {
     if (enabledSystemKeys.length > 0) {
       content += `\\fs22\\b Systems Review:\\b0\\par\n`;
       enabledSystemKeys.forEach(key => {
-        const value = patient.systems[key as keyof typeof patient.systems];
+        const value = patient.systems[key as keyof typeof patient.systems] ?? "";
         if (value) {
           content += `\\fs20\\b ${escapeRTFNew(systemLabels[key])}:\\b0  ${htmlToRTF(value)}\\par\n`;
         }
@@ -1408,7 +1408,7 @@ export const handleExportDOC = async (ctx: ExportContext): Promise<string> => {
       });
       html += `</tr><tr>`;
       enabledSystemKeys.forEach(key => {
-        const value = patient.systems[key as keyof typeof patient.systems];
+        const value = patient.systems[key as keyof typeof patient.systems] ?? "";
         // Preserve inline styles with colors in table cells
         html += `<td>${value ? safeClinicalHtml(value) : '-'}</td>`;
       });
@@ -1500,7 +1500,7 @@ export const handleExportMarkdown = (ctx: ExportContext) => {
     if (enabledSystemKeys.length > 0) {
       content += `### Systems Review\n`;
       enabledSystemKeys.forEach(key => {
-        const value = patient.systems[key as keyof typeof patient.systems];
+        const value = patient.systems[key as keyof typeof patient.systems] ?? "";
         if (value) {
           content += `#### ${systemLabels[key]}\n${stripHtml(value)}\n\n`;
         }
@@ -1592,7 +1592,7 @@ export const handleExportJSON = (ctx: ExportContext) => {
       const systems: Record<string, string> = {};
       systemKeys.forEach(key => {
         if (isColumnEnabled(`systems.${key}`)) {
-          systems[key] = stripHtml(patient.systems[key as keyof typeof patient.systems]);
+          systems[key] = stripHtml(patient.systems[key as keyof typeof patient.systems] ?? "");
         }
       });
       if (Object.keys(systems).length > 0) {

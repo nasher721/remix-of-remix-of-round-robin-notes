@@ -22,6 +22,7 @@ export type RoundsSectionKey =
   | "heme"
   | "infectious"
   | "skinLines"
+  | "skin"
   | "imaging"
   | "labs"
   | "medications"
@@ -131,22 +132,23 @@ export interface RoundsSettings {
 
 export const ROUNDS_SECTION_DEFAULTS: readonly RoundsSectionConfig[] = [
   { key: "intervalEvents", label: "Interval Events", color: "#5B6B7F", enabled: true },
-  { key: "neuro", label: "Neuro", color: "#1F4E79", enabled: true },
-  { key: "cv", label: "Cardio/Vasc", color: "#C00000", enabled: true },
-  { key: "resp", label: "Resp", color: "#2E75B6", enabled: true },
-  { key: "renalGU", label: "Renal/GU", color: "#375623", enabled: true },
+  { key: "neuro", label: "NEURO", color: "#1F4E79", enabled: true },
+  { key: "cv", label: "CV", color: "#C00000", enabled: true },
+  { key: "resp", label: "RESP", color: "#2E75B6", enabled: true },
+  { key: "renalGU", label: "RENAL/GU", color: "#375623", enabled: true },
   { key: "gi", label: "GI", color: "#E36C09", enabled: true },
-  { key: "endo", label: "Endo", color: "#7030A0", enabled: true },
-  { key: "heme", label: "Heme", color: "#833C00", enabled: true },
-  { key: "infectious", label: "ID/Infect", color: "#1F3864", enabled: true },
-  { key: "skinLines", label: "Skin/Lines", color: "#7B3F61", enabled: true },
+  { key: "endo", label: "ENDO", color: "#7030A0", enabled: true },
+  { key: "heme", label: "HEME/ONC", color: "#833C00", enabled: true },
+  { key: "infectious", label: "ID", color: "#1F3864", enabled: true },
+  { key: "skinLines", label: "L/D/A", color: "#7B3F61", enabled: true },
+  { key: "skin", label: "SKIN", color: "#7B3F61", enabled: true },
   { key: "imaging", label: "Imaging", color: "#2F6F8F", enabled: true },
   { key: "labs", label: "Labs", color: "#496B2F", enabled: true },
   { key: "medications", label: "Current Meds", color: "#1F6F6B", enabled: true },
   { key: "todos", label: "To Do", color: "#8A6D1F", enabled: true },
   { key: "clinicalSummary", label: "Summary", color: "#44546A", enabled: false },
   { key: "notes", label: "Notes", color: "#6B7280", enabled: false },
-  { key: "dispo", label: "Dispo", color: "#1F4E79", enabled: true },
+  { key: "dispo", label: "DISPO", color: "#1F4E79", enabled: true },
 ] as const;
 
 export const ROUNDS_SECTION_KEYS: readonly RoundsSectionKey[] =
@@ -163,6 +165,7 @@ export const ROUNDS_SYSTEM_SECTION_KEYS: readonly RoundsSectionKey[] = [
   "heme",
   "infectious",
   "skinLines",
+  "skin",
   "dispo",
 ];
 

@@ -24,7 +24,8 @@ const patient = {
     endo: "Endo line",
     heme: "Heme line",
     infectious: "ID line",
-    skinLines: "Skin line",
+    skinLines: "Access line",
+    skin: "Skin line",
     dispo: "Disposition line",
   },
   medications: {
@@ -57,7 +58,10 @@ test("two-column rounds text follows the skill's section split without losing so
   assert.match(output, /Source summary line/);
   assert.match(output, /ADMIT/);
   assert.match(output, /NEURO/);
-  assert.match(output, /CARDIO\/VASC/);
+  assert.match(output, /\bCV\b/);
+  assert.match(output, /HEME\/ONC/);
+  assert.match(output, /L\/D\/A/);
+  assert.match(output, /SKIN/);
   assert.match(output, /RESP/);
   assert.match(output, /RENAL\/GU/);
   assert.match(output, /CURRENT MEDICATIONS/);
@@ -69,6 +73,8 @@ test("two-column rounds text follows the skill's section split without losing so
     "Neuro line",
     "CV line",
     "Resp line",
+    "Access line",
+    "Skin line",
     "Na 140 | WBC 8",
     "Medication infusion",
     "[ ] Source todo",

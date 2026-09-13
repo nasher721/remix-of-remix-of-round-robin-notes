@@ -4,30 +4,20 @@
  */
 
 export const SYSTEM_LABELS: Record<string, string> = {
-  neuro: "Neuro",
-  cv: "Cardiovascular",
-  resp: "Respiratory",
-  renalGU: "Renal/GU",
-  gi: "GI/Nutrition",
-  endo: "Endocrine",
-  heme: "Hematology",
-  infectious: "Infectious",
-  skinLines: "Skin/Lines",
-  dispo: "Disposition",
+  neuro: "NEURO",
+  cv: "CV",
+  resp: "RESP",
+  renalGU: "RENAL/GU",
+  gi: "GI",
+  endo: "ENDO",
+  heme: "HEME/ONC",
+  infectious: "ID",
+  skinLines: "L/D/A",
+  skin: "SKIN",
+  dispo: "DISPO",
 };
 
-export const SYSTEM_LABELS_SHORT: Record<string, string> = {
-  neuro: "Neuro",
-  cv: "CV",
-  resp: "Resp",
-  renalGU: "Renal/GU",
-  gi: "GI",
-  endo: "Endo",
-  heme: "Heme",
-  infectious: "ID",
-  skinLines: "Skin/Lines",
-  dispo: "Dispo",
-};
+export const SYSTEM_LABELS_SHORT: Record<string, string> = { ...SYSTEM_LABELS };
 
 export const SYSTEM_ICONS: Record<string, string> = {
   neuro: "🧠",
@@ -38,7 +28,8 @@ export const SYSTEM_ICONS: Record<string, string> = {
   endo: "⚡",
   heme: "🩸",
   infectious: "🦠",
-  skinLines: "🩹",
+  skinLines: "💉",
+  skin: "🩹",
   dispo: "🏠",
 };
 

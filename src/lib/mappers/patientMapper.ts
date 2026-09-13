@@ -26,6 +26,7 @@ export const parseSystemsJson = (systems: Json | null): PatientSystems => {
     heme: "",
     infectious: "",
     skinLines: "",
+    skin: "",
     dispo: "",
   };
 
@@ -44,6 +45,7 @@ export const parseSystemsJson = (systems: Json | null): PatientSystems => {
     heme: String(s.heme || ''),
     infectious: String(s.infectious || ''),
     skinLines: String(s.skinLines || ''),
+    skin: String(s.skin || ''),
     dispo: String(s.dispo || ''),
   };
 };

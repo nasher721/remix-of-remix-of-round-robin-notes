@@ -149,6 +149,7 @@ export interface ClinicalContext {
     heme?: string;
     infectious?: string;
     skinLines?: string;
+    skin?: string;
     dispo?: string;
   };
   medications?: {
@@ -195,9 +196,9 @@ export function buildClinicalContextString(context: ClinicalContext): string {
 
   if (context.systems) {
     const systemLabels: Record<string, string> = {
-      neuro: 'Neuro', cv: 'CV', resp: 'Resp', renalGU: 'Renal/GU',
-      gi: 'GI', endo: 'Endo', heme: 'Heme', infectious: 'ID',
-      skinLines: 'Skin/Lines', dispo: 'Dispo'
+      neuro: 'NEURO', cv: 'CV', resp: 'RESP', renalGU: 'RENAL/GU',
+      gi: 'GI', endo: 'ENDO', heme: 'HEME/ONC', infectious: 'ID',
+      skinLines: 'L/D/A', skin: 'SKIN', dispo: 'DISPO'
     };
 
     const systemNotes: string[] = [];

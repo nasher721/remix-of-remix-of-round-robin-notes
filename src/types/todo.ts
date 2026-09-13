@@ -28,4 +28,5 @@ export type TodoSection =
   | 'infectious'
   | 'endo'
   | 'skinLines'
+  | 'skin'
   | 'dispo';

@@ -43,6 +43,7 @@ export type CommentField =
   | "heme"
   | "infectious"
   | "skinLines"
+  | "skin"
   | "dispo"
   | "medications"
   | "labs"

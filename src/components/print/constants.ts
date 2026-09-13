@@ -44,6 +44,7 @@ export const defaultColumnWidths: ColumnWidthsType = {
   'systems.heme': 90,
   'systems.infectious': 90,
   'systems.skinLines': 90,
+  'systems.skin': 90,
   'systems.dispo': 90,
 };
 

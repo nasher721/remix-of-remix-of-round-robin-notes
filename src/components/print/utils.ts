@@ -85,7 +85,7 @@ export const getCellValue = (patient: Patient, field: string, patientNotes: Reco
   if (field === "notes") return patientNotes[patient.id] || "";
   if (field.startsWith("systems.")) {
     const systemKey = field.replace("systems.", "") as keyof typeof patient.systems;
-    return patient.systems[systemKey];
+    return patient.systems[systemKey] ?? "";
   }
   return "";
 };

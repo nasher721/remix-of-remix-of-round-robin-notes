@@ -43,6 +43,8 @@ export interface PatientSystems {
   heme: string;
   infectious: string;
   skinLines: string;
+  /** Separate skin documentation; older charts may not have this field yet. */
+  skin?: string;
   dispo: string;
 }
 
@@ -83,6 +85,7 @@ export const defaultSystems: PatientSystems = {
   heme: "",
   infectious: "",
   skinLines: "",
+  skin: "",
   dispo: "",
 };
 

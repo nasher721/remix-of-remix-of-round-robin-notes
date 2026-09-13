@@ -79,7 +79,7 @@ const emptyMedications = (): PatientMedications => ({
  * - "clinicalSummary" | "intervalEvents" | "imaging" | "labs"
  * - "systems.neuro" | "systems.cv" | "systems.resp" | "systems.renalGU"
  *   | "systems.gi" | "systems.endo" | "systems.heme" | "systems.infectious"
- *   | "systems.skinLines" | "systems.dispo"
+ *   | "systems.skinLines" | "systems.skin" | "systems.dispo"
  * - "skip" to ignore the fragment
  */
 export const classifyClinicalFragmentToChartSection = (
@@ -127,15 +127,16 @@ export const classifyClinicalFragmentToChartSection = (
   if (hasWord("endo", "endocrine", "endocrinology", "glycemic", "glycaemic", "glucose", "diabetes", "thyroid", "a1c", "tsh")) {
     return "systems.endo";
   }
-  if (hasWord("heme", "hematology", "hematologic", "coag", "coags", "coagulation", "transfusion", "transfusions", "bleeding")) {
+  if (hasWord("heme", "hematology", "hematologic", "onc", "oncology", "coag", "coags", "coagulation", "transfusion", "transfusions", "bleeding")) {
     return "systems.heme";
   }
   if (hasWord("infectious", "infection", "infections", "microbiology", "culture", "cultures", "antibiotic", "antibiotics", "antimicrobial", "antimicrobials", "sepsis") || normalizedLabel === "id") {
     return "systems.infectious";
   }
-  if (hasWord("wound", "wounds", "drain", "drains", "skin", "access", "line", "lines", "picc") || hasPhrase("pressureulcer", "centralvenous", "arterialline")) {
+  if (hasWord("drain", "drains", "access", "line", "lines", "picc") || hasPhrase("centralvenous", "arterialline", "lda")) {
     return "systems.skinLines";
   }
+  if (hasWord("wound", "wounds", "skin") || hasPhrase("pressureulcer")) return "systems.skin";
   if (hasWord("dispo", "disposition", "discharge", "placement") || hasPhrase("goalsofcare", "familydiscussion", "socialwork")) {
     return "systems.dispo";
   }
@@ -182,9 +183,10 @@ const IMPORT_SECTION_LABELS: Record<ImportContentSection, string[]> = {
   renalGU: ["renal", "renal gu", "renal / gu", "renal & gu", "genitourinary", "gu", "kidney"],
   gi: ["gi", "gastrointestinal", "nutrition", "nutrition / gi", "nutritional"],
   endo: ["endo", "endocrine", "glycemic", "glycaemic"],
-  heme: ["heme", "hematology", "hematologic", "heme / coag", "hematology / coag", "coagulation", "coags"],
+  heme: ["heme", "heme / onc", "hematology", "hematologic", "heme / coag", "hematology / coag", "coagulation", "coags"],
   infectious: ["id", "id / infect", "infectious", "infectious disease", "infection", "microbiology"],
-  skinLines: ["skin", "skin / lines", "lines", "access", "access and lines", "access / lines", "wounds"],
+  skinLines: ["skin / lines", "lines", "access", "access and lines", "access / lines", "l/d/a", "l / d / a"],
+  skin: ["skin", "wounds", "wound"],
   dispo: ["dispo", "disposition", "disposition / goals of care", "goals of care", "discharge"],
   medications: [
     "meds",
@@ -404,14 +406,14 @@ export const organizeImportedPatient = (
     if (target.startsWith("systems.")) {
       const systemKey = target.replace("systems.", "") as keyof PatientSystems;
       systems[systemKey] = appendSectionText(
-        systems[systemKey],
+        systems[systemKey] ?? "",
         stripLeadingSectionLabel(fragment, systemKey),
       );
     }
   }
 
   for (const key of Object.keys(systems) as Array<keyof PatientSystems>) {
-    systems[key] = stripLeadingSectionLabel(systems[key], key);
+    systems[key] = stripLeadingSectionLabel(systems[key] ?? "", key);
   }
 
   return {
@@ -464,6 +466,7 @@ export const organizeCsvImportRecord = (
     infectious,
     id,
     skinLines,
+    skin,
     access,
     dispo,
     medications,
@@ -502,6 +505,7 @@ export const organizeCsvImportRecord = (
       heme: heme ?? "",
       infectious: infectious ?? id ?? "",
       skinLines: skinLines ?? access ?? "",
+      ...(skin !== undefined ? { skin } : {}),
       dispo: dispo ?? "",
     },
     medications: {

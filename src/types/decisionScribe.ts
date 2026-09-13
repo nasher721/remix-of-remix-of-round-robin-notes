@@ -8,6 +8,7 @@ export type DecisionSystemKey =
   | "infectious"
   | "endo"
   | "skinLines"
+  | "skin"
   | "dispo";
 
 declare const decisionScribeBrand: unique symbol;

@@ -56,6 +56,7 @@ export type ColumnWidthsType = {
     'systems.heme': number;
     'systems.infectious': number;
     'systems.skinLines': number;
+    'systems.skin': number;
     'systems.dispo': number;
     [key: string]: number; // Allow additional system keys
 };

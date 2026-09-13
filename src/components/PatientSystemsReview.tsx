@@ -57,6 +57,7 @@ const SYSTEM_ACCENT: Record<string, { bg: string; border: string; dot: string }>
   heme: { bg: "bg-red-500/8 dark:bg-red-500/12", border: "border-red-500/20", dot: "bg-red-400" },
   infectious: { bg: "bg-green-500/8 dark:bg-green-500/12", border: "border-green-500/20", dot: "bg-green-400" },
   skinLines: { bg: "bg-teal-500/8 dark:bg-teal-500/12", border: "border-teal-500/20", dot: "bg-teal-400" },
+  skin: { bg: "bg-teal-500/8 dark:bg-teal-500/12", border: "border-teal-500/20", dot: "bg-teal-400" },
   dispo: { bg: "bg-indigo-500/8 dark:bg-indigo-500/12", border: "border-indigo-500/20", dot: "bg-indigo-400" },
   default: { bg: "bg-secondary/30", border: "border-border/50", dot: "bg-primary/60" },
 };

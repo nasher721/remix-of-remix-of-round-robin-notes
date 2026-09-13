@@ -428,16 +428,17 @@ export const SmartPatientImport = ({ onImportPatient, trigger }: SmartPatientImp
                 </TabsContent>
 
                 <TabsContent value="systems" className="space-y-3 mt-0">
-                  {renderEditableField("Neuro", "systems.neuro", parsedData.systems.neuro ?? '', true)}
-                  {renderEditableField("Cardiovascular", "systems.cv", parsedData.systems.cv ?? '', true)}
-                  {renderEditableField("Respiratory", "systems.resp", parsedData.systems.resp ?? '', true)}
-                  {renderEditableField("Renal/GU", "systems.renalGU", parsedData.systems.renalGU ?? '', true)}
+                  {renderEditableField("NEURO", "systems.neuro", parsedData.systems.neuro ?? '', true)}
+                  {renderEditableField("CV", "systems.cv", parsedData.systems.cv ?? '', true)}
+                  {renderEditableField("RESP", "systems.resp", parsedData.systems.resp ?? '', true)}
+                  {renderEditableField("RENAL/GU", "systems.renalGU", parsedData.systems.renalGU ?? '', true)}
                   {renderEditableField("GI", "systems.gi", parsedData.systems.gi ?? '', true)}
-                  {renderEditableField("Endocrine", "systems.endo", parsedData.systems.endo ?? '', true)}
-                  {renderEditableField("Heme", "systems.heme", parsedData.systems.heme ?? '', true)}
-                  {renderEditableField("Infectious", "systems.infectious", parsedData.systems.infectious ?? '', true)}
-                  {renderEditableField("Skin/Lines", "systems.skinLines", parsedData.systems.skinLines ?? '', true)}
-                  {renderEditableField("Disposition", "systems.dispo", parsedData.systems.dispo ?? '', true)}
+                  {renderEditableField("ENDO", "systems.endo", parsedData.systems.endo ?? '', true)}
+                  {renderEditableField("HEME/ONC", "systems.heme", parsedData.systems.heme ?? '', true)}
+                  {renderEditableField("ID", "systems.infectious", parsedData.systems.infectious ?? '', true)}
+                  {renderEditableField("L/D/A", "systems.skinLines", parsedData.systems.skinLines ?? '', true)}
+                  {renderEditableField("SKIN", "systems.skin", parsedData.systems.skin ?? '', true)}
+                  {renderEditableField("DISPO", "systems.dispo", parsedData.systems.dispo ?? '', true)}
                 </TabsContent>
               </Tabs>
             </ScrollArea>

@@ -17,6 +17,7 @@ export const defaultSystemsValue: PatientSystems = {
   heme: "",
   infectious: "",
   skinLines: "",
+  skin: "",
   dispo: "",
 };
 

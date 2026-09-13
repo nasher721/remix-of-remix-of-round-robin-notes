@@ -34,6 +34,7 @@ export type LayoutSectionType =
   | 'systems.heme'
   | 'systems.infectious'
   | 'systems.skinLines'
+  | 'systems.skin'
   | 'systems.dispo'
   | 'vitals'
   | 'codeStatus'
@@ -242,16 +243,17 @@ export const SECTION_LABELS: Record<LayoutSectionType, string> = {
   todos: 'To-Do Items',
   notes: 'Notes',
   systems: 'Systems Review',
-  'systems.neuro': 'Neuro',
-  'systems.cv': 'Cardiovascular',
-  'systems.resp': 'Respiratory',
-  'systems.renalGU': 'Renal/GU',
-  'systems.gi': 'GI/Nutrition',
-  'systems.endo': 'Endocrine',
-  'systems.heme': 'Hematology',
-  'systems.infectious': 'Infectious Disease',
-  'systems.skinLines': 'Skin/Lines',
-  'systems.dispo': 'Disposition',
+  'systems.neuro': 'NEURO',
+  'systems.cv': 'CV',
+  'systems.resp': 'RESP',
+  'systems.renalGU': 'RENAL/GU',
+  'systems.gi': 'GI',
+  'systems.endo': 'ENDO',
+  'systems.heme': 'HEME/ONC',
+  'systems.infectious': 'ID',
+  'systems.skinLines': 'L/D/A',
+  'systems.skin': 'SKIN',
+  'systems.dispo': 'DISPO',
   vitals: 'Vital Signs',
   codeStatus: 'Code Status',
   allergies: 'Allergies',

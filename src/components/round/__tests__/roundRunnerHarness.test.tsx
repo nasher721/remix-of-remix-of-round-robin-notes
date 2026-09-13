@@ -695,7 +695,7 @@ describe("Focus-first Round runner harness", () => {
 
     const stack = screen.getByTestId("systems-compact-stack");
     const neuroBtn = within(stack).getByRole("button", { name: /^Neuro/i });
-    const respBtn = within(stack).getByRole("button", { name: /^Respiratory/i });
+    const respBtn = within(stack).getByRole("button", { name: /^RESP\b/ });
 
     fireEvent.click(neuroBtn);
     const neuroRow = stack.querySelector('[data-systems-row="neuro"]');

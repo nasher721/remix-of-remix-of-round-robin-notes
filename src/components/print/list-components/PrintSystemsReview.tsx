@@ -23,7 +23,7 @@ export const PrintSystemsReview = ({ systems, enabledSystemKeys, fontSize }: Pri
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0 border-2 border-t-0 border-primary rounded-b-lg overflow-hidden">
                 {enabledSystemKeys.map((key, sysIdx) => {
-                    const value = systems[key as keyof typeof systems];
+                    const value = systems[key as keyof typeof systems] ?? "";
                     return (
                         <div key={key} className={cn(
                             "border-r border-b border-primary/30",

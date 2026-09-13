@@ -173,7 +173,7 @@ export const PrintTable = ({
                   <div
                     className="whitespace-pre-wrap break-words"
                     style={{ fontSize: 'calc(var(--print-fs) - 1px)' } as React.CSSProperties}
-                    dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.systems[key as keyof typeof patient.systems]) }}
+                    dangerouslySetInnerHTML={{ __html: cleanInlineStyles(patient.systems[key as keyof typeof patient.systems] ?? "") }}
                   />
                 </td>
               ))}
