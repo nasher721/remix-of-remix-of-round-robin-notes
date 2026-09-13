@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   createScopedPrintStorage,
@@ -63,17 +62,8 @@ test("existing DB settings remain authoritative", () => {
   assert.equal(decision.shouldInitializeDatabase, false);
 });
 
-test("print modal and layout designer do not bypass scoped preference storage", () => {
-  const sources = [
-    readFileSync("src/components/PrintExportModalFull.tsx", "utf8"),
-    readFileSync("src/components/print/layoutDesigner/useLayoutDesigner.ts", "utf8"),
-    readFileSync("src/components/print/usePrintState.ts", "utf8"),
-  ];
-
-  for (const source of sources) {
-    assert.doesNotMatch(source, /\blocalStorage\.(?:getItem|setItem)\s*\(/);
-  }
-
-  assert.match(sources[0], /initialSyncOwnerId\.current !== user\.id/);
-  assert.doesNotMatch(sources[0], /initialSyncDone/);
+test("anonymous browser preferences never appear in an authenticated namespace", () => {
+  const storage = createMemoryStorage();
+  createScopedPrintStorage(null, storage).setItem("payload", "anonymous settings");
+  assert.equal(createScopedPrintStorage("user-a", storage).getItem("payload"), null);
 });

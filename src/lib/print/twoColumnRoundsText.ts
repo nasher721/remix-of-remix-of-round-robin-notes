@@ -1,3 +1,4 @@
+import { SYSTEM_LABELS } from "@/lib/clinicalSections";
 import type { Patient } from "@/types/patient";
 import type { PatientTodo } from "@/types/todo";
 import { htmlToSourceLines, medicationSourceLines as medicationLines } from "./htmlLines";
@@ -25,18 +26,18 @@ const buildPatientSections = (
 ): { left: TextSection[]; right: TextSection[] } => ({
   left: compactSections([
     section("ADMIT", htmlToSourceLines(patient.intervalEvents)),
-    section("NEURO", htmlToSourceLines(patient.systems.neuro)),
-    section("CV", htmlToSourceLines(patient.systems.cv)),
+    section(SYSTEM_LABELS.neuro, htmlToSourceLines(patient.systems.neuro)),
+    section(SYSTEM_LABELS.cv, htmlToSourceLines(patient.systems.cv)),
   ]),
   right: compactSections([
-    section("RESP", htmlToSourceLines(patient.systems.resp)),
-    section("RENAL/GU", htmlToSourceLines(patient.systems.renalGU)),
-    section("GI", htmlToSourceLines(patient.systems.gi)),
-    section("ENDO", htmlToSourceLines(patient.systems.endo)),
-    section("HEME/ONC", htmlToSourceLines(patient.systems.heme)),
-    section("ID", htmlToSourceLines(patient.systems.infectious)),
-    section("L/D/A", htmlToSourceLines(patient.systems.skinLines)),
-    section("SKIN", htmlToSourceLines(patient.systems.skin ?? "")),
+    section(SYSTEM_LABELS.resp, htmlToSourceLines(patient.systems.resp)),
+    section(SYSTEM_LABELS.renalGU, htmlToSourceLines(patient.systems.renalGU)),
+    section(SYSTEM_LABELS.gi, htmlToSourceLines(patient.systems.gi)),
+    section(SYSTEM_LABELS.endo, htmlToSourceLines(patient.systems.endo)),
+    section(SYSTEM_LABELS.heme, htmlToSourceLines(patient.systems.heme)),
+    section(SYSTEM_LABELS.infectious, htmlToSourceLines(patient.systems.infectious)),
+    section(SYSTEM_LABELS.skinLines, htmlToSourceLines(patient.systems.skinLines)),
+    section(SYSTEM_LABELS.skin, htmlToSourceLines(patient.systems.skin ?? "")),
     section("IMAGING", htmlToSourceLines(patient.imaging)),
     section("LABS", htmlToSourceLines(patient.labs)),
     section("CURRENT MEDICATIONS", medicationLines(patient.medications)),
@@ -44,7 +45,7 @@ const buildPatientSections = (
       "TODOS",
       patientTodos.map((todo) => `${todo.completed ? "[x]" : "[ ]"} ${todo.content}`),
     ),
-    section("DISPO", htmlToSourceLines(patient.systems.dispo)),
+    section(SYSTEM_LABELS.dispo, htmlToSourceLines(patient.systems.dispo)),
   ]),
 });
 

@@ -1,15 +1,5 @@
-export type DecisionSystemKey =
-  | "neuro"
-  | "resp"
-  | "cv"
-  | "renalGU"
-  | "gi"
-  | "heme"
-  | "infectious"
-  | "endo"
-  | "skinLines"
-  | "skin"
-  | "dispo";
+import type { SystemKey } from "@/lib/clinicalSections";
+export type DecisionSystemKey = SystemKey;
 
 declare const decisionScribeBrand: unique symbol;
 export type BrandedId<Kind extends string> = string & {

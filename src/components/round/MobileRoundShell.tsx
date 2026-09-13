@@ -4,17 +4,14 @@ import { RosterOverlay } from "./RosterOverlay"
 import { PatientFocus } from "./PatientFocus"
 import { RoundHome } from "./RoundHome"
 import { RoundEnd } from "./RoundEnd"
-import { preloadRoundPrintExport } from "./roundPrintExportLoader"
 import { ToolsSheet } from "./ToolsSheet"
 import { useDashboard } from "@/contexts/DashboardContext"
-import { useRoundSession } from "@/contexts/RoundSessionContext"
+import { useRoundNavigation } from "./useRoundNavigation"
 import type { Patient } from "@/types/patient"
-import type { RoundShellSurface } from "./roundShellSurface"
 import { exportRoundRecovery } from "@/lib/exportRoundRecovery"
 import type { ComposedDraft } from "@/lib/decision-scribe/draftComposer"
 import type { CaptureBinding, DecisionCandidate } from "@/types/decisionScribe"
 import type { CaptureState } from "@/lib/decision-scribe/captureController"
-import { toast } from "sonner"
 
 export interface MobileRoundShellProps {
   /**
@@ -42,57 +39,13 @@ const resetWindowScroll = () => {
 export const MobileRoundShell = ({ onOpenWorkbench, decisionDraft, onDecisionDraftChange, onDecisionAttest, onCaptureStopped, onCaptureAudio }: MobileRoundShellProps) => {
   const { patients, onPatientSelect } = useDashboard()
   const {
-    currentPatientId,
-    round,
-    isHydrated,
-    nextPatient,
-    prevPatient,
-    markDoneAndNext,
-    startNewRound,
-    decisionScribeBlocked,
-    decisionScribeBlockReason,
-  } = useRoundSession()
-
+    currentPatientId, round, isHydrated, nextPatient, prevPatient, markDoneAndNext,
+    patient, captureBinding, surface, hasStartedRound, decisionReviewOpen,
+    setDecisionReviewOpen, goHome: handleGoHome, startRound: handleStartRound,
+    endRound: handleEndRound,
+  } = useRoundNavigation(patients, Boolean(decisionDraft))
   const [rosterOpen, setRosterOpen] = React.useState(false)
   const [toolsOpen, setToolsOpen] = React.useState(false)
-  const [surface, setSurface] = React.useState<RoundShellSurface>(() =>
-    patients.length === 0 ? "home" : "focus",
-  )
-  const [hasStartedRound, setHasStartedRound] = React.useState(() => patients.length > 0)
-  const [decisionReviewOpen, setDecisionReviewOpen] = React.useState(false)
-  const hydratedSurfaceInitializedRef = React.useRef(false)
-
-  const patient = React.useMemo((): Patient | null => {
-    if (!currentPatientId) return null
-    return patients.find((entry) => entry.id === currentPatientId) ?? null
-  }, [patients, currentPatientId])
-  const captureBinding = React.useMemo<CaptureBinding | null>(() => {
-    if (!patient?.id || !round.userId || !round.id) return null
-    const startedAt = new Date().toISOString()
-    return { sessionId: `capture-${round.id}-${patient.id}` as CaptureBinding["sessionId"], roundId: round.id, patientId: patient.id, physicianId: round.userId, deviceId: `round-device-${round.userId}`, startedAt, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(), source: "rounds-audio", patientSnapshotId: `${patient.id}:${patient.lastModified}`, patientSnapshotCapturedAt: patient.lastModified }
-  }, [patient, round.id, round.userId])
-
-  React.useEffect(() => {
-    if (patients.length === 0) {
-      setSurface("home")
-      setHasStartedRound(false)
-    }
-  }, [patients.length])
-  React.useEffect(() => { if (!decisionDraft) setDecisionReviewOpen(false) }, [decisionDraft])
-
-  React.useEffect(() => {
-    if (!isHydrated || hydratedSurfaceInitializedRef.current) return
-    hydratedSurfaceInitializedRef.current = true
-    if (round.status === "completed") {
-      setSurface("home")
-      setHasStartedRound(true)
-    }
-  }, [isHydrated, round.status])
-
-  React.useEffect(() => {
-    if (!navigator.onLine) return
-    void preloadRoundPrintExport().catch(() => undefined)
-  }, [])
 
   // Keep classic mobile selection in sync so workbench hops resume the same chart.
   React.useEffect(() => {
@@ -120,28 +73,6 @@ export const MobileRoundShell = ({ onOpenWorkbench, decisionDraft, onDecisionDra
   const handleOpenTools = React.useCallback(() => {
     setToolsOpen(true)
   }, [])
-
-  const handleGoHome = React.useCallback(() => {
-    setSurface("home")
-  }, [])
-
-  const handleStartRound = React.useCallback(() => {
-    if (round.status === "completed") {
-      startNewRound()
-    }
-    setHasStartedRound(true)
-    setSurface("focus")
-  }, [round.status, startNewRound])
-
-  const handleEndRound = React.useCallback(() => {
-    if (decisionScribeBlocked) {
-      toast.warning("Review Decision Scribe changes before End Round", {
-        description: decisionScribeBlockReason ?? "An approved Decision Scribe change still needs server acknowledgement.",
-      })
-      return
-    }
-    setSurface("end")
-  }, [decisionScribeBlocked, decisionScribeBlockReason])
 
   if (!isHydrated) {
     return (

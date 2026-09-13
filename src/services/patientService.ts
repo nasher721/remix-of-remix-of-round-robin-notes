@@ -1,3 +1,4 @@
+import { createEmptySystems } from "@/lib/clinicalSections";
 /**
  * Patient service: Supabase access and row-level mapping.
  * Owns mapPatientRecord (DB row → Patient), buildPatientInsertPayload, and shouldTrackTimestamp.
@@ -7,19 +8,7 @@ import type { Json, TablesInsert } from "@/integrations/supabase/types";
 import type { Patient, PatientMedications, PatientSystems } from "@/types/patient";
 import { parseFieldTimestampsJson, parseMedicationsJson, parseSystemsJson } from "@/lib/mappers/patientMapper";
 
-export const defaultSystemsValue: PatientSystems = {
-  neuro: "",
-  cv: "",
-  resp: "",
-  renalGU: "",
-  gi: "",
-  endo: "",
-  heme: "",
-  infectious: "",
-  skinLines: "",
-  skin: "",
-  dispo: "",
-};
+export const defaultSystemsValue: PatientSystems = createEmptySystems();
 
 export const defaultMedicationsValue: PatientMedications = {
   infusions: [],

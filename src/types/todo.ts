@@ -1,3 +1,4 @@
+import type { SystemKey } from "@/lib/clinicalSections";
 export interface PatientTodo {
   id: string;
   patientId: string;
@@ -13,20 +14,4 @@ export interface PatientTodo {
   localOnly?: boolean;
 }
 
-export type TodoSection = 
-  | 'all' 
-  | 'clinical_summary' 
-  | 'interval_events' 
-  | 'imaging' 
-  | 'labs'
-  | 'cv'
-  | 'resp'
-  | 'neuro'
-  | 'gi'
-  | 'renalGU'
-  | 'heme'
-  | 'infectious'
-  | 'endo'
-  | 'skinLines'
-  | 'skin'
-  | 'dispo';
+export type TodoSection = SystemKey | "all" | "clinical_summary" | "interval_events" | "imaging" | "labs";

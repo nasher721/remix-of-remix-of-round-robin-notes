@@ -1,3 +1,4 @@
+import { SYSTEM_LABELS, type ClinicalSystemNotes } from "@/lib/clinicalSections";
 /**
  * OpenAI API Integration Configuration
  *
@@ -139,19 +140,7 @@ export interface ClinicalContext {
   intervalEvents?: string;
   imaging?: string;
   labs?: string;
-  systems?: {
-    neuro?: string;
-    cv?: string;
-    resp?: string;
-    renalGU?: string;
-    gi?: string;
-    endo?: string;
-    heme?: string;
-    infectious?: string;
-    skinLines?: string;
-    skin?: string;
-    dispo?: string;
-  };
+  systems?: Partial<ClinicalSystemNotes>;
   medications?: {
     infusions?: string[];
     scheduled?: string[];
@@ -195,11 +184,7 @@ export function buildClinicalContextString(context: ClinicalContext): string {
   }
 
   if (context.systems) {
-    const systemLabels: Record<string, string> = {
-      neuro: 'NEURO', cv: 'CV', resp: 'RESP', renalGU: 'RENAL/GU',
-      gi: 'GI', endo: 'ENDO', heme: 'HEME/ONC', infectious: 'ID',
-      skinLines: 'L/D/A', skin: 'SKIN', dispo: 'DISPO'
-    };
+    const systemLabels = SYSTEM_LABELS;
 
     const systemNotes: string[] = [];
     for (const [key, label] of Object.entries(systemLabels)) {

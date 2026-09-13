@@ -5,7 +5,7 @@
 import * as React from "react";
 import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SettingsProvider } from "@/contexts/SettingsContext";
@@ -22,6 +22,7 @@ import { completeRound, createRound } from "@/lib/round/roundSessionStore";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DesktopRoundShell } from "@/components/round/DesktopRoundShell";
 import { MobileRoundShell } from "@/components/round/MobileRoundShell";
+import { useRoundNavigation } from "@/components/round/useRoundNavigation";
 import { RoundEnd } from "@/components/round/RoundEnd";
 import { dashboardPatients3, makeDashboardTodosMap } from "@/test/dashboardRegressionFixtures";
 import { PatientFilterType } from "@/constants/config";
@@ -266,6 +267,39 @@ function assertPrimaryChromeHasNoDemotedTools(chrome: HTMLElement) {
 }
 
 describe("Focus-first Round runner harness", () => {
+  it("binds capture to the active patient and clears review when its draft disappears", () => {
+    const { result, rerender } = renderHook(
+      ({ patients, hasDraft }) => useRoundNavigation(patients, hasDraft),
+      {
+        initialProps: { patients: dashboardPatients3, hasDraft: true },
+        wrapper: ({ children }) => <RoundProviders patients={dashboardPatients3}>{children}</RoundProviders>,
+      },
+    );
+    const firstBinding = result.current.captureBinding;
+    assert.equal(firstBinding?.patientId, dashboardPatients3[0]!.id);
+    assert.equal(firstBinding?.physicianId, "test-user");
+    assert.equal(firstBinding?.roundId, result.current.round.id);
+    assert.equal(firstBinding?.patientSnapshotId, `${dashboardPatients3[0]!.id}:${dashboardPatients3[0]!.lastModified}`);
+
+    act(() => result.current.setDecisionReviewOpen(true));
+    act(() => result.current.goHome());
+    act(() => result.current.startRound());
+    assert.equal(result.current.captureBinding, firstBinding, "local navigation must not replace the capture binding");
+    assert.equal(result.current.decisionReviewOpen, true);
+
+    act(() => result.current.nextPatient());
+    assert.equal(result.current.patient?.id, dashboardPatients3[1]!.id);
+    assert.equal(result.current.captureBinding?.patientId, dashboardPatients3[1]!.id);
+    assert.notEqual(result.current.captureBinding?.sessionId, firstBinding?.sessionId);
+
+    rerender({ patients: dashboardPatients3, hasDraft: false });
+    assert.equal(result.current.decisionReviewOpen, false);
+    rerender({ patients: [], hasDraft: false });
+    assert.equal(result.current.captureBinding, null, "an unavailable patient must never retain a capture binding");
+    assert.equal(result.current.surface, "home");
+    assert.equal(result.current.hasStartedRound, false);
+  });
+
   it("keeps demoted tools out of primary chrome and hosts them in Tools sheet", async () => {
     render(
       <RoundProviders patients={dashboardPatients3}>
@@ -290,26 +324,28 @@ describe("Focus-first Round runner harness", () => {
     assert.ok(within(tools).getByTestId("tools-risk"));
   });
 
-  it("opens roster overlay without leaving Patient Focus mounted", async () => {
-    render(
-      <RoundProviders patients={dashboardPatients3}>
-        <DesktopRoundShell />
-      </RoundProviders>,
-    );
+  for (const [device, Shell] of [["desktop", DesktopRoundShell], ["mobile", MobileRoundShell]] as const) {
+    it(`${device}: opens roster overlay without leaving Patient Focus mounted`, async () => {
+      render(
+        <RoundProviders patients={dashboardPatients3}>
+          <Shell />
+        </RoundProviders>,
+      );
 
-    assert.ok(screen.getByTestId("patient-focus"));
-    fireEvent.click(screen.getByTestId("round-roster-entry"));
+      assert.ok(screen.getByTestId("patient-focus"));
+      fireEvent.click(screen.getByTestId("round-roster-entry"));
 
-    const roster = await screen.findByTestId("roster-overlay");
-    assert.ok(within(roster).getByTestId("roster-search"));
-    assert.ok(within(roster).getByTestId(`roster-row-${dashboardPatients3[0]!.id}`));
-    assert.ok(within(roster).getByTestId(`roster-row-${dashboardPatients3[1]!.id}`));
-    assert.ok(within(roster).getByTestId(`roster-row-${dashboardPatients3[2]!.id}`));
+      const roster = await screen.findByTestId("roster-overlay");
+      assert.ok(within(roster).getByTestId("roster-search"));
+      assert.ok(within(roster).getByTestId(`roster-row-${dashboardPatients3[0]!.id}`));
+      assert.ok(within(roster).getByTestId(`roster-row-${dashboardPatients3[1]!.id}`));
+      assert.ok(within(roster).getByTestId(`roster-row-${dashboardPatients3[2]!.id}`));
 
-    // Focus stays mounted while roster is open (draft-preserving overlay).
-    assert.ok(screen.getByTestId("patient-focus"));
-    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "focus");
-  });
+      // Focus stays mounted while roster is open (draft-preserving overlay).
+      assert.ok(screen.getByTestId("patient-focus"));
+      assert.equal(screen.getByTestId(`${device}-round-shell`).getAttribute("data-round-surface"), "focus");
+    });
+  }
 
   it("walks ≥3 patients with next/prev/done then reaches End print path", async () => {
     render(
@@ -341,70 +377,74 @@ describe("Focus-first Round runner harness", () => {
     assert.ok(screen.getByTestId("round-end-print"));
   });
 
-  it("keeps a completed Round review-only until Start New Round is explicit", async () => {
-    render(
-      <RoundProviders patients={dashboardPatients3}>
-        <DesktopRoundShell />
-      </RoundProviders>,
-    );
+  for (const [device, Shell] of [["desktop", DesktopRoundShell], ["mobile", MobileRoundShell]] as const) {
+    it(`${device}: keeps a completed Round review-only until Start New Round is explicit`, async () => {
+      render(
+        <RoundProviders patients={dashboardPatients3}>
+          <Shell />
+        </RoundProviders>,
+      );
 
-    fireEvent.click(screen.getByTestId("round-done"));
-    assert.match(screen.getByTestId("round-position").textContent ?? "", /Round · 2\/3/);
+      fireEvent.click(screen.getByTestId("round-done"));
+      assert.match(screen.getByTestId("round-position").textContent ?? "", /Round · 2\/3/);
 
-    fireEvent.click(screen.getByTestId("round-end-entry"));
-    fireEvent.click(screen.getByTestId("round-end-complete"));
+      fireEvent.click(screen.getByTestId("round-end-entry"));
+      fireEvent.click(screen.getByTestId("round-end-complete"));
 
-    assert.ok(screen.getByTestId("round-end-completed"));
-    assert.equal(
-      screen.queryByRole("button", { name: "Back to patient Focus" }),
-      null,
-      "a completed Round must not reopen mutable Focus",
-    );
+      assert.ok(screen.getByTestId("round-end-completed"));
+      assert.equal(
+        screen.queryByRole("button", { name: "Back to patient Focus" }),
+        null,
+        "a completed Round must not reopen mutable Focus",
+      );
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Round Home" }));
-    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "home");
-    assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start New Round");
-    assert.equal(screen.getByTestId("round-home-start").getAttribute("aria-label"), "Start New Round");
-    assert.equal(screen.queryByTestId("round-home-end"), null);
+      fireEvent.click(screen.getByRole("button", { name: "Back to Round Home" }));
+      assert.equal(screen.getByTestId(`${device}-round-shell`).getAttribute("data-round-surface"), "home");
+      assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start New Round");
+      assert.equal(screen.getByTestId("round-home-start").getAttribute("aria-label"), "Start New Round");
+      assert.equal(screen.queryByTestId("round-home-end"), null);
 
-    fireEvent.click(screen.getByTestId("round-home-start"));
-    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "focus");
-    assert.match(
-      screen.getByTestId("round-position").textContent ?? "",
-      /Round · 1\/3/,
-      "a new active Round resets the completed walk",
-    );
-  });
-
-  it("restores a completed Round to Home instead of reopening Focus", async () => {
-    const patientIds = dashboardPatients3.map((patient) => patient.id);
-    const completed = completeRound(createRound({
-      userId: "test-user",
-      patientIds,
-      id: "completed-round",
-      now: "2026-08-13T12:00:00.000Z",
-    }), "2026-08-13T12:05:00.000Z");
-
-    roundSyncEngine.bindOwner = () => undefined;
-    roundSyncEngine.ensureNetworkListeners = () => undefined;
-    roundSyncEngine.hydrateRoundSession = async () => ({
-      round: completed,
-      continuity: createContinuityMeta("test-device", completed.updatedAt),
+      fireEvent.click(screen.getByTestId("round-home-start"));
+      assert.equal(screen.getByTestId(`${device}-round-shell`).getAttribute("data-round-surface"), "focus");
+      assert.match(
+        screen.getByTestId("round-position").textContent ?? "",
+        /Round · 1\/3/,
+        "a new active Round resets the completed walk",
+      );
     });
-    roundSyncEngine.persistRoundSession = async () => undefined;
+  }
 
-    render(
-      <RoundProviders patients={dashboardPatients3} disablePersistence={false}>
-        <DesktopRoundShell />
-      </RoundProviders>,
-    );
+  for (const [device, Shell] of [["desktop", DesktopRoundShell], ["mobile", MobileRoundShell]] as const) {
+    it(`${device}: restores a completed Round to Home instead of reopening Focus`, async () => {
+      const patientIds = dashboardPatients3.map((patient) => patient.id);
+      const completed = completeRound(createRound({
+        userId: "test-user",
+        patientIds,
+        id: "completed-round",
+        now: "2026-08-13T12:00:00.000Z",
+      }), "2026-08-13T12:05:00.000Z");
 
-    const home = await screen.findByTestId("round-home");
-    assert.ok(home);
-    assert.equal(screen.getByTestId("desktop-round-shell").getAttribute("data-round-surface"), "home");
-    assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start New Round");
-    assert.equal(screen.queryByTestId("patient-focus"), null);
-  });
+      roundSyncEngine.bindOwner = () => undefined;
+      roundSyncEngine.ensureNetworkListeners = () => undefined;
+      roundSyncEngine.hydrateRoundSession = async () => ({
+        round: completed,
+        continuity: createContinuityMeta("test-device", completed.updatedAt),
+      });
+      roundSyncEngine.persistRoundSession = async () => undefined;
+
+      render(
+        <RoundProviders patients={dashboardPatients3} disablePersistence={false}>
+          <Shell />
+        </RoundProviders>,
+      );
+
+      const home = await screen.findByTestId("round-home");
+      assert.ok(home);
+      assert.equal(screen.getByTestId(`${device}-round-shell`).getAttribute("data-round-surface"), "home");
+      assert.equal(screen.getByTestId("round-home-start").textContent?.trim(), "Start New Round");
+      assert.equal(screen.queryByTestId("patient-focus"), null);
+    });
+  }
 
   it("exports the full Round roster even when the dashboard has an unrelated filter", async () => {
     render(

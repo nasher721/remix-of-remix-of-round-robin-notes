@@ -1,3 +1,4 @@
+import { createEmptySystems } from "@/lib/clinicalSections";
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -117,18 +118,7 @@ export default function FHIRCallbackFlow() {
           intervalEvents: '',
           imaging: '',
           labs: '',
-          systems: {
-            neuro: '',
-            cv: '',
-            resp: '',
-            renalGU: '',
-            gi: '',
-            endo: '',
-            heme: '',
-            infectious: '',
-            skinLines: '',
-            dispo: '',
-          },
+          systems: createEmptySystems(),
           medications: {
             infusions: [],
             scheduled: mappedFHIR.medications?.scheduled ?? [],

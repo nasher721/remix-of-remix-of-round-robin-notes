@@ -15,40 +15,7 @@ import type { Json } from "@/integrations/supabase/types";
 /**
  * Parse systems JSON from database into typed PatientSystems
  */
-export const parseSystemsJson = (systems: Json | null): PatientSystems => {
-  const defaults: PatientSystems = {
-    neuro: "",
-    cv: "",
-    resp: "",
-    renalGU: "",
-    gi: "",
-    endo: "",
-    heme: "",
-    infectious: "",
-    skinLines: "",
-    skin: "",
-    dispo: "",
-  };
-
-  if (!systems || typeof systems !== 'object' || Array.isArray(systems)) {
-    return defaults;
-  }
-
-  const s = systems as Record<string, unknown>;
-  return {
-    neuro: String(s.neuro || ''),
-    cv: String(s.cv || ''),
-    resp: String(s.resp || ''),
-    renalGU: String(s.renalGU || ''),
-    gi: String(s.gi || ''),
-    endo: String(s.endo || ''),
-    heme: String(s.heme || ''),
-    infectious: String(s.infectious || ''),
-    skinLines: String(s.skinLines || ''),
-    skin: String(s.skin || ''),
-    dispo: String(s.dispo || ''),
-  };
-};
+export { parseClinicalSystems as parseSystemsJson } from "@/lib/clinicalSections";
 
 /**
  * Parse medications JSON from database into typed PatientMedications

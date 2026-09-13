@@ -1,3 +1,4 @@
+import { SYSTEM_KEYS, SYSTEM_LABELS, resolveSystemLabel, type SystemKey } from "@/lib/clinicalSections";
 /**
  * Rounds print format — configuration contract.
  *
@@ -10,25 +11,7 @@
 
 export type RoundsVariant = "single" | "twoColumn";
 
-export type RoundsSectionKey =
-  | "clinicalSummary"
-  | "intervalEvents"
-  | "neuro"
-  | "cv"
-  | "resp"
-  | "renalGU"
-  | "gi"
-  | "endo"
-  | "heme"
-  | "infectious"
-  | "skinLines"
-  | "skin"
-  | "imaging"
-  | "labs"
-  | "medications"
-  | "todos"
-  | "dispo"
-  | "notes";
+export type RoundsSectionKey = SystemKey | "clinicalSummary" | "intervalEvents" | "imaging" | "labs" | "medications" | "todos" | "notes";
 
 export type RoundsPageSize = "letter" | "a4" | "legal";
 export type RoundsSectionHeaderStyle = "bar" | "underline" | "plain";
@@ -130,44 +113,30 @@ export interface RoundsSettings {
 // Palette — matches the rounds formatter skill's system colours
 // ---------------------------------------------------------------------------
 
+const ROUNDS_SYSTEM_COLORS: Partial<Record<SystemKey, string>> = {
+  neuro: "#1F4E79", cv: "#C00000", resp: "#2E75B6", renalGU: "#375623", gi: "#E36C09",
+  endo: "#7030A0", heme: "#833C00", infectious: "#1F3864", skinLines: "#7B3F61", skin: "#7B3F61",
+};
+
 export const ROUNDS_SECTION_DEFAULTS: readonly RoundsSectionConfig[] = [
   { key: "intervalEvents", label: "Interval Events", color: "#5B6B7F", enabled: true },
-  { key: "neuro", label: "NEURO", color: "#1F4E79", enabled: true },
-  { key: "cv", label: "CV", color: "#C00000", enabled: true },
-  { key: "resp", label: "RESP", color: "#2E75B6", enabled: true },
-  { key: "renalGU", label: "RENAL/GU", color: "#375623", enabled: true },
-  { key: "gi", label: "GI", color: "#E36C09", enabled: true },
-  { key: "endo", label: "ENDO", color: "#7030A0", enabled: true },
-  { key: "heme", label: "HEME/ONC", color: "#833C00", enabled: true },
-  { key: "infectious", label: "ID", color: "#1F3864", enabled: true },
-  { key: "skinLines", label: "L/D/A", color: "#7B3F61", enabled: true },
-  { key: "skin", label: "SKIN", color: "#7B3F61", enabled: true },
+  ...SYSTEM_KEYS.filter(key => key !== "dispo").map((key): RoundsSectionConfig => ({
+    key, label: SYSTEM_LABELS[key], color: ROUNDS_SYSTEM_COLORS[key] ?? "#5B6B7F", enabled: true,
+  })),
   { key: "imaging", label: "Imaging", color: "#2F6F8F", enabled: true },
   { key: "labs", label: "Labs", color: "#496B2F", enabled: true },
   { key: "medications", label: "Current Meds", color: "#1F6F6B", enabled: true },
   { key: "todos", label: "To Do", color: "#8A6D1F", enabled: true },
   { key: "clinicalSummary", label: "Summary", color: "#44546A", enabled: false },
   { key: "notes", label: "Notes", color: "#6B7280", enabled: false },
-  { key: "dispo", label: "DISPO", color: "#1F4E79", enabled: true },
+  { key: "dispo", label: SYSTEM_LABELS.dispo, color: "#1F4E79", enabled: true },
 ] as const;
 
 export const ROUNDS_SECTION_KEYS: readonly RoundsSectionKey[] =
   ROUNDS_SECTION_DEFAULTS.map((section) => section.key);
 
 /** Sections whose content comes from `patient.systems`. */
-export const ROUNDS_SYSTEM_SECTION_KEYS: readonly RoundsSectionKey[] = [
-  "neuro",
-  "cv",
-  "resp",
-  "renalGU",
-  "gi",
-  "endo",
-  "heme",
-  "infectious",
-  "skinLines",
-  "skin",
-  "dispo",
-];
+export const ROUNDS_SYSTEM_SECTION_KEYS: readonly RoundsSectionKey[] = SYSTEM_KEYS;
 
 // ---------------------------------------------------------------------------
 // Defaults
@@ -382,7 +351,7 @@ export const normalizeRoundsSettings = (
       key: fallback.key,
       label:
         typeof section.label === "string" && section.label.trim()
-          ? section.label.trim().slice(0, 40)
+          ? resolveSystemLabel(fallback.key, section.label.trim().slice(0, 40))
           : fallback.label,
       color: color(section.color, fallback.color),
       enabled: bool(section.enabled, fallback.enabled),

@@ -1,3 +1,4 @@
+import { SYSTEM_FIELD_LABELS, type SystemField } from "@/lib/clinicalSections";
 /**
  * Layout Designer Types
  * Comprehensive type definitions for the patient list export layout designer
@@ -25,17 +26,7 @@ export type LayoutSectionType =
   | 'todos'
   | 'notes'
   | 'systems'
-  | 'systems.neuro'
-  | 'systems.cv'
-  | 'systems.resp'
-  | 'systems.renalGU'
-  | 'systems.gi'
-  | 'systems.endo'
-  | 'systems.heme'
-  | 'systems.infectious'
-  | 'systems.skinLines'
-  | 'systems.skin'
-  | 'systems.dispo'
+  | SystemField
   | 'vitals'
   | 'codeStatus'
   | 'allergies'
@@ -243,17 +234,7 @@ export const SECTION_LABELS: Record<LayoutSectionType, string> = {
   todos: 'To-Do Items',
   notes: 'Notes',
   systems: 'Systems Review',
-  'systems.neuro': 'NEURO',
-  'systems.cv': 'CV',
-  'systems.resp': 'RESP',
-  'systems.renalGU': 'RENAL/GU',
-  'systems.gi': 'GI',
-  'systems.endo': 'ENDO',
-  'systems.heme': 'HEME/ONC',
-  'systems.infectious': 'ID',
-  'systems.skinLines': 'L/D/A',
-  'systems.skin': 'SKIN',
-  'systems.dispo': 'DISPO',
+  ...SYSTEM_FIELD_LABELS,
   vitals: 'Vital Signs',
   codeStatus: 'Code Status',
   allergies: 'Allergies',

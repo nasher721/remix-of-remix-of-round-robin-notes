@@ -1,3 +1,4 @@
+import { SYSTEM_LABELS, SYSTEM_KEYS } from "@/lib/clinicalSections";
 /**
  * Default Layout Templates
  * Pre-built layout configurations for common use cases
@@ -22,20 +23,10 @@ export const createDefaultSections = (): LayoutSection[] => [
   { id: 'intervalEvents', type: 'intervalEvents', label: 'Interval Events', enabled: true, order: 2, width: 'full' },
   { id: 'imaging', type: 'imaging', label: 'Imaging', enabled: true, order: 3, width: 'half' },
   { id: 'labs', type: 'labs', label: 'Labs', enabled: true, order: 4, width: 'half' },
-  { id: 'systems.neuro', type: 'systems.neuro', label: "NEURO", enabled: true, order: 5, width: 'half' },
-  { id: 'systems.cv', type: 'systems.cv', label: "CV", enabled: true, order: 6, width: 'half' },
-  { id: 'systems.resp', type: 'systems.resp', label: "RESP", enabled: true, order: 7, width: 'half' },
-  { id: 'systems.renalGU', type: 'systems.renalGU', label: "RENAL/GU", enabled: true, order: 8, width: 'half' },
-  { id: 'systems.gi', type: 'systems.gi', label: "GI", enabled: true, order: 9, width: 'half' },
-  { id: 'systems.endo', type: 'systems.endo', label: "ENDO", enabled: true, order: 10, width: 'half' },
-  { id: 'systems.heme', type: 'systems.heme', label: "HEME/ONC", enabled: true, order: 11, width: 'half' },
-  { id: 'systems.infectious', type: 'systems.infectious', label: "ID", enabled: true, order: 12, width: 'half' },
-  { id: 'systems.skinLines', type: 'systems.skinLines', label: "L/D/A", enabled: true, order: 13, width: 'half' },
-  { id: 'systems.skin', type: 'systems.skin', label: "SKIN", enabled: true, order: 14, width: 'half' },
-  { id: 'systems.dispo', type: 'systems.dispo', label: "DISPO", enabled: true, order: 15, width: 'half' },
-  { id: 'medications', type: 'medications', label: 'Medications', enabled: true, order: 16, width: 'full' },
-  { id: 'todos', type: 'todos', label: 'To-Do Items', enabled: true, order: 17, width: 'full' },
-  { id: 'notes', type: 'notes', label: 'Notes', enabled: false, order: 18, width: 'full' },
+  ...SYSTEM_KEYS.map((key, index): LayoutSection => ({ id: `systems.${key}`, type: `systems.${key}`, label: SYSTEM_LABELS[key], enabled: true, order: 5 + index, width: "half" })),
+  { id: 'medications', type: 'medications', label: 'Medications', enabled: true, order: 5 + SYSTEM_KEYS.length, width: 'full' },
+  { id: 'todos', type: 'todos', label: 'To-Do Items', enabled: true, order: 6 + SYSTEM_KEYS.length, width: 'full' },
+  { id: 'notes', type: 'notes', label: 'Notes', enabled: false, order: 7 + SYSTEM_KEYS.length, width: 'full' },
 ];
 
 // Default global styles
@@ -324,7 +315,7 @@ export const LAYOUT_TEMPLATES: LayoutConfig[] = [
     sections: [
       { id: 'patient', type: 'patient', label: 'Patient', enabled: true, order: 0 },
       { id: 'clinicalSummary', type: 'clinicalSummary', label: 'Summary', enabled: true, order: 1 },
-      { id: 'systems.dispo', type: 'systems.dispo', label: "DISPO", enabled: true, order: 2 },
+      { id: 'systems.dispo', type: 'systems.dispo', label: SYSTEM_LABELS.dispo, enabled: true, order: 2 },
       { id: 'todos', type: 'todos', label: 'Tasks', enabled: true, order: 3 },
     ],
     globalStyles: {
@@ -349,15 +340,15 @@ export const LAYOUT_TEMPLATES: LayoutConfig[] = [
     sections: [
       { id: 'patient', type: 'patient', label: 'Patient', enabled: true, order: 0 },
       { id: 'intervalEvents', type: 'intervalEvents', label: 'Overnight Events', enabled: true, order: 1, width: 'full' },
-      { id: 'systems.neuro', type: 'systems.neuro', label: "NEURO", enabled: true, order: 2, width: 'half' },
-      { id: 'systems.cv', type: 'systems.cv', label: "CV", enabled: true, order: 3, width: 'half' },
-      { id: 'systems.resp', type: 'systems.resp', label: "RESP", enabled: true, order: 4, width: 'half' },
-      { id: 'systems.renalGU', type: 'systems.renalGU', label: "RENAL/GU", enabled: true, order: 5, width: 'half' },
-      { id: 'systems.gi', type: 'systems.gi', label: "GI", enabled: true, order: 6, width: 'half' },
-      { id: 'systems.infectious', type: 'systems.infectious', label: "ID", enabled: true, order: 7, width: 'half' },
-      { id: 'systems.heme', type: 'systems.heme', label: "HEME/ONC", enabled: true, order: 8, width: 'third' },
-      { id: 'systems.endo', type: 'systems.endo', label: "ENDO", enabled: true, order: 9, width: 'third' },
-      { id: 'systems.skinLines', type: 'systems.skinLines', label: "L/D/A", enabled: true, order: 10, width: 'third' },
+      { id: 'systems.neuro', type: 'systems.neuro', label: SYSTEM_LABELS.neuro, enabled: true, order: 2, width: 'half' },
+      { id: 'systems.cv', type: 'systems.cv', label: SYSTEM_LABELS.cv, enabled: true, order: 3, width: 'half' },
+      { id: 'systems.resp', type: 'systems.resp', label: SYSTEM_LABELS.resp, enabled: true, order: 4, width: 'half' },
+      { id: 'systems.renalGU', type: 'systems.renalGU', label: SYSTEM_LABELS.renalGU, enabled: true, order: 5, width: 'half' },
+      { id: 'systems.gi', type: 'systems.gi', label: SYSTEM_LABELS.gi, enabled: true, order: 6, width: 'half' },
+      { id: 'systems.infectious', type: 'systems.infectious', label: SYSTEM_LABELS.infectious, enabled: true, order: 7, width: 'half' },
+      { id: 'systems.heme', type: 'systems.heme', label: SYSTEM_LABELS.heme, enabled: true, order: 8, width: 'third' },
+      { id: 'systems.endo', type: 'systems.endo', label: SYSTEM_LABELS.endo, enabled: true, order: 9, width: 'third' },
+      { id: 'systems.skinLines', type: 'systems.skinLines', label: SYSTEM_LABELS.skinLines, enabled: true, order: 10, width: 'third' },
       { id: 'labs', type: 'labs', label: 'Labs', enabled: true, order: 11, width: 'half' },
       { id: 'imaging', type: 'imaging', label: 'Imaging', enabled: true, order: 12, width: 'half' },
       { id: 'todos', type: 'todos', label: 'Plan', enabled: true, order: 13, width: 'full' },

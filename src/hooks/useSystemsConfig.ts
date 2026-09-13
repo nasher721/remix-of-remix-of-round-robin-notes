@@ -5,45 +5,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { safeLocalStorage } from '@/utils/safeStorage';
-import { SYSTEM_ICONS, SYSTEM_KEYS, SYSTEM_LABELS } from '@/constants/systems';
-
-export interface SystemConfig {
-  key: string;
-  label: string;
-  shortLabel: string;
-  icon: string;
-  enabled: boolean;
-  sortOrder: number;
-  isCustom: boolean;
-}
-
-// Default systems that ship with the app
-export const DEFAULT_SYSTEMS: SystemConfig[] = SYSTEM_KEYS.map((key, sortOrder) => ({
-  key, label: SYSTEM_LABELS[key], shortLabel: SYSTEM_LABELS[key], icon: SYSTEM_ICONS[key],
-  enabled: true, sortOrder, isCustom: false,
-}));
-
-const LEGACY_LABELS: Record<string, string[]> = {
-  neuro: ['Neuro'], cv: ['Cardiovascular', 'CV'], resp: ['Respiratory', 'Resp'],
-  renalGU: ['Renal/GU'], gi: ['GI/Nutrition', 'GI'], endo: ['Endocrine', 'Endo'],
-  heme: ['Hematology', 'Heme'], infectious: ['Infectious', 'ID'],
-  skinLines: ['Skin/Lines'], dispo: ['Disposition', 'Dispo'],
-};
-
-/** Upgrade old default titles while retaining custom labels and visibility preferences. */
-export function mergeSystemsConfig(saved: SystemConfig[]): SystemConfig[] {
-  const merged = [...saved].sort((a, b) => a.sortOrder - b.sortOrder).map((system) => {
-    if (system.isCustom || !LEGACY_LABELS[system.key]?.includes(system.label)) return { ...system };
-    return { ...system, label: SYSTEM_LABELS[system.key], shortLabel: SYSTEM_LABELS[system.key] };
-  });
-  DEFAULT_SYSTEMS.forEach((system) => {
-    if (merged.some((existing) => existing.key === system.key)) return;
-    const linesIndex = merged.findIndex((existing) => existing.key === 'skinLines');
-    if (system.key === 'skin' && linesIndex !== -1) merged.splice(linesIndex + 1, 0, { ...system });
-    else merged.push({ ...system });
-  });
-  return merged.map((system, sortOrder) => ({ ...system, sortOrder }));
-}
+import { DEFAULT_SYSTEMS, mergeSystemsConfig, type SystemConfig } from "@/lib/clinicalSections";
+export { DEFAULT_SYSTEMS, mergeSystemsConfig, type SystemConfig } from "@/lib/clinicalSections";
 
 const STORAGE_KEY = 'handoff-systems-config';
 

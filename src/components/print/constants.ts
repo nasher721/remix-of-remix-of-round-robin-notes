@@ -1,3 +1,4 @@
+import type { SystemField } from "@/lib/clinicalSections";
 import { SYSTEM_LABELS_SHORT, SYSTEM_KEYS } from "@/constants/systems";
 import type { ColumnConfig, ColumnCombination, ColumnWidthsType, CombinedColumnWidths, FontFamily } from "./types";
 
@@ -35,17 +36,7 @@ export const defaultColumnWidths: ColumnWidthsType = {
   medications: 150,
   notes: 140,
   todos: 140,
-  'systems.neuro': 90,
-  'systems.cv': 90,
-  'systems.resp': 90,
-  'systems.renalGU': 90,
-  'systems.gi': 90,
-  'systems.endo': 90,
-  'systems.heme': 90,
-  'systems.infectious': 90,
-  'systems.skinLines': 90,
-  'systems.skin': 90,
-  'systems.dispo': 90,
+  ...Object.fromEntries(systemKeys.map(key => [`systems.${key}`, 90])) as Record<SystemField, number>,
 };
 
 export const defaultCombinedColumnWidths: CombinedColumnWidths = {

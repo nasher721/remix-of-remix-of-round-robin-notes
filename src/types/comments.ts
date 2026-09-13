@@ -1,3 +1,4 @@
+import type { SystemKey } from "@/lib/clinicalSections";
 /**
  * Team Collaboration Types
  * Comments and mentions for collaborative patient care
@@ -32,23 +33,7 @@ export interface CommentReaction {
   userName: string;
 }
 
-export type CommentField =
-  | "general"
-  | "neuro"
-  | "cv"
-  | "resp"
-  | "renalGU"
-  | "gi"
-  | "endo"
-  | "heme"
-  | "infectious"
-  | "skinLines"
-  | "skin"
-  | "dispo"
-  | "medications"
-  | "labs"
-  | "imaging"
-  | "clinicalSummary";
+export type CommentField = SystemKey | "general" | "medications" | "labs" | "imaging" | "clinicalSummary";
 
 export interface CommentThread {
   parent: Comment;

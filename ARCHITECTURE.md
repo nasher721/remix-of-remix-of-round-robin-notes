@@ -118,7 +118,23 @@ flowchart TD
    - Data (`patients`, `filteredPatients`, todos, settings) from `DashboardContext` and hooks.
    - Callbacks (`onUpdatePatient`, `onRemovePatient`, `onDuplicatePatient`, etc.) which route back through `usePatients`.
 
-### Practical Guidelines for New Code
+### Shared clinical workflow modules
+
+| Module | Ownership | Caller interface |
+| --- | --- | --- |
+| `src/lib/clinicalSections.ts` | Built-in section identity, labels, defaults, legacy compatibility and saved section preferences. No React, storage or clinical text inference. | Section definitions, fresh empty notes, database parsing and preference normalization. Patient, comment, todo and Decision Scribe system-key types derive from these definitions. |
+| `src/components/round/useRoundNavigation.ts` | Shared Home/Focus/End decisions, completed-Round hydration, capture binding and Decision Scribe navigation guards. | Both device adapters consume the same navigation state and actions. Keyboard, scroll, selection and presentation remain device-specific. |
+| `src/lib/print/preferenceSession.ts` | One owner's print preference lifecycle, including hydration, delayed writes and stale-response handling. | `usePrintPreferences` connects observable preference state and updates to React; the modal owns presentation only. |
+
+Print persistence uses the database adapter in `src/services/printPreferenceRepository.ts` and owner-scoped browser storage. Authenticated database settings remain authoritative; browser preferences must not initialize an authenticated account. Tests substitute delayed database replies and memory storage through the same session interface.
+
+Section presentation metadata derives from the shared definitions, while print colors, widths and partial templates remain local to printing. `src/constants/systems.ts` and the existing hook/type exports preserve caller compatibility. Import classification and Decision Scribe inference remain separate: shared section identity does not imply identical clinical inference rules.
+
+The stable `skinLines` identity continues to hold legacy combined findings; normalization never redistributes clinical text. The patient-save queue, revision checks, image handling and Round session persistence are unchanged.
+
+Behavior is covered through `clinicalSections.test.ts`, the desktop/mobile Round harness, `preferenceSession.test.ts`, and `usePrintPreferences.test.tsx`. Prefer these observable workflow checks over source-text assertions about the implementation.
+
+### Adding features
 
 - **Adding a new feature around patients**:
   - Put domain helpers in `src/services/` or `src/lib/mappers/`.

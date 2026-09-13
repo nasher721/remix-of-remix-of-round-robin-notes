@@ -38,23 +38,14 @@ import {
 import { RoundsSettingsPanel } from "./print/RoundsSettingsPanel";
 import { PrintFormatPicker, type PrintFormatChoice } from "./print/PrintFormatPicker";
 import { getTemplateById, mergeTemplateCustomizations, PrintTemplatePreset, PrintTemplateType } from "@/types/printTemplates";
-import { defaultColumnWidths, defaultColumns, defaultCombinedColumnWidths } from "./print/constants";
+import { defaultColumns } from "./print/constants";
 import {
   getPageCss,
   getPageMetrics,
-  DEFAULT_PAPER_SIZE,
-  normalizePrintSectionSpacing,
 } from "@/lib/print/layout";
-import { STORAGE_KEYS } from "@/constants/config";
-import { supabase } from "@/integrations/supabase/client";
-import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import type { PatientTodo } from "@/types/todo";
-import {
-  createScopedPrintStorage,
-  getAuthenticatedPrintPayload,
-  quarantineLegacyPrintPreferences,
-} from "@/lib/print/preferences";
+import { usePrintPreferences } from "@/hooks/usePrintPreferences";
 import {
   extractPatientImageObjectKeys,
   loadPatientImageSignedUrls,
@@ -88,17 +79,17 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
   const { user } = useAuth();
   const { toast } = useToast();
   const ownerId = user?.id ?? null;
-  const printStorage = React.useMemo(() => createScopedPrintStorage(ownerId), [ownerId]);
+  const {
+    settings, setSettings,
+    customCombinations, setCustomCombinations,
+    templatePresets, setTemplatePresets,
+    selectedTemplateId, setSelectedTemplateId,
+  } = usePrintPreferences(ownerId, open);
   const [isGenerating, setIsGenerating] = React.useState(false);
-  const [customCombinations, setCustomCombinations] = React.useState<CustomCombination[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = React.useState<PrintTemplateType>('standard');
-  const [templatePresets, setTemplatePresets] = React.useState<PrintTemplatePreset[]>([]);
   const [templatePresetName, setTemplatePresetName] = React.useState("");
   const [showLayoutDesigner, setShowLayoutDesigner] = React.useState(false);
   const [appliedLayout, setAppliedLayout] = React.useState<LayoutConfig | null>(null);
   const exportRef = React.useRef<HTMLDivElement | null>(null);
-  const syncTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const initialSyncOwnerId = React.useRef<string | null | undefined>(undefined);
   const patientImageLoadGeneration = React.useRef(0);
   const [patientImagePrintState, setPatientImagePrintState] =
     React.useState<PatientImagePrintState>({
@@ -176,251 +167,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
       (!patientImageStateMatchesView || patientImagePrintState.loading),
   );
 
-  // Settings State
-  const defaultSettings = React.useMemo<PrintSettingsType>(() => ({
-    columns: defaultColumns,
-    combinedColumns: [],
-    printOrientation: 'portrait',
-    paperSize: 'a4' as const,
-    printFontSize: 9,
-    printFontFamily: 'system',
-    onePatientPerPage: false,
-    autoFitFontSize: false,
-    columnWidths: defaultColumnWidths,
-    combinedColumnWidths: defaultCombinedColumnWidths,
-    margins: 'normal',
-    headerStyle: 'standard',
-    borderStyle: 'light',
-    showPageNumbers: true,
-    showTimestamp: true,
-    alternateRowColors: true,
-    compactMode: false,
-    sectionSpacing: normalizePrintSectionSpacing(undefined),
-    activeTab: 'table',
-    showNotesColumn: false,
-    showTodosColumn: true,
-    rounds: DEFAULT_ROUNDS_SINGLE,
-  }), []);
-
-  const [settings, setSettings] = React.useState<PrintSettingsType>(defaultSettings);
-
-  const mergeStoredSettings = React.useCallback((stored?: Partial<PrintSettingsType>): PrintSettingsType => ({
-    ...defaultSettings,
-    ...stored,
-    columns: stored?.columns ?? defaultSettings.columns,
-    combinedColumns: stored?.combinedColumns ?? [],
-    columnWidths: { ...defaultColumnWidths, ...(stored?.columnWidths ?? {}) },
-    combinedColumnWidths: { ...defaultCombinedColumnWidths, ...(stored?.combinedColumnWidths ?? {}) },
-    sectionSpacing: normalizePrintSectionSpacing(stored?.sectionSpacing),
-    rounds: normalizeRoundsSettings(stored?.rounds, stored?.rounds?.variant ?? 'single'),
-  }), [defaultSettings]);
-
-  const syncSettingsToLocalStorage = React.useCallback((nextSettings: PrintSettingsType) => {
-    printStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_PREFS, JSON.stringify(nextSettings.columns));
-    printStorage.setItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS, JSON.stringify(nextSettings.columnWidths));
-    printStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS, JSON.stringify(nextSettings.combinedColumns));
-    printStorage.setItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS, JSON.stringify(nextSettings.combinedColumnWidths));
-    printStorage.setItem(STORAGE_KEYS.PRINT_ORIENTATION, nextSettings.printOrientation);
-    printStorage.setItem(
-      STORAGE_KEYS.PRINT_PAPER_SIZE,
-      nextSettings.paperSize ?? DEFAULT_PAPER_SIZE,
-    );
-    printStorage.setItem(STORAGE_KEYS.PRINT_FONT_SIZE, nextSettings.printFontSize.toString());
-    printStorage.setItem(STORAGE_KEYS.PRINT_FONT_FAMILY, nextSettings.printFontFamily);
-    printStorage.setItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE, nextSettings.onePatientPerPage.toString());
-    printStorage.setItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE, nextSettings.autoFitFontSize.toString());
-    printStorage.setItem('printMargins', nextSettings.margins);
-    printStorage.setItem('printHeaderStyle', nextSettings.headerStyle);
-    printStorage.setItem('printBorderStyle', nextSettings.borderStyle);
-    printStorage.setItem('printShowPageNumbers', nextSettings.showPageNumbers.toString());
-    printStorage.setItem('printShowTimestamp', nextSettings.showTimestamp.toString());
-    printStorage.setItem('printAlternateRowColors', nextSettings.alternateRowColors.toString());
-    printStorage.setItem('printCompactMode', nextSettings.compactMode.toString());
-    printStorage.setItem(
-      STORAGE_KEYS.PRINT_SECTION_SPACING,
-      String(normalizePrintSectionSpacing(nextSettings.sectionSpacing)),
-    );
-    printStorage.setItem(STORAGE_KEYS.PRINT_FORMAT, nextSettings.activeTab);
-    printStorage.setItem(STORAGE_KEYS.PRINT_ROUNDS_SETTINGS, JSON.stringify(nextSettings.rounds));
-  }, [printStorage]);
-
-  const buildPrintPayload = React.useCallback(() => ({
-    settings,
-    customCombinations,
-    templatePresets,
-    selectedTemplateId,
-  }), [settings, customCombinations, templatePresets, selectedTemplateId]);
-
-  const syncPrintSettingsToDb = React.useCallback(async (payload: ReturnType<typeof buildPrintPayload>) => {
-    if (!user) return;
-
-    try {
-      const payloadJson = JSON.parse(JSON.stringify(payload)) as Json;
-      const { error } = await supabase
-        .from('user_settings')
-        .upsert(
-          {
-            user_id: user.id,
-            print_settings: payloadJson,
-          },
-          { onConflict: 'user_id' }
-        );
-      if (error) throw error;
-    } catch {
-      console.error('Failed to sync print settings');
-    }
-  }, [user]);
-
   const [patientNotes] = React.useState<Record<string, string>>({});
-
-  // Authenticated settings are DB-authoritative. Local storage is only an
-  // owner-scoped cache and is never used to initialize a newly signed-in user.
-  React.useEffect(() => {
-    if (!open || initialSyncOwnerId.current === ownerId) return;
-
-    let cancelled = false;
-    const defaultPayload = {
-      settings: defaultSettings,
-      customCombinations: [] as CustomCombination[],
-      templatePresets: [] as PrintTemplatePreset[],
-      selectedTemplateId: 'standard' as PrintTemplateType,
-    };
-
-    const parseStoredJson = <T,>(raw: string | null, fallback: T): T => {
-      if (!raw) return fallback;
-      try {
-        return JSON.parse(raw) as T;
-      } catch {
-        return fallback;
-      }
-    };
-
-    const loadAnonymousPayload = () => {
-      const savedCols = printStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_PREFS);
-      const savedWidths = printStorage.getItem(STORAGE_KEYS.PRINT_COLUMN_WIDTHS);
-      const savedCombined = printStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMNS);
-      const savedCombinedWidths = printStorage.getItem(STORAGE_KEYS.PRINT_COMBINED_COLUMN_WIDTHS);
-
-      return {
-        settings: mergeStoredSettings({
-          columns: parseStoredJson(savedCols, defaultSettings.columns),
-          columnWidths: parseStoredJson(savedWidths, defaultSettings.columnWidths),
-          combinedColumns: parseStoredJson(savedCombined, defaultSettings.combinedColumns),
-          combinedColumnWidths: parseStoredJson(savedCombinedWidths, defaultSettings.combinedColumnWidths),
-          printOrientation: (printStorage.getItem(STORAGE_KEYS.PRINT_ORIENTATION) as 'portrait' | 'landscape') || defaultSettings.printOrientation,
-          paperSize: (printStorage.getItem(STORAGE_KEYS.PRINT_PAPER_SIZE) as 'a4' | 'letter') || defaultSettings.paperSize,
-          printFontSize: parseInt(printStorage.getItem(STORAGE_KEYS.PRINT_FONT_SIZE) || `${defaultSettings.printFontSize}`, 10),
-          printFontFamily: printStorage.getItem(STORAGE_KEYS.PRINT_FONT_FAMILY) || defaultSettings.printFontFamily,
-          onePatientPerPage: printStorage.getItem(STORAGE_KEYS.PRINT_ONE_PATIENT_PER_PAGE) === 'true',
-          autoFitFontSize: printStorage.getItem(STORAGE_KEYS.PRINT_AUTO_FIT_FONT_SIZE) === 'true',
-          margins: (printStorage.getItem('printMargins') as 'narrow' | 'normal' | 'wide') || defaultSettings.margins,
-          headerStyle: (printStorage.getItem('printHeaderStyle') as 'minimal' | 'standard' | 'detailed') || defaultSettings.headerStyle,
-          borderStyle: (printStorage.getItem('printBorderStyle') as 'none' | 'light' | 'medium' | 'heavy') || defaultSettings.borderStyle,
-          showPageNumbers: printStorage.getItem('printShowPageNumbers') !== 'false',
-          showTimestamp: printStorage.getItem('printShowTimestamp') !== 'false',
-          alternateRowColors: printStorage.getItem('printAlternateRowColors') !== 'false',
-          compactMode: printStorage.getItem('printCompactMode') === 'true',
-          sectionSpacing: normalizePrintSectionSpacing(
-            printStorage.getItem(STORAGE_KEYS.PRINT_SECTION_SPACING),
-          ),
-          activeTab: printStorage.getItem(STORAGE_KEYS.PRINT_FORMAT) || defaultSettings.activeTab,
-          rounds: parseStoredJson<RoundsSettings | undefined>(
-            printStorage.getItem(STORAGE_KEYS.PRINT_ROUNDS_SETTINGS),
-            undefined,
-          ),
-        }),
-        customCombinations: parseStoredJson<CustomCombination[]>(
-          printStorage.getItem(STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS),
-          [],
-        ),
-        templatePresets: parseStoredJson<PrintTemplatePreset[]>(
-          printStorage.getItem(STORAGE_KEYS.PRINT_TEMPLATE_PRESETS),
-          [],
-        ),
-        selectedTemplateId:
-          (printStorage.getItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID) as PrintTemplateType | null) ??
-          defaultPayload.selectedTemplateId,
-      };
-    };
-
-    const applyPayload = (payload: typeof defaultPayload) => {
-      const nextSettings = mergeStoredSettings(payload.settings);
-      const nextCombinations = Array.isArray(payload.customCombinations) ? payload.customCombinations : [];
-      const nextPresets = Array.isArray(payload.templatePresets) ? payload.templatePresets : [];
-      const nextTemplateId = payload.selectedTemplateId || defaultPayload.selectedTemplateId;
-
-      setSettings(nextSettings);
-      setCustomCombinations(nextCombinations);
-      setTemplatePresets(nextPresets);
-      setSelectedTemplateId(nextTemplateId);
-    };
-
-    const loadSettings = async () => {
-      quarantineLegacyPrintPreferences();
-
-      if (!user) {
-        applyPayload(loadAnonymousPayload());
-        initialSyncOwnerId.current = null;
-        return;
-      }
-
-      // Hide any previous in-memory customization while this owner's row loads.
-      applyPayload(defaultPayload);
-
-      try {
-        const { data, error } = await supabase
-          .from('user_settings')
-          .select('print_settings')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (error) throw error;
-        if (cancelled) return;
-
-        const databasePayload = data?.print_settings
-          ? data.print_settings as unknown as typeof defaultPayload
-          : undefined;
-        const decision = getAuthenticatedPrintPayload(databasePayload, defaultPayload);
-        applyPayload(decision.payload);
-        initialSyncOwnerId.current = user.id;
-
-        if (decision.shouldInitializeDatabase) {
-          await syncPrintSettingsToDb(defaultPayload);
-        }
-      } catch {
-        // Defaults remain visible, but no local value is promoted into the DB.
-        console.error('Failed to load print settings from DB');
-      }
-    };
-
-    void loadSettings();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    defaultSettings,
-    mergeStoredSettings,
-    open,
-    ownerId,
-    printStorage,
-    syncPrintSettingsToDb,
-    user,
-  ]);
-
-  React.useEffect(() => {
-    if (!user || initialSyncOwnerId.current !== user.id) return;
-    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
-
-    syncTimeoutRef.current = setTimeout(() => {
-      void syncPrintSettingsToDb(buildPrintPayload());
-    }, 1000);
-
-    return () => {
-      if (syncTimeoutRef.current) {
-        clearTimeout(syncTimeoutRef.current);
-        syncTimeoutRef.current = null;
-      }
-    };
-  }, [user, buildPrintPayload, syncPrintSettingsToDb]);
 
   // Debounce the @page CSS update — page settings rarely change rapidly,
   // and forcing a style recalc on every settings mutation causes layout jitter.
@@ -458,39 +205,20 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     return () => { if (applyPageStyleRef.current) clearTimeout(applyPageStyleRef.current); };
   }, [pageCss, pageMarginMm]);
 
-  React.useEffect(() => {
-    syncSettingsToLocalStorage(settings);
-  }, [settings, syncSettingsToLocalStorage]);
-
-  React.useEffect(() => {
-    printStorage.setItem(STORAGE_KEYS.PRINT_SELECTED_TEMPLATE_ID, selectedTemplateId);
-  }, [printStorage, selectedTemplateId]);
-
-  React.useEffect(() => {
-    printStorage.setItem(
-      STORAGE_KEYS.PRINT_CUSTOM_COMBINATIONS,
-      JSON.stringify(customCombinations),
-    );
-  }, [customCombinations, printStorage]);
-
-  React.useEffect(() => {
-    printStorage.setItem(STORAGE_KEYS.PRINT_TEMPLATE_PRESETS, JSON.stringify(templatePresets));
-  }, [printStorage, templatePresets]);
-
   const handleUpdateSettings = React.useCallback((newSettings: Partial<PrintSettingsType>) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
-  }, []);
+  }, [setSettings]);
 
   const handleUpdateColumns = React.useCallback((newColumns: ColumnConfig[]) => {
     setSettings(prev => ({ ...prev, columns: newColumns }));
-  }, []);
+  }, [setSettings]);
 
   const handleUpdateRounds = React.useCallback((patch: Partial<RoundsSettings>) => {
     setSettings(prev => {
       const current = normalizeRoundsSettings(prev.rounds, prev.rounds?.variant ?? 'single');
       return { ...prev, rounds: normalizeRoundsSettings({ ...current, ...patch }, current.variant) };
     });
-  }, []);
+  }, [setSettings]);
 
   /**
    * Switching to a rounds variant seeds that variant's house defaults the first
@@ -529,7 +257,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
         ),
       };
     });
-  }, []);
+  }, [setSettings]);
 
   // Single atomic setState — avoids the previous 2-render cascade
   // (handleUpdateColumns → re-render 1, then setSettings → re-render 2).
@@ -564,7 +292,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
 
       return updated;
     });
-  }, []);
+  }, [setSettings]);
 
   const previewScrollRef = React.useRef<HTMLDivElement | null>(null);
   
@@ -586,7 +314,7 @@ const PrintExportModalForOwner = ({ open, onOpenChange, patients, patientTodos =
     });
 
     toast({ title: `Applied ${template.name} template` });
-  }, [applyTemplateSettings, toast]);
+  }, [applyTemplateSettings, setSelectedTemplateId, toast]);
 
   const handleResetColumns = () => {
     handleUpdateColumns(defaultColumns);

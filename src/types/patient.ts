@@ -1,3 +1,4 @@
+import { createEmptySystems, type ClinicalSystemNotes } from "@/lib/clinicalSections";
 /**
  * Unified Patient Types
  * Single source of truth for all patient-related type definitions
@@ -33,20 +34,7 @@ export interface Vitals {
 }
 
 // System-by-system review structure
-export interface PatientSystems {
-  neuro: string;
-  cv: string;
-  resp: string;
-  renalGU: string;
-  gi: string;
-  endo: string;
-  heme: string;
-  infectious: string;
-  skinLines: string;
-  /** Separate skin documentation; older charts may not have this field yet. */
-  skin?: string;
-  dispo: string;
-}
+export type PatientSystems = ClinicalSystemNotes;
 
 // Structured medication categories
 export interface PatientMedications {
@@ -75,19 +63,7 @@ export interface FieldTimestamps {
 }
 
 // Default empty systems object
-export const defaultSystems: PatientSystems = {
-  neuro: "",
-  cv: "",
-  resp: "",
-  renalGU: "",
-  gi: "",
-  endo: "",
-  heme: "",
-  infectious: "",
-  skinLines: "",
-  skin: "",
-  dispo: "",
-};
+export const defaultSystems: PatientSystems = createEmptySystems();
 
 /**
  * UI Patient - used in components

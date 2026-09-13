@@ -1,3 +1,4 @@
+import type { SystemField } from "@/lib/clinicalSections";
 import type { Patient } from "@/types/patient";
 import type { PatientTodo } from "@/types/todo";
 import type { RoundsSettings } from "./roundsTypes";
@@ -38,7 +39,7 @@ export interface CustomCombination extends ColumnCombination {
     createdAt: string;
 }
 
-export type ColumnWidthsType = {
+export type ColumnWidthsType = Record<SystemField, number> & {
     patient: number;
     summary: number;
     events: number;
@@ -47,17 +48,6 @@ export type ColumnWidthsType = {
     medications: number;
     notes: number;
     todos: number;
-    'systems.neuro': number;
-    'systems.cv': number;
-    'systems.resp': number;
-    'systems.renalGU': number;
-    'systems.gi': number;
-    'systems.endo': number;
-    'systems.heme': number;
-    'systems.infectious': number;
-    'systems.skinLines': number;
-    'systems.skin': number;
-    'systems.dispo': number;
     [key: string]: number; // Allow additional system keys
 };
 
