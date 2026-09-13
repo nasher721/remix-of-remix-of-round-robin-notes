@@ -1,3 +1,5 @@
+@import "./components/notes/continuous-note.css";
+
 /* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind directives are required */
 @tailwind base;
 /* biome-ignore lint/suspicious/noUnknownAtRules: Tailwind directives are required */

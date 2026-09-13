@@ -268,6 +268,11 @@ export const PatientWorkspace = ({ onOpenAIPalette }: PatientWorkspaceProps) => 
     const delay = sectionId === "results" || sectionId === "medications" ? 120 : 0;
     window.setTimeout(() => {
       const root = chartBodyRef.current;
+      const combinedEditor = root?.querySelector<HTMLElement>('[role="textbox"][aria-label="Combined clinical note"]');
+      if (combinedEditor) {
+        combinedEditor.dispatchEvent(new CustomEvent("rr:jump-note-section", { detail: sectionId }));
+        return;
+      }
       const section =
         root?.querySelector<HTMLElement>(`#documentation-section-${sectionId}`) ??
         root?.querySelector<HTMLElement>(`[data-documentation-section="${sectionId}"]`) ??

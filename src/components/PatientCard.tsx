@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label";
 import { FileText, Calendar, Copy, Trash2, ChevronDown, ChevronUp, Clock, ImageIcon, TestTube, Sparkles, Loader2, History, Settings2, X, Eraser, ClipboardList, AlertTriangle, User } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { RichTextEditor } from "./RichTextEditor";
+import { ContinuousNoteEditor } from "./notes/ContinuousNoteEditor";
+import { NoteEditorModeControl } from "./notes/NoteEditorModeControl";
+import { useNoteEditorMode } from "@/hooks/useNoteEditorMode";
 import { ImagePasteEditor } from "./ImagePasteEditor";
 import { PatientTodos } from "./PatientTodos";
 import { FieldTimestamp } from "./FieldTimestamp";
@@ -109,6 +112,7 @@ const PatientCardComponent = ({
   chrome = "card",
 }: PatientCardProps) => {
   const isWorkspace = chrome === "workspace";
+  const [noteEditorMode, setNoteEditorMode] = useNoteEditorMode();
   const { globalFontSize, todosAlwaysVisible, showLabFishbones, sectionVisibility } = useSettings();
   const changeTracking = useChangeTracking();
   const { teamMembers } = useTeam();
@@ -665,6 +669,12 @@ const PatientCardComponent = ({
                 </div>
               )}
 
+              <NoteEditorModeControl mode={noteEditorMode} onChange={setNoteEditorMode} />
+              {noteEditorMode === "continuous" ? (
+                <ContinuousNoteEditor patient={patient} systems={enabledSystems} onUpdate={onUpdate}
+                  autotexts={autotexts} changeTracking={changeTracking} />
+              ) : (
+                <>
               {/* Clinical Summary */}
               {sectionVisibility.clinicalSummary && (
                 <div
@@ -1117,6 +1127,8 @@ const PatientCardComponent = ({
                     onAnyEditorFocus={() => handleEditorFocusIntent("systemsReview")}
                   />
                 </div>
+              )}
+                </>
               )}
             </div>
           </motion.div>

@@ -340,8 +340,8 @@ describe('Supabase deployment workflow', () => {
     assert.match(workflow, /npm run test:e2e:public/)
     assert.match(workflow, /name: Required authenticated Chromium suite/)
     assert.match(workflow, /name: Required authenticated WebKit suite/)
-    assert.match(workflow, /run: npm run test:e2e\n/)
-    assert.match(workflow, /run: npm run test:e2e:webkit\n/)
+    assert.match(workflow, /run: npm run test:e2e\r?\n/)
+    assert.match(workflow, /run: npm run test:e2e:webkit\r?\n/)
     assert.equal((workflow.match(/E2E_USE_PREVIEW: "1"/g) ?? []).length, 3)
     assert.equal((workflow.match(/E2E_REQUIRE_FULL_SUITE: "1"/g) ?? []).length, 2)
     // Build step, both authenticated suites, and the public smoke step bind the

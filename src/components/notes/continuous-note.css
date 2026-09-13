@@ -1,0 +1,40 @@
+.note-document {
+  min-height: 32rem;
+  max-height: 65vh;
+  overflow-y: auto;
+  scroll-padding-block: 1rem;
+  padding: 1.5rem;
+  color: hsl(var(--foreground));
+  font-size: 16px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  outline: none;
+}
+.note-document:focus-visible { box-shadow: inset 0 0 0 2px hsl(var(--ring) / .5); }
+.note-document-large { font-size: 20px; }
+.note-document > [data-note-section] { margin: 0 auto 1.5rem; max-width: 76ch; }
+.note-document h2 {
+  margin: 0 0 .5rem;
+  padding-top: .75rem;
+  border-top: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  line-height: 1.5;
+  text-transform: uppercase;
+  user-select: none;
+}
+.note-document > [data-note-section]:first-child > h2 { padding-top: 0; border-top: 0; }
+.note-document [data-note-body] { min-height: 2.75rem; padding: .25rem 0; }
+.note-document [data-note-body]:focus-within { background: hsl(var(--accent) / .2); }
+.note-document p { margin: 0 0 .35rem; }
+.note-document ul { list-style: disc; padding-left: 1.5rem; }
+.note-document ol { list-style: decimal; padding-left: 1.5rem; }
+.note-document table { border-collapse: collapse; max-width: 100%; }
+.note-document td, .note-document th { border: 1px solid hsl(var(--border)); padding: .25rem .5rem; }
+.note-document img { display: none; }
+.continuous-note nav { max-height: calc(65vh + 3rem); }
+@media (max-width: 640px) { .note-document { padding: 1rem; } }
+@media (prefers-reduced-motion: reduce) { .continuous-note * { transition: none !important; } }

@@ -48,6 +48,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { ContinuousNoteEditor } from "@/components/notes/ContinuousNoteEditor";
+import { NoteEditorModeControl } from "@/components/notes/NoteEditorModeControl";
+import { useNoteEditorMode } from "@/hooks/useNoteEditorMode";
 import { ImagePasteEditor } from "@/components/ImagePasteEditor";
 import { PatientTodos } from "@/components/PatientTodos";
 import { FieldTimestamp } from "@/components/FieldTimestamp";
@@ -107,6 +110,7 @@ export const MobilePatientDetail = ({
   hasPrevious = false,
   initialTodos,
 }: MobilePatientDetailProps) => {
+  const [noteEditorMode, setNoteEditorMode] = useNoteEditorMode();
   const [openSections, setOpenSections] = useState<string[]>(["summary"]);
   const [activeSection, setActiveSection] = useState("summary");
   const [pendingClearField, setPendingClearField] = useState<string | null>(null);
@@ -370,6 +374,9 @@ export const MobilePatientDetail = ({
       </div>
 
       <div className="px-4 py-3 border-b border-border bg-background/95">
+        <NoteEditorModeControl mode={noteEditorMode} onChange={setNoteEditorMode} />
+      </div>
+      {noteEditorMode === "sections" && <div className="px-4 py-3 border-b border-border bg-background/95">
         <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin" role="tablist" aria-label="Documentation sections">
           {SECTION_CHIPS.map((chip) => {
             const Icon = chip.icon;
@@ -392,6 +399,7 @@ export const MobilePatientDetail = ({
         </div>
       </div>
 
+      }
       {/* Patient-Wide Todos */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
         <span className="text-sm font-medium text-muted-foreground">Patient Tasks:</span>
@@ -408,6 +416,10 @@ export const MobilePatientDetail = ({
       </div>
 
       {/* Content Sections */}
+      {noteEditorMode === "continuous" ? (
+        <div className="p-3"><ContinuousNoteEditor patient={patient} systems={enabledSystems}
+          onUpdate={onUpdate} autotexts={autotexts} changeTracking={changeTracking} /></div>
+      ) : (
       <Accordion
         type="single"
         collapsible
@@ -713,6 +725,7 @@ export const MobilePatientDetail = ({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      )}
 
       <AlertDialog open={pendingClearField !== null} onOpenChange={(open) => !open && setPendingClearField(null)}>
         <AlertDialogContent>

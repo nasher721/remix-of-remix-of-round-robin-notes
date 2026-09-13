@@ -272,6 +272,34 @@ function AppProviders({
 }
 
 describe("production dashboard roster regression harness", () => {
+  it("switches the desktop chart between separate fields and one note without stacking editors", async () => {
+    setViewport(1440, 900);
+    render(<MemoryRouter><AppProviders patients={dashboardPatients3}>
+      <DesktopDashboard />
+    </AppProviders></MemoryRouter>);
+    assert.ok(await screen.findByRole("textbox", { name: "Enter clinical summary..." }));
+    fireEvent.click(screen.getByRole("button", { name: "One page" }));
+    const combined = await screen.findByRole("textbox", { name: "Combined clinical note" });
+    assert.ok(combined.textContent?.includes(dashboardPatients3[0].clinicalSummary));
+    assert.equal(screen.queryByRole("textbox", { name: "Enter clinical summary..." }), null);
+    fireEvent.click(screen.getByRole("button", { name: "Sections" }));
+    assert.ok(await screen.findByRole("textbox", { name: "Enter clinical summary..." }));
+    assert.equal(screen.queryByRole("textbox", { name: "Combined clinical note" }), null);
+  });
+
+  it("opens the same one-page editor in the real mobile patient detail", async () => {
+    setViewport(375, 812);
+    render(<MemoryRouter><AppProviders patients={dashboardPatients3} selectedPatient={dashboardPatients3[0]}>
+      <MobileDashboard />
+    </AppProviders></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "One page" }));
+    assert.ok(await screen.findByRole("textbox", { name: "Combined clinical note" }));
+    assert.equal(screen.queryByRole("tablist", { name: "Documentation sections" }), null);
+    fireEvent.click(screen.getByRole("button", { name: "Sections" }));
+    assert.ok(await screen.findByRole("tablist", { name: "Documentation sections" }));
+    assert.equal(screen.queryByRole("textbox", { name: "Combined clinical note" }), null);
+  });
+
   it("keeps section Todo focus and typing out of clinical notes", async () => {
     setViewport(1440, 900);
     render(
