@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Check, ChevronLeft, ChevronRight, Download, Home, Menu, MoreHorizontal, Printer } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Home, Menu, Mic, MoreHorizontal, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRoundSession } from "@/contexts/RoundSessionContext";
@@ -397,7 +397,27 @@ export const RoundChrome = ({
           </button>
         ) : null}
       </div>
-        {captureBinding && <CaptureControl key={captureBinding.patientId} binding={captureBinding} requireConsent onStopped={(state, audio, mime) => { onCaptureStopped?.(state); onCaptureAudio?.(state, audio, mime); }} className="shrink-0" />}
+      {captureBinding && (
+        <details key={captureBinding.patientId} className="group shrink-0">
+          <summary
+            className={cn(iconBtnClass, "flex cursor-pointer list-none items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden")}
+            aria-label="Decision Scribe"
+            title="Decision Scribe"
+          >
+            <Mic className="h-4 w-4" aria-hidden="true" />
+          </summary>
+          <div className="absolute right-3 top-full z-50 mt-2 max-h-[70dvh] w-[min(24rem,calc(100vw-1.5rem))] overflow-y-auto rounded-lg border bg-background p-4 shadow-lg">
+            <CaptureControl
+              binding={captureBinding}
+              requireConsent
+              onStopped={(state, audio, mime) => {
+                onCaptureStopped?.(state);
+                onCaptureAudio?.(state, audio, mime);
+              }}
+            />
+          </div>
+        </details>
+      )}
 
       <div className="flex shrink-0 items-center gap-1">
         {showLifecycleActions && onGoHome && (
