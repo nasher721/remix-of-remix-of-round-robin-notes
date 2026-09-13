@@ -77,8 +77,6 @@
     "@syncedstore/react": "^0.6.0",
     "@tanstack/react-query": "^5.83.0",
     "@types/react-window": "^1.8.8",
-    "@unovis/react": "^1.6.4",
-    "@unovis/ts": "^1.6.4",
     "animejs": "^4.3.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

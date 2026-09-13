@@ -1,4 +1,4 @@
-import type { SystemKey } from "@/lib/clinicalSections";
+import type { SystemKey } from "../lib/clinicalSections.ts";
 export type DecisionSystemKey = SystemKey;
 
 declare const decisionScribeBrand: unique symbol;
