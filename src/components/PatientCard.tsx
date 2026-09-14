@@ -1,3 +1,4 @@
+import { NoteComposerLauncher } from "@/components/note-composer/NoteComposerLauncher";
 import * as React from "react";
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { animate, stagger } from 'animejs';
@@ -669,6 +670,7 @@ const PatientCardComponent = ({
                 </div>
               )}
 
+              <NoteComposerLauncher patient={patient} />
               <NoteEditorModeControl mode={noteEditorMode} onChange={setNoteEditorMode} />
               {noteEditorMode === "continuous" ? (
                 <ContinuousNoteEditor patient={patient} systems={enabledSystems} onUpdate={onUpdate}

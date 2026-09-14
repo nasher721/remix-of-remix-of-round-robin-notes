@@ -1,3 +1,4 @@
+import { NoteComposerLauncher } from "@/components/note-composer/NoteComposerLauncher";
 import { useEffect, useMemo, useState } from "react";
 import { Patient, PatientSystems, PatientMedications } from "@/types/patient";
 import { MedicationList } from "@/components/MedicationList";
@@ -374,6 +375,7 @@ export const MobilePatientDetail = ({
       </div>
 
       <div className="px-4 py-3 border-b border-border bg-background/95">
+        <NoteComposerLauncher patient={patient} />
         <NoteEditorModeControl mode={noteEditorMode} onChange={setNoteEditorMode} />
       </div>
       {noteEditorMode === "sections" && <div className="px-4 py-3 border-b border-border bg-background/95">

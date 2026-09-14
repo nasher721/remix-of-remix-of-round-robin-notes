@@ -88,6 +88,8 @@ export interface Patient {
   lastModified: string;
   /** Monotonic server revision used to reject stale cross-tab writes. */
   revision?: number;
+  /** Accepted note formatting only; temporary evidence is never persisted. */
+  noteFormat?: { profileVersion: string; mode: 'standard' | 'concise' };
   age?: number;
   /** ISO calendar date from the source roster; never inferred from age. */
   dateOfBirth?: string;

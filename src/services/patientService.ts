@@ -36,6 +36,7 @@ export const PATIENT_SELECT_COLUMNS = [
   "created_at",
   "last_modified",
   "revision",
+  "note_format",
   "age",
   "date_of_birth",
   "gender",
@@ -128,6 +129,7 @@ export interface PatientRecord {
   created_at: string;
   last_modified: string | null;
   revision?: number | null;
+  note_format?: Json | null;
   age?: number | null;
   date_of_birth?: string | null;
   gender?: string | null;
@@ -159,6 +161,10 @@ export const mapPatientRecord = (record: PatientRecord): Patient => ({
   createdAt: record.created_at,
   lastModified: record.last_modified ?? record.created_at,
   revision: record.revision ?? 0,
+  noteFormat: record.note_format && typeof record.note_format === 'object' && !Array.isArray(record.note_format)
+    && typeof record.note_format.profileVersion === 'string'
+    && (record.note_format.mode === 'standard' || record.note_format.mode === 'concise')
+      ? { profileVersion: record.note_format.profileVersion, mode: record.note_format.mode } : undefined,
   age: record.age ?? undefined,
   dateOfBirth: record.date_of_birth ?? undefined,
   gender: record.gender as Patient["gender"] ?? undefined,

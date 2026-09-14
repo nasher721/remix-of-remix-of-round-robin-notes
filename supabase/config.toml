@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.compose-decision-draft]
 verify_jwt = false
+
+[functions.compose-rounding-note]
+verify_jwt = false

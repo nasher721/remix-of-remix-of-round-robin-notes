@@ -279,6 +279,7 @@ export type Database = {
           mrn: string
           name: string
           patient_number: number
+          note_format: Json | null
           revision: number
           service_line: string | null
           systems: Json
@@ -310,6 +311,7 @@ export type Database = {
           mrn?: string
           name?: string
           patient_number: number
+          note_format?: Json | null
           revision?: number
           service_line?: string | null
           systems?: Json
@@ -341,6 +343,7 @@ export type Database = {
           mrn?: string
           name?: string
           patient_number?: number
+          note_format?: Json | null
           revision?: number
           service_line?: string | null
           systems?: Json
@@ -656,6 +659,7 @@ export type Database = {
       }
       user_settings: {
         Row: {
+          note_composer_mode: string
           app_preferences: Json | null
           created_at: string
           custom_prompts: Json | null
@@ -666,6 +670,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          note_composer_mode?: string
           app_preferences?: Json | null
           created_at?: string
           custom_prompts?: Json | null
@@ -676,6 +681,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          note_composer_mode?: string
           app_preferences?: Json | null
           created_at?: string
           custom_prompts?: Json | null

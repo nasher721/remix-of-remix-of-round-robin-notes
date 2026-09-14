@@ -1,3 +1,4 @@
+import { NoteComposerLauncher } from "@/components/note-composer/NoteComposerLauncher";
 import * as React from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -435,6 +436,7 @@ export const PatientFocus = ({
             />
           </div>
         )}
+        <div className="mb-3"><NoteComposerLauncher patient={patient} /></div>
         <dl className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4" data-testid="patient-focus-identity">
           <div className="sm:col-span-2 lg:col-span-4">
             <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</dt>
