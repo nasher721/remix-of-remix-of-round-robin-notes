@@ -17,7 +17,7 @@ Deployed on Vercel with React, TypeScript, Supabase, and Tailwind CSS.
 | Backend | Supabase (PostgreSQL + Auth + Edge Functions) |
 | Routing | React Router 6 (SPA, client-side only) |
 | Forms | React Hook Form + Zod validation |
-| Package Manager | npm (bun.lockb also present) |
+| Package Manager | npm |
 | Motion (UI) | Framer Motion (default) + **Anime.js v4** (`animejs`) for timelines / choreography |
 
 ## Motion libraries (Framer Motion vs Anime.js)

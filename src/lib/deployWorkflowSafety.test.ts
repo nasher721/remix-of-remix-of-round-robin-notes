@@ -14,7 +14,6 @@ describe('Supabase deployment workflow', () => {
       version: string
       packages: Record<string, { name?: string; version?: string }>
     }
-    const bunLock = await readFile('bun.lock', 'utf8')
     const sbom = JSON.parse(
       await readFile('docs/security/sbom-2026-08-12.cyclonedx.json', 'utf8'),
     ) as {
@@ -31,8 +30,6 @@ describe('Supabase deployment workflow', () => {
     assert.equal(packageLock.version, packageJson.version)
     assert.equal(packageLock.packages['']?.name, packageJson.name)
     assert.equal(packageLock.packages['']?.version, packageJson.version)
-    assert.match(bunLock, /"name": "rolling-rounds"/)
-    assert.doesNotMatch(bunLock, /vite_react_shadcn_ts/)
     assert.equal(sbom.metadata.component['bom-ref'], 'rolling-rounds@1.0.0')
     assert.equal(sbom.metadata.component.type, 'application')
     assert.equal(sbom.metadata.component.name, 'rolling-rounds')
