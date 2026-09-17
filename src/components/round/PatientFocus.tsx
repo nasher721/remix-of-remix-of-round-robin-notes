@@ -13,7 +13,11 @@ import { useSettings } from "@/contexts/SettingsContext";
 import { usePatientTodos } from "@/hooks/usePatientTodos";
 import { useSystemsConfig } from "@/hooks/useSystemsConfig";
 import { cn } from "@/lib/utils";
-import type { Patient, PatientSystems } from "@/types/patient";
+import { LabFishbone } from "@/components/labs/LabFishbone";
+import { MedicationList } from "@/components/MedicationList";
+import { ImagePasteEditor } from "@/components/ImagePasteEditor";
+import { SmartLabParser } from "@/components/SmartLabParser";
+import type { Patient, PatientMedications, PatientSystems } from "@/types/patient";
 import { getPatientIdentity } from "@/lib/patientIdentity";
 import { DecisionReview } from "@/components/decision-scribe/DecisionReview";
 import type { ComposedDraft } from "@/lib/decision-scribe/draftComposer";
@@ -88,6 +92,8 @@ export const PatientFocus = ({
   } = useRoundSession();
 
   const [summaryExpanded, setSummaryExpanded] = React.useState(false);
+  const [chartReviewExpanded, setChartReviewExpanded] = React.useState(false);
+  const [activeChartTab, setActiveChartTab] = React.useState<"events" | "labs" | "imaging" | "medications">("events");
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const sharedPatientTodos = usePatientTodos(patient?.id ?? null, {
@@ -98,6 +104,7 @@ export const PatientFocus = ({
 
   React.useEffect(() => {
     setSummaryExpanded(false);
+    setChartReviewExpanded(false);
     if (scrollRef.current) {
       scrollRef.current.scrollTop = 0;
     }
@@ -150,6 +157,22 @@ export const PatientFocus = ({
     // draft_field outbox write raced with it and each flagged the other as a
     // same-field conflict — the per-keystroke "Field conflict" popup storm.
     onUpdatePatient(patient.id, "clinicalSummary", value);
+  };
+
+  const handleEventsChange = (value: string) => {
+    onUpdatePatient(patient.id, "intervalEvents", value);
+  };
+
+  const handleLabsChange = (value: string) => {
+    onUpdatePatient(patient.id, "labs", value);
+  };
+
+  const handleImagingChange = (value: string) => {
+    onUpdatePatient(patient.id, "imaging", value);
+  };
+
+  const handleMedicationsChange = (meds: PatientMedications) => {
+    onUpdatePatient(patient.id, "medications", meds);
   };
 
   const handleSystemChange = (systemKey: string, value: string) => {
@@ -306,6 +329,209 @@ export const PatientFocus = ({
         )}
         {summaryExpanded ? summaryEditor : null}
       </div>
+    </section>
+  );
+
+  const eventsCue = toPlainCue(patient.intervalEvents, 40);
+  const labsCue = toPlainCue(patient.labs, 40);
+  const imagingCue = toPlainCue(patient.imaging, 40);
+  const medCount =
+    (patient.medications?.infusions?.length ?? 0) +
+    (patient.medications?.scheduled?.length ?? 0) +
+    (patient.medications?.prn?.length ?? 0);
+  const medsCue = medCount > 0 ? `${medCount} meds` : toPlainCue(patient.medications?.rawText, 30);
+
+  const chartReviewCues =
+    [
+      eventsCue ? "Events" : null,
+      labsCue ? "Labs" : null,
+      imagingCue ? "Imaging" : null,
+      medsCue ? "Meds" : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "Not documented";
+
+  const CHART_TABS: ReadonlyArray<{
+    id: "events" | "labs" | "imaging" | "medications";
+    label: string;
+    hasData: boolean;
+    badge?: string;
+  }> = [
+    { id: "events", label: "Events", hasData: Boolean(eventsCue) },
+    { id: "labs", label: "Labs", hasData: Boolean(labsCue) },
+    { id: "imaging", label: "Imaging", hasData: Boolean(imagingCue) },
+    {
+      id: "medications",
+      label: "Meds",
+      hasData: Boolean(medsCue),
+      badge: medCount > 0 ? String(medCount) : undefined,
+    },
+  ];
+
+  const chartReviewSection = (
+    <section
+      id="focus-chart-review-panel"
+      className={cn("mb-4 rounded-lg border border-border/30 bg-card/40", touchFriendly && "mb-3")}
+      aria-labelledby="focus-chart-review-heading"
+      data-testid="focus-chart-review"
+    >
+      <button
+        type="button"
+        id="focus-chart-review-heading"
+        className={rowBtnClass}
+        onClick={() => setChartReviewExpanded((prev) => !prev)}
+        aria-expanded={chartReviewExpanded}
+        aria-controls="focus-chart-review-body"
+        aria-label={chartReviewExpanded ? "Collapse chart review" : "Expand chart review"}
+      >
+        {chartReviewExpanded ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        )}
+        <span className={mutedLabelClass}>Chart review</span>
+        <span className="text-xs text-muted-foreground font-normal">Events · Labs · Imaging · Meds</span>
+        {!chartReviewExpanded && (
+          <span className={cn("ml-auto min-w-0 max-w-[50%] whitespace-normal text-right", cueClass)}>
+            {chartReviewCues}
+          </span>
+        )}
+      </button>
+
+      {chartReviewExpanded && (
+        <div id="focus-chart-review-body" className="border-t border-border/20 px-3 pb-3 pt-2">
+          <div className="mb-3 flex flex-wrap gap-1.5 border-b border-border/20 pb-2">
+            {CHART_TABS.map((tab) => {
+              const isSelected = activeChartTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveChartTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                    touchFriendly && "min-h-[40px] px-3 text-sm",
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                  aria-pressed={isSelected}
+                  data-testid={`chart-tab-${tab.id}`}
+                >
+                  <span>{tab.label}</span>
+                  {tab.badge ? (
+                    <span
+                      className={cn(
+                        "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                        isSelected
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-primary/15 text-primary",
+                      )}
+                    >
+                      {tab.badge}
+                    </span>
+                  ) : tab.hasData ? (
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-label="has content" />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeChartTab === "events" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Interval Events & Overnight Notes</span>
+                <BedsideDictateButton
+                  systemLabel="Interval Events"
+                  patientId={patient.id}
+                  systemKey="intervalEvents"
+                  onTranscript={(text) => {
+                    const current = patient.intervalEvents || "";
+                    const updated = current.trim() ? `${current}\n${text}` : text;
+                    handleEventsChange(updated);
+                  }}
+                />
+              </div>
+              <RichTextEditor
+                value={patient.intervalEvents}
+                onChange={handleEventsChange}
+                placeholder="Overnight events, consult recommendations, procedures…"
+                minHeight="88px"
+                autotexts={autotexts}
+                fontSize={globalFontSize}
+                changeTracking={changeTracking}
+                patient={patient}
+                section="interval_events"
+                ariaLabelledby="focus-chart-review-heading"
+              />
+            </div>
+          )}
+
+          {activeChartTab === "labs" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Labs & Panels</span>
+                <SmartLabParser
+                  onLabsParsed={(parsed) => {
+                    const current = patient.labs || "";
+                    const updated = current.trim() ? `${current}\n\n${parsed}` : parsed;
+                    handleLabsChange(updated);
+                  }}
+                />
+              </div>
+              {patient.labs && patient.labs.trim() ? (
+                <div className="overflow-x-auto rounded-lg border border-border/30 bg-muted/20 p-2">
+                  <LabFishbone labs={patient.labs} />
+                </div>
+              ) : null}
+              <RichTextEditor
+                value={patient.labs}
+                onChange={handleLabsChange}
+                placeholder="CBC, BMP, LFTs, coags, ABG…"
+                minHeight="88px"
+                autotexts={autotexts}
+                fontSize={globalFontSize}
+                changeTracking={changeTracking}
+                patient={patient}
+                section="labs"
+                ariaLabelledby="focus-chart-review-heading"
+              />
+            </div>
+          )}
+
+          {activeChartTab === "imaging" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Imaging & Studies</span>
+              </div>
+              <ImagePasteEditor
+                value={patient.imaging}
+                onChange={handleImagingChange}
+                placeholder="X-rays, CT, MRI, Echo... (paste images here)"
+                minHeight="88px"
+                autotexts={autotexts}
+                fontSize={globalFontSize}
+                changeTracking={changeTracking}
+                patient={patient}
+                section="imaging"
+              />
+            </div>
+          )}
+
+          {activeChartTab === "medications" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Continuous Infusions & Medications</span>
+              </div>
+              <MedicationList
+                medications={patient.medications ?? { infusions: [], scheduled: [], prn: [] }}
+                onMedicationsChange={handleMedicationsChange}
+              />
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 
@@ -614,6 +840,7 @@ export const PatientFocus = ({
         )}
       >
         {showSummary && summarySection}
+        {showSummary && chartReviewSection}
         {showSystems && systemsSection}
         {showTodos && todosSection}
         {touchFriendly && !showSummary ? (

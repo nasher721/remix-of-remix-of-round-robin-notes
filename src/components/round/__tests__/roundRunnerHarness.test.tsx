@@ -827,4 +827,79 @@ describe("Focus-first Round runner harness", () => {
     fireEvent.click(singleColBtn);
     assert.equal(systemsStack.getAttribute("data-columns"), "1");
   });
+
+  it("renders collapsible chart review in PatientFocus and allows expanding to review labs and meds", async () => {
+    const patientWithLabs = {
+      ...dashboardPatients3[0],
+      labs: "Na 138, K 4.1, Cr 1.1",
+      intervalEvents: "Uneventful overnight",
+      medications: {
+        infusions: ["Norepinephrine 0.04 mcg/kg/min"],
+        scheduled: ["Aspirin 81 mg daily"],
+        prn: [],
+      },
+    };
+
+    render(
+      <RoundProviders patients={[patientWithLabs]}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    const chartReview = screen.getByTestId("focus-chart-review");
+    assert.ok(chartReview);
+
+    // Click to expand chart review
+    const triggerBtn = screen.getByRole("button", { name: /chart review/i });
+    fireEvent.click(triggerBtn);
+
+    // Chart tabs should now be visible
+    const labsTab = screen.getByTestId("chart-tab-labs");
+    const medsTab = screen.getByTestId("chart-tab-medications");
+    assert.ok(labsTab);
+    assert.ok(medsTab);
+
+    // Switch to labs tab
+    fireEvent.click(labsTab);
+    assert.ok(screen.getByText(/Labs & Panels/i));
+
+    // Switch to medications tab
+    fireEvent.click(medsTab);
+    assert.ok(screen.getByText(/Continuous Infusions & Medications/i));
+  });
+
+  it("exposes renal calculation and smart lab parser in ToolsSheet", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    // Open tools sheet
+    const toolsBtn = screen.getByTestId("round-tools-entry");
+    fireEvent.click(toolsBtn);
+
+    const renalCalc = screen.getByTestId("tools-renal-calc");
+    assert.ok(renalCalc);
+    assert.ok(within(renalCalc).getByRole("button", { name: /renal estimate/i }));
+
+    const labParser = screen.getByTestId("tools-lab-parser");
+    assert.ok(labParser);
+    assert.ok(within(labParser).getByRole("button", { name: /parse labs/i }));
+  });
+
+  it("provides documentation sign-off trigger and dialog on RoundEnd", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3}>
+        <RoundEnd onBackToFocus={() => {}} onBackToHome={() => {}} />
+      </RoundProviders>,
+    );
+
+    const signoffBtn = screen.getByTestId("round-end-signoff");
+    assert.ok(signoffBtn);
+    fireEvent.click(signoffBtn);
+
+    // OneClickSignOff dialog should open
+    assert.ok(screen.getByText("End of Shift Sign-Off"));
+  });
 });

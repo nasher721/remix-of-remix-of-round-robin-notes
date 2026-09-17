@@ -1,7 +1,8 @@
 import * as React from "react"
-import { AlertTriangle, ArrowLeft, CheckCircle2, Printer } from "lucide-react"
+import { AlertTriangle, ArrowLeft, CheckCircle2, FileCheck, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { OneClickSignOff } from "@/components/OneClickSignOff"
 import { useDashboard } from "@/contexts/DashboardContext"
 import { useDashboardTodos } from "@/contexts/DashboardTodosContext"
 import { useRoundSession } from "@/contexts/RoundSessionContext"
@@ -48,6 +49,7 @@ export const RoundEnd = ({
     adoptRemoteRoundGeneration,
   } = useRoundSession()
   const [printOpen, setPrintOpen] = React.useState(false)
+  const [signOffOpen, setSignOffOpen] = React.useState(false)
 
   const doneCount = round.patients.filter((ref) => ref.status === "done").length
   const incompleteTodoCount = Object.values(todosMap)
@@ -81,6 +83,19 @@ export const RoundEnd = ({
   const handleOpenPrint = () => {
     setPrintOpen(true)
   }
+
+  const handleSignOff = React.useCallback(
+    (patientIds: string[], signature: string) => {
+      toast.success(
+        `Signed off ${patientIds.length} patient${patientIds.length === 1 ? "" : "s"}`,
+        {
+          description: `Attested by ${signature}`,
+        },
+      )
+      setSignOffOpen(false)
+    },
+    [],
+  )
 
   const handleMarkComplete = () => {
     if (!canCompleteRound || decisionScribeBlocked) {
@@ -230,6 +245,23 @@ export const RoundEnd = ({
             Print / Export
           </Button>
 
+          <Button
+            type="button"
+            variant="outline"
+            size={touchFriendly ? "lg" : "default"}
+            className={cn(
+              "w-full justify-center gap-2",
+              touchFriendly && "min-h-[44px] text-base",
+            )}
+            onClick={() => setSignOffOpen(true)}
+            disabled={patients.length === 0}
+            aria-label="Review documentation completeness and sign off"
+            data-testid="round-end-signoff"
+          >
+            <FileCheck className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
+            Documentation Sign-Off
+          </Button>
+
           {!isComplete && (
             <Button
               type="button"
@@ -286,6 +318,17 @@ export const RoundEnd = ({
             onUpdatePatient={onUpdatePatient}
           />
         </React.Suspense>
+      ) : null}
+
+      {signOffOpen ? (
+        <OneClickSignOff
+          patients={patients}
+          todosMap={todosMap}
+          onSignOff={handleSignOff}
+          open={signOffOpen}
+          onOpenChange={setSignOffOpen}
+          hideTrigger
+        />
       ) : null}
     </div>
   )

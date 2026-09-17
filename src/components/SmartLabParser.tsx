@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClipboardPaste, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface LabValue {
   name: string;
@@ -115,11 +116,19 @@ const INTERPRETATIONS = {
   hyperglycemia: (glu: number) => glu > 100,
 };
 
-interface SmartLabParserProps {
-  onLabsParsed: (labs: string) => void;
+export interface SmartLabParserProps {
+  onLabsParsed?: (labs: string) => void;
+  className?: string;
+  triggerClassName?: string;
+  trigger?: React.ReactNode;
 }
 
-export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
+export function SmartLabParser({
+  onLabsParsed,
+  className,
+  triggerClassName,
+  trigger,
+}: SmartLabParserProps = {}) {
   const [open, setOpen] = React.useState(false);
   const [rawText, setRawText] = React.useState("");
   const [parsedLabs, setParsedLabs] = React.useState<ParsedLabs>({});
@@ -347,12 +356,17 @@ export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
 
   const handleImport = () => {
     const formattedLabs = formatLabsForImport(parsedLabs);
-    onLabsParsed(formattedLabs);
+    if (onLabsParsed) {
+      onLabsParsed(formattedLabs);
+      toast.success('Labs imported successfully');
+    } else {
+      void navigator.clipboard.writeText(formattedLabs);
+      toast.success('Parsed labs copied to clipboard');
+    }
     setOpen(false);
     setRawText('');
     setParsedLabs({});
     setInterpretations([]);
-    toast.success('Labs imported successfully');
   };
 
   const formatLabsForImport = (labs: ParsedLabs): string => {
@@ -407,10 +421,18 @@ export function SmartLabParser({ onLabsParsed }: SmartLabParserProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <ClipboardPaste className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Parse Labs</span>
-        </Button>
+        {trigger ? (
+          trigger
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("gap-1.5", triggerClassName, className)}
+          >
+            <ClipboardPaste className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>Parse Labs</span>
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>

@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { calculateCockcroftGault } from "@/lib/clinicalCalculations";
+import { cn } from "@/lib/utils";
 
 type Sex = "male" | "female";
 
@@ -32,12 +33,22 @@ const INITIAL_INPUTS: RenalInputs = {
   sex: "male",
 };
 
+export interface MedicationDoseCalculatorsProps {
+  className?: string;
+  triggerClassName?: string;
+  trigger?: React.ReactNode;
+}
+
 /**
  * Retains the historical export name for callers, but deliberately provides
  * only a renal-function estimate. The previous component combined unversioned
  * drug schedules with a bedside calculator and could present unsafe doses.
  */
-export function MedicationDoseCalculators() {
+export function MedicationDoseCalculators({
+  className,
+  triggerClassName,
+  trigger,
+}: MedicationDoseCalculatorsProps = {}) {
   const [open, setOpen] = React.useState(false);
   const [inputs, setInputs] = React.useState<RenalInputs>(INITIAL_INPUTS);
   const [estimatedCrCl, setEstimatedCrCl] = React.useState<number | null>(null);
@@ -77,10 +88,18 @@ export function MedicationDoseCalculators() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Calculator className="h-4 w-4" />
-          Renal estimate
-        </Button>
+        {trigger ? (
+          trigger
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("gap-2", triggerClassName, className)}
+          >
+            <Calculator className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Renal estimate
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>

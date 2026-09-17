@@ -42,6 +42,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { AutotextManager } from "@/components/AutotextManager"
 import { ChangeTrackingControls } from "@/components/ChangeTrackingControls"
 import { ClinicalRiskCalculator } from "@/components/ClinicalRiskCalculator"
+import { MedicationDoseCalculators } from "@/components/MedicationDoseCalculators"
+import { SmartLabParser } from "@/components/SmartLabParser"
 import { BatchCourseGenerator } from "@/components/BatchCourseGenerator"
 import { CSVColumnMapper } from "@/components/import/CSVColumnMapper"
 import { organizeCsvImportRecord } from "@/lib/import/organizeImportedPatient"
@@ -155,6 +157,21 @@ export const ToolsSheet = ({
   const handleCsvImport = React.useCallback(async (records: Record<string, string>[]) => {
     await onImportPatients(records.map(organizeCsvImportRecord))
   }, [onImportPatients])
+
+  const handleLabsParsed = React.useCallback(
+    (parsed: string) => {
+      if (!toolsPatient) {
+        void navigator.clipboard.writeText(parsed)
+        toast.info("Parsed labs copied to clipboard")
+        return
+      }
+      const current = toolsPatient.labs || ""
+      const updated = current.trim() ? `${current}\n\n${parsed}` : parsed
+      onUpdatePatient(toolsPatient.id, "labs", updated)
+      toast.success(`Labs added to ${toolsPatient.name}`)
+    },
+    [toolsPatient, onUpdatePatient],
+  )
 
   const closeSheet = () => {
     onOpenChange(false)
@@ -300,6 +317,17 @@ export const ToolsSheet = ({
                 data-testid="tools-risk"
               >
                 <ClinicalRiskCalculator className={cn(touchFriendly ? "h-[44px]" : "h-9", "w-full justify-start gap-2")} />
+              </div>
+              <div data-testid="tools-renal-calc">
+                <MedicationDoseCalculators
+                  triggerClassName={cn(rowClass, "gap-2.5")}
+                />
+              </div>
+              <div data-testid="tools-lab-parser">
+                <SmartLabParser
+                  onLabsParsed={handleLabsParsed}
+                  triggerClassName={cn(rowClass, "gap-2.5")}
+                />
               </div>
               <div data-testid="tools-timeline">
                 <TimelineDialog triggerClassName={touchFriendly ? "h-[44px]" : undefined} />
