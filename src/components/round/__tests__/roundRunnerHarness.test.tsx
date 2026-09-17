@@ -801,4 +801,30 @@ describe("Focus-first Round runner harness", () => {
     assert.equal(todosPanel.id, "focus-todos-panel");
     assert.equal(todosPanel.getAttribute("aria-labelledby"), "focus-mobile-tab-todos");
   });
+
+  it("supports toggling between 1-column and 2-column systems view on desktop", async () => {
+    render(
+      <RoundProviders patients={dashboardPatients3}>
+        <DesktopRoundShell />
+      </RoundProviders>,
+    );
+
+    const systemsStack = screen.getByTestId("systems-compact-stack");
+    assert.ok(systemsStack);
+    // Default columns is 1
+    assert.equal(systemsStack.getAttribute("data-columns"), "1");
+
+    const doubleColBtn = screen.getByTestId("systems-layout-double");
+    assert.ok(doubleColBtn);
+    fireEvent.click(doubleColBtn);
+
+    // Systems stack updates to 2 columns
+    assert.equal(systemsStack.getAttribute("data-columns"), "2");
+
+    // Switching back to 1 column
+    const singleColBtn = screen.getByTestId("systems-layout-single");
+    assert.ok(singleColBtn);
+    fireEvent.click(singleColBtn);
+    assert.equal(systemsStack.getAttribute("data-columns"), "1");
+  });
 });

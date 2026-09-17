@@ -17,6 +17,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -57,6 +65,7 @@ export const PhrasePicker: React.FC<PhrasePickerProps> = ({
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const { user } = useAuth();
   const [preferredPhraseIds, setPreferredPhraseIds] = useState<Set<string>>(new Set());
+  const isMobile = useIsMobile();
 
   // Reset when closed
   useEffect(() => {
@@ -225,7 +234,7 @@ export const PhrasePicker: React.FC<PhrasePickerProps> = ({
       key={phrase.id}
       value={`${phrase.name} ${phrase.shortcut || ''}`}
       onSelect={() => handleSelect(phrase)}
-      className="flex items-start gap-2 py-2"
+      className="flex items-start gap-2 py-2.5 min-h-[44px]"
     >
       <FileText className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
       <div className="flex-1 min-w-0">
@@ -258,125 +267,148 @@ export const PhrasePicker: React.FC<PhrasePickerProps> = ({
     </CommandItem>
   );
 
+  const commandBody = (
+    <Command className="w-full">
+      <div className="flex items-center border-b px-3">
+        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+        <input
+          placeholder="Search phrases..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </div>
+      <CommandList>
+        <ScrollArea className={isMobile ? "h-[50vh] max-h-[420px]" : "h-[350px]"}>
+          <CommandEmpty>No phrases found.</CommandEmpty>
+
+          {/* Folder navigation */}
+          {!search && !selectedFolder && folderTree.length > 0 && (
+            <>
+              <CommandGroup heading="Folders">
+                {folderTree.map(folder => (
+                  <CommandItem
+                    key={folder.id}
+                    onSelect={() => setSelectedFolder(folder.id)}
+                    className="flex items-center justify-between min-h-[44px]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Folder className="h-4 w-4 text-primary" />
+                      <span>{folder.name}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {phrases.filter(p => p.folderId === folder.id).length}
+                      </Badge>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Back button when in folder */}
+          {selectedFolder && (
+            <>
+              <CommandGroup>
+                <CommandItem onSelect={() => setSelectedFolder(null)} className="min-h-[44px]">
+                  <ChevronRight className="h-4 w-4 mr-2 rotate-180" />
+                  Back to folders
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Context suggestions */}
+          {!search && !selectedFolder && contextPhrases.length > 0 && (
+            <>
+              <CommandGroup heading={
+                <span className="flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" />
+                  Suggested for this context
+                </span>
+              }>
+                {contextPhrases.slice(0, 3).map(p => renderPhraseItem(p, true))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Recent phrases */}
+          {!search && !selectedFolder && recentPhrases.length > 0 && (
+            <>
+              <CommandGroup heading={
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Recent
+                </span>
+              }>
+                {recentPhrases.map(p => renderPhraseItem(p))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Frequent phrases */}
+          {!search && !selectedFolder && frequentPhrases.length > 0 && (
+            <>
+              <CommandGroup heading={
+                <span className="flex items-center gap-1">
+                  <Zap className="h-3 w-3" />
+                  Frequently used
+                </span>
+              }>
+                {frequentPhrases.map(p => renderPhraseItem(p))}
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+
+          {/* Filtered/All phrases */}
+          {(search || selectedFolder) && (
+            <CommandGroup heading={selectedFolder ? folders.find(f => f.id === selectedFolder)?.name : 'Results'}>
+              {filteredPhrases.map(p => renderPhraseItem(p, !!search))}
+            </CommandGroup>
+          )}
+
+          {/* All phrases when no folder selected */}
+          {!search && !selectedFolder && (
+            <CommandGroup heading="All Phrases">
+              {phrases.filter(p => p.isActive && !p.folderId).map(p => renderPhraseItem(p))}
+            </CommandGroup>
+          )}
+        </ScrollArea>
+      </CommandList>
+    </Command>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={setOpen}>
+        <DrawerTrigger asChild>
+          {trigger}
+        </DrawerTrigger>
+        <DrawerContent className="p-0">
+          <DrawerHeader className="border-b px-4 py-3 text-left">
+            <DrawerTitle className="text-base font-semibold">Clinical Phrases</DrawerTitle>
+            <span className="sr-only">Select a clinical phrase to insert into the note</span>
+          </DrawerHeader>
+          <div className="p-2">
+            {commandBody}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         {trigger}
       </PopoverTrigger>
       <PopoverContent className="w-[min(400px,calc(100vw-1rem))] p-0" align="start">
-        <Command>
-          <div className="flex items-center border-b px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <input
-              placeholder="Search phrases..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-          <CommandList>
-            <ScrollArea className="h-[350px]">
-              <CommandEmpty>No phrases found.</CommandEmpty>
-
-              {/* Folder navigation */}
-              {!search && !selectedFolder && folderTree.length > 0 && (
-                <>
-                  <CommandGroup heading="Folders">
-                    {folderTree.map(folder => (
-                      <CommandItem
-                        key={folder.id}
-                        onSelect={() => setSelectedFolder(folder.id)}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Folder className="h-4 w-4 text-primary" />
-                          <span>{folder.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {phrases.filter(p => p.folderId === folder.id).length}
-                          </Badge>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                  <CommandSeparator />
-                </>
-              )}
-
-              {/* Back button when in folder */}
-              {selectedFolder && (
-                <>
-                  <CommandGroup>
-                    <CommandItem onSelect={() => setSelectedFolder(null)}>
-                      <ChevronRight className="h-4 w-4 mr-2 rotate-180" />
-                      Back to folders
-                    </CommandItem>
-                  </CommandGroup>
-                  <CommandSeparator />
-                </>
-              )}
-
-              {/* Context suggestions */}
-              {!search && !selectedFolder && contextPhrases.length > 0 && (
-                <>
-                  <CommandGroup heading={
-                    <span className="flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" />
-                      Suggested for this context
-                    </span>
-                  }>
-                    {contextPhrases.slice(0, 3).map(p => renderPhraseItem(p, true))}
-                  </CommandGroup>
-                  <CommandSeparator />
-                </>
-              )}
-
-              {/* Recent phrases */}
-              {!search && !selectedFolder && recentPhrases.length > 0 && (
-                <>
-                  <CommandGroup heading={
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      Recent
-                    </span>
-                  }>
-                    {recentPhrases.map(p => renderPhraseItem(p))}
-                  </CommandGroup>
-                  <CommandSeparator />
-                </>
-              )}
-
-              {/* Frequent phrases */}
-              {!search && !selectedFolder && frequentPhrases.length > 0 && (
-                <>
-                  <CommandGroup heading={
-                    <span className="flex items-center gap-1">
-                      <Zap className="h-3 w-3" />
-                      Frequently used
-                    </span>
-                  }>
-                    {frequentPhrases.map(p => renderPhraseItem(p))}
-                  </CommandGroup>
-                  <CommandSeparator />
-                </>
-              )}
-
-              {/* Filtered/All phrases */}
-              {(search || selectedFolder) && (
-                <CommandGroup heading={selectedFolder ? folders.find(f => f.id === selectedFolder)?.name : 'Results'}>
-                  {filteredPhrases.map(p => renderPhraseItem(p, !!search))}
-                </CommandGroup>
-              )}
-
-              {/* All phrases when no folder selected */}
-              {!search && !selectedFolder && (
-                <CommandGroup heading="All Phrases">
-                  {phrases.filter(p => p.isActive && !p.folderId).map(p => renderPhraseItem(p))}
-                </CommandGroup>
-              )}
-            </ScrollArea>
-          </CommandList>
-        </Command>
+        {commandBody}
       </PopoverContent>
     </Popover>
   );

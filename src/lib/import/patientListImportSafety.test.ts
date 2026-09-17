@@ -18,10 +18,11 @@ describe("patient list import safety", () => {
     assert.equal(detectPatientListImportKind("unknown.bin"), null);
   });
 
-  it("rejects pdf until a secure processor is bundled", () => {
+  it("accepts pdf files within size limits", () => {
+    assert.equal(validatePatientListImportFile("handoff.pdf", 1_000), null);
     assert.match(
-      validatePatientListImportFile("handoff.pdf", 1_000) ?? "",
-      /pdf import is unavailable/i,
+      validatePatientListImportFile("huge.pdf", 20 * 1024 * 1024) ?? "",
+      /too large/i,
     );
   });
 

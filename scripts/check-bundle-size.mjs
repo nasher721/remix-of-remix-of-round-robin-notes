@@ -59,6 +59,7 @@ const chunkBudgets = [
   { label: "authenticated workspace shared chunk", pattern: /^ThemeToggle-.*\.js$/, maxBytes: 400_000 },
   { label: "spreadsheet import parser", pattern: /^xlsx-.*\.js$/, maxBytes: 550_000 },
   { label: "Word import parser", pattern: /^lib-.*\.js$/, maxBytes: 550_000 },
+  { label: "PDF import parser", pattern: /^pdfjs-.*\.js$/, maxBytes: 1_800_000 },
   // AI assistant surfaces must stay route/interaction-lazy and small.
   { label: "AI chatbot chunk", pattern: /^UnifiedAIChatbot-.*\.js$/, maxBytes: 60_000 },
   { label: "AI streaming chunk", pattern: /^useStreamingAI-.*\.js$/, maxBytes: 20_000 },

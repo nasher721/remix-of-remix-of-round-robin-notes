@@ -1,8 +1,9 @@
 import { NoteComposerLauncher } from "@/components/note-composer/NoteComposerLauncher";
 import * as React from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Columns2, LayoutList, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { BedsideDictateButton } from "./BedsideDictateButton";
 import { PatientTodos } from "@/components/PatientTodos";
 import { useChangeTracking } from "@/contexts/ChangeTrackingContext";
 import { useDashboard } from "@/contexts/DashboardContext";
@@ -77,7 +78,7 @@ export const PatientFocus = ({
 }: PatientFocusProps) => {
   const { autotexts, onUpdatePatient } = useDashboard();
   const todosMap = useDashboardTodos();
-  const { globalFontSize } = useSettings();
+  const { globalFontSize, systemsColumns, setSystemsColumns } = useSettings();
   const changeTracking = useChangeTracking();
   const { enabledSystems } = useSystemsConfig();
   const {
@@ -288,10 +289,27 @@ export const PatientFocus = ({
         className="border-t border-border/20 px-3 pb-3 pt-2"
         hidden={!summaryExpanded}
       >
+        {summaryExpanded && (
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Clinical Summary</span>
+            <BedsideDictateButton
+              systemLabel="Clinical Summary"
+              patientId={patient.id}
+              systemKey="clinicalSummary"
+              onTranscript={(text) => {
+                const current = patient.clinicalSummary || "";
+                const updated = current.trim() ? `${current}\n${text}` : text;
+                handleSummaryChange(updated);
+              }}
+            />
+          </div>
+        )}
         {summaryExpanded ? summaryEditor : null}
       </div>
     </section>
   );
+
+  const isMultiColumnActive = !touchFriendly && systemsColumns === 2;
 
   const systemsSection = (
     <section
@@ -301,10 +319,57 @@ export const PatientFocus = ({
       aria-labelledby={touchFriendly ? "focus-mobile-tab-systems" : "focus-systems-heading"}
       data-active-section={round.activeSection === "systems" ? "true" : undefined}
     >
-      <h2 id="focus-systems-heading" className={cn("mb-2", mutedLabelClass)}>
-        Systems
-      </h2>
-      <ul className="space-y-1" data-testid="systems-compact-stack">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 id="focus-systems-heading" className={cn(mutedLabelClass)}>
+          Systems
+        </h2>
+        {!touchFriendly && (
+          <div className="hidden xl:flex items-center gap-1">
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                systemsColumns === 1
+                  ? "bg-secondary text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => setSystemsColumns(1)}
+              title="Single column layout"
+              aria-label="Single column systems layout"
+              aria-pressed={systemsColumns === 1}
+              data-testid="systems-layout-single"
+            >
+              <LayoutList className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>1 Col</span>
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors",
+                systemsColumns === 2
+                  ? "bg-secondary text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => setSystemsColumns(2)}
+              title="Two columns on wide display"
+              aria-label="Two columns systems layout"
+              aria-pressed={systemsColumns === 2}
+              data-testid="systems-layout-double"
+            >
+              <Columns2 className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>2 Cols</span>
+            </button>
+          </div>
+        )}
+      </div>
+      <ul
+        className={cn(
+          "space-y-1",
+          isMultiColumnActive && "xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0",
+        )}
+        data-testid="systems-compact-stack"
+        data-columns={isMultiColumnActive ? 2 : 1}
+      >
         {enabledSystems.map((system) => {
           const systemValue = patient.systems[system.key as keyof PatientSystems] ?? "";
           const isExpanded = round.expandedSystemId === system.key;
@@ -319,6 +384,7 @@ export const PatientFocus = ({
                 "rounded-lg border border-border/30 transition-colors",
                 isExpanded ? "bg-card/60" : "bg-secondary/15 hover:bg-secondary/25",
                 hasContent && !isExpanded && "border-border/45",
+                isExpanded && isMultiColumnActive && "xl:col-span-2",
               )}
               data-systems-row={system.key}
               data-expanded={isExpanded ? "true" : "false"}
@@ -369,6 +435,21 @@ export const PatientFocus = ({
                   id={`focus-system-${system.key}`}
                   className="border-t border-border/20 px-3 pb-3 pt-2"
                 >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {system.label} Notes
+                    </span>
+                    <BedsideDictateButton
+                      systemLabel={system.label}
+                      patientId={patient.id}
+                      systemKey={system.key}
+                      onTranscript={(text) => {
+                        const current = systemValue || "";
+                        const updated = current.trim() ? `${current}\n${text}` : text;
+                        handleSystemChange(system.key, updated);
+                      }}
+                    />
+                  </div>
                   <RichTextEditor
                     value={systemValue}
                     onChange={(value) => handleSystemChange(system.key, value)}

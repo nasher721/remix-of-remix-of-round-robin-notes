@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   SHOW_LAB_FISHBONES: 'showLabFishbones',
   SECTION_VISIBILITY: 'sectionVisibility',
   SELECTED_SPECIALTY: 'selectedSpecialty',
+  SYSTEMS_COLUMNS: 'systemsColumns',
   AI_PROVIDER: 'aiProvider',
   AI_MODEL: 'aiModel',
   AI_CREDENTIALS: 'aiCredentials',

@@ -262,10 +262,23 @@ export const extractPatientListContent = async (
       }
       break;
     }
-    case "pdf":
-      throw new Error(
-        "PDF import is unavailable until the PDF processor is bundled securely. Export as text/Word/Excel or paste the list.",
-      );
+    case "pdf": {
+      const arrayBuffer = await file.arrayBuffer();
+      const { extractText } = await import("unpdf");
+      const result = await extractText(new Uint8Array(arrayBuffer), { mergePages: true });
+      const extractedText = typeof result.text === "string"
+        ? result.text
+        : Array.isArray(result.text)
+          ? (result.text as string[]).join("\n\n")
+          : String(result.text ?? "");
+      if (!extractedText.trim()) {
+        throw new Error(
+          "PDF contains no readable text layer. If this is a scanned document, please export as an image or paste the text.",
+        );
+      }
+      text = extractedText;
+      break;
+    }
     default: {
       const exhaustive: never = kind;
       throw new Error(`Unhandled import kind: ${String(exhaustive)}`);

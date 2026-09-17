@@ -28,6 +28,8 @@ describe("extractPatientListContent", () => {
     const extractorSource = readFileSync("src/lib/import/extractImportContent.ts", "utf8");
     assert.doesNotMatch(extractorSource, /^import \* as XLSX from "xlsx"/m);
     assert.match(extractorSource, /await import\("xlsx"\)/);
+    assert.doesNotMatch(extractorSource, /^import .* from "unpdf"/m);
+    assert.match(extractorSource, /await import\("unpdf"\)/);
   });
 
   it("extracts plain text lists", async () => {
@@ -68,11 +70,29 @@ describe("extractPatientListContent", () => {
     assert.match(actual.images[0] ?? "", /^data:image\/png;base64,/);
   });
 
-  it("rejects pdf uploads with a clear message", async () => {
-    const file = new File(["%PDF-1.4"], "list.pdf", { type: "application/pdf" });
+  it("extracts text from valid pdf files", async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF();
+    doc.text("Room 101: John Doe, 65yo M with ARDS on PEEP 12", 10, 10);
+    const buffer = doc.output("arraybuffer");
+    const file = new File([buffer], "rounds.pdf", { type: "application/pdf" });
+
+    const actual = await extractPatientListContent(file);
+    assert.equal(actual.mode, "text");
+    if (actual.mode !== "text") return;
+    assert.match(actual.text, /Room 101: John Doe/);
+    assert.equal(actual.kind, "pdf");
+  });
+
+  it("rejects scanned pdf with no text layer with actionable instructions", async () => {
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF(); // empty page with no text
+    const buffer = doc.output("arraybuffer");
+    const file = new File([buffer], "scanned.pdf", { type: "application/pdf" });
+
     await assert.rejects(
       () => extractPatientListContent(file),
-      /pdf import is unavailable/i,
+      /no readable text layer/i,
     );
   });
 });

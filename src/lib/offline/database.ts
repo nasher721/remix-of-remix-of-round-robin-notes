@@ -94,6 +94,17 @@ export interface PatientImportAttemptRecord {
   createdAt: number;
 }
 
+export interface QueuedAudioDictation {
+  id: string;
+  ownerId?: string;
+  patientId: string;
+  systemKey: string;
+  transcript: string;
+  timestamp: number;
+  status: 'pending' | 'synced' | 'failed';
+  retryCount?: number;
+}
+
 export type { CachedRoundSession, RoundOutboxEntry };
 
 // ============================================
@@ -111,6 +122,7 @@ class RoundRobinDatabase extends Dexie {
   decisionScribeOutbox!: EntityTable<DecisionScribeOutboxEntry, 'id'>;
   todoSnapshots!: EntityTable<CachedTodoSnapshot, 'id'>;
   patientImportAttempts!: EntityTable<PatientImportAttemptRecord, 'id'>;
+  audioDictations!: EntityTable<QueuedAudioDictation, 'id'>;
 
   constructor() {
     super('RoundRobinNotesDB');
@@ -150,6 +162,9 @@ class RoundRobinDatabase extends Dexie {
   this.version(7).stores({
     decisionScribeOutbox: 'id, ownerId, status, patientId, roundId, createdAt',
   });
+  this.version(8).stores({
+    audioDictations: 'id, ownerId, patientId, systemKey, status, timestamp',
+  });
 }
 }
 
@@ -186,6 +201,7 @@ const ownerBoundDataTables = () => [
     db.roundOutbox,
     db.decisionScribeOutbox,
     db.todoSnapshots,
+    db.audioDictations,
 ];
 
 const allDataTables = () => [
@@ -204,6 +220,7 @@ async function clearOwnerBoundData(): Promise<void> {
     db.roundOutbox.clear(),
     db.decisionScribeOutbox.clear(),
     db.todoSnapshots.clear(),
+    db.audioDictations.clear(),
   ]);
 }
 

@@ -49,6 +49,10 @@ interface SettingsContextType {
   patientInfoToolbarButtons: string[];
   setPatientInfoToolbarButtons: (buttons: string[]) => void;
 
+  // Systems review columns on wide displays (1 or 2)
+  systemsColumns: 1 | 2;
+  setSystemsColumns: (cols: 1 | 2) => void;
+
   // Sync status
   isSyncingSettings: boolean;
 }
@@ -68,6 +72,7 @@ interface AppPreferences {
   editorToolbarButtons?: string[];
   patientInfoToolbarMode?: 'minimal' | 'full' | 'custom';
   patientInfoToolbarButtons?: string[];
+  systemsColumns?: 1 | 2;
 }
 
 type LegacyClinicalAIFields = {
@@ -160,6 +165,13 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     ) || null;
   });
 
+  const [systemsColumns, setSystemsColumnsState] = React.useState<1 | 2>(() => {
+    const saved = safeLocalStorage.getItem(
+      getPreferenceStorageKey(STORAGE_KEYS.SYSTEMS_COLUMNS, ownerId),
+    );
+    return saved === '2' ? 2 : 1;
+  });
+
   React.useLayoutEffect(() => {
     // Remove browser-side provider settings written by older builds. Clinical
     // AI policy is organization-managed and exists only on the Edge runtime.
@@ -238,7 +250,8 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     editorToolbarButtons,
     patientInfoToolbarMode,
     patientInfoToolbarButtons,
-  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons]);
+    systemsColumns,
+  }), [globalFontSize, todosAlwaysVisible, sortBy, showLabFishbones, selectedSpecialty, editorToolbarMode, editorToolbarButtons, patientInfoToolbarMode, patientInfoToolbarButtons, systemsColumns]);
 
   const buildAppPreferencesRef = React.useRef(buildAppPreferences);
   buildAppPreferencesRef.current = buildAppPreferences;
@@ -308,6 +321,13 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
       safeLocalStorage.setItem(
         preferenceStorageKey(STORAGE_KEYS.PATIENT_INFO_TOOLBAR_BUTTONS),
         JSON.stringify(prefs.patientInfoToolbarButtons),
+      );
+    }
+    if (prefs.systemsColumns !== undefined) {
+      setSystemsColumnsState(prefs.systemsColumns === 2 ? 2 : 1);
+      safeLocalStorage.setItem(
+        preferenceStorageKey(STORAGE_KEYS.SYSTEMS_COLUMNS),
+        String(prefs.systemsColumns),
       );
     }
   }, [preferenceStorageKey]);
@@ -584,6 +604,14 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     setSectionVisibilityState(DEFAULT_SECTION_VISIBILITY);
   }, []);
 
+  const setSystemsColumns = React.useCallback((cols: 1 | 2) => {
+    setSystemsColumnsState(cols);
+    safeLocalStorage.setItem(
+      preferenceStorageKey(STORAGE_KEYS.SYSTEMS_COLUMNS),
+      String(cols),
+    );
+  }, [preferenceStorageKey]);
+
   const value: SettingsContextType = React.useMemo(() => ({
     globalFontSize,
     setGlobalFontSize,
@@ -609,6 +637,8 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     setPatientInfoToolbarMode,
     patientInfoToolbarButtons,
     setPatientInfoToolbarButtons,
+    systemsColumns,
+    setSystemsColumns,
     isSyncingSettings,
   }), [
     globalFontSize,
@@ -622,6 +652,7 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     editorToolbarButtons,
     patientInfoToolbarMode,
     patientInfoToolbarButtons,
+    systemsColumns,
     isSyncingSettings,
     setGlobalFontSize,
     setTheme,
@@ -634,6 +665,7 @@ const SettingsOwnerProvider = ({ children, user }: SettingsOwnerProviderProps) =
     setEditorToolbarButtons,
     setPatientInfoToolbarMode,
     setPatientInfoToolbarButtons,
+    setSystemsColumns,
     setSectionVisibility,
     resetSectionVisibility,
   ]);

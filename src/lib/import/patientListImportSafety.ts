@@ -111,11 +111,7 @@ export const validatePatientListImportFile = (
 ): string | null => {
   const kind = detectPatientListImportKind(fileName, mimeType);
   if (!kind) {
-    return "Unsupported file type. Try text, Word, Excel/CSV, HTML, JSON, RTF, or an image of the list.";
-  }
-
-  if (kind === "pdf") {
-    return "PDF import is unavailable until the PDF processor is bundled securely. Export as text/Word/Excel or paste the list.";
+    return "Unsupported file type. Try PDF, text, Word, Excel/CSV, HTML, JSON, RTF, or an image of the list.";
   }
 
   if (!Number.isSafeInteger(fileBytes) || fileBytes < 0) {
@@ -144,6 +140,7 @@ export const validateExtractedPatientListText = (content: string): string | null
 };
 
 export const PATIENT_LIST_ACCEPT_ATTRIBUTE = [
+  ".pdf",
   ".txt",
   ".md",
   ".csv",
@@ -160,6 +157,7 @@ export const PATIENT_LIST_ACCEPT_ATTRIBUTE = [
   ".jpeg",
   ".webp",
   ".gif",
+  "application/pdf",
   "text/plain",
   "text/csv",
   "text/html",
