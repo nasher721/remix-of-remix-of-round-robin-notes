@@ -49,9 +49,15 @@ export async function readCompositionStream(
         const line = buffer.slice(0, at);
         buffer = buffer.slice(at + 1);
         if (!line.trim()) continue;
-        const item = JSON.parse(line);
+        let item: Record<string, unknown>;
+        try {
+          item = JSON.parse(line);
+        } catch {
+          throw new Error("Composer response contains malformed data");
+        }
         if (item.error) throw new Error("Generation could not be verified");
         if (
+          typeof item.stage === "string" &&
           ["Reading sources", "Reconciling updates", "Drafting note"].includes(
             item.stage,
           )
@@ -118,7 +124,13 @@ export async function composerCapabilities(
     action: "capabilities",
     patientId,
   }, signal);
-  return response.ok && (await response.json()).generation === true;
+  if (!response.ok) return false;
+  try {
+    const data = (await response.json()) as { generation?: boolean } | null;
+    return data?.generation === true;
+  } catch {
+    return false;
+  }
 }
 export async function fetchComposerPatient(
   patientId: string,

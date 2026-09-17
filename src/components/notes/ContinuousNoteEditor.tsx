@@ -83,7 +83,10 @@ function NoteDocument({ patient, systems, onUpdate, autotexts = [], changeTracki
       history.current = { undo: [], redo: [], lastInputAt: 0, lastKey: "" };
       setRevision((value) => value + 1);
     }
-    snapshot.current = sections.map((section, index) => ({ ...section, html: (root.children[index].children[1] as HTMLElement).innerHTML }));
+    snapshot.current = sections.map((section, index) => {
+      const body = root.children[index]?.children?.[1] as HTMLElement | undefined;
+      return { ...section, html: body?.innerHTML ?? "" };
+    });
     previousIncoming.current = sections;
     lastValidHtml.current = root.innerHTML;
   }, [sections]);
@@ -126,7 +129,10 @@ function NoteDocument({ patient, systems, onUpdate, autotexts = [], changeTracki
       history.current.lastInputAt = now;
       history.current.lastKey = activeKey;
     }
-    snapshot.current = snapshot.current.map((section, index) => ({ ...section, html: (root.children[index].children[1] as HTMLElement).innerHTML }));
+    snapshot.current = snapshot.current.map((section, index) => {
+      const body = root.children[index]?.children?.[1] as HTMLElement | undefined;
+      return { ...section, html: body?.innerHTML ?? "" };
+    });
     lastValidHtml.current = root.innerHTML;
     setRevision((value) => value + 1);
     setMessage("");
