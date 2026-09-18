@@ -1,7 +1,19 @@
 import { NoteComposerLauncher } from "@/components/note-composer/NoteComposerLauncher";
 import * as React from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, Columns2, LayoutList, ShieldAlert } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  CheckSquare,
+  ChevronDown,
+  ChevronRight,
+  ClipboardCopy,
+  Clock,
+  Columns2,
+  LayoutList,
+  ShieldAlert,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { BedsideDictateButton } from "./BedsideDictateButton";
 import { PatientTodos } from "@/components/PatientTodos";
@@ -94,6 +106,7 @@ export const PatientFocus = ({
   const [summaryExpanded, setSummaryExpanded] = React.useState(false);
   const [chartReviewExpanded, setChartReviewExpanded] = React.useState(false);
   const [activeChartTab, setActiveChartTab] = React.useState<"events" | "labs" | "imaging" | "medications">("events");
+  const [copiedEhr, setCopiedEhr] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const sharedPatientTodos = usePatientTodos(patient?.id ?? null, {
@@ -101,6 +114,46 @@ export const PatientFocus = ({
   });
   // Todos use their own patient_todos durable queue adapter; chart fields use
   // the versioned patient/draft outbox because their conflict models differ.
+
+  const pendingTodosCount = React.useMemo(() => {
+    return sharedPatientTodos.todos.filter((t) => !t.completed).length;
+  }, [sharedPatientTodos.todos]);
+
+  const noteUpdatedLabel = React.useMemo(() => {
+    if (!patient?.lastModified) return "New note";
+    const d = new Date(patient.lastModified);
+    if (Number.isNaN(d.getTime())) return "New note";
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    return isToday ? `Updated ${timeStr}` : `From ${d.toLocaleDateString([], { month: "short", day: "numeric" })}`;
+  }, [patient?.lastModified]);
+
+  const handleJumpToTodos = () => {
+    if (touchFriendly) {
+      handleSelectMobileSection("todos");
+    } else {
+      const panel = document.getElementById("focus-todos-panel");
+      panel?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleCopyForEHR = async () => {
+    if (!patient) return;
+    const { formatPatientForEHR, copyTextToClipboard } = await import("@/lib/export/ehrNoteFormatter");
+    const formattedNote = formatPatientForEHR(patient, {
+      todos: sharedPatientTodos.todos,
+      enabledSystems,
+    });
+    const success = await copyTextToClipboard(formattedNote);
+    if (success) {
+      setCopiedEhr(true);
+      toast.success(`Copied Rm ${patient.bed || "Unassigned"} (${patient.name}) note to clipboard`);
+      setTimeout(() => setCopiedEhr(false), 2500);
+    } else {
+      toast.error("Failed to copy note to clipboard");
+    }
+  };
 
   React.useEffect(() => {
     setSummaryExpanded(false);
@@ -319,6 +372,7 @@ export const PatientFocus = ({
               systemLabel="Clinical Summary"
               patientId={patient.id}
               systemKey="clinicalSummary"
+              touchFriendly={touchFriendly}
               onTranscript={(text) => {
                 const current = patient.clinicalSummary || "";
                 const updated = current.trim() ? `${current}\n${text}` : text;
@@ -446,6 +500,7 @@ export const PatientFocus = ({
                   systemLabel="Interval Events"
                   patientId={patient.id}
                   systemKey="intervalEvents"
+                  touchFriendly={touchFriendly}
                   onTranscript={(text) => {
                     const current = patient.intervalEvents || "";
                     const updated = current.trim() ? `${current}\n${text}` : text;
@@ -669,6 +724,7 @@ export const PatientFocus = ({
                       systemLabel={system.label}
                       patientId={patient.id}
                       systemKey={system.key}
+                      touchFriendly={touchFriendly}
                       onTranscript={(text) => {
                         const current = systemValue || "";
                         const updated = current.trim() ? `${current}\n${text}` : text;
@@ -743,7 +799,66 @@ export const PatientFocus = ({
             />
           </div>
         )}
-        <div className="mb-3"><NoteComposerLauncher patient={patient} /></div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <NoteComposerLauncher patient={patient} />
+            <Button
+              type="button"
+              size={touchFriendly ? "default" : "sm"}
+              variant="outline"
+              onClick={handleCopyForEHR}
+              className={cn(
+                "gap-1.5 font-medium transition-colors",
+                touchFriendly ? "min-h-[44px] px-3 text-sm" : "h-7 px-2 text-xs",
+                copiedEhr && "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+              )}
+              title="Copy clinical note formatted for EHR progress note"
+              aria-label="Copy note for EHR"
+              data-testid="focus-copy-ehr-button"
+            >
+              {copiedEhr ? (
+                <>
+                  <Check className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5", "text-emerald-600 dark:text-emerald-400")} aria-hidden="true" />
+                  <span>Copied for EHR</span>
+                </>
+              ) : (
+                <>
+                  <ClipboardCopy className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5", "text-muted-foreground")} aria-hidden="true" />
+                  <span>Copy for EHR</span>
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleJumpToTodos}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border border-border/40 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted/60",
+                touchFriendly && "min-h-[44px] px-3 text-sm",
+                pendingTodosCount > 0
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300"
+                  : "bg-muted/40 text-muted-foreground",
+              )}
+              title="Jump to todos"
+              aria-label={`${pendingTodosCount} pending todos`}
+              data-testid="focus-header-todo-pill"
+            >
+              <CheckSquare className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5")} aria-hidden="true" />
+              <span>{pendingTodosCount} {pendingTodosCount === 1 ? "todo" : "todos"}</span>
+            </button>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-muted-foreground",
+                touchFriendly ? "text-sm" : "text-xs",
+              )}
+              data-testid="focus-header-updated-cue"
+            >
+              <Clock className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5", "opacity-70")} aria-hidden="true" />
+              <span>{noteUpdatedLabel}</span>
+            </span>
+          </div>
+        </div>
         <dl className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4" data-testid="patient-focus-identity">
           <div className="sm:col-span-2 lg:col-span-4">
             <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Name</dt>

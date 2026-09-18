@@ -1,5 +1,5 @@
 import * as React from "react"
-import { AlertTriangle, ArrowLeft, CheckCircle2, FileCheck, Printer } from "lucide-react"
+import { AlertTriangle, ArrowLeft, Check, CheckCircle2, ClipboardCopy, FileCheck, Printer } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { OneClickSignOff } from "@/components/OneClickSignOff"
@@ -50,6 +50,27 @@ export const RoundEnd = ({
   } = useRoundSession()
   const [printOpen, setPrintOpen] = React.useState(false)
   const [signOffOpen, setSignOffOpen] = React.useState(false)
+  const [copiedAllEhr, setCopiedAllEhr] = React.useState(false)
+
+  const handleCopyAllForEHR = async () => {
+    if (patients.length === 0) return
+    const { formatPatientForEHR, copyTextToClipboard } = await import(
+      "@/lib/export/ehrNoteFormatter"
+    )
+    const allFormatted = patients
+      .map((p) => formatPatientForEHR(p, { todos: todosMap[p.id] ?? [] }))
+      .join("\n\n" + "=".repeat(48) + "\n\n")
+    const success = await copyTextToClipboard(allFormatted)
+    if (success) {
+      setCopiedAllEhr(true)
+      toast.success(
+        `Copied ${patients.length} patient note${patients.length === 1 ? "" : "s"} to clipboard`,
+      )
+      setTimeout(() => setCopiedAllEhr(false), 2500)
+    } else {
+      toast.error("Failed to copy notes to clipboard")
+    }
+  }
 
   const doneCount = round.patients.filter((ref) => ref.status === "done").length
   const incompleteTodoCount = Object.values(todosMap)
@@ -260,6 +281,33 @@ export const RoundEnd = ({
           >
             <FileCheck className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
             Documentation Sign-Off
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            size={touchFriendly ? "lg" : "default"}
+            className={cn(
+              "w-full justify-center gap-2",
+              touchFriendly && "min-h-[44px] text-base",
+              copiedAllEhr && "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+            )}
+            onClick={handleCopyAllForEHR}
+            disabled={patients.length === 0}
+            aria-label="Copy all patient notes formatted for EHR"
+            data-testid="round-end-copy-ehr"
+          >
+            {copiedAllEhr ? (
+              <>
+                <Check className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4", "text-emerald-600 dark:text-emerald-400")} aria-hidden="true" />
+                Copied All Notes for EHR
+              </>
+            ) : (
+              <>
+                <ClipboardCopy className={cn(touchFriendly ? "h-5 w-5" : "h-4 w-4")} aria-hidden="true" />
+                Copy All Notes for EHR
+              </>
+            )}
           </Button>
 
           {!isComplete && (

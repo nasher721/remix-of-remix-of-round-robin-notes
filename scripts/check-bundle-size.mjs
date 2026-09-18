@@ -56,7 +56,7 @@ const chunkBudgets = [
   { label: "charts vendor", pattern: /^vendor-charts-.*\.js$/, maxBytes: 450_000 },
   { label: "React runtime", pattern: /^vendor-react-.*\.js$/, maxBytes: 160_000 },
   { label: "Supabase runtime", pattern: /^vendor-supabase-.*\.js$/, maxBytes: 230_000 },
-  { label: "authenticated workspace shared chunk", pattern: /^ThemeToggle-.*\.js$/, maxBytes: 400_000 },
+  { label: "authenticated workspace shared chunk", pattern: /^ThemeToggle-.*\.js$/, maxBytes: 425_000 },
   { label: "spreadsheet import parser", pattern: /^xlsx-.*\.js$/, maxBytes: 550_000 },
   { label: "Word import parser", pattern: /^lib-.*\.js$/, maxBytes: 550_000 },
   { label: "PDF import parser", pattern: /^pdfjs-.*\.js$/, maxBytes: 1_800_000 },

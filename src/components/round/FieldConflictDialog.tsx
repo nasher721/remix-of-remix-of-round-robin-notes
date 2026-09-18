@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import type { FieldConflict, FieldConflictChoice } from "@/lib/round/sync"
+import { computeWordDiff, type DiffSegment } from "@/lib/round/wordDiff"
 
 export interface FieldConflictDialogProps {
   conflict: FieldConflict | null
@@ -19,17 +20,19 @@ export interface FieldConflictDialogProps {
   onOpenChange: (open: boolean) => void
   onResolve: (choice: FieldConflictChoice, mergedValue?: string) => void
   className?: string
+  touchFriendly?: boolean
 }
 
-const preview = (value: string, max = 280): string => {
-  const plain = value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
-  if (plain.length <= max) return plain || "(empty)"
-  return `${plain.slice(0, max - 1)}…`
+const formatTimeCue = (isoString?: string): string => {
+  if (!isoString) return ""
+  const d = new Date(isoString)
+  if (Number.isNaN(d.getTime())) return ""
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
 }
 
 /**
- * Explicit Mine / Theirs / merge for same-field offline divergence.
- * Never silent-drops either version.
+ * Explicit This Device (Mine) / Other Device (Theirs) / manual merge for same-field divergence.
+ * Displays inline word diffing to highlight exact changes without silent drops.
  */
 export const FieldConflictDialog = ({
   conflict,
@@ -37,6 +40,7 @@ export const FieldConflictDialog = ({
   onOpenChange,
   onResolve,
   className,
+  touchFriendly = false,
 }: FieldConflictDialogProps) => {
   const [mergeText, setMergeText] = React.useState("")
   const [showMergeEditor, setShowMergeEditor] = React.useState(false)
@@ -45,6 +49,11 @@ export const FieldConflictDialog = ({
     if (!conflict) return
     setMergeText(`${conflict.mine.value}\n\n${conflict.theirs.value}`.trim())
     setShowMergeEditor(false)
+  }, [conflict])
+
+  const wordDiff = React.useMemo(() => {
+    if (!conflict) return []
+    return computeWordDiff(conflict.theirs.value, conflict.mine.value)
   }, [conflict])
 
   if (!conflict) return null
@@ -73,35 +82,103 @@ export const FieldConflictDialog = ({
     setMergeText(event.target.value)
   }
 
+  const mineTime = formatTimeCue(conflict.mine.updatedAt)
+  const theirsTime = formatTimeCue(conflict.theirs.updatedAt)
+
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent
-        className={cn("max-w-lg", className)}
+        className={cn("max-w-xl", className)}
         data-testid="field-conflict-dialog"
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>Field conflict</AlertDialogTitle>
+          <AlertDialogTitle>Field conflict detected</AlertDialogTitle>
           <AlertDialogDescription>
-            This field changed on two devices while offline. Choose Mine, Theirs, or edit a merge.
-            Nothing is dropped silently.
+            This field changed on two devices concurrently. Review the highlighted differences and choose which note to keep, or edit a manual merge.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-3 text-sm">
-          <p className="text-xs text-muted-foreground" data-testid="field-conflict-key">
-            {conflict.fieldKey}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-mono text-muted-foreground" data-testid="field-conflict-key">
+              {conflict.fieldKey}
+            </p>
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" />
+                This device additions
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-red-400 inline-block" />
+                Other device differences
+              </span>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-md border border-border/50 bg-muted/30 p-3">
-              <p className="mb-1 text-xs font-medium text-foreground">Mine</p>
-              <p className="whitespace-pre-wrap text-foreground/90" data-testid="field-conflict-mine">
-                {preview(conflict.mine.value)}
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-xs font-semibold text-foreground">
+                  This Device <span className="font-normal text-muted-foreground">(Mine)</span>
+                </p>
+                {mineTime && (
+                  <span className="text-[11px] text-muted-foreground">{mineTime}</span>
+                )}
+              </div>
+              <p className="whitespace-pre-wrap text-foreground/90 text-xs sm:text-sm leading-relaxed" data-testid="field-conflict-mine">
+                {wordDiff.length > 0 ? (
+                  wordDiff.map((seg, i) => {
+                    if (seg.type === "added") {
+                      return (
+                        <mark
+                          key={i}
+                          className="bg-emerald-500/20 text-emerald-950 dark:text-emerald-200 rounded-xs px-0.5"
+                        >
+                          {seg.value}
+                        </mark>
+                      )
+                    }
+                    if (seg.type === "same") {
+                      return <span key={i}>{seg.value}</span>
+                    }
+                    return null
+                  })
+                ) : (
+                  conflict.mine.value || "(empty)"
+                )}
               </p>
             </div>
+
             <div className="rounded-md border border-border/50 bg-muted/30 p-3">
-              <p className="mb-1 text-xs font-medium text-foreground">Theirs</p>
-              <p className="whitespace-pre-wrap text-foreground/90" data-testid="field-conflict-theirs">
-                {preview(conflict.theirs.value)}
+              <div className="mb-1.5 flex items-center justify-between">
+                <p className="text-xs font-semibold text-foreground">
+                  Other Device <span className="font-normal text-muted-foreground">(Theirs)</span>
+                </p>
+                {theirsTime && (
+                  <span className="text-[11px] text-muted-foreground">{theirsTime}</span>
+                )}
+              </div>
+              <p className="whitespace-pre-wrap text-foreground/90 text-xs sm:text-sm leading-relaxed" data-testid="field-conflict-theirs">
+                {wordDiff.length > 0 ? (
+                  wordDiff.map((seg, i) => {
+                    if (seg.type === "removed") {
+                      return (
+                        <mark
+                          key={i}
+                          className="bg-red-500/20 text-red-950 dark:text-red-200 line-through rounded-xs px-0.5"
+                        >
+                          {seg.value}
+                        </mark>
+                      )
+                    }
+                    if (seg.type === "same") {
+                      return <span key={i}>{seg.value}</span>
+                    }
+                    return null
+                  })
+                ) : (
+                  conflict.theirs.value || "(empty)"
+                )}
               </p>
             </div>
           </div>
@@ -109,7 +186,7 @@ export const FieldConflictDialog = ({
           {showMergeEditor && (
             <div className="space-y-2">
               <label htmlFor="field-conflict-merge" className="text-xs font-medium text-foreground">
-                Merged text
+                Edit merged text
               </label>
               <Textarea
                 id="field-conflict-merge"
@@ -124,19 +201,43 @@ export const FieldConflictDialog = ({
         </div>
 
         <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
-          <AlertDialogCancel className="mt-0">Keep unresolved</AlertDialogCancel>
-          <Button type="button" variant="outline" onClick={handleMine} data-testid="field-conflict-choose-mine">
-            Mine
+          <AlertDialogCancel className={cn("mt-0", touchFriendly && "min-h-[44px]")}>
+            Keep unresolved
+          </AlertDialogCancel>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(touchFriendly && "min-h-[44px]")}
+            onClick={handleMine}
+            data-testid="field-conflict-choose-mine"
+          >
+            Keep This Device (Mine)
           </Button>
-          <Button type="button" variant="outline" onClick={handleTheirs} data-testid="field-conflict-choose-theirs">
-            Theirs
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(touchFriendly && "min-h-[44px]")}
+            onClick={handleTheirs}
+            data-testid="field-conflict-choose-theirs"
+          >
+            Keep Other Device (Theirs)
           </Button>
           {showMergeEditor ? (
-            <Button type="button" onClick={handleConfirmMerge} data-testid="field-conflict-confirm-merge">
+            <Button
+              type="button"
+              className={cn(touchFriendly && "min-h-[44px]")}
+              onClick={handleConfirmMerge}
+              data-testid="field-conflict-confirm-merge"
+            >
               Save merge
             </Button>
           ) : (
-            <Button type="button" onClick={handleStartMerge} data-testid="field-conflict-start-merge">
+            <Button
+              type="button"
+              className={cn(touchFriendly && "min-h-[44px]")}
+              onClick={handleStartMerge}
+              data-testid="field-conflict-start-merge"
+            >
               Edit merge
             </Button>
           )}

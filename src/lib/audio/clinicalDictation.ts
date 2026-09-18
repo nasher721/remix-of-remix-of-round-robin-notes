@@ -21,18 +21,22 @@ const ICU_CORRECTIONS: Array<[RegExp, string]> = [
   [/\b(?:v\s*b\s*g|vbg)\b/gi, "VBG"],
 
   // Hemodynamics, Pressors & Sedation
-  [/\b(?:leave\s*a\s*fed|levofed|levophed)\b/gi, "Levophed (norepinephrine)"],
+  [/\b(?:leave\s*a\s*fed|levofed|levophed)\b/gi, "Levophed"],
   [/\b(?:nor\s*epi|norepi)\b/gi, "norepinephrine"],
   [/\b(?:vaso|vasopressin)\b/gi, "vasopressin"],
-  [/\b(?:neo\s*synephrine|neosynephrine)\b/gi, "phenylephrine (Neo-Synephrine)"],
+  [/\b(?:neo\s*synephrine|neosynephrine)\b/gi, "phenylephrine"],
   [/\b(?:proper\s*fall|propofol)\b/gi, "propofol"],
-  [/\b(?:press\s*a\s*dex|precedex|dexmedetomidine)\b/gi, "Precedex (dexmedetomidine)"],
-  [/\b(?:nimbex|cisatracurium)\b/gi, "Nimbex (cisatracurium)"],
+  [/\b(?:press\s*a\s*dex|precedex|dexmedetomidine)\b/gi, "Precedex"],
+  [/\b(?:nimbex|cisatracurium)\b/gi, "cisatracurium"],
   [/\b(?:m\s*a\s*p|map)\b/gi, "MAP"],
   [/\b(?:c\s*v\s*p|cvp)\b/gi, "CVP"],
   [/\b(?:e\s*k\s*g|ekg|e\s*c\s*g|ecg)\b/gi, "ECG"],
 
-  // Common ICU Labs & Scores
+  // Common ICU Labs, Procedures & Scores
+  [/\b(?:c\s*r\s*r\s*t|crrt)\b/gi, "CRRT"],
+  [/\b(?:c\s*v\s*v\s*h|cvvh)\b/gi, "CVVH"],
+  [/\b(?:a\s*r\s*d\s*s\s*net|ardsnet)\b/gi, "ARDSnet"],
+  [/\b(?:e\s*t\s*t|ett)\b/gi, "ETT"],
   [/\b(?:b\s*u\s*n|bun)\b/gi, "BUN"],
   [/\b(?:s\s*o\s*f\s*a|sofa)\b/gi, "SOFA"],
   [/\b(?:c\s*a\s*m\s*i\s*c\s*u|cam\s*icu)\b/gi, "CAM-ICU"],
@@ -77,11 +81,13 @@ export interface ClinicalDictationOptions {
   onError?: (error: string) => void;
   onStateChange?: (isListening: boolean) => void;
   lang?: string;
+  patientId?: string;
 }
 
 export interface ClinicalDictationSession {
   start: () => void;
   stop: () => void;
+  abort: () => void;
   isSupported: boolean;
 }
 
@@ -105,6 +111,7 @@ export function createClinicalDictationSession(
         );
       },
       stop: () => {},
+      abort: () => {},
       isSupported: false,
     };
   }
@@ -143,7 +150,7 @@ export function createClinicalDictationSession(
         }
 
         if (interim) {
-          options.onInterim?.(normalizeClinicalTranscript(interim));
+          options.onInterim?.(interim);
         }
       };
 
@@ -151,6 +158,11 @@ export function createClinicalDictationSession(
         const errorType = event.error || "unknown";
         if (errorType === "no-speech") return; // Benign pause
         if (errorType === "aborted") return; // Intentional stop
+        if (errorType === "network") {
+          options.onError?.("Voice dictation requires a network connection. Please type notes directly.");
+          stop();
+          return;
+        }
         options.onError?.(`Speech recognition error: ${errorType}`);
         stop();
       };
@@ -181,9 +193,22 @@ export function createClinicalDictationSession(
     }
   };
 
+  const abort = () => {
+    if (!recognition) return;
+    try {
+      recognition.abort();
+    } catch {
+      // Ignore
+    } finally {
+      isListening = false;
+      options.onStateChange?.(false);
+    }
+  };
+
   return {
     start,
     stop,
+    abort,
     isSupported: true,
   };
 }

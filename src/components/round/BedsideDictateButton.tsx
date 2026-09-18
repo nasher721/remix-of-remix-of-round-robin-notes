@@ -16,6 +16,7 @@ export interface BedsideDictateButtonProps {
   systemKey?: string;
   disabled?: boolean;
   className?: string;
+  touchFriendly?: boolean;
 }
 
 export const BedsideDictateButton: React.FC<BedsideDictateButtonProps> = ({
@@ -25,6 +26,7 @@ export const BedsideDictateButton: React.FC<BedsideDictateButtonProps> = ({
   systemKey,
   disabled = false,
   className,
+  touchFriendly = false,
 }) => {
   const [isListening, setIsListening] = React.useState(false);
   const [interimText, setInterimText] = React.useState("");
@@ -33,7 +35,7 @@ export const BedsideDictateButton: React.FC<BedsideDictateButtonProps> = ({
   React.useEffect(() => {
     return () => {
       if (sessionRef.current) {
-        sessionRef.current.stop();
+        sessionRef.current.abort();
       }
     };
   }, []);
@@ -49,6 +51,7 @@ export const BedsideDictateButton: React.FC<BedsideDictateButtonProps> = ({
 
     setInterimText("");
     const session = createClinicalDictationSession({
+      patientId,
       onInterim: (text) => {
         setInterimText(text);
       },
@@ -106,10 +109,12 @@ export const BedsideDictateButton: React.FC<BedsideDictateButtonProps> = ({
       ) : null}
       <Button
         type="button"
-        size="sm"
+        size={touchFriendly ? "default" : "sm"}
         variant={isListening ? "destructive" : "outline"}
         className={cn(
-          "h-7 gap-1.5 px-2 text-xs font-medium transition-all",
+          touchFriendly
+            ? "min-h-[44px] min-w-[44px] gap-2 px-3 text-sm font-medium transition-all"
+            : "h-7 gap-1.5 px-2 text-xs font-medium transition-all",
           isListening && "border-red-500/50 bg-red-500/10 text-red-600 hover:bg-red-500/20 dark:text-red-400",
         )}
         onClick={handleToggle}
@@ -124,13 +129,13 @@ export const BedsideDictateButton: React.FC<BedsideDictateButtonProps> = ({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
             </span>
-            <MicOff className="h-3.5 w-3.5 text-red-500" aria-hidden="true" />
-            <span className="hidden sm:inline">Listening…</span>
+            <MicOff className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5", "text-red-500")} aria-hidden="true" />
+            <span className={touchFriendly ? "inline" : "hidden sm:inline"}>Listening…</span>
           </>
         ) : (
           <>
-            <Mic className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-            <span className="hidden sm:inline">Dictate</span>
+            <Mic className={cn(touchFriendly ? "h-4 w-4" : "h-3.5 w-3.5", "text-muted-foreground")} aria-hidden="true" />
+            <span className={touchFriendly ? "inline" : "hidden sm:inline"}>Dictate</span>
           </>
         )}
       </Button>

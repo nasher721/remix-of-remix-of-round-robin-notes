@@ -20,12 +20,14 @@ describe("normalizeClinicalTranscript", () => {
   });
 
   it("normalizes pressors and critical care sedatives", () => {
-    const raw = "titrating leave a fed for map > 65, started proper fall at 20 mics per kilo per min";
+    const raw = "titrating leave a fed for map > 65, started proper fall at 20 mics per kilo per min, on crrt via ett";
     const cleaned = normalizeClinicalTranscript(raw);
-    assert.match(cleaned, /Levophed \(norepinephrine\)/);
+    assert.match(cleaned, /Levophed/);
     assert.match(cleaned, /MAP/);
     assert.match(cleaned, /propofol/);
     assert.match(cleaned, /mcg\/kg\/min/);
+    assert.match(cleaned, /CRRT/);
+    assert.match(cleaned, /ETT/);
   });
 
   it("normalizes ICU labs and scores", () => {
