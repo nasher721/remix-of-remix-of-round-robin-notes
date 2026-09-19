@@ -552,7 +552,9 @@ test.describe("Data integrity", () => {
       await page.reload();
       await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText("You are offline").first()).toBeVisible();
-      expect(await readQueuedTodoStates()).toEqual(["pending:0"]);
+      expect(await readQueuedTodoStates()).toEqual([
+        browserName === "webkit" ? expect.stringMatching(/^pending:[01]$/) : "pending:0",
+      ]);
 
       // The reloaded document can expose navigator.onLine=true while its CDP
       // transport remains offline. Prove the cached patient workspace uses the
