@@ -97,8 +97,10 @@ export const isMissingPatientContractColumnError = (error: { code?: string; mess
   if (!error) return false;
   const message = (error.message ?? "").toLowerCase();
   return error.code === "PGRST204"
+    || error.code === "42703"
     || (message.includes("column") && (
-      message.includes("age")
+      message.includes("note_format")
+      || message.includes("age")
       || message.includes("date_of_birth")
       || message.includes("gender")
       || message.includes("admission_date")

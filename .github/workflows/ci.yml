@@ -106,6 +106,7 @@ jobs:
         run: |
           npm run test:e2e:notes
           npx playwright test --config playwright.scribe.config.ts
+          npm run test:e2e:composer
       - run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}

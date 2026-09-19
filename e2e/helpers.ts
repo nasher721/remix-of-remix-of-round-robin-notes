@@ -45,6 +45,10 @@ export async function loginWithShell(page: Page, options: { roundRunner: boolean
     ).toBeVisible({ timeout: 20_000 });
     const response = await roundHydration!;
     expect(response.ok(), `Round hydration returned HTTP ${response.status()}`).toBe(true);
+    const start = page.getByTestId("round-home-start");
+    if (await start.isVisible().catch(() => false)) {
+      await start.click();
+    }
   } else {
     await expect(page.getByTestId("dashboard")).toBeVisible({ timeout: 20_000 });
   }
